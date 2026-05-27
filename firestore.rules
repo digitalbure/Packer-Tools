@@ -1,0 +1,328 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: users
+    // Fields: uid, email, displayName, photoURL, plan, createdAt
+    //
+    // Collection: packingLists
+    // Fields: id, ownerId, name, description, isTemplate, shareToken, recipientId, transactionType, price, currency, status, marketplaceEnabled, receivedAt, createdAt, updatedAt
+    //
+    // Collection: contacts
+    // Fields: id, ownerId, name, email, phone, type, notes, createdAt, updatedAt
+    //
+    // Collection: packingLists/{listId}/items
+    // Fields: id, listId, name, photoUrls, assetTag, status, aiLabel, createdAt
+    //
+    // Collection: adminSettings
+    // Fields: branding, frontPageCopy, billingEnabled, aiConfig, integrationConfig
+    //
+    // Collection: racks
+    // Fields: id, ownerId, name, description, totalUnits, createdAt, updatedAt
+    //
+    // Collection: racks/{rackId}/items
+    // Fields: id, rackId, name, photoUrls, assetTag, uPosition, uHeight, status, createdAt
+    //
+    // Collection: movingProjects
+    // Fields: id, ownerId, name, description, moveDate, status, listIds, createdAt, updatedAt
+    //
+    // Collection: reminders
+    // Fields: id, ownerId, listId, itemId, itemName, type, dueDate, status, createdAt
+    //
+    // Collection: helpArticles
+    // Fields: id, title, content, category, updatedAt
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "jnakasamai@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isCollaborator(listId) {
+      let listData = get(/databases/$(database)/documents/packingLists/$(listId)).data;
+      return isAuthenticated() && (
+        (listData.collaboratorIds != null && request.auth.uid in listData.collaboratorIds) ||
+        (listData.collaboratorEmails != null && request.auth.token.email in listData.collaboratorEmails)
+      );
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'plan']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.plan is string;
+    }
+
+    function isValidPlan(data) {
+      return data.keys().hasAll(['name', 'price', 'features', 'aiTokenLimit']) &&
+             data.name is string && data.name.size() > 0 &&
+             data.price is number &&
+             data.features is list &&
+             data.aiTokenLimit is int;
+    }
+
+    function isValidPackingList(data) {
+      return data.keys().hasAll(['ownerId', 'name']) &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+    function isValidItem(data) {
+      return data.keys().hasAll(['listId', 'name', 'assetTag']) &&
+             data.listId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.assetTag is string;
+    }
+
+    function isValidGearItem(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'assetTag', 'quantity']) &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.assetTag is string &&
+             data.quantity is number && data.quantity >= 1;
+    }
+
+    function isValidRack(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'totalUnits']) &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.totalUnits is int && data.totalUnits > 0 && data.totalUnits <= 48;
+    }
+
+    function isValidRackItem(data) {
+      return data.keys().hasAll(['rackId', 'name', 'uPosition', 'uHeight']) &&
+             data.rackId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.uPosition is int && data.uPosition > 0 &&
+             data.uHeight is int && data.uHeight > 0;
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'status', 'listIds']) &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.status in ['planning', 'packing', 'moving', 'completed', 'active', 'on-hold'] &&
+             data.listIds is list;
+    }
+
+    function isValidContainer(data) {
+      return data.keys().hasAll(['name', 'type', 'items']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.type is string &&
+             data.items is list;
+    }
+
+    function isValidContact(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'type']) &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.type is string;
+    }
+
+    function isValidSupplier(data) {
+      return data.keys().hasAll(['projectId', 'ownerId', 'name']) &&
+             data.projectId is string &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+    function isValidCost(data) {
+      return data.keys().hasAll(['projectId', 'ownerId', 'amount', 'status']) &&
+             data.projectId is string &&
+             data.ownerId is string &&
+             data.amount >= 0 &&
+             data.status is string && data.status.size() > 0 && data.status.size() < 100;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin() || (isAuthenticated() && resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId);
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.plan == resource.data.plan) || isAdmin();
+
+      match /gearLibrary/{itemId} {
+        // Allow get for QR scanning (even guests), but listing only for owner, admin, or authenticated users
+        allow get: if true;
+        allow list: if isOwner(userId) || isAdmin() || isAuthenticated();
+        allow create: if isOwner(userId) && isValidGearItem(request.resource.data);
+        // Allow update if owner, admin, or authenticated (for kiosk mode check-ins)
+        allow update: if (isOwner(userId) || isAdmin() || isAuthenticated()) && isValidGearItem(request.resource.data);
+        allow delete: if isOwner(userId) || isAdmin();
+
+        match /versions/{versionId} {
+          allow read, create: if isOwner(userId);
+        }
+
+        match /incidents/{incidentId} {
+          allow read: if isOwner(userId) || isAdmin();
+          allow create: if true; // permit anyone (finders) to post recovery incident reports
+          allow update, delete: if isOwner(userId) || isAdmin();
+        }
+      }
+
+      match /containers/{containerId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidContainer(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // Collection Group for Gear
+    match /{path=**}/gearLibrary/{itemId} {
+      allow read: if isAuthenticated() && (resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+    }
+
+    match /contacts/{contactId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid && isValidContact(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin()) && isValidContact(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    match /packingLists/{listId} {
+      allow read: if (resource.data.marketplaceEnabled == true) || (isAuthenticated() && (resource.data.ownerId == request.auth.uid || resource.data.shareToken != null || (resource.data.collaboratorIds != null && request.auth.uid in resource.data.collaboratorIds) || (resource.data.collaboratorEmails != null && request.auth.token.email in resource.data.collaboratorEmails) || isAdmin()));
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid && isValidPackingList(request.resource.data);
+      allow update: if (resource.data.marketplaceEnabled == true && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['receivedAt', 'status'])) || (isAuthenticated() && (resource.data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin()) && isValidPackingList(request.resource.data));
+      allow delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+
+      match /items/{itemId} {
+        allow read: if (get(/databases/$(database)/documents/packingLists/$(listId)).data.marketplaceEnabled == true) || (isAuthenticated() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || get(/databases/$(database)/documents/packingLists/$(listId)).data.shareToken != null));
+        allow create: if isAuthenticated() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId)) && isValidItem(request.resource.data);
+        allow update: if (get(/databases/$(database)/documents/packingLists/$(listId)).data.marketplaceEnabled == true && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) || (isAuthenticated() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin()) && isValidItem(request.resource.data));
+        allow delete: if isAuthenticated() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin());
+      }
+    }
+
+    match /adminSettings/{settingId} {
+      allow read: if true; // Public settings for branding
+      allow write: if isAdmin();
+    }
+
+    match /plans/{planId} {
+      allow read: if true; // Publicly readable plans
+      allow write: if isAdmin() && isValidPlan(request.resource.data);
+    }
+
+    match /racks/{rackId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid && isValidRack(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin()) && isValidRack(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+
+      match /items/{itemId} {
+        allow read: if isAuthenticated() && (get(/databases/$(database)/documents/racks/$(rackId)).data.ownerId == request.auth.uid || isAdmin());
+        allow create: if isAuthenticated() && get(/databases/$(database)/documents/racks/$(rackId)).data.ownerId == request.auth.uid && isValidRackItem(request.resource.data);
+        allow update: if isAuthenticated() && (get(/databases/$(database)/documents/racks/$(rackId)).data.ownerId == request.auth.uid || isAdmin()) && isValidRackItem(request.resource.data);
+        allow delete: if isAuthenticated() && (get(/databases/$(database)/documents/racks/$(rackId)).data.ownerId == request.auth.uid || isAdmin());
+      }
+    }
+
+    match /projects/{projectId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid && isValidProject(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    match /buildItems/{itemId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    match /suppliers/{supplierId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid && isValidSupplier(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin()) && isValidSupplier(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    match /projectCosts/{costId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid && isValidCost(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin()) && isValidCost(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    match /movingProjects/{projectId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid && isValidProject(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin()) && isValidProject(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    match /reminders/{reminderId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    match /helpArticles/{articleId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /packingLists/{listId}/versions/{versionId} {
+      allow read: if isAuthenticated() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid);
+      allow delete: if isAuthenticated() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    match /terminals/{terminalId} {
+      allow read, create: if true; // Terminals can be created and read by kiosks
+      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.ownerUid == request.auth.uid);
+    }
+
+    match /checkouts/{checkoutId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if true; // Allow kiosk checkouts (ideally validated against terminal pairing)
+      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.ownerId == request.auth.uid);
+    }
+
+    match /organizations/{orgId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin() || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId == orgId));
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.ownerId == request.auth.uid);
+    }
+
+    match /inventories/{inventoryId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+
+      match /items/{itemId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated();
+      }
+    }
+
+    match /departments/{deptId} {
+      allow read: if isAuthenticated() && (resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/organizations/$(resource.data.orgId)).data.ownerId == request.auth.uid);
+    }
+
+    match /teams/{teamId} {
+      allow read: if isAuthenticated() && (resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/organizations/$(resource.data.orgId)).data.ownerId == request.auth.uid);
+    }
+
+  }
+}

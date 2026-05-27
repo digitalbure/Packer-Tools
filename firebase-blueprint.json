@@ -1,0 +1,408 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user profile and subscription information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "plan": { "type": "string", "enum": ["free", "pro"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "plan"]
+    },
+    "PackingList": {
+      "title": "Packing List",
+      "description": "A collection of items to be packed or tracked.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "isTemplate": { "type": "boolean" },
+        "shareToken": { "type": "string" },
+        "recipientId": { "type": "string", "description": "ID of the Contact this list is for" },
+        "transactionType": { "type": "string", "enum": ["Personal", "Sale", "Rental", "Gift"] },
+        "price": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "enum": ["Draft", "Active", "Sent", "Received", "Completed"] },
+        "marketplaceEnabled": { "type": "boolean" },
+        "marketplaceDetails": { "type": "string" },
+        "customFields": { "type": "object", "description": "User-defined custom fields for logistics tracking." },
+        "receivedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name"]
+    },
+    "Contact": {
+      "title": "Contact",
+      "description": "A person or business associated with a packing list or transaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "type": { "type": "string", "enum": ["Personal", "Professional", "Business"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name", "type"]
+    },
+    "Item": {
+      "title": "Packing Item",
+      "description": "An individual item within a packing list.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "listId": { "type": "string" },
+        "name": { "type": "string" },
+        "photoUrls": { "type": "array", "items": { "type": "string" } },
+        "assetTag": { "type": "string" },
+        "quantity": { "type": "integer", "description": "Number of items owned." },
+        "status": { "type": "string", "enum": ["pending", "packed", "returned"] },
+        "aiLabel": { "type": "string" },
+        "priority": { "type": "string", "enum": ["High", "Medium", "Low"] },
+        "order": { "type": "integer" },
+        "relatedItemIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["listId", "name", "assetTag"]
+    },
+    "Rack": {
+      "title": "Rack",
+      "description": "A physical equipment rack for AV gear.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "totalUnits": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name", "totalUnits"]
+    },
+    "RackItem": {
+      "title": "Rack Item",
+      "description": "An individual piece of gear mounted in a rack.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "rackId": { "type": "string" },
+        "name": { "type": "string" },
+        "photoUrls": { "type": "array", "items": { "type": "string" } },
+        "assetTag": { "type": "string" },
+        "uPosition": { "type": "integer" },
+        "uHeight": { "type": "integer" },
+        "status": { "type": "string", "enum": ["installed", "removed", "maintenance"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["rackId", "name", "uPosition", "uHeight"]
+    },
+    "MovingProject": {
+      "title": "Moving Project",
+      "description": "A container for multiple packing lists for a household move.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "moveDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["planning", "packing", "moving", "completed"] },
+        "listIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name", "status"]
+    },
+    "PackingListVersion": {
+      "title": "Packing List Version",
+      "description": "A snapshot of a packing list at a point in time.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "listId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["listId", "name", "items", "createdAt"]
+    },
+    "AdminSettings": {
+      "title": "Admin Settings",
+      "description": "Global configuration for the platform.",
+      "type": "object",
+      "properties": {
+        "branding": { "type": "object" },
+        "frontPageCopy": { "type": "string" },
+        "billingEnabled": { "type": "boolean" },
+        "aiConfig": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "model": { "type": "string" },
+            "monthlyGlobalLimit": { "type": "integer" },
+            "currentMonthlyUsage": { "type": "integer" },
+            "cachingEnabled": { "type": "boolean" },
+            "smartPackerName": { "type": "string" }
+          }
+        },
+        "integrationConfig": {
+          "type": "object",
+          "properties": {
+            "apiEnabled": { "type": "boolean" },
+            "apiKey": { "type": "string" },
+            "webhookUrl": { "type": "string" },
+            "wordpressEnabled": { "type": "boolean" },
+            "wordpressUrl": { "type": "string" },
+            "wordpressApiKey": { "type": "string" },
+            "callbackUrlDev": { "type": "string" },
+            "callbackUrlProd": { "type": "string" }
+          }
+        }
+      }
+    },
+    "Plan": {
+      "title": "Subscription Plan",
+      "description": "Defines features and limits for a subscription tier.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "features": { "type": "array", "items": { "type": "string" } },
+        "aiTokenLimit": { "type": "integer" }
+      },
+      "required": ["name", "price", "features", "aiTokenLimit"]
+    },
+    "Terminal": {
+      "title": "Kiosk Terminal",
+      "description": "A physical tablet or kiosk device.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "pairingCode": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "active"] },
+        "ownerUid": { "type": "string" },
+        "deviceName": { "type": "string" },
+        "lastActive": { "type": "string" },
+        "settings": { "type": "object" }
+      },
+      "required": ["pairingCode", "status"]
+    },
+    "Checkout": {
+      "title": "Equipment Checkout",
+      "description": "A record of gear being checked out or in.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "assetId": { "type": "string" },
+        "assetName": { "type": "string" },
+        "assetTag": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "completed"] },
+        "checkOutTime": { "type": "object" },
+        "checkInTime": { "type": "object" },
+        "signature": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["assetId", "userId", "status"]
+    },
+    "Organization": {
+      "title": "Organization",
+      "description": "A top-level business or group entity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "subscriptionPlan": { "type": "string" },
+        "settings": { "type": "object" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["name", "slug"]
+    },
+    "Department": {
+      "title": "Department",
+      "description": "A department within an organization.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "orgId": { "type": "string" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["name", "orgId"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "A small team within a department.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "orgId": { "type": "string" },
+        "deptId": { "type": "string" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["name", "orgId", "deptId"]
+    },
+    "BuildItem": {
+      "title": "Build Item",
+      "description": "An item in the smart specs sandbox.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "type": { "type": "string" },
+        "quantity": { "type": "integer" },
+        "price": { "type": "number" },
+        "isPushed": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "ownerId", "name"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "A supplier for AV project items.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "rating": { "type": "number" },
+        "isPreferred": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "ownerId", "name"]
+    },
+    "ProjectCost": {
+      "title": "Project Cost",
+      "description": "A cost entry record for financial calculation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "status": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "ownerId", "amount", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/plans/{planId}": {
+      "schema": "Plan",
+      "description": "Subscription plans"
+    },
+    "/packingLists/{listId}": {
+      "schema": "PackingList",
+      "description": "Main packing lists"
+    },
+    "/packingLists/{listId}/items/{itemId}": {
+      "schema": "Item",
+      "description": "Items within a packing list"
+    },
+    "/packingLists/{listId}/versions/{versionId}": {
+      "schema": "PackingListVersion",
+      "description": "Snapshots of a packing list"
+    },
+    "/contacts/{contactId}": {
+      "schema": "Contact",
+      "description": "User contacts for assignments and transactions"
+    },
+    "/adminSettings/global": {
+      "schema": "AdminSettings",
+      "description": "Global settings"
+    },
+    "/users/{userId}/gearLibrary/{itemId}": {
+      "schema": "Item",
+      "description": "User's reusable gear library"
+    },
+    "/users/{userId}/gearLibrary/{itemId}/versions/{versionId}": {
+      "schema": "PackingListVersion",
+      "description": "Gear item version history"
+    },
+    "/users/{userId}/gearLibrary/{itemId}/incidents/{incidentId}": {
+      "schema": "object",
+      "description": "Gear item incident reports"
+    },
+    "/racks/{rackId}": {
+      "schema": "Rack",
+      "description": "Equipment racks"
+    },
+    "/racks/{rackId}/items/{itemId}": {
+      "schema": "RackItem",
+      "description": "Items within a rack"
+    },
+    "/movingProjects/{projectId}": {
+      "schema": "MovingProject",
+      "description": "Household moving projects"
+    },
+    "/reminders/{reminderId}": {
+      "schema": "object",
+      "description": "User reminders"
+    },
+    "/helpArticles/{articleId}": {
+      "schema": "object",
+      "description": "Help articles"
+    },
+    "/terminals/{terminalId}": {
+      "schema": "Terminal",
+      "description": "Kiosk terminals"
+    },
+    "/checkouts/{checkoutId}": {
+      "schema": "Checkout",
+      "description": "Gear checkout records"
+    },
+    "/organizations/{orgId}": {
+      "schema": "Organization",
+      "description": "Master organizations"
+    },
+    "/departments/{deptId}": {
+      "schema": "Department",
+      "description": "Org departments"
+    },
+    "/teams/{teamId}": {
+      "schema": "Team",
+      "description": "Dept teams"
+    },
+    "/buildItems/{itemId}": {
+      "schema": "BuildItem",
+      "description": "Build items for design sandbox"
+    },
+    "/suppliers/{supplierId}": {
+      "schema": "Supplier",
+      "description": "Project item suppliers"
+    },
+    "/projectCosts/{costId}": {
+      "schema": "ProjectCost",
+      "description": "Financial cost listings for a project"
+    }
+  }
+}
