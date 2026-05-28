@@ -32,6 +32,22 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
     }
   });
 
+  // Active Beta Notification Handshake States
+  const [testWelcomeEmail, setTestWelcomeEmail] = useState(user.email || '');
+  const [testWelcomeName, setTestWelcomeName] = useState(user.displayName || '');
+  const [testMessage, setTestMessage] = useState('Urgent: Need to procure 10 additional Dymo 30334 sticker labels for the backup mountaineering expedition.');
+  const [welcomeSending, setWelcomeSending] = useState(false);
+  const [contactSending, setContactSending] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    simulated: boolean;
+    html?: string;
+    notice?: string;
+    recipient?: string;
+    subject?: string;
+  } | null>(null);
+  const [showTestHtml, setShowTestHtml] = useState(false);
+
   useEffect(() => {
     const fetchUsage = async () => {
       const usageData = await getUsage(user, adminSettings);
@@ -257,6 +273,208 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                   );
                 })}
               </div>
+            </div>
+          </section>
+
+          {/* Active Beta Notifications Desk */}
+          <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8 animate-fade-in">
+            <header className="space-y-1">
+              <span className="micro-label bg-amber-50 text-amber-500 border border-amber-200 px-2 py-0.5 rounded-full inline-block font-black">Beta Sandbox v1.0.0-beta.1</span>
+              <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
+                <Mail className="text-primary shrink-0" />
+                <span>Notification Testing Desk</span>
+              </h3>
+              <p className="text-xs text-neutral-500 font-semibold leading-relaxed">
+                Manually fire and test transactional welcome emails or contact alerts. Verify copy alignment and HTML layouts in the real-time preview cabinet below.
+              </p>
+            </header>
+
+            {/* Live Interactive Results Console */}
+            {testResult && (
+              <div className="bg-neutral-900 text-white rounded-2xl p-6 sm:p-8 space-y-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] font-mono tracking-wider font-extrabold text-neutral-400 uppercase">Interactive Delivery Proof</span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setTestResult(null);
+                      setShowTestHtml(false);
+                    }}
+                    className="text-white/50 hover:text-white text-xs font-bold"
+                  >
+                    Clear Slate
+                  </button>
+                </div>
+
+                <div className="space-y-1 font-mono text-xs text-left">
+                  <div><span className="text-neutral-500">Subject:</span> <span className="font-extrabold text-amber-400">{testResult.subject}</span></div>
+                  <div><span className="text-neutral-500">Target Recipient:</span> <span>{testResult.recipient}</span></div>
+                  <div><span className="text-neutral-500">Method:</span> <span className="text-blue-400">{testResult.simulated ? 'SIMULATED OVER EXPRESS' : 'LIVE API DELIVERED'}</span></div>
+                  {testResult.notice && <div className="text-[10px] text-emerald-400 pt-1 font-sans">{testResult.notice}</div>}
+                </div>
+
+                {testResult.html && (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowTestHtml(!showTestHtml)}
+                      className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-black uppercase tracking-wider transition mb-2 cursor-pointer"
+                    >
+                      {showTestHtml ? "Hide Embedded Layout Reviewer" : "View Embedded Layout Reviewer"}
+                    </button>
+                    {showTestHtml && (
+                      <div className="rounded-xl overflow-hidden bg-white border border-white/10 h-[300px]">
+                        <iframe 
+                          title="Beta HTML Mail Viewer"
+                          srcDoc={testResult.html}
+                          className="w-full h-full bg-white text-slate-950 border-none animate-scale-up"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              
+              {/* Box 1: Onboarding Welcome Slip Test */}
+              <div className="p-6 bg-neutral-50 rounded-2xl border border-neutral-200/50 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <span className="text-[10px] font-black uppercase text-primary tracking-widest block bg-primary/5 px-2 py-1 rounded inline-block">1. Welcoming Letter</span>
+                  <p className="text-xs text-neutral-500 leading-relaxed font-semibold">
+                    Sends the Fiji custom onboarding letter, detailing the active sticker dimensions presets and workspace highlights.
+                  </p>
+                  
+                  <div className="space-y-3 pt-2 text-left">
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-neutral-400 block mb-1">Recipient Email</label>
+                      <input 
+                        type="email"
+                        value={testWelcomeEmail}
+                        onChange={(e) => setTestWelcomeEmail(e.target.value)}
+                        className="w-full p-2 bg-white border border-neutral-200 rounded-xl text-xs outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-neutral-400 block mb-1">Operator Display Name</label>
+                      <input 
+                        type="text"
+                        value={testWelcomeName}
+                        onChange={(e) => setTestWelcomeName(e.target.value)}
+                        className="w-full p-2 bg-white border border-neutral-200 rounded-xl text-xs outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={welcomeSending}
+                  onClick={async () => {
+                    if (!testWelcomeEmail) {
+                      toast.error("Please provide email recipient.");
+                      return;
+                    }
+                    setWelcomeSending(true);
+                    setTestResult(null);
+                    try {
+                      const res = await fetch('/api/send-welcome-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          to: testWelcomeEmail,
+                          displayName: testWelcomeName,
+                          subPlan: user.plan ? user.plan.toUpperCase() : "FREE STARTER"
+                        })
+                      });
+                      const data = await res.json();
+                      if (res.ok && data.success) {
+                        toast.success("Welcome notification slip generated!");
+                        setTestResult({
+                          ...data,
+                          subject: `Welcome to Packer Tools! [v1.0.0-beta.1 Onboarding]`
+                        });
+                        setShowTestHtml(true);
+                      } else {
+                        toast.error(data.error || "Failed sending Welcome test.");
+                      }
+                    } catch (e: any) {
+                      toast.error("Error connecting to welcome endpoint.");
+                    } finally {
+                      setWelcomeSending(false);
+                    }
+                  }}
+                  className="w-full py-3 bg-neutral-900 hover:bg-neutral-800 text-white font-extrabold uppercase text-[10px] tracking-widest rounded-xl transition cursor-pointer disabled:opacity-50"
+                >
+                  {welcomeSending ? "Dispatched..." : "Generate Welcome Slip"}
+                </button>
+              </div>
+
+              {/* Box 2: Contact Enquiry Test */}
+              <div className="p-6 bg-neutral-50 rounded-2xl border border-neutral-200/50 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <span className="text-[10px] font-black uppercase text-blue-600 tracking-widest block bg-blue-50 px-2 py-1 rounded inline-block font-sans">2. Help desk Contact Alert</span>
+                  <p className="text-xs text-neutral-500 leading-relaxed font-semibold">
+                    Sends an alert summarizing messages sent through the support form, including name metrics and timestamp logs.
+                  </p>
+
+                  <div className="space-y-3 pt-2 text-left">
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-neutral-400 block mb-1 font-sans">Sample Message Body</label>
+                      <textarea
+                        rows={3}
+                        value={testMessage}
+                        onChange={(e) => setTestMessage(e.target.value)}
+                        className="w-full p-2 bg-white border border-neutral-200 rounded-xl text-xs outline-none resize-none font-sans"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={contactSending}
+                  onClick={async () => {
+                    setContactSending(true);
+                    setTestResult(null);
+                    try {
+                      const res = await fetch('/api/send-contact-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          firstName: user.displayName ? user.displayName.split(' ')[0] : 'Beta Tester',
+                          lastName: user.displayName ? user.displayName.split(' ').slice(1).join(' ') : 'Operator',
+                          email: user.email,
+                          message: testMessage,
+                          timestamp: new Date().toLocaleString()
+                        })
+                      });
+                      const data = await res.json();
+                      if (res.ok && data.success) {
+                        toast.success("Contact feed enquiry notification generated!");
+                        setTestResult({
+                          ...data,
+                          subject: `[Packer Tools Contact Feed] Message from ${user.displayName || 'Beta Tester'}`
+                        });
+                        setShowTestHtml(true);
+                      } else {
+                        toast.error(data.error || "Failed sending Contact test.");
+                      }
+                    } catch (e: any) {
+                      toast.error("Error connecting to contact endpoint.");
+                    } finally {
+                      setContactSending(false);
+                    }
+                  }}
+                  className="w-full py-3 bg-neutral-900 hover:bg-neutral-800 text-white font-extrabold uppercase text-[10px] tracking-widest rounded-xl transition cursor-pointer disabled:opacity-50 hover:shadow-md"
+                >
+                  {contactSending ? "Fired Alert..." : "Trigger Contact Alert"}
+                </button>
+              </div>
+
             </div>
           </section>
         </div>

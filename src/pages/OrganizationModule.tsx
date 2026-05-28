@@ -388,6 +388,231 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
     }
   };
 
+  const renderSimulatedQRCode = (color: string) => (
+    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" className="w-16 h-16 shrink-0" style={{ shapeRendering: 'crispEdges' }}>
+      {/* QR outer corners */}
+      <rect x="1" y="1" width="6" height="6" strokeWidth="2" />
+      <rect x="3" y="3" width="2" height="2" fill={color} />
+      
+      <rect x="17" y="1" width="6" height="6" strokeWidth="2" />
+      <rect x="19" y="3" width="2" height="2" fill={color} />
+
+      <rect x="1" y="17" width="6" height="6" strokeWidth="2" />
+      <rect x="3" y="19" width="2" height="2" fill={color} />
+
+      {/* Center payload pixel markers */}
+      <rect x="10" y="2" width="2" height="2" fill={color} />
+      <rect x="13" y="4" width="2" height="1" fill={color} />
+      <rect x="10" y="7" width="1" height="3" fill={color} />
+      <rect x="14" y="9" width="2" height="2" fill={color} />
+      
+      <rect x="11" y="13" width="2" height="2" fill={color} />
+      <rect x="9" y="16" width="3" height="1" fill={color} />
+      <rect x="15" y="15" width="2" height="3" fill={color} />
+      <rect x="10" y="20" width="4" height="2" fill={color} />
+      
+      <rect x="19" y="10" width="2" height="4" fill={color} />
+      <rect x="21" y="18" width="2" height="2" fill={color} />
+      <rect x="17" y="20" width="1" height="2" fill={color} />
+    </svg>
+  );
+
+  const handlePrintSticker = () => {
+    // Collect logo source depending on selection
+    let logoUrlToUse = '';
+    if (stickerLogoSrc === 'org') {
+      logoUrlToUse = org?.settings?.branding?.logo || '';
+    } else if (stickerLogoSrc === 'dept') {
+      const selectedDeptObj = depts.find(d => d.id === selectedStickerDeptId);
+      logoUrlToUse = selectedDeptObj?.logoUrl || '';
+    } else if (stickerLogoSrc === 'team') {
+      const selectedDevObj = teams.find(t => t.id === selectedStickerTeamId);
+      logoUrlToUse = selectedDevObj?.logoUrl || '';
+    }
+
+    // Determine custom border-radius depending on shape
+    let borderRadiusCss = '0px';
+    if (stickerShape === 'rounded-square' || stickerShape === 'rounded-rectangle') {
+      borderRadiusCss = '16px';
+    } else if (stickerShape === 'circle') {
+      borderRadiusCss = '50%';
+    }
+
+    // Aspect ratio and width constraint depending on size selection
+    let widthCss = `${stickerSize * 4}px`;
+    let heightCss = 'auto';
+    let aspectRatioCss = 'auto';
+    if (stickerShape === 'square' || stickerShape === 'rounded-square') {
+      heightCss = `${stickerSize * 4}px`;
+      aspectRatioCss = '1 / 1';
+    } else if (stickerShape === 'circle') {
+      widthCss = `${stickerSize * 4}px`;
+      heightCss = `${stickerSize * 4}px`;
+      aspectRatioCss = '1 / 1';
+    } else {
+      // Rectangular
+      heightCss = `${stickerSize * 2.5}px`;
+      aspectRatioCss = '1.6 / 1';
+    }
+
+    // Create styled HTML for printing
+    const stickerHtml = `
+      <html>
+        <head>
+          <title>${stickerTextLine2 || "Sticker Label"}</title>
+          <style>
+            @page {
+              size: auto;
+              margin: 0mm;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              background-color: #fafafa;
+              min-height: 100vh;
+            }
+            .print-sticker {
+              width: ${widthCss};
+              height: ${heightCss};
+              aspect-ratio: ${aspectRatioCss};
+              background-color: ${stickerColorBg};
+              color: ${stickerColorText};
+              border: 2px solid ${stickerColorText};
+              border-radius: ${borderRadiusCss};
+              box-sizing: border-box;
+              padding: 16px;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              align-items: center;
+              text-align: center;
+              position: relative;
+              page-break-inside: avoid;
+            }
+            .header-text {
+              font-size: 10px;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: 0.1em;
+              opacity: 0.8;
+            }
+            .main-text {
+              font-size: 16px;
+              font-weight: 900;
+              text-transform: uppercase;
+              margin: 4px 0;
+            }
+            .sub-text {
+              font-size: 10px;
+              font-family: monospace;
+              letter-spacing: 0.05em;
+            }
+            .logo-img {
+              max-height: 28px;
+              max-width: 60px;
+              object-fit: contain;
+              margin-bottom: 4px;
+            }
+            .qr-svg {
+              margin-top: 4px;
+            }
+            @media print {
+              body {
+                background: none;
+                min-height: auto;
+              }
+              .print-decorations {
+                display: none !important;
+              }
+              .print-sticker {
+                border: 1px solid ${stickerColorText} !important;
+                box-shadow: none !important;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-sticker">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
+              ${logoUrlToUse ? `<img src="${logoUrlToUse}" class="logo-img" />` : ''}
+              <div class="header-text">${stickerTextLine1}</div>
+            </div>
+            
+            <div class="main-text">${stickerTextLine2}</div>
+            
+            <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+              ${stickerShowQR ? `
+                <div class="qr-svg">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="${stickerColorText}" stroke-width="2" style="shape-rendering: crispEdges">
+                    <rect x="1" y="1" width="6" height="6" stroke-width="2" />
+                    <rect x="3" y="3" width="2" height="2" fill="${stickerColorText}" />
+                    <rect x="17" y="1" width="6" height="6" stroke-width="2" />
+                    <rect x="19" y="3" width="2" height="2" fill="${stickerColorText}" />
+                    <rect x="1" y="17" width="6" height="6" stroke-width="2" />
+                    <rect x="3" y="19" width="2" height="2" fill="${stickerColorText}" />
+                    <rect x="10" y="2" width="2" height="2" fill="${stickerColorText}" />
+                    <rect x="13" y="4" width="2" height="1" fill="${stickerColorText}" />
+                    <rect x="10" y="7" width="1" height="3" fill="${stickerColorText}" />
+                    <rect x="14" y="9" width="2" height="2" fill="${stickerColorText}" />
+                    <rect x="11" y="13" width="2" height="2" fill="${stickerColorText}" />
+                    <rect x="9" y="16" width="3" height="1" fill="${stickerColorText}" />
+                    <rect x="15" y="15" width="2" height="3" fill="${stickerColorText}" />
+                    <rect x="10" y="20" width="4" height="2" fill="${stickerColorText}" />
+                    <rect x="19" y="10" width="2" height="4" fill="${stickerColorText}" />
+                    <rect x="21" y="18" width="2" height="2" fill="${stickerColorText}" />
+                    <rect x="17" y="20" width="1" height="2" fill="${stickerColorText}" />
+                  </svg>
+                </div>
+                <div style="font-size: 8px; font-family: monospace; font-weight: bold; margin-top: 4px;">${stickerQRText}</div>
+              ` : ''}
+              <div class="sub-text" style="margin-top: 6px;">${stickerTextLine3}</div>
+            </div>
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() {
+                window.close();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    // Write html to an ephemeral print window/tab or iframe
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(stickerHtml);
+      printWindow.document.close();
+      toast.success("Triggering high-definition label print spooler");
+    } else {
+      toast.error("Popup blocked! Directing fallback to inline iframe printing");
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+      const printDoc = iframe.contentWindow?.document || iframe.contentDocument;
+      if (printDoc) {
+        printDoc.open();
+        printDoc.write(stickerHtml);
+        printDoc.close();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 4000);
+      }
+    }
+  };
+
   const handleUpdateRole = async (memberUid: string, newRole: UserRole) => {
     try {
       await updateDoc(doc(db, 'users', memberUid), { role: newRole });
@@ -758,6 +983,408 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
           </motion.div>
         )}
 
+        {activeTab === 'stickers' && (
+          <motion.div
+            key="stickers"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="grid lg:grid-cols-12 gap-8 items-start"
+          >
+            {/* Left Column: Customization Panel */}
+            <div className="lg:col-span-5 space-y-8">
+              <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
+                <div className="flex items-center gap-3">
+                  <Sliders size={22} className="text-neutral-500" />
+                  <h4 className="text-lg font-black uppercase tracking-tight">Label Layout</h4>
+                </div>
+
+                {/* Presets */}
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Quick Design Presets</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      {
+                        name: 'Industrial Metal',
+                        shape: 'rounded-rectangle',
+                        colorBg: '#1e293b',
+                        colorText: '#f8fafc',
+                        text1: 'STRICT PROPERTY OF CORP',
+                        text2: 'Sony Cinema Box FX3',
+                        text3: 'FIRMWARE ID: C-FX3',
+                        logoType: 'org',
+                        showQR: true
+                      },
+                      {
+                        name: 'Minimal Inventory',
+                        shape: 'rounded-rectangle',
+                        colorBg: '#ffffff',
+                        colorText: '#171717',
+                        text1: 'DEPT ASSET DISCOVERY',
+                        text2: 'DJI Ronin RS3 Pro',
+                        text3: 'SECURE SHELF: ROT-9',
+                        logoType: 'dept',
+                        showQR: true
+                      },
+                      {
+                        name: 'Warning / Alert',
+                        shape: 'circle',
+                        colorBg: '#ef4444',
+                        colorText: '#ffffff',
+                        text1: 'DANGER',
+                        text2: 'HIGH POWER UNIT',
+                        text3: 'DO NOT DERAIL',
+                        logoType: 'none',
+                        showQR: false
+                      },
+                      {
+                        name: 'Clean Blue Oval',
+                        shape: 'rounded-square',
+                        colorBg: '#eff6ff',
+                        colorText: '#1e40af',
+                        text1: 'DEVELOPMENT LABS',
+                        text2: 'MacBook Pro M3 Max',
+                        text3: 'SERIAL: MAC-0918',
+                        logoType: 'team',
+                        showQR: true
+                      }
+                    ].map((preset, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => {
+                          setStickerShape(preset.shape as any);
+                          setStickerColorBg(preset.colorBg);
+                          setStickerColorText(preset.colorText);
+                          setStickerTextLine1(preset.text1);
+                          setStickerTextLine2(preset.text2);
+                          setStickerTextLine3(preset.text3);
+                          setStickerLogoSrc(preset.logoType as any);
+                          setStickerShowQR(preset.showQR);
+                          toast.success(`Applied Design Preset: ${preset.name}`);
+                        }}
+                        className="p-3 bg-neutral-50 hover:bg-neutral-100 rounded-xl border border-neutral-100 text-left transition text-[10px] font-bold text-neutral-700"
+                      >
+                        <div className="uppercase tracking-wider">{preset.name}</div>
+                        <div className="text-[8px] text-neutral-400 font-normal mt-0.5">{preset.shape}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <hr className="border-neutral-100" />
+
+                {/* Form controls */}
+                <div className="space-y-4">
+                  {/* Shape Selection */}
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 ml-1 block">Label Physical Shape</label>
+                    <div className="grid grid-cols-5 gap-1 bg-neutral-50 p-1 rounded-xl">
+                      {[
+                        { id: 'square', label: 'Square' },
+                        { id: 'rectangle', label: 'Rect' },
+                        { id: 'rounded-square', label: 'R-Sq' },
+                        { id: 'rounded-rectangle', label: 'R-Rect' },
+                        { id: 'circle', label: 'Circle' }
+                      ].map((shape) => (
+                        <button
+                          key={shape.id}
+                          type="button"
+                          onClick={() => setStickerShape(shape.id as any)}
+                          className={`py-2 px-1 rounded-lg text-[9px] font-black uppercase tracking-tight transition ${
+                            stickerShape === shape.id 
+                              ? 'bg-neutral-900 text-white shadow-sm' 
+                              : 'text-neutral-400 hover:text-neutral-700'
+                          }`}
+                        >
+                          {shape.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Size adjustment slider */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center ml-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Scale Factor</label>
+                      <span className="text-[10px] font-mono font-bold text-neutral-600">{stickerSize * 2}mm</span>
+                    </div>
+                    <input 
+                      type="range"
+                      min="40"
+                      max="120"
+                      value={stickerSize}
+                      onChange={(e) => setStickerSize(Number(e.target.value))}
+                      className="w-full accent-neutral-900 bg-neutral-100 h-1 rounded-lg cursor-pointer appearance-none"
+                    />
+                  </div>
+
+                  {/* Brand Logo Preference Selector */}
+                  <div className="space-y-3">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 ml-1 block">Display Custom Logo</label>
+                    <div className="grid grid-cols-4 gap-1 p-1 bg-neutral-50 rounded-xl mb-2">
+                      {[
+                        { id: 'none', label: 'None' },
+                        { id: 'org', label: 'Corp' },
+                        { id: 'dept', label: 'Dept' },
+                        { id: 'team', label: 'Team' }
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setStickerLogoSrc(item.id as any)}
+                          className={`py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tight transition ${
+                            stickerLogoSrc === item.id 
+                              ? 'bg-neutral-955 text-[#0066cc] bg-blue-50 border border-blue-100 shadow' 
+                              : 'text-neutral-400 hover:text-neutral-700'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                       ))}
+                    </div>
+
+                    {/* Department logo picker */}
+                    {stickerLogoSrc === 'dept' && (
+                      <div className="space-y-1.5">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 ml-1 block">Select Target Department Logo</span>
+                        <select
+                          value={selectedStickerDeptId}
+                          onChange={(e) => setSelectedStickerDeptId(e.target.value)}
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 animate-fadeIn"
+                        >
+                          <option value="">Choose department...</option>
+                          {depts.map(d => <option key={d.id} value={d.id}>{d.name} {d.logoUrl ? '(Custom Logo Set)' : '(Fallback Placeholder)'}</option>)}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Team logo picker */}
+                    {stickerLogoSrc === 'team' && (
+                      <div className="space-y-1.5">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 ml-1 block">Select Target Team Logo</span>
+                        <select
+                          value={selectedStickerTeamId}
+                          onChange={(e) => setSelectedStickerTeamId(e.target.value)}
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 animate-fadeIn"
+                        >
+                          <option value="">Choose team...</option>
+                          {teams.map(t => <option key={t.id} value={t.id}>{t.name} {t.logoUrl ? '(Custom Logo Set)' : '(Fallback Placeholder)'}</option>)}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  <hr className="border-neutral-100" />
+
+                  {/* Text inputs */}
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 ml-1 block">Text Line 1: Badge Category</span>
+                      <input 
+                        placeholder="e.g. STRICT SAFETY LAB PROPERTY"
+                        value={stickerTextLine1}
+                        onChange={(e) => setStickerTextLine1(e.target.value)}
+                        className="w-full bg-neutral-50 focus:bg-white border border-neutral-100 focus:border-neutral-300 rounded-xl px-4 py-2 text-xs font-bold transition text-neutral-800"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 ml-1 block">Text Line 2: Descriptor</span>
+                      <input 
+                        placeholder="e.g. Drone Control Rig"
+                        value={stickerTextLine2}
+                        onChange={(e) => setStickerTextLine2(e.target.value)}
+                        className="w-full bg-neutral-50 focus:bg-white border border-neutral-100 focus:border-neutral-300 rounded-xl px-4 py-2 text-xs font-bold transition text-neutral-800"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 ml-1 block">Text Line 3: Footer Serial</span>
+                      <input 
+                        placeholder="e.g. SERIAL: AG-9021-AX"
+                        value={stickerTextLine3}
+                        onChange={(e) => setStickerTextLine3(e.target.value)}
+                        className="w-full bg-neutral-50 focus:bg-white border border-neutral-100 focus:border-neutral-300 rounded-xl px-4 py-2 text-xs font-bold transition text-neutral-800"
+                      />
+                    </div>
+                  </div>
+
+                  {/* QR Setting */}
+                  <div className="p-4 bg-neutral-50 hover:bg-neutral-100 transition rounded-2xl flex items-start gap-3 border border-neutral-100 mt-2">
+                    <input 
+                      type="checkbox"
+                      id="label_qr_option"
+                      checked={stickerShowQR}
+                      onChange={(e) => setStickerShowQR(e.target.checked)}
+                      className="w-4 h-4 rounded text-neutral-900 focus:ring-neutral-950 mt-0.5 pointer-events-auto cursor-pointer"
+                    />
+                    <div className="flex-1 space-y-1">
+                      <label htmlFor="label_qr_option" className="text-[10px] font-black uppercase tracking-widest cursor-pointer block select-none">
+                        Render Dynamic Scan Code
+                      </label>
+                      <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Generates clean monospaced asset tags instantly</p>
+                      {stickerShowQR && (
+                        <input 
+                          placeholder="QR Payload String"
+                          value={stickerQRText}
+                          onChange={(e) => setStickerQRText(e.target.value)}
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-[11px] font-mono font-bold transition text-neutral-800 placeholder-neutral-400 mt-2 animate-fadeIn"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Color settings */}
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 ml-1 block">Fill Color</label>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="color"
+                          value={stickerColorBg}
+                          onChange={(e) => setStickerColorBg(e.target.value)}
+                          className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent animate-pulse"
+                        />
+                        <input 
+                          value={stickerColorBg}
+                          onChange={(e) => setStickerColorBg(e.target.value)}
+                          className="w-full bg-neutral-50 text-[10px] font-mono font-bold uppercase py-1 px-2 rounded-lg border border-neutral-150"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 ml-1 block">Ink Color</label>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="color"
+                          value={stickerColorText}
+                          onChange={(e) => setStickerColorText(e.target.value)}
+                          className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent animate-pulse"
+                        />
+                        <input 
+                          value={stickerColorText}
+                          onChange={(e) => setStickerColorText(e.target.value)}
+                          className="w-full bg-neutral-50 text-[10px] font-mono font-bold uppercase py-1 px-2 rounded-lg border border-neutral-150"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Live Work Desk / Preview & Print */}
+            <div className="lg:col-span-7 space-y-6">
+              <div className="bg-neutral-900 p-10 rounded-[2.5rem] text-white space-y-6 flex flex-col justify-between min-h-[480px] shadow-2xl relative overflow-hidden group">
+                {/* Visual Workspace grid */}
+                <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:20px_20px] opacity-70 pointer-events-none" />
+
+                <div className="flex items-center justify-between z-10">
+                  <div>
+                    <h4 className="text-sm font-black uppercase tracking-wider text-neutral-300">Workspace Label Desk</h4>
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-neutral-500">Scale: 1:1 Actual Output Size</span>
+                  </div>
+                  <div className="px-3 py-1 bg-white/10 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider text-neutral-400">
+                    Live Feed
+                  </div>
+                </div>
+
+                {/* Simulated Physical Label Desk Canvas Container */}
+                <div className="flex-1 flex items-center justify-center p-8 z-10">
+                  <div
+                    style={{
+                      backgroundColor: stickerColorBg,
+                      color: stickerColorText,
+                      borderColor: stickerColorText,
+                      borderWidth: '3px',
+                      borderRadius: stickerShape === 'rounded-square' || stickerShape === 'rounded-rectangle' ? '1.5rem' : stickerShape === 'circle' ? '9999px' : '0px',
+                      width: `${stickerSize * 4}px`,
+                      height: stickerShape === 'square' || stickerShape === 'rounded-square' || stickerShape === 'circle' ? `${stickerSize * 4}px` : `${stickerSize * 2.5}px`,
+                      aspectRatio: stickerShape === 'square' || stickerShape === 'rounded-square' || stickerShape === 'circle' ? '1 / 1' : '1.6 / 1',
+                    }}
+                    className="shadow-3xl transition-all duration-300 p-6 flex flex-col justify-between items-center text-center select-none"
+                  >
+                    {/* Brand Image Render */}
+                    <div className="flex flex-col items-center justify-center w-full">
+                      {stickerLogoSrc !== 'none' && (
+                        <div className="h-7 mb-1 flex items-center justify-center">
+                          {(() => {
+                            let srcToUse = '';
+                            if (stickerLogoSrc === 'org') {
+                              srcToUse = org?.settings?.branding?.logo || '';
+                            } else if (stickerLogoSrc === 'dept') {
+                              srcToUse = depts.find(d => d.id === selectedStickerDeptId)?.logoUrl || '';
+                            } else if (stickerLogoSrc === 'team') {
+                              srcToUse = teams.find(t => t.id === selectedStickerTeamId)?.logoUrl || '';
+                            }
+                            return srcToUse ? (
+                              <img src={srcToUse} className="max-h-full max-w-[90px] object-contain p-0.5" referrerPolicy="no-referrer" />
+                            ) : (
+                              <span className="text-[7px] font-mono border border-dashed px-1 border-current opacity-40">No Logo</span>
+                            );
+                          })()}
+                        </div>
+                      )}
+                      <div className="text-[9px] font-black uppercase tracking-widest max-w-[160px] truncate break-all opacity-80 leading-tight">
+                        {stickerTextLine1 || 'MEMBER IDENTITY'}
+                      </div>
+                    </div>
+
+                    {/* Main Label text */}
+                    <div className="text-sm font-black uppercase tracking-tight truncate max-w-full leading-none py-1">
+                      {stickerTextLine2 || 'UNCONFIGURED CAPTURE'}
+                    </div>
+
+                    {/* QR block */}
+                    <div className="flex flex-col items-center w-full">
+                      {stickerShowQR && (
+                        <div className="mb-2">
+                          {renderSimulatedQRCode(stickerColorText)}
+                          <div className="text-[8px] font-bold font-mono tracking-wider mt-1 opacity-70">
+                            {stickerQRText || 'TAG-9021'}
+                          </div>
+                        </div>
+                      )}
+                      <div className="text-[9px] font-mono tracking-tight font-medium opacity-80">
+                        {stickerTextLine3 || 'SERIAL: UNASSIGNED'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 items-center z-10 pt-4">
+                  <button
+                    onClick={handlePrintSticker}
+                    className="w-full sm:flex-1 py-4 bg-white text-neutral-900 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition flex items-center justify-center gap-2 shadow-lg"
+                  >
+                    <Printer size={16} />
+                    <span>Print Design Label</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      toast.success("Design Configuration exported to your download directory!");
+                    }}
+                    className="w-full sm:w-auto px-6 py-4 bg-neutral-800 text-neutral-300 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-neutral-700 transition"
+                  >
+                    Export Draft
+                  </button>
+                </div>
+              </div>
+
+              {/* Workplace advice box */}
+              <div className="bg-neutral-50 border border-neutral-100 rounded-3xl p-6 flex gap-4">
+                <div className="text-neutral-400">
+                  <span className="text-xl">💡</span>
+                </div>
+                <div className="space-y-1">
+                  <h5 className="font-black uppercase tracking-widest text-[10px] text-neutral-700">Printing Guidelines</h5>
+                  <p className="text-xs text-neutral-500 leading-relaxed font-semibold">
+                    Set landscape target layout when printing with thermal roll models like Dymo or Brother. If printing custom logo colors, check that your device supports chromatic sublimation transfers.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {activeTab === 'settings' && (
           <motion.div 
             key="settings"
@@ -952,8 +1579,12 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                             onClick={() => toggleNode(dept.id)}
                           >
                             <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedNodes.has(dept.id) ? 'bg-primary/10' : 'bg-white'}`}>
-                                <Layers size={16} />
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden border border-neutral-150 shrink-0 bg-white shadow-sm`}>
+                                {dept.logoUrl ? (
+                                  <img src={dept.logoUrl} className="w-full h-full object-contain p-0.5" referrerPolicy="no-referrer" />
+                                ) : (
+                                  <Layers size={16} className={expandedNodes.has(dept.id) ? "text-primary" : "text-neutral-500"} />
+                                )}
                               </div>
                               <div>
                                 <h5 className="font-bold uppercase tracking-widest text-xs">{dept.name}</h5>
@@ -961,6 +1592,21 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                               </div>
                             </div>
                             <div className="flex items-center gap-4">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingNode({
+                                    type: 'dept',
+                                    id: dept.id,
+                                    name: dept.name,
+                                    logoUrl: dept.logoUrl || ''
+                                  });
+                                }}
+                                className="p-2 hover:bg-neutral-100 text-neutral-400 hover:text-neutral-900 rounded-lg transition-colors"
+                                title="Edit Department Details"
+                              >
+                                <Edit2 size={16} />
+                              </button>
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1014,8 +1660,12 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                                     onClick={() => toggleNode(team.id)}
                                   >
                                     <div className="flex items-center gap-3">
-                                      <div className={`w-6 h-6 rounded flex items-center justify-center ${expandedNodes.has(team.id) ? 'bg-emerald-500 text-white' : 'bg-emerald-50 text-emerald-500'}`}>
-                                        <GitBranch size={14} />
+                                      <div className={`w-6 h-6 rounded overflow-hidden border border-neutral-100 flex items-center justify-center shrink-0 bg-white shadow-sm`}>
+                                        {team.logoUrl ? (
+                                          <img src={team.logoUrl} className="w-full h-full object-contain p-0.5" referrerPolicy="no-referrer" />
+                                        ) : (
+                                          <GitBranch size={14} className={expandedNodes.has(team.id) ? "text-emerald-500 animate-pulse" : "text-neutral-400"} />
+                                        )}
                                       </div>
                                       <div>
                                         <div className="text-[10px] font-bold text-neutral-900">{team.name}</div>
@@ -1023,6 +1673,21 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingNode({
+                                            type: 'team',
+                                            id: team.id,
+                                            name: team.name,
+                                            logoUrl: team.logoUrl || ''
+                                          });
+                                        }}
+                                        className="p-1.5 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded transition-colors"
+                                        title="Edit Team Details"
+                                      >
+                                        <Edit2 size={12} />
+                                      </button>
                                       <button 
                                         onClick={async (e) => {
                                           e.stopPropagation();
@@ -1097,8 +1762,51 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                           placeholder="e.g. Technical Operations"
                           value={newDeptName}
                           onChange={(e) => setNewDeptName(e.target.value)}
-                          className="w-full px-6 py-4 bg-neutral-50 border border-neutral-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-neutral-900 transition"
+                          className="w-full px-6 py-4 bg-neutral-50 border border-neutral-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-neutral-900 transition text-neutral-800"
                         />
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-4 block">Department Logo (Optional)</label>
+                        <div className="flex items-center gap-4 p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
+                          <div className="w-12 h-12 rounded-xl border border-neutral-200 bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                            {newDeptLogoUrl ? (
+                              <img src={newDeptLogoUrl} className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
+                            ) : (
+                              <Layers size={20} className="text-neutral-300" />
+                            )}
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <input 
+                              type="url"
+                              placeholder="Paste logo image URL..."
+                              value={newDeptLogoUrl}
+                              onChange={(e) => setNewDeptLogoUrl(e.target.value)}
+                              className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 placeholder-neutral-400"
+                            />
+                            <div className="flex items-center gap-2">
+                              <label className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-primary cursor-pointer hover:underline">
+                                <Upload size={10} />
+                                <span>Upload File</span>
+                                <input 
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = () => {
+                                      const base64 = reader.result as string;
+                                      setNewDeptLogoUrl(base64);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-4">
@@ -1161,8 +1869,51 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                           placeholder="e.g. Field Engineering"
                           value={newTeamName}
                           onChange={(e) => setNewTeamName(e.target.value)}
-                          className="w-full px-6 py-4 bg-neutral-50 border border-neutral-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-neutral-900 transition"
+                          className="w-full px-6 py-4 bg-neutral-50 border border-neutral-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-neutral-900 transition text-neutral-800"
                         />
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-4 block">Team Logo (Optional)</label>
+                        <div className="flex items-center gap-4 p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
+                          <div className="w-12 h-12 rounded-xl border border-neutral-200 bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                            {newTeamLogoUrl ? (
+                              <img src={newTeamLogoUrl} className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
+                            ) : (
+                              <GitBranch size={20} className="text-neutral-300" />
+                            )}
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <input 
+                              type="url"
+                              placeholder="Paste logo image URL..."
+                              value={newTeamLogoUrl}
+                              onChange={(e) => setNewTeamLogoUrl(e.target.value)}
+                              className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 placeholder-neutral-400"
+                            />
+                            <div className="flex items-center gap-2">
+                              <label className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-primary cursor-pointer hover:underline">
+                                <Upload size={10} />
+                                <span>Upload File</span>
+                                <input 
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = () => {
+                                      const base64 = reader.result as string;
+                                      setNewTeamLogoUrl(base64);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       {!selectedDeptId && (
                         <div className="space-y-1.5">
@@ -1184,6 +1935,110 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                         className="flex-1 py-4 bg-neutral-900 text-white rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition shadow-lg"
                       >
                         Launch Team
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+
+              {editingNode && (
+                <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setEditingNode(null)}>
+                  <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    className="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-md space-y-6"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 text-neutral-900">
+                        <Edit2 size={24} className="text-primary" />
+                        <h3 className="text-2xl font-black uppercase tracking-tighter">
+                          Edit {editingNode.type === 'dept' ? 'Department' : 'Team'}
+                        </h3>
+                      </div>
+                      <button onClick={() => setEditingNode(null)} className="p-2 hover:bg-neutral-100 rounded-full transition">
+                        <X size={20} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-4">Name</label>
+                        <input 
+                          placeholder="Name"
+                          value={editingNode.name}
+                          onChange={(e) => setEditingNode({ ...editingNode, name: e.target.value })}
+                          className="w-full px-6 py-4 bg-neutral-50 border border-neutral-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-neutral-950 transition text-neutral-800"
+                        />
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-[#0066cc] ml-4 block font-mono font-bold">Custom Logo Image</label>
+                        <div className="flex flex-col items-center gap-4 p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
+                          <div className="w-16 h-16 rounded-xl border border-neutral-200 bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-sm relative group">
+                            {editingNode.logoUrl ? (
+                              <img src={editingNode.logoUrl} className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
+                            ) : (
+                              <Layers size={24} className="text-neutral-300 animate-pulse" />
+                            )}
+                          </div>
+                          
+                          <div className="w-full space-y-2">
+                            <div>
+                              <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Direct Logo URL</span>
+                              <input 
+                                type="url"
+                                placeholder="Paste custom logo link..."
+                                value={editingNode.logoUrl || ''}
+                                onChange={(e) => setEditingNode({ ...editingNode, logoUrl: e.target.value })}
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 placeholder-neutral-400"
+                              />
+                            </div>
+                            <div className="flex items-center justify-center gap-2">
+                              <label 
+                                className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-primary cursor-pointer hover:underline"
+                              >
+                                <Upload size={10} />
+                                <span>Upload File</span>
+                                <input 
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.onload = () => {
+                                      const base64 = reader.result as string;
+                                      setEditingNode({ ...editingNode, logoUrl: base64 });
+                                      toast.success("File uploaded to form state");
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }}
+                                />
+                              </label>
+                              {editingNode.logoUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingNode({ ...editingNode, logoUrl: '' })}
+                                  className="text-[9px] font-black uppercase tracking-widest text-red-500 hover:underline"
+                                >
+                                  Clear Image
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <button 
+                        onClick={handleSaveEditingNode}
+                        className="flex-1 py-4 bg-neutral-900 text-white rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition shadow-lg"
+                      >
+                        Save Changes
                       </button>
                     </div>
                   </motion.div>

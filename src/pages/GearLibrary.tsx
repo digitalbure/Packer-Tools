@@ -1797,6 +1797,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-1.5">
               {item.isKit && <Layers size={10} />}
               {item.category}
+              {item.visibility === 'private' && <span className="text-red-500 font-extrabold text-[8px] tracking-normal bg-red-100/60 px-1 py-0.5 rounded">PRIVATE</span>}
             </p>
             <p className="text-[9px] md:text-[10px] font-mono text-neutral-300 tracking-wider">#{item.assetTag.slice(-4)}</p>
           </div>

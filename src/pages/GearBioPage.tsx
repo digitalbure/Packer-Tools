@@ -265,6 +265,33 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
     );
   };
 
+  if (item && item.visibility === 'private' && !isOwnerOfItem) {
+    return (
+      <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-6 sm:p-12">
+        <div className="max-w-md w-full bg-white border border-neutral-200/60 p-8 sm:p-12 rounded-[2rem] shadow-sm text-center space-y-6">
+          <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto">
+            <ShieldAlert size={24} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Security Gate</p>
+            <h2 className="text-xl font-black uppercase tracking-tight">Private Asset</h2>
+          </div>
+          <p className="text-neutral-500 text-sm leading-relaxed">
+            This asset or kit has been marked as <span className="font-bold text-neutral-800">Private</span>. Access is restricted to the owner / preparer of this kit.
+          </p>
+          <div className="pt-4 border-t border-neutral-100 flex flex-col gap-3">
+            <Link to="/library" className="w-full py-3 bg-neutral-900 hover:bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl transition">
+              Go to Your Library
+            </Link>
+            <Link to="/" className="text-xs font-bold text-neutral-400 hover:text-neutral-600 transition">
+              Return Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!isOwnerOfItem) {
     const recoveryEnabled = item.recoveryEnabled !== false;
 
@@ -670,6 +697,21 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                 </div>
               </div>
 
+              <div className="space-y-1 pt-2">
+                <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Visibility & Accessibility</label>
+                <select
+                  value={editForm.visibility || 'public'}
+                  onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value as 'public' | 'private' })}
+                  className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary transition"
+                >
+                  <option value="public">🌐 Public (Accessible via QR scan & sharing)</option>
+                  <option value="private">🔒 Private (Owner only; locks out external access)</option>
+                </select>
+                <p className="text-[9px] text-neutral-400 mt-0.5">
+                  Private kits are prepped for specific internal planning/projects and block scan reports from public finders.
+                </p>
+              </div>
+
               {/* Rental Settings */}
               <div className="bg-neutral-50 p-4 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
@@ -834,6 +876,14 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Purchase Date</p>
                   <p className="font-semibold text-xs mt-1 text-neutral-800">{item.purchaseDate || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Access Visibility</p>
+                  <span className={`inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                    item.visibility === 'private' ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  }`}>
+                    {item.visibility === 'private' ? '🔒 Private Kit' : '🌐 Public Access'}
+                  </span>
                 </div>
               </div>
 

@@ -81,6 +81,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     organizationTip: '',
     quantity: 1,
     isKit: false,
+    visibility: 'public',
     childItemIds: []
   });
 
@@ -752,6 +753,22 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                     <option value="fair">Fair</option>
                     <option value="poor">Poor / Damaged</option>
                   </select>
+                </div>
+
+                {/* Visibility setting */}
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Visibility & Accessibility</label>
+                  <select
+                    value={form.visibility || 'public'}
+                    onChange={(e) => setForm({ ...form, visibility: e.target.value as 'public' | 'private' })}
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary text-xs transition"
+                  >
+                    <option value="public">🌐 Public (Accessible via QR scan and shareable listings)</option>
+                    <option value="private">🔒 Private (Only you, locks out external lookups & scans)</option>
+                  </select>
+                  <p className="text-[9px] text-neutral-400 mt-0.5 leading-normal">
+                    Check Private if this kit was prepped for a specific project, client, or individual who is setting up/planning a specific kit.
+                  </p>
                 </div>
               </div>
 

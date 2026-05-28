@@ -1204,6 +1204,17 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     }
   };
 
+  const handleOpenConvertListToKitModal = () => {
+    if (!list || items.length === 0) {
+      toast.error("Add some items to your list first!");
+      return;
+    }
+    const allItemIds = new Set(items.map(item => item.id));
+    setSelectedItems(allItemIds);
+    setKitName(`${list.name} Kit`);
+    setShowCreateKitModal(true);
+  };
+
   const toggleSelectItem = (itemId: string) => {
     setSelectedItems(prev => {
       const next = new Set(prev);
@@ -1936,6 +1947,16 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     >
                       <Zap size={16} className="text-amber-500 fill-amber-500" />
                       <span className="text-xs uppercase tracking-wider font-extrabold">Save as Template</span>
+                    </button>
+                  )}
+                  {list && (
+                    <button
+                      onClick={handleOpenConvertListToKitModal}
+                      className="flex items-center gap-1.5 px-3.5 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl font-bold transition shadow-sm shrink-0 mr-1"
+                      title="Convert List to a Physical Kit in Library"
+                    >
+                      <Package size={16} className="text-primary" />
+                      <span className="text-xs uppercase tracking-wider font-extrabold">Convert to Kit</span>
                     </button>
                   )}
                   {isPro && (

@@ -30,7 +30,7 @@ import {
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import SignatureCanvas from 'react-signature-canvas';
 import { QRCodeCanvas } from 'qrcode.react';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, updateDoc, onSnapshot, limit, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, addDoc, serverTimestamp, doc, updateDoc, onSnapshot, limit, arrayUnion } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { GearItem, UserProfile, CheckoutRecord, AdminSettings, Container } from '../types';
 import { toast } from 'sonner';
@@ -60,6 +60,18 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     createdAt: Date;
     actionType: KioskAction;
   } | null>(null);
+
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailModalData, setEmailModalData] = useState<{
+    success: boolean;
+    simulated: boolean;
+    recipient: string;
+    subject: string;
+    html: string;
+    notice?: string;
+    error?: string;
+  } | null>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   // Active strategy loaded dynamically from settings
   const activeStrategy = adminSettings?.kioskConfig?.mode || 'direct';
@@ -267,8 +279,27 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     }
   };
 
-  const handleActivate = () => {
-    toast.info("Enter this code in your Admin > Kiosk settings to activate");
+  const handleActivate = async () => {
+    if (!terminalId) return;
+    try {
+      const targetUid = initialUser?.uid;
+      if (!targetUid) {
+        toast.error("Please login first to pair this kiosk with your active account!");
+        return;
+      }
+      await updateDoc(doc(db, 'terminals', terminalId), {
+        status: 'active',
+        ownerUid: targetUid,
+        lastActive: new Date().toISOString()
+      });
+      setPairedUid(targetUid);
+      setIsActivated(true);
+      setStep('welcome');
+      toast.success("Terminal paired and fully activated!");
+    } catch (err) {
+      console.error("Handshake activation failed", err);
+      toast.error("Handshake activation failed");
+    }
   };
 
   useEffect(() => {
@@ -384,32 +415,69 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     });
   };
 
-  const handleScanSuccess = async (assetTag: string) => {
+  const handleScanSuccess = async (scannedValue: string) => {
     if (step === 'case_pack') {
-      handlePackItem(assetTag);
+      handlePackItem(scannedValue);
       return;
     }
     const targetUid = pairedUid || initialUser?.uid;
     if (!targetUid) return;
     setIsLoading(true);
-    try {
-      // Find asset by tag or ID
-      const q = query(collection(db, 'users', targetUid || '', 'gearLibrary'), where('assetTag', '==', assetTag), limit(1));
-      const snapshot = await getDocs(q);
-      
-      let foundItem: GearItem | null = null;
-      if (snapshot.empty) {
-        // Try direct ID lookup
-        const docSnap = await getDocs(query(collection(db, 'users', targetUid || '', 'gearLibrary'), where('id', '==', assetTag), limit(1)));
-        
-        if (docSnap.empty) {
-          toast.error("Asset not found in organization database");
-          setIsLoading(false);
-          return;
+
+    // Extract ID or tag if a full URL was scanned
+    let decodedValue = scannedValue.trim();
+    if (scannedValue.includes('/gear/')) {
+      try {
+        const urlObj = new URL(scannedValue);
+        const pathParts = urlObj.pathname.split('/');
+        const gearIdx = pathParts.indexOf('gear');
+        if (gearIdx !== -1 && pathParts[gearIdx + 1]) {
+          decodedValue = pathParts[gearIdx + 1];
         }
-        foundItem = { id: docSnap.docs[0].id, ...docSnap.docs[0].data() } as GearItem;
+      } catch (e) {
+        const parts = scannedValue.split('/gear/');
+        if (parts[1]) {
+          decodedValue = parts[1].split('?')[0];
+        }
+      }
+    }
+
+    try {
+      let foundItem: GearItem | null = null;
+
+      // 1. First try direct document ID lookup (in case the scanned value is the document ID)
+      const directDocRef = doc(db, 'users', targetUid, 'gearLibrary', decodedValue);
+      const directDocSnap = await getDoc(directDocRef);
+      if (directDocSnap.exists()) {
+        foundItem = { id: directDocSnap.id, ...directDocSnap.data() } as GearItem;
       } else {
-        foundItem = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as GearItem;
+        // 2. Try looking up by the 'assetTag' field (classic tag search)
+        const qTag = query(
+          collection(db, 'users', targetUid, 'gearLibrary'),
+          where('assetTag', '==', decodedValue),
+          limit(1)
+        );
+        const tagSnap = await getDocs(qTag);
+        if (!tagSnap.empty) {
+          foundItem = { id: tagSnap.docs[0].id, ...tagSnap.docs[0].data() } as GearItem;
+        } else {
+          // 3. Fallback: search by 'assetTag' using the raw undecoded value in case the tag was custom
+          const qRawTag = query(
+            collection(db, 'users', targetUid, 'gearLibrary'),
+            where('assetTag', '==', scannedValue),
+            limit(1)
+          );
+          const rawTagSnap = await getDocs(qRawTag);
+          if (!rawTagSnap.empty) {
+            foundItem = { id: rawTagSnap.docs[0].id, ...rawTagSnap.docs[0].data() } as GearItem;
+          }
+        }
+      }
+
+      if (!foundItem) {
+        toast.error("Asset not found in organization database");
+        setIsLoading(false);
+        return;
       }
       
       // Check status restrictions for checkout
@@ -573,6 +641,44 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       toast.error("Bulk check-in failed.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!lastOrderReceipt) return;
+    setIsSendingEmail(true);
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          to: lastOrderReceipt.userEmail,
+          orderNumber: lastOrderReceipt.orderNumber,
+          actionType: lastOrderReceipt.actionType,
+          userName: lastOrderReceipt.userName,
+          items: lastOrderReceipt.items,
+          timestamp: lastOrderReceipt.createdAt.toLocaleString()
+        })
+      });
+      const data = await response.json();
+      if (data && data.success) {
+        setEmailModalData(data);
+        setEmailModalOpen(true);
+        if (data.simulated) {
+          toast.info("Sandbox email simulated & ready for inspection!");
+        } else {
+          toast.success(`Handover email successfully sent to ${lastOrderReceipt.userEmail}!`);
+        }
+      } else {
+        toast.error("Email API returned an error frame.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Mail route offline. Connecting locally...");
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -756,9 +862,9 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
               <div className="space-y-4">
                 <button 
                   onClick={handleActivate}
-                  className="w-full py-6 bg-white text-black rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition"
+                  className="w-full py-6 bg-white text-black rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition shadow-lg"
                 >
-                  Simulate Remote Activation
+                  Instant Active Account Handshake
                 </button>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-[0.2em] font-black">Waiting for secure handshake...</p>
               </div>
@@ -1632,13 +1738,12 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    toast.success(`Packing Receipt emailed to ${lastOrderReceipt.userEmail}`);
-                  }}
-                  className="py-4 bg-neutral-800 hover:bg-neutral-700 text-white border border-white/10 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-lg"
+                  disabled={isSendingEmail}
+                  onClick={() => handleSendEmail()}
+                  className="py-4 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-white border border-white/10 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-lg transition-all"
                 >
-                  <Mail size={14} />
-                  <span>Email Copy</span>
+                  <Mail size={14} className={isSendingEmail ? "animate-spin" : ""} />
+                  <span>{isSendingEmail ? 'Sending...' : 'Email Copy'}</span>
                 </button>
                 <button
                   type="button"
@@ -2093,6 +2198,158 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                       <span>Select a Reservation Ticket on the left to begin packing verification</span>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {emailModalOpen && emailModalData && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 md:p-8 overflow-y-auto"
+          >
+            <div className="bg-neutral-900 text-white rounded-[3rem] border border-white/10 w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+              {/* Header */}
+              <div className="p-6 border-b border-white/5 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-blue-500/10 text-blue-400 rounded-2xl">
+                    <Mail size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight flex items-center gap-2">
+                      <span>Live Handover Receipt Integrator</span>
+                      {emailModalData.simulated && (
+                        <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-black font-mono">SANDBOX SIMULATOR</span>
+                      )}
+                    </h2>
+                    <p className="text-[10px] text-neutral-400 font-extrabold uppercase tracking-widest mt-0.5">
+                      Fiji Logistics & Dispatch System Hub by Digital Bure 🇫🇯
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setEmailModalOpen(false)} 
+                  className="p-3 bg-white/5 hover:bg-white/10 rounded-full transition text-neutral-400 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Main Content Pane */}
+              <div className="flex-1 overflow-hidden grid lg:grid-cols-2">
+                {/* Left pane - Interactive HTML Preview in sandbox */}
+                <div className="p-6 border-r border-white/5 flex flex-col h-full bg-neutral-950/40">
+                  <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
+                    <p className="text-xs font-black uppercase tracking-widest text-neutral-400 flex items-center gap-1.5">
+                      <LayoutGrid size={14} />
+                      <span>Live Rendered Email Draft</span>
+                    </p>
+                    <span className="text-[9px] text-[#2563eb] font-bold font-mono uppercase">invoice_receipt.html</span>
+                  </div>
+                  <div className="flex-1 bg-white rounded-2xl overflow-hidden border border-white/10 shadow-inner relative flex flex-col min-h-[40vh] lg:min-h-0">
+                    <iframe 
+                      title="HTML Email Preview"
+                      srcDoc={emailModalData.html} 
+                      className="w-full h-full border-0 bg-white" 
+                      sandbox="allow-same-origin"
+                    />
+                  </div>
+                </div>
+
+                {/* Right pane - Integration Guide and Documentation */}
+                <div className="p-6 space-y-6 overflow-y-auto h-full flex flex-col">
+                  {/* Status Card */}
+                  <div className="p-5 bg-neutral-800/60 rounded-2xl border border-white/5 space-y-3 shrink-0">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-[#2563eb]">Dispatch Telemetry Status</h3>
+                    <div className="grid grid-cols-2 gap-4 text-xs font-mono">
+                      <div>
+                        <p className="text-neutral-500">RECIPIENT EMAIL:</p>
+                        <p className="font-bold text-neutral-300 truncate">{emailModalData.recipient}</p>
+                      </div>
+                      <div>
+                        <p className="text-neutral-500">SUBJECT LINE:</p>
+                        <p className="font-bold text-neutral-300 truncate">{emailModalData.subject}</p>
+                      </div>
+                      <div>
+                        <p className="text-neutral-500">DELIVERY STATUS:</p>
+                        <p className="flex items-center gap-1">
+                          <span className={`w-2 h-2 rounded-full ${emailModalData.simulated ? "bg-amber-400" : "bg-emerald-500 animate-pulse"}`}></span>
+                          <span className="font-extrabold uppercase">
+                            {emailModalData.simulated ? "Simulated Successful" : "Sent to Dispatcher"}
+                          </span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-neutral-500 font-bold">INTEGRATED API:</p>
+                        <p className="font-bold text-neutral-300">{emailModalData.simulated ? "Local Sandbox Client" : "Resend Cloud Mailer"}</p>
+                      </div>
+                    </div>
+                    {emailModalData.notice && (
+                      <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] leading-relaxed text-amber-400 font-medium">
+                        ⚠️ <strong>Config Assist Notice:</strong> {emailModalData.notice}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Integration Tutorial Code card */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-neutral-400 border-b border-white/5 pb-2">
+                      <QrCode size={14} className="text-blue-400" />
+                      <span>Production Deployment Guide</span>
+                    </div>
+
+                    <div className="space-y-4 text-xs leading-relaxed text-neutral-400">
+                      <p>
+                        To send automated emails on <strong>Checkout</strong> and <strong>Check-In</strong>, Packer Tools integrates with transactional API dispatchers like <strong>Resend</strong> or <strong>SendGrid</strong> on the full-stack server-side layer.
+                      </p>
+
+                      <strong className="text-white block mt-2">1. Set Up Environment Variables</strong>
+                      <p>
+                        Add your transactional email secret key to your platform environment parameters.
+                        Define the key in your local <code>.env</code> settings pane:
+                      </p>
+                      <pre className="bg-black/60 p-4 rounded-xl border border-white/5 overflow-x-auto text-[10px] text-neutral-300 font-mono">
+{`# File: .env
+RESEND_API_KEY="re_A6yG8x...YourAPIKeyHere"`}
+                      </pre>
+
+                      <strong className="text-white block mt-2">2. Deployment Workflow options</strong>
+                      <div className="space-y-3 bg-neutral-950/40 p-4 rounded-2xl border border-white/5">
+                        <div className="space-y-1">
+                          <p className="text-white font-extrabold text-[11px] uppercase tracking-wide">Option A: Firestore Collection Trigger (Recommended)</p>
+                          <p className="text-[10px] leading-normal text-neutral-500">
+                            Deploy a standard Firebase Cloud Function checking the <code>checkouts</code> Firestore collection. On every <code>onCreate</code> or <code>onUpdate</code> record event, extract user metadata and call Resend API automatically. This is fully secure, failsafe, and works separate of the user's browser.
+                          </p>
+                        </div>
+                        <div className="space-y-1 border-t border-white/5 pt-2">
+                          <p className="text-white font-extrabold text-[11px] uppercase tracking-wide">Option B: Server Side API Route Proxy (Active)</p>
+                          <p className="text-[10px] leading-normal text-neutral-500">
+                            Our Express backend includes a live router at <code>/server.ts</code>. When handovers complete, the client triggers a POST request to <code>/api/send-email</code>. This server-side proxy handles secure email delivery without exposing credentials to the client.
+                          </p>
+                        </div>
+                      </div>
+
+                      <strong className="text-white block mt-2">3. Fijian digital support</strong>
+                      <p className="text-[10px] leading-normal">
+                        Developed and designed by <strong>Digital Bure Fiji</strong>. Visually integrated with real Fijian hospitality. Visit <a href="https://digitalbure.com" target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">digitalbure.com</a> to onboard production email accounts, configure white-labeled agency emails, or consult on database pipelines.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions footer */}
+                  <div className="pt-4 border-t border-white/5 mt-auto flex justify-end shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setEmailModalOpen(false)}
+                      className="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer"
+                    >
+                      Dismiss Sandbox Viewer
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

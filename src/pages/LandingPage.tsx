@@ -16,6 +16,73 @@ const iconMap: { [key: string]: React.ReactNode } = {
   Package: <Package size={24} />
 };
 
+const DEFAULT_SCENARIOS = [
+  {
+    title: "Film & Photo Production",
+    image: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=800",
+    industry: "Cinema Crews & Live Broadcasters",
+    description: "Camera operators, DITs, and rental houses tracking cine gear, active lenses, and rigs across intense production schedules. Simple QR scans instantly verify kit checkouts."
+  },
+  {
+    title: "Alpine & Field Expeditions",
+    image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800",
+    industry: "Mountaineers, Guides & Explorers",
+    description: "Safety leads preparing cold-weather equipment lists. Dynamic weight metrics provide critical trail-load visibility to optimize cargo distribution on mountain slopes."
+  },
+  {
+    title: "Tactical & Clinical Dispatch",
+    image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=800",
+    industry: "Tactical Logistics & Medical Teams",
+    description: "Clinical responders and field technicians deploying search/life-support kits under high-pressure scenarios. Kiosk check-in logs ensure secure, non-reputable custody verification."
+  },
+  {
+    title: "Asset Co-ops & Digital Garages",
+    image: "https://images.unsplash.com/photo-1533560904424-a0c61dc306fc?auto=format&fit=crop&q=80&w=800",
+    industry: "Tool Cooperatives & Shared Repots",
+    description: "Rental establishments or community gear rooms organizing items with real-time maintenance logs, health scoring, and one-click public listing deployment."
+  }
+];
+
+const DEFAULT_FAQ = [
+  {
+    question: "How do Public vs. Private kit settings work?",
+    answer: "Each kit prepared by an owner can have its visibility adjusted. Private kits restrict access to the authorized preparer—extremely useful when prepping gear lists for specific clients, experimental builds, or confidential teams. Public lists can be shared via QR code scanning or hyperlinks with clients and field team associates so they can review packing specs easily."
+  },
+  {
+    question: "What exactly is the Gemini-powered AI Shutter Scan?",
+    answer: "It is our deep-learning equipment logger. Snapshot or upload a photo of your hardware—such as a cinema camera body, drone, lenses, or clinical box—and our integrated Gemini API instantly parses manufacturer attributes, model spec details, and outputs dynamic description templates."
+  },
+  {
+    question: "Can I use existing vinyl barcodes or physical QR tags?",
+    answer: "Absolutely! Packer Tools creates dedicated asset passport URLs for every unit. You can print our beautiful QR tags on standard sheets, or link your existing barcode labels, serial tags, or engraved steel metal stamps directly into your item records."
+  },
+  {
+    question: "What target industries rely on Packer Tools?",
+    answer: "Our software is built specifically for commercial filmmakers, touring theatrical stage crews, search response leads, high-altitude outdoors programs, and shared equipment libraries where a single missing accessory halts full operations."
+  }
+];
+
+const DEFAULT_TESTIMONIALS = [
+  {
+    content: "Packer Tools has reduced kit errors to absolute zero. Before trucks depart, crew members take active scans of our private packages, and our dashboard flags any missing auxiliary wire or battery.",
+    name: "Marcus Vance",
+    role: "Core Cinematographer",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150"
+  },
+  {
+    content: "When climbing remote alpine runs, carry weight is survival. The app's dynamic weight-planning indices let us coordinate survival equipment lists and pack lists down to the gram.",
+    name: "Elena Rostova",
+    role: "Outdoor Safety Leader",
+    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150"
+  },
+  {
+    content: "Our crisis responder medical packs require extreme precision. The kiosk handshake removes compliance guesswork and assures on-scene professionals that kits are perfect.",
+    name: "Dr. Kenji Tanaka",
+    role: "Disaster Logistics Lead",
+    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150"
+  }
+];
+
 const IndustrialTicker = ({ pairs }: { pairs: { by: string, for: string }[] }) => {
   const [index, setIndex] = useState(0);
 
@@ -415,8 +482,6 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
 
       {/* Safety Stripe Divider */}
       <div className="h-4 safety-stripes w-full" />
-
-      {/* Scenarios - Industrial Style */}
       {(lp?.scenarios?.isEnabled !== false) && (
         <section id="scenarios" className="py-24 border-t border-primary/10 bg-paper/50 relative overflow-hidden">
           <div className="px-8 max-w-7xl mx-auto space-y-16 relative z-10">
@@ -426,30 +491,30 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
                   <div className="w-2 h-2 bg-safety-yellow rounded-full animate-pulse" />
                   <span className="micro-label">Field Operations</span>
                 </div>
-                <h2 className="text-5xl font-black tracking-tighter uppercase">{lp?.scenarios?.title || 'The Standard Across Industries'}</h2>
+                <h2 className="text-5xl font-black tracking-tighter uppercase text-primary">{lp?.scenarios?.title || 'Target Sectors & Use Cases'}</h2>
               </div>
               <p className="text-neutral-500 max-w-sm text-sm font-medium">
-                {lp?.scenarios?.subtitle || 'From independent creators to global logistics teams, Packer Tools provides the infrastructure for visual gear management and versioned workflows.'}
+                {lp?.scenarios?.subtitle || 'Engineered directly for critical industries requiring absolute digital accountability of physical hardware. Build, verify, and pack with zero list leakage.'}
               </p>
             </div>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {( (lp?.scenarios as any)?.items || [
-                { title: "Film Production", image: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=800" },
-                { title: "Alpine Expeditions", image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800" },
-                { title: "Tactical Logistics", image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=800" },
-                { title: "Extreme Sports", image: "https://images.unsplash.com/photo-1533560904424-a0c61dc306fc?auto=format&fit=crop&q=80&w=800" }
-              ] as any[] ).map((s: any, i: number) => (
+ 
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {((lp?.scenarios as any)?.items || DEFAULT_SCENARIOS).map((s: any, i: number) => (
                 <motion.div 
                   key={i}
                   whileHover={{ y: -5 }}
-                  className="relative aspect-[3/4] rounded-2xl overflow-hidden group cursor-pointer border border-primary/5"
+                  className="bg-white rounded-[2rem] border border-primary/5 p-6 space-y-6 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between"
                 >
-                  <img src={s.image} alt={s.title} className="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" referrerPolicy="no-referrer" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/20 to-transparent opacity-80 group-hover:opacity-95 transition-opacity" />
-                  <div className="absolute bottom-6 left-6 right-6 text-white">
-                    <div className="font-mono text-[10px] text-safety-yellow mb-1 tracking-widest">0{i + 1} // SECTOR</div>
-                    <div className="text-xl font-black uppercase tracking-tight">{s.title}</div>
+                  <div className="space-y-4">
+                    <div className="relative aspect-[4/3] rounded-2xl overflow-hidden group">
+                      <img src={s.image} alt={s.title} className="absolute inset-0 w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" referrerPolicy="no-referrer" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent opacity-40 animate-pulse" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="font-mono text-[8px] text-accent tracking-widest font-black uppercase">SECTOR 0{i + 1} // {s.industry || 'FIELD WORKLAND'}</div>
+                      <h3 className="text-xl font-black uppercase tracking-tight text-neutral-900 leading-tight">{s.title}</h3>
+                      <p className="text-xs text-neutral-500 leading-relaxed font-semibold">{s.description || s.useCase}</p>
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -462,21 +527,21 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
       <div className="h-4 safety-stripes w-full" />
 
       {/* Testimonials */}
-      {(lp?.testimonials?.isEnabled) && (
+      {(lp?.testimonials?.isEnabled !== false) && (
         <section className="py-24 px-8 max-w-7xl mx-auto">
           <div className="text-center space-y-4 mb-16">
-            <h2 className="text-5xl font-black tracking-tighter uppercase">{lp.testimonials.title}</h2>
-            <p className="text-neutral-500 font-medium">{lp.testimonials.subtitle}</p>
+            <h2 className="text-5xl font-black tracking-tighter uppercase text-primary">{lp?.testimonials?.title || "HEARD FROM ACTIVE OPERATIONS"}</h2>
+            <p className="text-neutral-500 font-medium max-w-md mx-auto">{lp?.testimonials?.subtitle || "Real field feedback from engineers and safety leads trusted to pack and deploy critical hardware."}</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {lp.testimonials.items.map((t, i) => (
-              <div key={i} className="bg-white p-8 rounded-3xl border border-neutral-100 shadow-sm space-y-6">
-                <p className="text-lg font-medium leading-relaxed italic text-neutral-600">"{t.content}"</p>
-                <div className="flex items-center gap-4">
-                  {t.avatar && <img src={t.avatar} alt={t.name} className="w-12 h-12 rounded-full object-cover" referrerPolicy="no-referrer" />}
+            {(lp?.testimonials?.items || DEFAULT_TESTIMONIALS).map((t: any, i: number) => (
+              <div key={i} className="bg-white p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6 hover:shadow-md transition-all">
+                <p className="text-sm font-medium leading-relaxed italic text-neutral-600">"{t.content}"</p>
+                <div className="flex items-center gap-4 pt-2 border-t border-neutral-50">
+                  {t.avatar && <img src={t.avatar} alt={t.name} className="w-12 h-12 rounded-full object-cover border border-neutral-200" referrerPolicy="no-referrer" />}
                   <div>
-                    <div className="font-black uppercase tracking-tighter">{t.name}</div>
-                    <div className="text-xs text-neutral-400 font-bold uppercase tracking-widest">{t.role}</div>
+                    <div className="font-black uppercase tracking-tighter text-neutral-800">{t.name}</div>
+                    <div className="text-[10px] text-neutral-400 font-extrabold uppercase tracking-widest">{t.role}</div>
                   </div>
                 </div>
               </div>
@@ -486,17 +551,19 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
       )}
 
       {/* FAQ Section */}
-      {(lp?.faq?.isEnabled) && (
-        <section className="py-24 px-8 max-w-4xl mx-auto">
+      {(lp?.faq?.isEnabled !== false) && (
+        <section id="faq" className="py-24 px-8 max-w-4xl mx-auto border-t border-neutral-100">
           <div className="text-center space-y-4 mb-16">
-            <h2 className="text-5xl font-black tracking-tighter uppercase">{lp.faq.title}</h2>
-            <p className="text-neutral-500 font-medium">{lp.faq.subtitle}</p>
+            <h2 className="text-5xl font-black tracking-tighter uppercase text-primary">{lp?.faq?.title || "FREQUENT HANDSHAKES & FAQ"}</h2>
+            <p className="text-neutral-500 font-medium">{lp?.faq?.subtitle || "Everything you need to know about Packer's digital-to-physical inventory pipeline."}</p>
           </div>
           <div className="space-y-4">
-            {lp.faq.items.map((item, i) => (
-              <div key={i} className="bg-white p-8 rounded-3xl border border-neutral-100 shadow-sm space-y-4">
-                <h3 className="text-xl font-black uppercase tracking-tight text-primary">{item.question}</h3>
-                <p className="text-neutral-500 leading-relaxed font-medium">{item.answer}</p>
+            {(lp?.faq?.items || DEFAULT_FAQ).map((item: any, i: number) => (
+              <div key={i} className="bg-white p-8 rounded-3xl border border-neutral-150/60 shadow-sm space-y-3 hover:border-neutral-300 transition-all">
+                <h3 className="text-base font-black uppercase tracking-tight text-neutral-900 flex items-center gap-2">
+                  <span className="text-accent font-mono font-black py-0.5 px-2 bg-neutral-100 rounded text-xs select-none">Q</span> {item.question}
+                </h3>
+                <p className="text-neutral-500 text-xs sm:text-sm leading-relaxed font-semibold pl-7">{item.answer}</p>
               </div>
             ))}
           </div>
@@ -569,7 +636,7 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-8 border-t border-primary/5">
+      <footer className="py-12 px-8 border-t border-primary/5 bg-neutral-50/50">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
@@ -578,19 +645,23 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
             <span className="font-black uppercase tracking-tighter">{lp?.header?.logoText || 'Packer Tools'}</span>
           </div>
           <div className="flex gap-8 text-sm font-medium text-neutral-400">
-            {(lp?.footer?.links && lp.footer.links.length > 0) ? lp.footer.links.map((link, i) => (
+            {(lp?.footer?.links && lp.footer.links.length > 0) ? lp.footer.links.map((link: any, i: number) => (
               <a key={i} href={link.href} className="hover:text-primary transition">{link.label}</a>
             )) : (
               <>
                 <Link to="/privacy" className="hover:text-primary transition">Privacy</Link>
                 <Link to="/terms" className="hover:text-primary transition">Terms</Link>
                 <Link to="/contact" className="hover:text-primary transition">Contact</Link>
-                <Link to="/help" className="hover:text-primary transition">Help</Link>
               </>
             )}
           </div>
-          <div className="text-xs text-neutral-400">
-            {lp?.footer?.copyright || `© ${new Date().getFullYear()} Packer Tools. All rights reserved.`}
+          <div className="flex flex-col items-center md:items-end gap-1.5 text-xs text-neutral-400">
+            <div>
+              {lp?.footer?.copyright || `© ${new Date().getFullYear()} Packer Tools. All rights reserved.`}
+            </div>
+            <div className="flex items-center gap-1 font-bold text-neutral-500">
+              App by <a href="https://digitalbure.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary underline decoration-primary font-black tracking-tight transition-all">Digital Bure 🇫🇯</a>
+            </div>
           </div>
         </div>
       </footer>

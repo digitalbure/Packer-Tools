@@ -37,7 +37,8 @@ import {
   Book,
   ListChecks,
   Camera,
-  AlertCircle
+  AlertCircle,
+  Cpu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings, FeatureKey } from '../types';
@@ -121,6 +122,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
 
   const adminNavItems = [
     { to: '/admin?tab=analytics', label: 'Platform Analytics', icon: <BarChart3 size={20} /> },
+    { to: '/admin?tab=telemetry', label: 'Resource Monitor', icon: <Cpu size={20} /> },
     { to: '/admin?tab=organizations', label: 'Organizations', icon: <Building2 size={20} /> },
     { to: '/admin?tab=users', label: 'Manage Users', icon: <Users size={20} /> },
     { to: '/admin?tab=projects', label: 'Global Projects', icon: <Briefcase size={20} /> },
@@ -658,6 +660,18 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
           <LogOut size={20} className="shrink-0" />
           {!isCollapsed && <span className="text-sm">Logout</span>}
         </button>
+
+        {/* Release Version Stamp */}
+        <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
+          <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
+            {isCollapsed ? 'v1.0.0-β' : 'Version 1.0.0-beta.1'}
+          </span>
+          {!isCollapsed && (
+            <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest mt-1 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">
+              Active Beta Test
+            </span>
+          )}
+        </div>
       </div>
     </motion.aside>
   </>

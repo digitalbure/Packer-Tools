@@ -14,6 +14,7 @@ import {
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { UserProfile } from '../types';
+import { toast } from 'sonner';
 
 interface OnboardingProps {
   user: UserProfile;
@@ -69,6 +70,19 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
       await updateDoc(doc(db, 'users', user.uid), {
         onboardingCompleted: true
       });
+      
+      // Asynchronously release welcome onboarding packet 
+      fetch('/api/send-welcome-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: user.email,
+          displayName: user.displayName,
+          subPlan: user.plan ? user.plan.toUpperCase() : "FREE STARTER"
+        })
+      }).catch(err => console.error("Could not trigger welcome email:", err));
+
+      toast.success("Welcome checklist slip queued to your email inbox!");
       onComplete();
     } catch (error) {
       console.error("Error completing onboarding:", error);

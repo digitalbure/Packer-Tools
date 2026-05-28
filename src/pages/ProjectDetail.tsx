@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Project, PackingList, UserProfile, Rack } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,6 +20,7 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
   const [racks, setRacks] = useState<Rack[]>([]);
   const [allUserRacks, setAllUserRacks] = useState<Rack[]>([]);
   const [loading, setLoading] = useState(true);
+  const [snapshots, setSnapshots] = useState<any[]>([]);
   const [isAddingList, setIsAddingList] = useState(false);
   const [isAddingRack, setIsAddingRack] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -112,6 +113,15 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
 
     fetchAllLists();
   }, [isAddingList, user.uid, project?.listIds]);
+
+  useEffect(() => {
+    if (!id) return;
+    const qSnapshots = query(collection(db, 'projects', id, 'snapshots'));
+    const unsubscribeSnaps = onSnapshot(qSnapshots, (snap) => {
+      setSnapshots(snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as any)).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    });
+    return unsubscribeSnaps;
+  }, [id]);
 
   useEffect(() => {
     if (!isAddingRack) return;
@@ -343,6 +353,39 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
   const toggleBuildMode = async () => {
     if (!id || !project) return;
     try {
+      let itemsToSave: any[] = [];
+      if (project.isBuildMode) {
+        // Build mode is being turned off. Find the sandboxed buildItems and auto create snapshot!
+        const buildItemsSnap = await getDocs(
+          query(
+            collection(db, 'buildItems'),
+            where('projectId', '==', id),
+            where('ownerId', '==', user.uid)
+          )
+        );
+        itemsToSave = buildItemsSnap.docs.map(d => ({
+          name: d.data().name || '',
+          brand: d.data().brand || '',
+          model: d.data().model || '',
+          category: d.data().category || '',
+          price: d.data().price || 0,
+          quantity: d.data().quantity || 1,
+          type: d.data().type || 'component'
+        }));
+
+        if (itemsToSave.length > 0) {
+          await addDoc(collection(db, 'projects', id, 'snapshots'), {
+            projectId: id,
+            timestamp: new Date().toISOString(),
+            projectName: project.name,
+            projectVersion: project.version || 1,
+            items: itemsToSave,
+            totalCost: itemsToSave.reduce((acc, item) => acc + (Number(item.price || 0) * (Number(item.quantity) || 1)), 0)
+          });
+          toast.success("Automatic revert snapshot v" + (project.version || 1) + " catalogued");
+        }
+      }
+
       await updateDoc(doc(db, 'projects', id), {
         isBuildMode: !project.isBuildMode,
         updatedAt: new Date().toISOString()
@@ -350,6 +393,52 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
       toast.success(project.isBuildMode ? "Build Mode Disabled" : "Build Mode Activated");
     } catch (error) {
       toast.error("Failed to toggle Build Mode");
+    }
+  };
+
+  const handleRevertSnapshot = async (snapshot: any) => {
+    if (!id || !project || !window.confirm(`Are you sure you want to revert your sandbox build state to the snapshot from ${new Date(snapshot.timestamp).toLocaleString()}? This will replace your current build items.`)) return;
+    
+    try {
+      // 1. Fetch current buildItems
+      const buildItemsSnap = await getDocs(
+        query(
+          collection(db, 'buildItems'),
+          where('projectId', '==', id),
+          where('ownerId', '==', user.uid)
+        )
+      );
+
+      // 2. Delete all existing buildItems
+      const batch = writeBatch(db);
+      buildItemsSnap.docs.forEach(docSnap => {
+        batch.delete(docSnap.ref);
+      });
+
+      // 3. Put snapshot items back in
+      snapshot.items.forEach((item: any) => {
+        const itemRef = doc(collection(db, 'buildItems'));
+        batch.set(itemRef, {
+          ...item,
+          projectId: id,
+          ownerId: user.uid,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      });
+
+      // 4. Update project to enable Build Mode and match the snapshot version if desired
+      batch.update(doc(db, 'projects', id), {
+        isBuildMode: true,
+        version: snapshot.projectVersion,
+        updatedAt: new Date().toISOString()
+      });
+
+      await batch.commit();
+      toast.success("Sandbox state restored successfully!");
+    } catch (e) {
+      toast.error("Failed to restore sandbox state");
+      console.error(e);
     }
   };
 
@@ -628,22 +717,81 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
                 exit={{ opacity: 0, x: 20 }}
               >
                 {!project.isBuildMode ? (
-                  <div className="bg-white rounded-2xl sm:rounded-[3rem] p-6 sm:p-12 md:p-20 text-center border border-neutral-100 shadow-xl space-y-6 sm:space-y-8">
-                    <div className="w-24 h-24 bg-amber-50 text-amber-500 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
-                      <Hammer size={48} />
+                  <div className="grid md:grid-cols-12 gap-8 items-start animate-fadeIn">
+                    {/* Activation Panel */}
+                    <div className="md:col-span-5 bg-white rounded-[2rem] p-8 sm:p-10 text-center border border-neutral-100 shadow-xl space-y-6">
+                      <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+                        <Hammer size={32} />
+                      </div>
+                      <div className="space-y-2">
+                         <h3 className="text-xl font-black uppercase tracking-tight">Integrator Sandbox</h3>
+                         <p className="text-neutral-500 text-xs font-semibold leading-relaxed max-w-xs mx-auto">
+                           Onboard virtual components, analyze rigs, and build systems without affecting your core inventory.
+                         </p>
+                      </div>
+                      <button 
+                        onClick={toggleBuildMode}
+                        className="w-full bg-neutral-900 text-white py-3.5 px-6 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:scale-[1.02] active:scale-95 transition"
+                      >
+                        Activate Build Mode
+                      </button>
                     </div>
-                    <div className="space-y-2">
-                       <h3 className="text-3xl font-black uppercase tracking-tighter">Integrator Sandbox</h3>
-                       <p className="text-neutral-500 font-medium max-w-md mx-auto">
-                         Onboard virtual components, analyze rigs, and build systems without affecting your core inventory.
-                       </p>
+
+                    {/* Snapshots History Panel */}
+                    <div className="md:col-span-7 bg-white rounded-[2rem] p-8 border border-neutral-100 shadow-xl space-y-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                          <History size={18} />
+                        </div>
+                        <div>
+                          <h4 className="font-black uppercase tracking-tight text-xs text-neutral-800">Sandbox Version Snapshots</h4>
+                          <span className="text-[8px] font-mono font-bold uppercase tracking-widest text-neutral-400">Automatic revert history log</span>
+                        </div>
+                      </div>
+
+                      {snapshots.length === 0 ? (
+                        <div className="py-12 px-6 border-2 border-dashed border-neutral-100 rounded-2xl text-center text-neutral-400">
+                          <History size={32} className="mx-auto text-neutral-300 mb-2 animate-pulse" />
+                          <p className="text-[10px] font-black uppercase tracking-widest">No snapshots catalogued yet</p>
+                          <p className="text-[9px] text-neutral-400 font-medium leading-relaxed max-w-xs mx-auto mt-1 uppercase">
+                            An automatic timestamped version will save when Build Mode is toggled off.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                          {snapshots.map((snap) => (
+                            <div 
+                              key={snap.id} 
+                              className="p-3.5 bg-neutral-50 hover:bg-neutral-100 transition rounded-xl border border-neutral-150 flex items-center justify-between gap-4"
+                            >
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-0.5 bg-neutral-900 text-white text-[8px] font-black uppercase rounded font-mono">
+                                    V{snap.projectVersion || 1} Draft
+                                  </span>
+                                  <span className="text-[10px] font-black text-neutral-700">
+                                    {snap.items?.length || 0} Elements
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[9px] text-neutral-400 font-bold uppercase tracking-wider">
+                                  <Calendar size={10} />
+                                  <span>{new Date(snap.timestamp).toLocaleString()}</span>
+                                </div>
+                                <div className="text-[9px] font-mono text-neutral-400 uppercase font-black">
+                                  Total Cost: <span className="text-[#0066cc]">${(snap.totalCost || 0).toLocaleString()}</span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleRevertSnapshot(snap)}
+                                className="px-3 py-2 bg-neutral-900 hover:bg-primary text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition shadow-sm"
+                              >
+                                Restore
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <button 
-                      onClick={toggleBuildMode}
-                      className="bg-neutral-900 text-white px-10 py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] shadow-2xl hover:scale-105 transition"
-                    >
-                      Activate Build Mode
-                    </button>
                   </div>
                 ) : (
                   <BuildModule project={project} user={user} />

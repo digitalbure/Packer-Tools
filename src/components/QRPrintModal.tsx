@@ -39,11 +39,34 @@ const PRESETS: Record<LabelConfig['layout'], Partial<LabelConfig>> = {
   tiny: { width: 12, height: 12, qrSize: 10, fontSize: 0, showName: false, showBrand: false, showTag: false, columns: 8 },
 };
 
+interface LabelTemplate {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  qrSize: number;
+  fontSize: number;
+  columns: number;
+  layout: LabelConfig['layout'];
+}
+
+const TEMPLATES: LabelTemplate[] = [
+  { id: 'custom', name: 'Custom Dimensions', width: 76, height: 50, qrSize: 35, fontSize: 10, columns: 3, layout: 'standard' },
+  { id: 'dymo30334', name: 'Dymo 30334 (2.25" x 1.25")', width: 57, height: 32, qrSize: 22, fontSize: 8, columns: 4, layout: 'standard' },
+  { id: 'brotherTZe', name: 'Brother TZe (12mm Tape / Wrap)', width: 36, height: 12, qrSize: 9, fontSize: 6, columns: 5, layout: 'cable' },
+  { id: 'brotherTZe24', name: 'Brother TZe (24mm Ribbon)', width: 50, height: 24, qrSize: 18, fontSize: 8, columns: 4, layout: 'standard' },
+  { id: 'averyA4', name: 'Standard Avery A4 (63.5 x 33.9mm)', width: 64, height: 34, qrSize: 24, fontSize: 9, columns: 3, layout: 'standard' },
+  { id: 'square', name: 'Square Sticker (25 x 25mm)', width: 25, height: 25, qrSize: 18, fontSize: 6, columns: 6, layout: 'square' },
+  { id: 'cable', name: 'Heavy Duty Cable Wrap', width: 100, height: 12, qrSize: 10, fontSize: 6, columns: 2, layout: 'cable' },
+  { id: 'tiny', name: 'Micro Tag (12 x 12mm)', width: 12, height: 12, qrSize: 10, fontSize: 0, columns: 8, layout: 'tiny' }
+];
+
 export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintModalProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [showDesign, setShowDesign] = useState(false);
   const [smartMode, setSmartMode] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('custom');
   
   const isPro = user?.plan === 'pro' || user?.plan === 'enterprise';
 
@@ -59,6 +82,27 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
     columns: 3
   });
 
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (templateId === 'custom') return;
+    const selected = TEMPLATES.find(t => t.id === templateId);
+    if (selected) {
+      setSmartMode(false);
+      setConfig(prev => ({
+        ...prev,
+        width: selected.width,
+        height: selected.height,
+        qrSize: selected.qrSize,
+        fontSize: selected.fontSize,
+        layout: selected.layout,
+        columns: selected.columns,
+        showName: selected.layout !== 'tiny',
+        showBrand: selected.layout !== 'tiny',
+        showTag: selected.layout !== 'tiny'
+      }));
+    }
+  };
+
   const applyPreset = (layout: LabelConfig['layout']) => {
     setSmartMode(false);
     setConfig(prev => ({
@@ -66,6 +110,10 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
       ...PRESETS[layout],
       layout
     }));
+    if (layout === 'standard') setSelectedTemplateId('custom');
+    else if (layout === 'square') setSelectedTemplateId('square');
+    else if (layout === 'cable') setSelectedTemplateId('cable');
+    else if (layout === 'tiny') setSelectedTemplateId('tiny');
   };
 
   const getSmartConfig = (item: PrintableItem): LabelConfig => {
@@ -218,6 +266,22 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
 
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-neutral-400">
+                          <Layout size={14} />
+                          <span>Physical Label Size</span>
+                        </div>
+                        <select
+                          value={selectedTemplateId}
+                          onChange={(e) => handleTemplateChange(e.target.value)}
+                          className="w-full p-3 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none cursor-pointer text-neutral-800 focus:ring-2 focus:ring-primary"
+                        >
+                          {TEMPLATES.map(t => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-neutral-400">
                           <Maximize2 size={14} />
                           <span>Dimensions (mm)</span>
                         </div>
@@ -227,7 +291,10 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                             <input 
                               type="number" 
                               value={config.width} 
-                              onChange={(e) => setConfig(prev => ({ ...prev, width: Number(e.target.value) }))}
+                              onChange={(e) => {
+                                setConfig(prev => ({ ...prev, width: Number(e.target.value) }));
+                                setSelectedTemplateId('custom');
+                              }}
                               className="w-full p-2 bg-white border border-neutral-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
                             />
                           </div>
@@ -236,7 +303,10 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                             <input 
                               type="number" 
                               value={config.height} 
-                              onChange={(e) => setConfig(prev => ({ ...prev, height: Number(e.target.value) }))}
+                              onChange={(e) => {
+                                setConfig(prev => ({ ...prev, height: Number(e.target.value) }));
+                                setSelectedTemplateId('custom');
+                              }}
                               className="w-full p-2 bg-white border border-neutral-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
                             />
                           </div>
@@ -248,7 +318,10 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                             min="5" 
                             max={Math.min(config.width, config.height)} 
                             value={config.qrSize} 
-                            onChange={(e) => setConfig(prev => ({ ...prev, qrSize: Number(e.target.value) }))}
+                            onChange={(e) => {
+                              setConfig(prev => ({ ...prev, qrSize: Number(e.target.value) }));
+                              setSelectedTemplateId('custom');
+                            }}
                             className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-primary"
                           />
                         </div>
@@ -266,7 +339,10 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                             min="0" 
                             max="24" 
                             value={config.fontSize} 
-                            onChange={(e) => setConfig(prev => ({ ...prev, fontSize: Number(e.target.value) }))}
+                            onChange={(e) => {
+                              setConfig(prev => ({ ...prev, fontSize: Number(e.target.value) }));
+                              setSelectedTemplateId('custom');
+                            }}
                             className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-primary"
                           />
                         </div>
@@ -309,7 +385,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
               <div className="flex-1 overflow-hidden flex flex-col print:block">
                 {/* Selection Area - Hidden on Print */}
                 <div className="p-8 border-b border-neutral-100 space-y-4 print:hidden">
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
                   <div className="flex-1 relative">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
                     <input
@@ -320,9 +396,24 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                       className="w-full pl-12 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition"
                     />
                   </div>
+
+                  {/* Physical Label Template Select */}
+                  <div className="flex items-center gap-2 bg-neutral-100/60 pl-4 pr-2 py-1.5 border border-neutral-200 rounded-2xl shrink-0">
+                    <label className="text-[10px] font-black uppercase text-neutral-400 tracking-wider shrink-0">Label Size:</label>
+                    <select
+                      value={selectedTemplateId}
+                      onChange={(e) => handleTemplateChange(e.target.value)}
+                      className="bg-transparent py-2 rounded-xl text-xs font-bold outline-none cursor-pointer text-neutral-800"
+                    >
+                      {TEMPLATES.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   <button
                     onClick={selectAll}
-                    className="px-6 py-3 bg-neutral-100 text-neutral-600 rounded-2xl font-bold hover:bg-neutral-200 transition text-sm"
+                    className="px-6 py-3 bg-neutral-100 text-neutral-600 rounded-2xl font-bold hover:bg-neutral-200 transition text-sm shrink-0"
                   >
                     {selectedIds.size === filteredItems.length ? 'Deselect All' : 'Select All'}
                   </button>

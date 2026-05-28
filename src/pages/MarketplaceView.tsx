@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
-import { PackingList, PackingItem, Contact } from '../types';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { db, auth } from '../firebase';
+import { PackingList, PackingItem, Contact, AdminSettings } from '../types';
 import { 
   Package, 
   CheckCircle2, 
@@ -29,11 +30,28 @@ export default function MarketplaceView() {
   const [recipient, setRecipient] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [globalSettings, setGlobalSettings] = useState<AdminSettings | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+      setCurrentUser(authUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
       try {
+        // Fetch global settings
+        const settingsDoc = await getDoc(doc(db, 'adminSettings', 'global'));
+        if (settingsDoc.exists()) {
+          setGlobalSettings(settingsDoc.data() as AdminSettings);
+        }
+
         const listDoc = await getDoc(doc(db, 'packingLists', id));
         if (!listDoc.exists()) {
           setError('Listing not found');
@@ -97,10 +115,26 @@ export default function MarketplaceView() {
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F5F5F4]">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Check if marketplace visibility is restricted to signed in users
+  if (globalSettings?.marketplaceVisibility === 'signed-in' && !currentUser) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F5F4] p-4 text-center">
+        <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mb-6 text-amber-500 border border-amber-200">
+          <ShieldCheck size={32} />
+        </div>
+        <h1 className="text-3xl font-black uppercase tracking-tighter mb-2">Restricted Access</h1>
+        <p className="text-neutral-500 mb-8 max-w-md mx-auto">This marketplace listing is restricted by the platform administrator. You must be signed in to view this inventory.</p>
+        <Link to="/" className="bg-[#1A1A1A] hover:bg-black text-white px-8 py-3 rounded-full font-bold uppercase text-xs tracking-widest transition-all">
+          Sign In / Create Account
+        </Link>
       </div>
     );
   }

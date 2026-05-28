@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, collectionGroup } from 'firebase/firestore';
 import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
@@ -27,6 +27,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const [gear, setGear] = useState<GearItem[]>([]);
   const [newListName, setNewListName] = useState('');
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
+  const [allItems, setAllItems] = useState<any[]>([]);
   
   // Search, Sort, Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,10 +77,16 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       setGear(fetchedGear);
     });
 
+    const qAllItems = query(collectionGroup(db, 'items'));
+    const unsubscribeAllItems = onSnapshot(qAllItems, (snapshot) => {
+      setAllItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     return () => {
       unsubscribeLists();
       unsubscribeReminders();
       unsubscribeGear();
+      unsubscribeAllItems();
     };
   }, [user.uid]);
 
@@ -184,6 +191,34 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
     auditScore: gear.length > 0 ? (gear.filter(i => i.photoUrls && i.photoUrls.length > 0).length / gear.length) * 100 : 0,
     usageIntensity: gear.length > 0 ? gear.reduce((acc, i) => acc + (i.usageCount || 0), 0) / gear.length : 0
   };
+
+  const distributionData = React.useMemo(() => {
+    return lists.map(list => {
+      const listItems = allItems.filter(item => item.listId === list.id);
+      
+      const totalWeight = listItems.reduce((acc, item) => {
+        if (!item.weight) return acc;
+        let w = Number(item.weight) || 0;
+        const unit = (item.weightUnit || 'g').toLowerCase();
+        if (unit === 'g') w = w / 1000;
+        else if (unit === 'lb') w = w * 0.453592;
+        else if (unit === 'oz') w = w * 0.0283495;
+        return acc + w;
+      }, 0);
+
+      const totalValue = listItems.reduce((acc, item) => {
+        return acc + (Number(item.price) || Number(item.val) || Number(item.cost) || 0);
+      }, 0);
+
+      return {
+        id: list.id,
+        name: list.name,
+        weight: Number(totalWeight.toFixed(1)),
+        value: Number(totalValue.toFixed(1)),
+        itemCount: listItems.length
+      };
+    }).filter(d => d.itemCount > 0);
+  }, [lists, allItems]);
 
   const COLORS = ['#F27D26', '#3b82f6', '#22c55e', '#a855f7', '#ec4899', '#f59e0b'];
 
@@ -364,6 +399,106 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                     )}
                   </div>
                 </div>
+              </div>
+            </section>
+
+            <section className="space-y-6 animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                    <TrendingUp size={20} className="text-[#0066cc]" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black uppercase tracking-tight">Active Deployments distribution</h2>
+                    <p className="text-neutral-500 text-[10px] font-black uppercase tracking-widest">Weight Analytical Logistics & Total Capital Valuation</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6">
+                {distributionData.length === 0 ? (
+                  <div className="py-20 text-center text-neutral-450 space-y-3">
+                    <PieChart size={48} className="mx-auto text-neutral-200 animate-pulse" />
+                    <p className="font-extrabold uppercase tracking-widest text-[11px]">No active packing items loaded yet</p>
+                    <p className="text-xs text-neutral-400 leading-normal max-w-sm mx-auto uppercase">
+                      Create items or add gear in physical inventories to trigger live logistics weight distributions.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="h-80 md:h-[350px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={distributionData} margin={{ top: 20, right: 10, left: 10, bottom: 20 }}>
+                          <XAxis 
+                            dataKey="name" 
+                            stroke="#888888" 
+                            fontSize={10} 
+                            tickLine={false} 
+                            axisLine={false}
+                          />
+                          <YAxis 
+                            yAxisId="left" 
+                            orientation="left" 
+                            stroke="#3b82f6" 
+                            fontSize={10} 
+                            axisLine={false}
+                            tickLine={false}
+                          />
+                          <YAxis 
+                            yAxisId="right" 
+                            orientation="right" 
+                            stroke="#10b981" 
+                            fontSize={10} 
+                            axisLine={false}
+                            tickLine={false}
+                          />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#171717', borderRadius: '16px', border: 'none', color: '#f5f5f5', fontSize: '11px' }} 
+                            itemStyle={{ color: '#f5f5f5' }}
+                          />
+                          <Legend 
+                            verticalAlign="top" 
+                            height={40} 
+                            iconType="circle"
+                            formatter={(value) => <span className="text-[9px] font-black uppercase tracking-wider text-neutral-500">{value}</span>}
+                          />
+                          <Bar 
+                            yAxisId="left" 
+                            dataKey="weight" 
+                            name="Total Weight (kg)" 
+                            fill="#3b82f6" 
+                            radius={[6, 6, 0, 0]} 
+                            barSize={32} 
+                          />
+                          <Bar 
+                            yAxisId="right" 
+                            dataKey="value" 
+                            name="Total Valuation ($)" 
+                            fill="#10b981" 
+                            radius={[6, 6, 0, 0]} 
+                            barSize={32} 
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Numeric dashboard footer ledger */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-4 border-t border-neutral-100">
+                      {distributionData.slice(0, 6).map((item) => (
+                        <div key={item.id} className="p-4 bg-neutral-50 border border-neutral-100 rounded-2xl flex items-center justify-between">
+                          <div className="space-y-0.5 min-w-0 pr-2">
+                            <h4 className="text-xs font-black text-neutral-800 truncate">{item.name}</h4>
+                            <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest">{item.itemCount} distinct assets</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-[10px] font-black text-blue-500">{item.weight} kg</div>
+                            <div className="text-[10px] font-black text-emerald-500">${item.value.toLocaleString()}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
 

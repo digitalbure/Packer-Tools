@@ -174,6 +174,7 @@ export interface GearItem {
   aiLabel?: string;
   category?: string;
   isKit?: boolean;
+  visibility?: 'public' | 'private'; // Public or private visibility for kits/gear
   childItemIds?: string[]; // IDs of items inside this kit
   status?: 'available' | 'in_use' | 'maintenance' | 'retired' | 'missing';
   recoveryEnabled?: boolean;
@@ -323,6 +324,8 @@ export interface RackItem {
   purchaseDate?: string;
   notes?: string;
   createdAt: string;
+  width?: 'full' | 'half'; // Full (19") or Half rack device
+  orientation?: 'left' | 'right'; // If width is half, which side it mounts on
 }
 
 export interface BuildItem {
@@ -637,6 +640,7 @@ export interface AdminSettings {
   landers?: Lander[];
   activeLanderId?: string;
   billingEnabled: boolean;
+  marketplaceVisibility?: 'signed-in' | 'public';
   privacyContent?: string;
   termsContent?: string;
   contactEmail?: string;

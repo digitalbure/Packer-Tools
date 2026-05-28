@@ -38,6 +38,8 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
     purchaseDate: '',
     notes: '',
     photoUrls: [] as string[],
+    width: 'full' as 'full' | 'half',
+    orientation: 'left' as 'left' | 'right',
   });
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [userProjects, setUserProjects] = useState<Project[]>([]);
@@ -186,24 +188,35 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
     e.preventDefault();
     if (!id || !newItem.name.trim()) return;
 
+    if (newItem.uPosition + newItem.uHeight - 1 > (rack?.totalUnits || 0)) {
+      toast.error("Item exceeds rack height");
+      return;
+    }
+
     // Check for collisions
     const collision = items.find(item => {
       const itemEnd = item.uPosition + item.uHeight - 1;
       const newItemEnd = newItem.uPosition + newItem.uHeight - 1;
-      return (
+      
+      const verticalOverlap = (
         (newItem.uPosition >= item.uPosition && newItem.uPosition <= itemEnd) ||
         (newItemEnd >= item.uPosition && newItemEnd <= itemEnd) ||
         (item.uPosition >= newItem.uPosition && item.uPosition <= newItemEnd)
       );
+
+      if (!verticalOverlap) return false;
+
+      // Horizontal overlap occurs if either is full width, or both are half width and same orientation/side
+      const w1 = newItem.width || 'full';
+      const w2 = item.width || 'full';
+      if (w1 === 'full' || w2 === 'full') return true;
+      const o1 = newItem.orientation || 'left';
+      const o2 = item.orientation || 'left';
+      return o1 === o2;
     });
 
     if (collision) {
       toast.error(`Collision detected with "${collision.name}"`);
-      return;
-    }
-
-    if (newItem.uPosition + newItem.uHeight - 1 > (rack?.totalUnits || 0)) {
-      toast.error("Item exceeds rack height");
       return;
     }
 
@@ -214,7 +227,7 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
         status: 'installed',
         createdAt: new Date().toISOString(),
       });
-      setNewItem({ name: '', uPosition: 1, uHeight: 1, assetTag: '', serialNumber: '', purchaseDate: '', notes: '', photoUrls: [] });
+      setNewItem({ name: '', uPosition: 1, uHeight: 1, assetTag: '', serialNumber: '', purchaseDate: '', notes: '', photoUrls: [], width: 'full', orientation: 'left' });
       setIsAddingItem(false);
       toast.success("Item added to rack");
     } catch (error) {
@@ -227,26 +240,51 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
     e.preventDefault();
     if (!id || !editingItem) return;
 
-    // Logic: Preserve original data if field is left empty
-    // We check against the current form values in editingItem state vs the values in the database (or just check if they are empty strings)
-    // Actually, usually "preserve original data if empty" means if the INPUT is empty, don't change the field in the database.
-    // However, since we are using controlled components, we probably want to treat empty string as "no change".
-    
-    // But wait, if I have an editingItem state, I can just only update what's non-empty.
-    // Or better: when I open the modal, I populate it. If the user clears it, and saves, does that mean DELETE or PRESERVE?
-    // "Preserve the original data if the field is left empty" sounds like if I Type nothing in a field that HAD something, keep the old something.
+    if (editingItem.uPosition + editingItem.uHeight - 1 > (rack?.totalUnits || 0)) {
+      toast.error("Item exceeds rack height");
+      return;
+    }
+
+    // Check for collisions with other items
+    const collisionOnUpdate = items.find(item => {
+      if (item.id === editingItem.id) return false;
+
+      const itemEnd = item.uPosition + item.uHeight - 1;
+      const editEnd = editingItem.uPosition + editingItem.uHeight - 1;
+
+      const verticalOverlap = (
+        (editingItem.uPosition >= item.uPosition && editingItem.uPosition <= itemEnd) ||
+        (editEnd >= item.uPosition && editEnd <= itemEnd) ||
+        (item.uPosition >= editingItem.uPosition && item.uPosition <= editEnd)
+      );
+
+      if (!verticalOverlap) return false;
+
+      // Check horizontal overlap
+      const w1 = editingItem.width || 'full';
+      const w2 = item.width || 'full';
+      if (w1 === 'full' || w2 === 'full') return true;
+      const o1 = editingItem.orientation || 'left';
+      const o2 = item.orientation || 'left';
+      return o1 === o2;
+    });
+
+    if (collisionOnUpdate) {
+      toast.error(`Collision detected with "${collisionOnUpdate.name}"`);
+      return;
+    }
     
     const updateData: Partial<RackItem> = {};
     const originalItem = items.find(it => it.id === editingItem.id);
     
     if (!originalItem) return;
 
-    // Name is required in the type, but let's see
     if (editingItem.name.trim()) updateData.name = editingItem.name.trim();
     
-    // For numeric values, we might have to be careful, but these are positional
     updateData.uPosition = editingItem.uPosition;
     updateData.uHeight = editingItem.uHeight;
+    updateData.width = editingItem.width || 'full';
+    updateData.orientation = editingItem.orientation || 'left';
     
     if (editingItem.assetTag.trim()) updateData.assetTag = editingItem.assetTag.trim();
     else updateData.assetTag = originalItem.assetTag;
@@ -260,8 +298,6 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
     if (editingItem.notes?.trim()) updateData.notes = editingItem.notes.trim();
     else if (originalItem.notes) updateData.notes = originalItem.notes;
 
-    // Photos: Merge or replace? Usually replace if we have a list of photos. 
-    // The user said "allow users to add multiple photos".
     updateData.photoUrls = editingItem.photoUrls;
 
     try {
@@ -356,88 +392,178 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
 
   if (!rack) return null;
 
+  const getItemAt = (u: number, side: 'left' | 'right') => {
+    return items.find(item => {
+      const matchesHeight = u >= item.uPosition && u < item.uPosition + item.uHeight;
+      if (!matchesHeight) return false;
+      const w = item.width || 'full';
+      if (w === 'full') return true;
+      return item.orientation === side;
+    });
+  };
+
   // Render the rack units
   const renderRack = () => {
     const units = [];
     for (let i = rack.totalUnits; i >= 1; i--) {
-      const itemAtPos = items.find(item => i >= item.uPosition && i < item.uPosition + item.uHeight);
-      
-      // If this unit is part of an item but not the starting unit, skip rendering (it's covered by the starting unit's height)
-      if (itemAtPos && i !== itemAtPos.uPosition + itemAtPos.uHeight - 1) {
-        continue;
-      }
+      const leftItem = getItemAt(i, 'left');
+      const rightItem = getItemAt(i, 'right');
+
+      const isLeftTop = leftItem && (i === leftItem.uPosition + leftItem.uHeight - 1);
+      const isRightTop = rightItem && (i === rightItem.uPosition + rightItem.uHeight - 1);
 
       units.push(
         <div 
           key={i} 
-          className={`relative border-b border-neutral-200 flex items-center group ${
-            itemAtPos ? '' : 'h-12 hover:bg-neutral-50'
-          }`}
-          style={itemAtPos ? { height: `${itemAtPos.uHeight * 3}rem` } : {}}
+          className="relative border-b border-neutral-200/60 h-12 flex items-center overflow-visible group"
         >
           {/* Unit Number */}
           <div className="w-12 h-full flex items-center justify-center bg-neutral-100 border-r border-neutral-200 text-[10px] font-black text-neutral-400 select-none">
             {i}U
           </div>
 
-          {itemAtPos ? (
-            <div className="flex-1 h-full p-1">
-              <div 
-                onContextMenu={(e) => handleContextMenu(e, itemAtPos)}
-                title="Right-click for options"
-                className="h-full bg-neutral-900 rounded-lg border-2 border-neutral-700 shadow-inner flex items-center px-4 justify-between group/item cursor-context-menu transition duration-200"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-neutral-800 rounded flex items-center justify-center text-neutral-500">
-                    <Server size={16} />
-                  </div>
-                  <div>
-                    <h4 className="text-white font-bold text-sm">{itemAtPos.name}</h4>
-                    <p className="text-[10px] text-neutral-500 font-mono uppercase">{itemAtPos.assetTag || 'No Tag'}</p>
+          {/* Slots Container */}
+          <div className="flex-1 h-full relative flex overflow-visible">
+            {/* LEFT SLOT */}
+            {leftItem ? (
+              isLeftTop && (
+                <div 
+                  style={{ height: `${leftItem.uHeight * 3}rem` }}
+                  className={`absolute top-0 left-0 p-1 z-10 ${leftItem.width === 'half' ? 'w-1/2 pr-1' : 'w-full'}`}
+                >
+                  <div 
+                    onContextMenu={(e) => handleContextMenu(e, leftItem)}
+                    title="Right-click for options"
+                    className="h-full bg-neutral-900 rounded-lg border-2 border-neutral-700 shadow-inner flex items-center px-4 justify-between group/item cursor-context-menu transition duration-200"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 bg-neutral-800 rounded flex items-center justify-center text-neutral-500 shrink-0">
+                        <Server size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-white font-bold text-sm truncate flex items-center gap-1.5">
+                          {leftItem.name}
+                          {leftItem.width === 'half' && (
+                            <span className="text-[8px] bg-neutral-800 border border-neutral-700 px-1 py-0.5 rounded text-neutral-300 font-extrabold uppercase">Half</span>
+                          )}
+                        </h4>
+                        <p className="text-[10px] text-neutral-500 font-mono uppercase truncate">{leftItem.assetTag || 'No Tag'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity ml-2 shrink-0">
+                      <button 
+                        onClick={() => handleQuickDetach(leftItem)}
+                        title="Quick Detach (Flag 'Available' & Remove)"
+                        className="p-1.5 text-amber-500 hover:text-amber-400 hover:bg-neutral-800 rounded-lg transition"
+                      >
+                        <Zap size={14} className="fill-amber-500/20" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setEditingItem({ ...leftItem });
+                          setIsEditingItem(true);
+                        }}
+                        title="Edit Specs"
+                        className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition"
+                      >
+                        <Settings2 size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteItem(leftItem.id)}
+                        title="Remove from Rack"
+                        className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-neutral-800 rounded-lg transition"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                  <button 
-                    onClick={() => handleQuickDetach(itemAtPos)}
-                    title="Quick Detach (Flag 'Available' & Remove)"
-                    className="p-2 text-amber-500 hover:text-amber-400 hover:bg-neutral-800 rounded-lg transition"
+              )
+            ) : (
+              <div className="absolute left-0 w-1/2 h-full p-1 border-r border-dashed border-neutral-200/40">
+                <button 
+                  onClick={() => {
+                    setNewItem(prev => ({ ...prev, uPosition: i, width: 'half', orientation: 'left' }));
+                    setIsAddingItem(true);
+                  }}
+                  className="w-full h-full border border-dashed border-neutral-200 hover:border-primary/50 hover:bg-white rounded-lg text-[9px] text-neutral-400 font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
+                >
+                  <Plus size={10} />
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">Mount Left (Half)</span>
+                </button>
+              </div>
+            )}
+
+            {/* RIGHT SLOT */}
+            {leftItem && leftItem.width !== 'half' ? null : (
+              rightItem ? (
+                isRightTop && (
+                  <div 
+                    style={{ height: `${rightItem.uHeight * 3}rem` }}
+                    className="absolute top-0 right-0 w-1/2 p-1 pl-1 z-10"
                   >
-                    <Zap size={15} className="fill-amber-500/20" />
-                  </button>
+                    <div 
+                      onContextMenu={(e) => handleContextMenu(e, rightItem)}
+                      title="Right-click for options"
+                      className="h-full bg-neutral-900 rounded-lg border-2 border-neutral-700 shadow-inner flex items-center px-4 justify-between group/item cursor-context-menu transition duration-200"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 bg-neutral-800 rounded flex items-center justify-center text-neutral-500 shrink-0">
+                          <Server size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-white font-bold text-sm truncate flex items-center gap-1.5">
+                            {rightItem.name}
+                            <span className="text-[8px] bg-neutral-800 border border-neutral-700 px-1 py-0.5 rounded text-neutral-300 font-extrabold uppercase">Half</span>
+                          </h4>
+                          <p className="text-[10px] text-neutral-500 font-mono uppercase truncate">{rightItem.assetTag || 'No Tag'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity ml-2 shrink-0">
+                        <button 
+                          onClick={() => handleQuickDetach(rightItem)}
+                          title="Quick Detach (Flag 'Available' & Remove)"
+                          className="p-1.5 text-amber-500 hover:text-amber-400 hover:bg-neutral-800 rounded-lg transition"
+                        >
+                          <Zap size={14} className="fill-amber-500/20" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEditingItem({ ...rightItem });
+                            setIsEditingItem(true);
+                          }}
+                          title="Edit Specs"
+                          className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition"
+                        >
+                          <Settings2 size={14} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteItem(rightItem.id)}
+                          title="Remove from Rack"
+                          className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-neutral-800 rounded-lg transition"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div className="absolute right-0 w-1/2 h-full p-1">
                   <button 
                     onClick={() => {
-                      setEditingItem({ ...itemAtPos });
-                      setIsEditingItem(true);
+                      setNewItem(prev => ({ ...prev, uPosition: i, width: 'half', orientation: 'right' }));
+                      setIsAddingItem(true);
                     }}
-                    title="Edit Specs"
-                    className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition"
+                    className="w-full h-full border border-dashed border-neutral-200 hover:border-primary/50 hover:bg-white rounded-lg text-[9px] text-neutral-400 font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
                   >
-                    <Settings2 size={15} />
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteItem(itemAtPos.id)}
-                    title="Remove from Rack"
-                    className="p-2 text-neutral-400 hover:text-red-500 hover:bg-neutral-800 rounded-lg transition"
-                  >
-                    <Trash2 size={15} />
+                    <Plus size={10} />
+                    <span className="opacity-0 group-hover:opacity-100 transition-opacity">Mount Right (Half)</span>
                   </button>
                 </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex-1 h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <button 
-                onClick={() => {
-                  setNewItem(prev => ({ ...prev, uPosition: i }));
-                  setIsAddingItem(true);
-                }}
-                className="flex items-center gap-2 text-xs font-bold text-neutral-400 hover:text-primary transition"
-              >
-                <Plus size={14} />
-                <span>Mount Gear at {i}U</span>
-              </button>
-            </div>
-          )}
+              )
+            )}
+          </div>
         </div>
       );
     }
@@ -606,6 +732,37 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
                     />
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-4 bg-neutral-50 p-4 rounded-2xl border border-neutral-100">
+                  <div className="space-y-1">
+                    <label className="text-xs font-black text-neutral-500 uppercase tracking-wider block">Width Scale</label>
+                    <select
+                      value={newItem.width || 'full'}
+                      onChange={(e) => setNewItem(prev => ({ ...prev, width: e.target.value as 'full' | 'half' }))}
+                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-xs font-semibold"
+                    >
+                      <option value="full">Standard (19")</option>
+                      <option value="half">Half Rack</option>
+                    </select>
+                  </div>
+                  {(newItem.width || 'full') === 'half' ? (
+                    <div className="space-y-1">
+                      <label className="text-xs font-black text-neutral-500 uppercase tracking-wider block">Horizontal Side</label>
+                      <select
+                        value={newItem.orientation || 'left'}
+                        onChange={(e) => setNewItem(prev => ({ ...prev, orientation: e.target.value as 'left' | 'right' }))}
+                        className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-xs font-semibold"
+                      >
+                        <option value="left">Left Slot</option>
+                        <option value="right">Right Slot</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-[10px] text-neutral-450 font-bold leading-normal pl-1 pt-2">
+                      Occupies full width across current U height slots.
+                    </div>
+                  )}
+                </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Asset Tag (Optional)</label>
                   <input
@@ -717,6 +874,62 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
                     className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
                   />
                   <p className="text-[10px] text-neutral-400 italic">Preserves original if left empty</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Position (U)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max={rack.totalUnits}
+                      value={editingItem.uPosition}
+                      onChange={(e) => setEditingItem(prev => prev ? ({ ...prev, uPosition: Number(e.target.value) }) : null)}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Height (U)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max={rack.totalUnits}
+                      value={editingItem.uHeight}
+                      onChange={(e) => setEditingItem(prev => prev ? ({ ...prev, uHeight: Number(e.target.value) }) : null)}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 bg-neutral-50 p-4 rounded-2xl border border-neutral-100">
+                  <div className="space-y-1">
+                    <label className="text-xs font-black text-neutral-500 uppercase tracking-wider block">Width Scale</label>
+                    <select
+                      value={editingItem.width || 'full'}
+                      onChange={(e) => setEditingItem(prev => prev ? ({ ...prev, width: e.target.value as 'full' | 'half' }) : null)}
+                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-xs font-semibold"
+                    >
+                      <option value="full">Standard (19")</option>
+                      <option value="half">Half Rack</option>
+                    </select>
+                  </div>
+                  {(editingItem.width || 'full') === 'half' ? (
+                    <div className="space-y-1">
+                      <label className="text-xs font-black text-neutral-500 uppercase tracking-wider block">Horizontal Side</label>
+                      <select
+                        value={editingItem.orientation || 'left'}
+                        onChange={(e) => setEditingItem(prev => prev ? ({ ...prev, orientation: e.target.value as 'left' | 'right' }) : null)}
+                        className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-xs font-semibold"
+                      >
+                        <option value="left">Left Slot</option>
+                        <option value="right">Right Slot</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-[10px] text-neutral-450 font-bold leading-normal pl-1 pt-2">
+                      Occupies full width.
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
