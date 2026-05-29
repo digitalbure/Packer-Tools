@@ -1,16 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, ChevronRight, Book, MessageCircle, Mail, Phone, ExternalLink, Shield, Truck, Camera, Layers, Zap, Box, ListChecks, CheckCircle2, AlertCircle, Info } from 'lucide-react';
-import { motion } from 'motion/react';
+import { 
+  Search, ChevronRight, Book, MessageCircle, Mail, Phone, ExternalLink, 
+  Shield, Truck, Camera, Zap, ListChecks, CheckCircle2, Plus, Heart, 
+  User, Calendar, FileText, Globe, Award, Sparkles, X, ChevronDown, Check
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
+import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, increment } from 'firebase/firestore';
+import { db } from '../firebase';
+import { toast } from 'sonner';
 
 const categories = [
-  { id: 'getting-started', name: 'Getting Started', icon: <Book size={20} /> },
-  { id: 'packing-lists', name: 'Manifests', icon: <ListChecks size={20} /> },
-  { id: 'gear-library', name: 'Gear Library', icon: <Camera size={20} /> },
-  { id: 'ai-wizard', name: 'AI Wizard', icon: <Zap size={20} /> },
-  { id: 'moving', name: 'Projects', icon: <Truck size={20} /> },
-  { id: 'billing', name: 'Billing', icon: <Shield size={20} /> },
+  { id: 'getting-started', name: 'Getting Started', icon: <Book size={18} /> },
+  { id: 'packing-lists', name: 'Manifests', icon: <ListChecks size={18} /> },
+  { id: 'gear-library', name: 'Gear Library', icon: <Camera size={18} /> },
+  { id: 'ai-wizard', name: 'AI Wizard', icon: <Zap size={18} /> },
+  { id: 'moving', name: 'Projects', icon: <Truck size={18} /> },
+  { id: 'billing', name: 'Billing', icon: <Shield size={18} /> },
 ];
 
 const articles = [
@@ -177,171 +184,755 @@ const articles = [
   }
 ];
 
+const defaultStories = [
+  {
+    id: 'default-story-1',
+    title: "Denali 2026: Sub-Zero Drone Logistics Flight Log",
+    excerpt: "Prepping carbon battery warmer plates and custom visual tracker rigs in temperatures below -35°F.",
+    content: "During our primary 14-day ascent, high-altitude sub-zero batteries was our maximum engineering bottleneck. We deployed customized carbon cell heater jackets, pre-wired inside partitioned sub-compartments of our primary equipment bags. Using the Packer Tools rack slots and QR system, field technicians maintained absolute telemetry of active charges and isolates without exposing units directly to moisture-loaded blizzards.",
+    category: "Outdoor Expedition",
+    authorName: "Alex Mercer",
+    authorEmail: "alex.mercer@apex-ops.net",
+    upvotes: 42,
+    createdAt: new Date("2026-05-10T12:00:00Z").toLocaleDateString()
+  },
+  {
+    id: 'default-story-2',
+    title: "Cannes Red Carpet Prep: Redundancy Optics Strategy",
+    excerpt: "How a high-stakes cinema production crew pre-assigned optical backups and QR codes across 14 cases.",
+    content: "With 3 separate media teams working 18-hour rotations at the film festival, any loose or unregistered prime lens spells chaos. We utilized the custom case visual layout matrix to map and label focal ranges, mounting brackets, and cleaning rods into compartmentalized modules. The automatic duplicate alerts in Kiosk Mode guaranteed zero misplaced gear during late-night media offloads.",
+    category: "Camera & Productions",
+    authorName: "Sarah Lin",
+    authorEmail: "s.lin@cannes-capture.com",
+    upvotes: 89,
+    createdAt: new Date("2026-05-18T15:30:00Z").toLocaleDateString()
+  },
+  {
+    id: 'default-story-3',
+    title: "Project Antarctica: Solid-State Storage Shock Arrays",
+    excerpt: "Shock-isolation and auto-backup rack deployment logs on polar exploration research containers.",
+    content: "Protecting live research measurements required specialized SSD shock brackets mounted inside heavy physical drawers. By registering the storage racks inside the Racking module, we could monitor exact weights, power draws, and heat distribution. Automatic alarms on our dashboard notified us immediately when thermal bounds approached degradation levels.",
+    category: "IT & Network",
+    authorName: "Dr. Marcus Croft",
+    authorEmail: "m.croft@polar-science.org",
+    upvotes: 61,
+    createdAt: new Date("2026-05-22T08:15:00Z").toLocaleDateString()
+  }
+];
+
 interface HelpCenterProps {
   user: UserProfile | null;
 }
 
 export default function HelpCenter({ user }: HelpCenterProps) {
+  const [activeTab, setActiveTab] = useState<'guides' | 'stories' | 'policies'>('guides');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchParams] = useSearchParams();
-  const selectedCategory = searchParams.get('category'); // values: null means all guides
+  const [selectedGuideCat, setSelectedGuideCat] = useState<string | null>(null);
+  
+  // Stories module states
+  const [dbStories, setDbStories] = useState<any[]>([]);
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [selectedStoryForView, setSelectedStoryForView] = useState<any | null>(null);
+  const [likedStories, setLikedStories] = useState<Set<string>>(new Set());
+
+  // New story model properties
+  const [newTitle, setNewTitle] = useState('');
+  const [newExcerpt, setNewExcerpt] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [newCategory, setNewCategory] = useState('Camera & Productions');
+  const [newAuthorName, setNewAuthorName] = useState(user?.displayName || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load persistent stories from Firestore
+  useEffect(() => {
+    if (!user) return;
+    const storiesRef = collection(db, 'stories');
+    const q = query(storiesRef, orderBy('createdAt', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched: any[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        let dateString = '';
+        if (data.createdAt) {
+          try {
+            dateString = data.createdAt.toDate().toLocaleDateString();
+          } catch {
+            dateString = new Date(data.createdAt).toLocaleDateString();
+          }
+        } else {
+          dateString = new Date().toLocaleDateString();
+        }
+        fetched.push({
+          id: doc.id,
+          ...data,
+          createdAt: dateString
+        });
+      });
+      setDbStories(fetched);
+    }, (error) => {
+      console.error("Error watching stories collection:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   if (!user) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-8 text-center space-y-8">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-8 text-center space-y-8" id="help-locked-state">
         <div className="w-24 h-24 bg-neutral-100 rounded-[2.5rem] flex items-center justify-center text-neutral-400">
           <Shield size={48} />
         </div>
-        <div className="space-y-2 max-w-sm">
-          <h1 className="text-4xl font-black uppercase tracking-tighter">Portal Locked</h1>
-          <p className="text-neutral-500 font-medium italic">Help Center is reserved for active operators. Please sign in to access training docs and support.</p>
+        <div className="space-y-4 max-w-sm">
+          <h1 className="text-4xl font-black uppercase tracking-tighter text-neutral-900">Portal Locked</h1>
+          <p className="text-neutral-500 font-medium italic leading-relaxed">
+            Help Center is reserved for active operators. Please sign in to access training docs, operator logs, and platform policies.
+          </p>
         </div>
       </div>
     );
   }
 
-  const visibleCategories = categories.filter(cat => 
-    cat.id !== 'admin' || user.isSuperAdmin
-  );
+  // Handle submits to firestore
+  const handleCreateStory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newContent.trim()) {
+      toast.error("Please fill in the title and the content writeup.");
+      return;
+    }
 
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        title: newTitle,
+        excerpt: newExcerpt || newContent.substring(0, 100) + '...',
+        content: newContent,
+        category: newCategory,
+        authorName: newAuthorName || user.displayName || "Anonymous Operator",
+        authorEmail: user.email || "jnakasamai@gmail.com",
+        upvotes: 0,
+        createdAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, 'stories'), payload);
+      toast.success("Flight Log published to Help Center arena.");
+      
+      // Reset variables
+      setNewTitle('');
+      setNewExcerpt('');
+      setNewContent('');
+      setNewCategory('Camera & Productions');
+      setIsSubmitModalOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Publish error: ${err.message || 'database isolated'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Upvote/Like story
+  const handleLikeStory = async (story: any) => {
+    if (likedStories.has(story.id)) {
+      toast.info("You've already verified and upvoted this flight log.");
+      return;
+    }
+
+    // Toggle liked state local
+    setLikedStories(prev => {
+      const next = new Set(prev);
+      next.add(story.id);
+      return next;
+    });
+
+    // Check if default mock or real DB doc
+    if (story.id.startsWith('default-story-')) {
+      toast.success("Verified and upvoted mock log!");
+      return;
+    }
+
+    try {
+      const storyRef = doc(db, 'stories', story.id);
+      await updateDoc(storyRef, {
+        upvotes: increment(1)
+      });
+      toast.success("Flight Log upvoted!");
+    } catch (err) {
+      console.error("Error updating upvote count:", err);
+    }
+  };
+
+  // Filter manuals list
   const filteredArticles = articles.filter(article => {
     const matchesSearch = article.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          article.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory ? article.category === selectedCategory : true;
+    const matchesCategory = selectedGuideCat ? article.category === selectedGuideCat : true;
     return matchesSearch && matchesCategory;
   });
 
+  // Merge mock stories with db stories
+  const allStories = [...dbStories, ...defaultStories].filter(s => {
+    if (!searchQuery) return true;
+    return s.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+           s.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           s.category.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
   return (
-    <div className="max-w-6xl mx-auto space-y-12 py-12 px-4 sm:px-8">
+    <div className="max-w-6xl mx-auto space-y-10 py-10 px-4 sm:px-8" id="help-center-root">
+      {/* 1. Header display */}
       <header className="text-center space-y-6">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
-          <Book size={14} />
-          <span>Operational Training</span>
+          <Book size={13} />
+          <span>OPERATIONAL DEPLOYMENT TERMINAL</span>
         </div>
         <h1 className="text-5xl sm:text-7xl font-black uppercase tracking-tighter leading-[0.8] text-neutral-900">
-           Knowledge <br/> <span className="text-primary italic">Base</span>
+           Help & <br/> <span className="text-primary italic">Knowledge</span>
         </h1>
-        <div className="max-w-2xl mx-auto relative group">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-300 group-focus-within:text-primary transition-colors" size={24} />
-          <input
-            type="text"
-            placeholder="Search guides, project parameters, or gear documentation..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-16 pr-8 py-6 bg-white border border-neutral-100 rounded-[2.5rem] shadow-xl focus:ring-4 focus:ring-primary/10 outline-none transition text-lg font-medium"
-          />
+        <p className="text-neutral-500 max-w-xl mx-auto text-base italic font-medium leading-relaxed">
+          Access authoritative instructions, study field expedition flight logs, or review security policies.
+        </p>
+
+        {/* Dynamic Widescreen Tab Selection Switcher */}
+        <div className="flex justify-center pt-4" id="help-center-tabs">
+          <div className="bg-neutral-100 p-1 rounded-2xl flex items-center gap-1 border border-neutral-200">
+            <button
+              onClick={() => { setActiveTab('guides'); setSearchQuery(''); }}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                activeTab === 'guides' 
+                  ? 'bg-neutral-900 text-white shadow-lg' 
+                  : 'text-neutral-500 hover:text-neutral-900'
+              }`}
+            >
+              <Book size={14} />
+              <span>Guides & Manuals</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('stories'); setSearchQuery(''); }}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                activeTab === 'stories' 
+                  ? 'bg-neutral-900 text-white shadow-lg' 
+                  : 'text-neutral-500 hover:text-neutral-900'
+              }`}
+            >
+              <Sparkles size={14} />
+              <span>Operator Stories</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('policies'); setSearchQuery(''); }}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                activeTab === 'policies' 
+                  ? 'bg-neutral-900 text-white shadow-lg' 
+                  : 'text-neutral-500 hover:text-neutral-900'
+              }`}
+            >
+              <FileText size={14} />
+              <span>T&C policies</span>
+            </button>
+          </div>
         </div>
+
+        {/* Global Search Strip (only for guides or stories) */}
+        {activeTab !== 'policies' && (
+          <div className="max-w-2xl mx-auto relative group pt-2">
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-300 group-focus-within:text-primary transition-colors" size={20} />
+            <input
+              type="text"
+              placeholder={
+                activeTab === 'guides' 
+                  ? "Search platform manuals, checklists, and configurations..."
+                  : "Search flight logs, sub-zero tips, and gear reviews..."
+              }
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-14 pr-8 py-4 bg-white border border-neutral-200 rounded-3xl shadow-sm focus:ring-4 focus:ring-primary/10 outline-none transition text-base font-medium"
+            />
+          </div>
+        )}
       </header>
 
-      <div className="space-y-10">
-        <main className="space-y-10">
-          <div className="grid gap-10">
-            {filteredArticles.length > 0 ? (
-              filteredArticles.map((article, idx) => (
-                <motion.div
-                  key={article.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.1 }}
-                  className="bg-white p-10 sm:p-14 rounded-[3.5rem] border border-neutral-100 shadow-sm hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group"
+      {/* Main Panel views switcher */}
+      <AnimatePresence mode="wait">
+        {/* VIEW 1: MANUALS & GUIDES */}
+        {activeTab === 'guides' && (
+          <motion.div
+            key="guides-container"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-8"
+          >
+            {/* Category selection tag container */}
+            <div className="flex flex-wrap items-center justify-center gap-2 py-2">
+              <button
+                onClick={() => setSelectedGuideCat(null)}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                  selectedGuideCat === null
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-white text-neutral-500 hover:bg-neutral-100 border border-neutral-200'
+                }`}
+              >
+                All Categories
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedGuideCat(cat.id)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                    selectedGuideCat === cat.id
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'bg-white text-neutral-500 hover:bg-neutral-100 border border-neutral-200'
+                  }`}
                 >
-                  <div className="space-y-8">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
-                      <div className="space-y-4">
+                  {cat.icon}
+                  <span>{cat.name}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Articles Grid list */}
+            <div className="grid gap-8">
+              {filteredArticles.length > 0 ? (
+                filteredArticles.map((article, idx) => (
+                  <div
+                    key={article.id}
+                    className="bg-white p-8 sm:p-10 rounded-[2.5rem] border border-neutral-200 shadow-sm hover:shadow-md transition-all group"
+                  >
+                    <div className="space-y-6">
+                      <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <span className="px-3 py-1 bg-neutral-900 text-white rounded-full text-[8px] font-black uppercase tracking-widest">
-                            How-To Guide
+                          <span className="px-2.5 py-0.5 bg-neutral-950 text-white rounded-md text-[8px] font-black uppercase tracking-widest">
+                            Official Manual
                           </span>
-                          <span className="px-3 py-1 bg-primary/5 text-primary rounded-full text-[8px] font-black uppercase tracking-widest border border-primary/10">
+                          <span className="px-2.5 py-0.5 bg-primary/10 text-primary rounded-md text-[8px] font-black uppercase tracking-widest border border-primary/20">
                             {article.category.replace('-', ' ')}
                           </span>
                         </div>
-                        <h3 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter leading-tight group-hover:text-primary transition-colors">
+                        <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter leading-tight text-neutral-900">
                           {article.title}
                         </h3>
-                        <p className="text-neutral-500 font-medium italic leading-relaxed text-lg max-w-xl">
+                        <p className="text-neutral-500 font-medium italic text-base leading-relaxed max-w-xl">
                           {article.description}
                         </p>
                       </div>
-                      <div className="hidden sm:block p-6 bg-neutral-50 rounded-[2rem] text-primary self-start transition-transform hover:scale-110">
-                        <Book size={32} />
-                      </div>
-                    </div>
 
-                    {article.steps && (
-                      <div className="grid gap-4 py-8 border-y border-neutral-50">
-                        {article.steps.map((step, sIdx) => (
-                          <div key={sIdx} className="flex gap-6 group/step">
-                            <div className="flex-shrink-0 w-10 h-10 bg-neutral-900 text-white rounded-2xl flex items-center justify-center font-black text-sm transition-transform group-hover/step:translate-x-2 duration-300">
-                              {sIdx + 1}
+                      {article.steps && (
+                        <div className="grid gap-3 pt-4 pb-2 border-t border-neutral-100">
+                          {article.steps.map((step, sIdx) => (
+                            <div key={sIdx} className="flex gap-4 group/step">
+                              <div className="flex-shrink-0 w-8 h-8 bg-neutral-900 text-white rounded-xl flex items-center justify-center font-black text-xs">
+                                {sIdx + 1}
+                              </div>
+                              <div className="space-y-0.5 pt-0.5">
+                                <h4 className="text-xs font-black uppercase tracking-widest text-neutral-900">{step.title}</h4>
+                                <p className="text-neutral-500 text-xs italic">{step.description}</p>
+                              </div>
                             </div>
-                            <div className="space-y-1 pt-1">
-                              <h4 className="text-sm font-black uppercase tracking-widest text-neutral-900">{step.title}</h4>
-                              <p className="text-neutral-500 text-sm italic">{step.description}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {article.tips && (
-                      <div className="bg-primary/5 p-8 rounded-[2rem] border border-primary/10 flex gap-4">
-                        <div className="text-primary pt-1"><Zap size={20} /></div>
-                        <div className="space-y-1">
-                          <h4 className="text-xs font-black uppercase tracking-widest text-primary">Pro Tip</h4>
-                          {article.tips.map((tip, tIdx) => (
-                            <p key={tIdx} className="text-neutral-600 text-sm font-medium italic leading-relaxed">
-                              {tip}
-                            </p>
                           ))}
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    <div className="flex justify-end pt-4">
-                       <button className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-primary transition-colors">
-                         <span>Share Guide</span>
-                         <ExternalLink size={14} />
-                       </button>
+                      {article.tips && (
+                        <div className="bg-primary/5 p-6 rounded-2xl border border-primary/15 flex gap-3">
+                          <div className="text-primary pt-0.5"><Zap size={16} /></div>
+                          <div className="space-y-0.5">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">Pro Tip</h4>
+                            {article.tips.map((tip, tIdx) => (
+                              <p key={tIdx} className="text-neutral-600 text-xs font-semibold italic">
+                                {tip}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </motion.div>
-              ))
-            ) : (
-              <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-neutral-100">
-                <div className="w-20 h-20 bg-neutral-50 rounded-full flex items-center justify-center text-neutral-200 mx-auto mb-6">
-                  <Search size={40} />
+                ))
+              ) : (
+                <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-neutral-200">
+                  <div className="w-16 h-16 bg-neutral-50 rounded-full flex items-center justify-center text-neutral-300 mx-auto mb-4">
+                    <Search size={28} />
+                  </div>
+                  <p className="text-neutral-400 font-bold uppercase tracking-widest text-[10px]">No compatible guides found.</p>
                 </div>
-                <p className="text-neutral-400 font-bold uppercase tracking-widest text-xs">No records matching your parameters.</p>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          </motion.div>
+        )}
 
-          <section className="bg-neutral-900 text-white p-12 sm:p-20 rounded-[4rem] space-y-10 relative overflow-hidden shadow-2xl">
-            <div className="relative z-10 space-y-6">
-              <div className="w-16 h-16 bg-primary rounded-3xl flex items-center justify-center shadow-lg shadow-primary/20">
-                <MessageCircle size={32} />
+        {/* VIEW 2: STORIES SECTION */}
+        {activeTab === 'stories' && (
+          <motion.div
+            key="stories-container"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-8"
+          >
+            {/* Top row actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-black uppercase tracking-tight text-neutral-900">Operator Flight Logs & Chronicles</h2>
+                <p className="text-xs text-neutral-500 italic">Expedition diaries, pack logs, logistics checklists, and audits shared by other operators</p>
               </div>
-              <div className="space-y-3">
-                <h2 className="text-4xl sm:text-5xl font-black uppercase tracking-tighter leading-none">Need Direct <br/> <span className="text-primary italic">Assistance?</span></h2>
-                <p className="text-neutral-400 max-w-md font-medium text-lg italic">Our operational support team is available 24/7 for high-stakes logistics coordination.</p>
+              <button
+                onClick={() => setIsSubmitModalOpen(true)}
+                className="flex items-center gap-2 bg-primary text-white px-5 py-3 rounded-xl font-black uppercase tracking-wider text-[10px] hover:scale-[1.02] active:scale-95 transition shadow-sm hover:shadow"
+              >
+                <Plus size={14} />
+                <span>Publish Flight Log</span>
+              </button>
+            </div>
+
+            {/* Stories Grid */}
+            <div className="grid sm:grid-cols-2 gap-6">
+              {allStories.map((story) => (
+                <div 
+                  key={story.id}
+                  className="bg-white p-6 rounded-3xl border border-neutral-200 hover:border-neutral-300 shadow-sm flex flex-col justify-between hover:shadow transition-all duration-300 group"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-2.5 py-0.5 bg-neutral-100 text-neutral-700 rounded-md text-[8px] font-black uppercase tracking-wider">
+                        {story.category}
+                      </span>
+                      <span className="text-[10px] text-neutral-400 font-medium italic">{story.createdAt}</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-lg font-black uppercase tracking-tight text-neutral-900 hover:text-primary transition-colors cursor-pointer" onClick={() => setSelectedStoryForView(story)}>
+                        {story.title}
+                      </h4>
+                      <p className="text-neutral-500 text-xs font-medium italic leading-relaxed line-clamp-3">
+                        {story.excerpt || story.content || ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-6 border-t border-neutral-100 mt-6">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-neutral-900 text-white font-black text-[9px] rounded-full flex items-center justify-center uppercase">
+                        {story.authorName ? story.authorName.charAt(0) : 'O'}
+                      </div>
+                      <div className="leading-tight">
+                        <p className="text-[10px] font-black text-neutral-900">{story.authorName || 'Anonymous'}</p>
+                        <p className="text-[8px] text-neutral-400 font-mono italic">{story.authorEmail || ''}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => handleLikeStory(story)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors ${
+                          likedStories.has(story.id)
+                            ? 'bg-rose-50 text-rose-500 hover:text-rose-600'
+                            : 'bg-neutral-50 text-neutral-500 hover:text-rose-500 hover:bg-rose-50/50'
+                        }`}
+                      >
+                        <Heart size={11} className={likedStories.has(story.id) ? 'fill-current' : ''} />
+                        <span>Upvotes ({story.upvotes || 0})</span>
+                      </button>
+                      <button 
+                        onClick={() => setSelectedStoryForView(story)}
+                        className="text-[9px] font-black uppercase tracking-wider text-neutral-400 hover:text-primary transition-colors"
+                      >
+                        Read Log
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* VIEW 3: POLICIES SECTION */}
+        {activeTab === 'policies' && (
+          <motion.div
+            key="policies-container"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-8"
+          >
+            {/* Header info */}
+            <div className="text-center max-w-xl mx-auto space-y-2">
+              <h2 className="text-xl font-black uppercase tracking-tight text-neutral-900">Platform Policies & Compliance Center</h2>
+              <p className="text-xs text-neutral-500 italic">Official regulatory standards, Terms and Conditions of service, and user privacy guarantees.</p>
+            </div>
+
+            {/* Terms and Privacy detailed cards */}
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* Terms are shown beautifully */}
+              <div className="bg-white p-8 sm:p-10 rounded-[2rem] border border-neutral-200 shadow-sm space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-neutral-900 text-white rounded-xl flex items-center justify-center">
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Terms of Service</h3>
+                    <p className="text-[10px] text-neutral-400 font-mono">LAST REVISED: MAY 29, 2026</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 text-xs leading-relaxed text-neutral-600 font-medium italic overflow-y-auto max-h-[350px] pr-2">
+                  <p className="font-extrabold text-neutral-900 not-italic uppercase tracking-wider">1. Acceptance of Terms</p>
+                  <p>Welcome to Packer Tools. By creating an account or using our platform, physical racks organizer, custom inventory audited suites, visual checklists, and AI template generators, you agree to comply with and be bound by these strict Terms of Service.</p>
+                  
+                  <p className="font-extrabold text-neutral-900 not-italic uppercase tracking-wider">2. Operator Responsibilities & Accounts</p>
+                  <p>As a registered operator, you are completely responsible for updating and registering accurate equipment weights, brands, asset tags, and hazardous battery variables. Misrepresentation of field-sensitive equipment specs is grounds for immediate credential suspension.</p>
+
+                  <p className="font-extrabold text-neutral-900 not-italic uppercase tracking-wider">3. AI Template Usage & Disclaimers</p>
+                  <p>Our AI Packing Template Wizard generates automated logistics recommendations powered by Google Gemini. While highly targeted based on your input parameters and usage habits, these templates serve as auxiliary suggestions only. It remains your absolute responsibility to double-verify physical expedition kit survival necessities.</p>
+
+                  <p className="font-extrabold text-neutral-900 not-italic uppercase tracking-wider">4. Billing, Resource Quotas, & Tiers</p>
+                  <p>We enforce hard quantitative thresholds on active checklists and gear tracking lists. Upgrading subscription tier limits (Free, Pro, Enterprise) modifies permitted allocations. Downgrading limits access to features like Kiosk duplicator mode and Travel Case sizing solvers.</p>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-4 pt-6">
-                <button className="flex items-center gap-3 bg-primary text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition shadow-xl shadow-primary/20">
-                  <MessageCircle size={20} />
-                  <span>Start Live Chat</span>
+
+              {/* Privacy Policy */}
+              <div className="bg-white p-8 sm:p-10 rounded-[2rem] border border-neutral-200 shadow-sm space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-neutral-900 text-white rounded-xl flex items-center justify-center">
+                    <Globe size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Privacy & Consent Policy</h3>
+                    <p className="text-[10px] text-neutral-400 font-mono">LAST REVISED: MAY 29, 2026</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 text-xs leading-relaxed text-neutral-600 font-medium italic overflow-y-auto max-h-[350px] pr-2">
+                  <p className="font-extrabold text-neutral-900 not-italic uppercase tracking-wider">1. Information We Collect</p>
+                  <p>We collect essential operational parameters required to track your equipment. This includes name, organization identifiers, role levels, active list counts, and your physical container weight specifications. We also track recent interface events to learn user habits (e.g. visited tabs) to train Dukey Assistant to furnish relevant advice.</p>
+                  
+                  <p className="font-extrabold text-neutral-900 not-italic uppercase tracking-wider">2. How Your Data Is Secured</p>
+                  <p>We leverage Firestore enterprise authentication and rule sets to isolate accounts. Standard operators cannot read across organization boundaries or private project details. Stories published inside the Help Center are visible globally to all authenticated Packer Tools operators.</p>
+
+                  <p className="font-extrabold text-neutral-900 not-italic uppercase tracking-wider">3. No Secondary Sharing</p>
+                  <p>We never compile, rent, or lease your equipment manifests, asset tags, billing profiles, or custom inventories to any external third-party advertisers. All telemetry remains isolated inside Cloud Run vaults.</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Support footer segment */}
+      <section className="bg-neutral-900 text-white p-10 sm:p-14 rounded-[2.5rem] space-y-8 relative overflow-hidden shadow-xl" id="direct-assistance-panel">
+        <div className="relative z-10 space-y-4">
+          <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-md">
+            <MessageCircle size={26} />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-black uppercase tracking-tighter leading-none">Need Direct Assistance?</h2>
+            <p className="text-neutral-400 max-w-sm font-semibold text-sm italic">Our operational team is available 24/7 for high-stakes expedition coordinates.</p>
+          </div>
+          <div className="flex flex-wrap gap-3 pt-4">
+            <button className="flex items-center gap-2 bg-primary text-white px-6 py-4 rounded-xl font-black uppercase tracking-wider text-[10px] hover:scale-[1.02] active:scale-95 transition">
+              <MessageCircle size={16} />
+              <span>Start Live Chat</span>
+            </button>
+            <button className="flex items-center gap-2 bg-white/5 text-white px-6 py-4 rounded-xl font-black uppercase tracking-wider text-[10px] hover:bg-white/10 transition border border-white/10">
+              <Mail size={16} />
+              <span>Submit Ticket</span>
+            </button>
+          </div>
+        </div>
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-primary/10 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+      </section>
+
+      {/* 2. SUBMIT FLIGHT LOG MODAL */}
+      {isSubmitModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white w-full max-w-xl rounded-[2.5rem] border border-neutral-100 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+          >
+            <div className="p-6 bg-neutral-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles size={18} className="text-primary" />
+                <h3 className="font-black uppercase tracking-tight text-sm">Publish New Flight Log</h3>
+              </div>
+              <button 
+                onClick={() => setIsSubmitModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateStory} className="p-6 space-y-4 overflow-y-auto flex-1">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Chronicle Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g., Mount Rainier Packing Prep Rules"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-xs font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Category Tag</label>
+                  <select
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl outline-none text-xs font-bold"
+                  >
+                    <option>Camera & Productions</option>
+                    <option>Outdoor Expedition</option>
+                    <option>IT & Network</option>
+                    <option>General Planning</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Author Display Name</label>
+                  <input
+                    type="text"
+                    placeholder="Operator Name"
+                    value={newAuthorName}
+                    onChange={(e) => setNewAuthorName(e.target.value)}
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl outline-none text-xs font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Brief Excerpt</label>
+                <input
+                  type="text"
+                  placeholder="A one-sentence summary of the chronicle..."
+                  value={newExcerpt}
+                  onChange={(e) => setNewExcerpt(e.target.value)}
+                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-xs font-bold"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Full Expedition Writeup</label>
+                <textarea
+                  required
+                  rows={6}
+                  placeholder="Tell your story. Explain how you setup, audited weight, packed elements, survived challenging parameters, or managed inventory..."
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-xs font-medium italic"
+                />
+              </div>
+
+              <div className="pt-4 border-t border-neutral-150 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsSubmitModalOpen(false)}
+                  className="px-5 py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-500 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
+                >
+                  Cancel
                 </button>
-                <button className="flex items-center gap-3 bg-white/5 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white/10 transition border border-white/10">
-                  <Mail size={20} />
-                  <span>Send Ticket</span>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-3 bg-primary text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:scale-100"
+                >
+                  {isSubmitting ? "Uploading Logs..." : "Submit to Arena"}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 3. FLIGHT LOG VIEW DETAIL MODAL */}
+      {selectedStoryForView && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white w-full max-w-xl rounded-[2.5rem] border border-neutral-100 overflow-hidden shadow-2xl flex flex-col max-h-[85vh]"
+          >
+            {/* Header info */}
+            <div className="p-6 bg-neutral-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Award size={18} className="text-primary" />
+                <span className="font-mono text-[9px] uppercase tracking-widest text-neutral-400">Operator Chronicle Log</span>
+              </div>
+              <button 
+                onClick={() => setSelectedStoryForView(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto flex-1">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 bg-neutral-100 text-neutral-700 rounded-md text-[8px] font-black uppercase tracking-wider">
+                    {selectedStoryForView.category}
+                  </span>
+                  <span className="text-[10px] text-neutral-400 font-mono italic">{selectedStoryForView.createdAt}</span>
+                </div>
+                <h3 className="text-2xl font-black uppercase tracking-tight text-neutral-900">{selectedStoryForView.title}</h3>
+                
+                {selectedStoryForView.excerpt && (
+                  <p className="text-sm text-neutral-400 font-bold italic leading-relaxed border-l-4 border-primary pl-4 py-1">
+                    "{selectedStoryForView.excerpt}"
+                  </p>
+                )}
+              </div>
+
+              {/* Author Strip */}
+              <div className="flex items-center gap-3 p-4 bg-neutral-50 rounded-2xl">
+                <div className="w-10 h-10 bg-neutral-900 text-white font-black text-sm rounded-full flex items-center justify-center uppercase">
+                  {selectedStoryForView.authorName ? selectedStoryForView.authorName.charAt(0) : 'O'}
+                </div>
+                <div>
+                  <h5 className="text-xs font-black uppercase tracking-wider text-neutral-900">{selectedStoryForView.authorName || 'Anonymous Master'}</h5>
+                  <p className="text-[10px] text-neutral-500 font-medium italic">Verified Field Analyst | {selectedStoryForView.authorEmail || ''}</p>
+                </div>
+              </div>
+
+              {/* Content body */}
+              <div className="space-y-4">
+                <p className="text-neutral-700 text-sm leading-relaxed font-medium italic whitespace-pre-line bg-neutral-50 p-6 rounded-2xl border border-neutral-150">
+                  {selectedStoryForView.content}
+                </p>
+              </div>
+
+              {/* Upvote triggers inside details */}
+              <div className="flex items-center justify-between pt-4 border-t border-neutral-150">
+                <button
+                  onClick={() => handleLikeStory(selectedStoryForView)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-colors ${
+                    likedStories.has(selectedStoryForView.id)
+                      ? 'bg-rose-50 text-rose-500 hover:text-rose-600'
+                      : 'bg-neutral-50 text-neutral-500 hover:text-rose-500 hover:bg-rose-50/50'
+                  }`}
+                >
+                  <Heart size={14} className={likedStories.has(selectedStoryForView.id) ? 'fill-current' : ''} />
+                  <span>Recommend ({selectedStoryForView.upvotes || 0})</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedStoryForView(null)}
+                  className="px-5 py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-black uppercase tracking-wider transition hover:bg-neutral-800"
+                >
+                  Close Log
                 </button>
               </div>
             </div>
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/20 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/10 blur-[60px] rounded-full translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
-          </section>
-        </main>
-      </div>
+          </motion.div>
+        </div>
+      )}
+
     </div>
   );
 }

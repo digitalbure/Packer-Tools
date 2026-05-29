@@ -330,5 +330,13 @@ service cloud.firestore {
       allow update, delete: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/organizations/$(resource.data.orgId)).data.ownerId == request.auth.uid);
     }
 
+    // Rules for stories collection
+    match /stories/{storyId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated() && (resource.data.authorEmail == request.auth.token.email || isAdmin());
+    }
+
   }
 }

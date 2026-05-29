@@ -54,6 +54,51 @@ function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick }: {
   onMenuClick: () => void 
 }) {
   const location = useLocation();
+
+  useEffect(() => {
+    const pathHumanMap: { [key: string]: string } = {
+      "/dashboard": "Dashboard Home",
+      "/organization": "Organization Hub",
+      "/profile": "User Profile Page",
+      "/kiosk": "Kiosk Scanning Interface",
+      "/ai-wizard": "AI Template Generator",
+      "/library": "Gear Master Library",
+      "/racks": "Physical Racks & Racking Dashboard",
+      "/projects": "Project Coordinates & Briefs",
+      "/tooling": "Tooling Assets & Custom lists",
+      "/organizer": "Bulk Case Organizer Module",
+      "/inventory": "Custom Sheet Inventories & Audits",
+      "/travel-cases": "Travel Suitcase Size Solver",
+      "/logistics": "Logistics Dispatch Panel",
+      "/contacts": "Contacts & External Signees",
+      "/help": "Platform Help Center & Knowledge Base",
+      "/privacy": "Privacy Policy Review",
+      "/terms": "Terms of Service Review"
+    };
+
+    let matched = pathHumanMap[location.pathname];
+    if (!matched) {
+      if (location.pathname.startsWith("/list/")) {
+        matched = "Visual Packing Checklist Manifest";
+      } else if (location.pathname.startsWith("/project/")) {
+        matched = "Full Project Workspace Details";
+      } else if (location.pathname.startsWith("/rack/")) {
+        matched = "Rack Slots Detail View";
+      } else if (location.pathname.startsWith("/gear/")) {
+        matched = "Gear Bio & Spec Sheet";
+      } else {
+        matched = `Visited ${location.pathname}`;
+      }
+    }
+
+    try {
+      const recent = JSON.parse(localStorage.getItem("packer_recent_views") || "[]");
+      const filtered = [matched, ...recent.filter((r: string) => r !== matched)].slice(0, 8);
+      localStorage.setItem("packer_recent_views", JSON.stringify(filtered));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [location.pathname]);
   
   return (
     <AnimatePresence mode="wait">

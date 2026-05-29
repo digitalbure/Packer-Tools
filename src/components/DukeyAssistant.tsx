@@ -205,7 +205,14 @@ I understand equipment integration, camera rigs, power management, storage compl
             isSuperAdmin: user.isSuperAdmin || false,
             role: user.role || 'viewer',
             plan: user.plan || 'free'
-          }
+          },
+          recentViews: (() => {
+            try {
+              return JSON.parse(localStorage.getItem("packer_recent_views") || "[]");
+            } catch (e) {
+              return [];
+            }
+          })()
         })
       });
 
