@@ -651,6 +651,7 @@ export interface AdminSettings {
   landers?: Lander[];
   activeLanderId?: string;
   activeLandingPageType?: 'main' | 'marketplace';
+  rootVisibility?: 'public' | 'auth_only';
   billingEnabled: boolean;
   marketplaceVisibility?: 'signed-in' | 'public';
   privacyContent?: string;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Coins, ShoppingBag } from 'lucide-react';
+import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Coins, ShoppingBag, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project } from '../types';
@@ -2350,61 +2350,170 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             </div>
           </div>
 
-          {/* Active Landing Page Selector */}
-          <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-4">
-            <div className="space-y-1">
-              <h3 className="text-lg font-black uppercase tracking-tight text-neutral-800">Active Landing Page Style Selection</h3>
-              <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider">Select the default interface shown to public, unauthenticated visitors at the root URL (/) of Packer Tools.</p>
+          {/* Active Landing Page & Marketplace Visibility Selector */}
+          <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-100 pb-4">
+              <div className="space-y-1">
+                <h3 className="text-lg font-black uppercase tracking-tight text-neutral-800">Marketplace & Landing Configuration</h3>
+                <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider">Configure your default root entry-point strategies, public views, and security gate visibility levels.</p>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 text-primary rounded-full text-[10px] font-black uppercase tracking-widest">
+                <Globe size={12} className="animate-pulse" />
+                <span>Active Routing Engine</span>
+              </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button
-                onClick={() => {
-                  setSettings({ ...settings, activeLandingPageType: 'main' });
-                  toast.success("Default root page set to Main Landing Page style");
-                }}
-                className={`p-6 rounded-2xl border text-left transition duration-150 flex items-start gap-4 ${
-                  settings.activeLandingPageType !== 'marketplace'
-                    ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg'
-                    : 'border-neutral-100 bg-neutral-50/40 hover:bg-neutral-50 text-neutral-800 hover:border-neutral-200'
-                }`}
-              >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  settings.activeLandingPageType !== 'marketplace' ? 'bg-white/10 text-white' : 'bg-neutral-100 text-[#ff4f3a]'
-                }`}>
-                  <Layout size={18} />
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs font-black uppercase tracking-wider">Main Landing Page</div>
-                  <div className={`text-[10px] uppercase font-bold leading-relaxed ${settings.activeLandingPageType !== 'marketplace' ? 'text-white/60' : 'text-neutral-400'}`}>
-                    Professional visual gear tracking, scenarios, features ticker, and client portal access points.
+            <div className="space-y-4">
+              <label className="text-xs font-black uppercase tracking-widest text-neutral-400 block">1. Selected Landing Interface</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettings({ ...settings, activeLandingPageType: 'main' });
+                    toast.success("Default root page set to Main Landing Page style");
+                  }}
+                  className={`p-6 rounded-2xl border text-left transition duration-150 flex items-start gap-4 ${
+                    settings.activeLandingPageType !== 'marketplace'
+                      ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg'
+                      : 'border-neutral-150 bg-neutral-50/40 hover:bg-neutral-50 text-neutral-800 hover:border-neutral-200'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    settings.activeLandingPageType !== 'marketplace' ? 'bg-white/10 text-white' : 'bg-neutral-100 text-[#ff4f3a]'
+                  }`}>
+                    <Layout size={18} />
                   </div>
-                </div>
-              </button>
+                  <div className="space-y-1">
+                    <div className="text-xs font-black uppercase tracking-wider">Main Landing Page</div>
+                    <div className={`text-[10px] uppercase font-bold leading-relaxed ${settings.activeLandingPageType !== 'marketplace' ? 'text-white/60' : 'text-neutral-400'}`}>
+                      Professional visual gear tracking, scenarios, features ticker, and client portal access points.
+                    </div>
+                  </div>
+                </button>
 
-              <button
-                onClick={() => {
-                  setSettings({ ...settings, activeLandingPageType: 'marketplace' });
-                  toast.success("Default root page set to Marketplace Listing Hub");
-                }}
-                className={`p-6 rounded-2xl border text-left transition duration-150 flex items-start gap-4 ${
-                  settings.activeLandingPageType === 'marketplace'
-                    ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg'
-                    : 'border-neutral-100 bg-neutral-50/40 hover:bg-neutral-50 text-neutral-800 hover:border-neutral-200'
-                }`}
-              >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  settings.activeLandingPageType === 'marketplace' ? 'bg-white/10 text-white' : 'bg-rose-50 text-rose-500'
-                }`}>
-                  <ShoppingBag size={18} />
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs font-black uppercase tracking-wider">Marketplace Listing Hub</div>
-                  <div className={`text-[10px] uppercase font-bold leading-relaxed ${settings.activeLandingPageType === 'marketplace' ? 'text-white/60' : 'text-neutral-400'}`}>
-                    The ShareGrid-inspired community platform. Active listings, equipment hire, and local creatives.
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettings({ ...settings, activeLandingPageType: 'marketplace' });
+                    toast.success("Default root page set to Marketplace Listing Hub");
+                  }}
+                  className={`p-6 rounded-2xl border text-left transition duration-150 flex items-start gap-4 ${
+                    settings.activeLandingPageType === 'marketplace'
+                      ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg'
+                      : 'border-neutral-150 bg-neutral-50/40 hover:bg-neutral-50 text-neutral-800 hover:border-neutral-200'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    settings.activeLandingPageType === 'marketplace' ? 'bg-white/10 text-white' : 'bg-rose-50 text-rose-500'
+                  }`}>
+                    <ShoppingBag size={18} />
                   </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-black uppercase tracking-wider">Marketplace Listing Hub</div>
+                    <div className={`text-[10px] uppercase font-bold leading-relaxed ${settings.activeLandingPageType === 'marketplace' ? 'text-white/60' : 'text-neutral-400'}`}>
+                      The ShareGrid-inspired community platform. Active listings, equipment hire, and local creatives.
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-neutral-100">
+              {/* Root URL Gate Config */}
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <span className="text-xs font-black uppercase tracking-widest text-neutral-400 block">2. Public Root (/) Security Gate</span>
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase leading-relaxed">Determine who can browse public landing assets or if visitors should be forced to authenticate.</p>
                 </div>
-              </button>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettings({ ...settings, rootVisibility: 'public' });
+                      toast.success("Root landing page set to Public Access");
+                    }}
+                    className={`p-4 rounded-xl border text-left flex items-start gap-3 transition ${
+                      settings.rootVisibility !== 'auth_only'
+                        ? 'border-primary/30 bg-primary/5 text-primary shadow-sm'
+                        : 'border-neutral-150 hover:border-neutral-250 text-neutral-600 bg-neutral-50/20'
+                    }`}
+                  >
+                    <Globe size={16} className="shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] uppercase font-black tracking-widest">Public Browsing</div>
+                      <p className="text-[9px] font-bold text-neutral-400 uppercase leading-normal">Open to guest visitors and search engines.</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettings({ ...settings, rootVisibility: 'auth_only' });
+                      toast.success("System root locked to Authorized Authentication");
+                    }}
+                    className={`p-4 rounded-xl border text-left flex items-start gap-3 transition ${
+                      settings.rootVisibility === 'auth_only'
+                        ? 'border-red-600/35 bg-red-500/5 text-red-600 shadow-sm'
+                        : 'border-neutral-150 hover:border-neutral-250 text-neutral-600 bg-neutral-50/20'
+                    }`}
+                  >
+                    <LockIcon size={16} className="shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] uppercase font-black tracking-widest">Authorized Portal</div>
+                      <p className="text-[9px] font-bold text-neutral-400 uppercase leading-normal">Redirect to secure SSO. Browse block active.</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Marketplace Visibility Rules */}
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <span className="text-xs font-black uppercase tracking-widest text-neutral-400 block">3. Marketplace Listing Visibility</span>
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase leading-relaxed">Control checkout tracking views and listing URLs for custom inventory sheets shared publicly.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettings({ ...settings, marketplaceVisibility: 'public' });
+                      toast.success("Marketplace listings set to public search-discovery indexing");
+                    }}
+                    className={`p-4 rounded-xl border text-left flex items-start gap-3 transition ${
+                      settings.marketplaceVisibility !== 'signed-in'
+                        ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-700 shadow-sm'
+                        : 'border-neutral-150 hover:border-neutral-250 text-neutral-600 bg-neutral-50/20'
+                    }`}
+                  >
+                    <Eye size={16} className="shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] uppercase font-black tracking-widest">Public Links</div>
+                      <p className="text-[9px] font-bold text-neutral-400 uppercase leading-normal">Anyone can view listed items, hire prices & tags.</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettings({ ...settings, marketplaceVisibility: 'signed-in' });
+                      toast.success("Marketplace restricted to verified platform members");
+                    }}
+                    className={`p-4 rounded-xl border text-left flex items-start gap-3 transition ${
+                      settings.marketplaceVisibility === 'signed-in'
+                        ? 'border-amber-500/40 bg-amber-500/5 text-amber-700 shadow-sm'
+                        : 'border-neutral-150 hover:border-neutral-250 text-neutral-600 bg-neutral-50/20'
+                    }`}
+                  >
+                    <EyeOff size={16} className="shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] uppercase font-black tracking-widest">Members Only</div>
+                      <p className="text-[9px] font-bold text-neutral-400 uppercase leading-normal">Requires login check prior to displaying kit inventory.</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 

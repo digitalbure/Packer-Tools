@@ -43,6 +43,7 @@ import KioskMode from './pages/KioskMode';
 import GearBioPage from './pages/GearBioPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import AddGearModal from './components/AddGearModal';
+import AuthGate from './components/AuthGate';
 import QuickActionsDrawer from './components/QuickActionsDrawer';
 import Onboarding from './components/Onboarding';
 import DukeyAssistant from './components/DukeyAssistant';
@@ -113,7 +114,7 @@ function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick }: {
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <Routes location={location}>
-          <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.activeLandingPageType === 'marketplace' ? <Marketplace /> : <LandingPage user={user} adminSettings={adminSettings} />)} />
+          <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate /> : (adminSettings?.activeLandingPageType === 'marketplace' ? <Marketplace /> : <LandingPage user={user} adminSettings={adminSettings} />))} />
           <Route path="/dashboard" element={user ? <Dashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/list/:id" element={<PackingListDetail user={user} adminSettings={adminSettings} />} />
           <Route path="/p/:id" element={<PackingListBioView />} />
