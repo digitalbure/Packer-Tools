@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LogIn, LogOut, LayoutDashboard, Settings, Package, User, Menu, X, Zap, HelpCircle, Server, Home, Truck, ShieldCheck, Briefcase } from 'lucide-react';
+import PackerLogo from './PackerLogo';
 import { signInWithGoogle, logout } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import { isFeatureEnabled } from '../lib/featureUtils';
@@ -13,11 +14,8 @@ export default function Navbar({ user, adminSettings, onMenuClick }: { user: Use
   return (
     <nav className="bg-paper/80 backdrop-blur-xl border-b border-primary/5 sticky top-0 z-50">
       <div className="w-full max-w-[1700px] mx-auto px-6 h-20 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 bg-primary flex items-center justify-center rounded-xl text-white shadow-lg group-hover:scale-110 transition-transform">
-            <Package size={22} />
-          </div>
-          <span className="text-xl font-black uppercase tracking-tighter text-primary">Packer Tools</span>
+        <Link to="/" className="flex items-center gap-1 group">
+          <PackerLogo variant="full" size={36} light={true} />
         </Link>
 
         {/* Desktop Navigation */}
@@ -28,7 +26,9 @@ export default function Navbar({ user, adminSettings, onMenuClick }: { user: Use
                 <Link to="/profile" className="flex items-center gap-3 hover:bg-neutral-50 p-2 rounded-xl transition">
                   <div className="text-right hidden sm:block">
                     <div className="text-xs font-black uppercase tracking-tight">{user.displayName}</div>
-                    <div className="text-[10px] text-neutral-400 font-bold uppercase">{user.plan} Plan</div>
+                    <div className="text-[10px] text-neutral-400 font-bold uppercase">
+                      {adminSettings?.plans?.find(p => p.id === user.plan || p.name.toLowerCase() === user.plan?.toLowerCase())?.name || user.plan || 'Free'} Plan
+                    </div>
                   </div>
                   <img src={user.photoURL} alt={user.displayName} className="w-9 h-9 rounded-full border border-primary/10 grayscale hover:grayscale-0 transition-all cursor-pointer" />
                 </Link>

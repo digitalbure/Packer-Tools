@@ -7,6 +7,7 @@ import { db } from '../firebase';
 import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import PagesManager from './PagesManager';
+import PackerLogo from '../components/PackerLogo';
 import { AreaChart, Area, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cell, CartesianGrid } from 'recharts';
 
 export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, onMenuClick?: () => void }) {
@@ -2671,8 +2672,9 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Platform Name</label>
                   <input
                     type="text"
-                    defaultValue="Packer Tools"
-                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
+                    value={settings?.branding?.companyName || ''}
+                    onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), companyName: e.target.value } } : null)}
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition font-bold text-neutral-800"
                   />
                 </div>
                 <div className="space-y-2">
@@ -2750,6 +2752,68 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               >
                 Save Changes
               </button>
+            </div>
+
+            {/* Unified Platform Logo Kit & Branding Profile */}
+            <div className="bg-[#0D0E10] text-[#E4E4E7] p-8 rounded-[2.5rem] border border-neutral-800/80 shadow-2xl space-y-8">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 bg-neutral-900 rounded-xl flex items-center justify-center border border-neutral-800">
+                  <PackerLogo variant="symbol-only" size={28} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black uppercase tracking-tight text-white leading-none">Corporate Logo Kit</h3>
+                  <p className="text-[10px] text-[#FF5500] font-black uppercase tracking-widest mt-1.5">Official Branding Profiles Loaded</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#94A3B8]">1. Full Navigation Logotype (Standard View)</p>
+                  <div className="p-6 bg-[#060708] rounded-2xl border border-neutral-800/40 flex items-center justify-center">
+                    <PackerLogo variant="full" size={32} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-[#94A3B8]">2. Brand Symbol</p>
+                    <div className="p-4 bg-[#060708] rounded-2xl border border-neutral-800/40 flex items-center justify-center min-h-[95px]">
+                      <PackerLogo variant="symbol-only" size={36} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-[#94A3B8]">3. System App Icon</p>
+                    <div className="p-4 bg-[#060708] rounded-2xl border border-neutral-800/40 flex items-center justify-center min-h-[95px]">
+                      <PackerLogo variant="app-icon" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#94A3B8]">4. Brand Hierarchy Spec Sheets (#FF5500 Series)</p>
+                  <div className="grid grid-cols-3 gap-2.5 text-center text-[10px] font-mono leading-tight">
+                    <div className="p-3 bg-neutral-900/60 rounded-xl border border-neutral-800/60 space-y-1.5">
+                      <div className="w-5 h-5 bg-[#FF5500] rounded-lg mx-auto shadow-md" />
+                      <p className="font-extrabold text-white">#FF5500</p>
+                      <p className="text-[8px] text-neutral-500 font-sans uppercase font-bold">Haz Orange</p>
+                    </div>
+                    <div className="p-3 bg-neutral-900/60 rounded-xl border border-neutral-800/60 space-y-1.5">
+                      <div className="w-5 h-5 bg-[#CC4400] rounded-lg mx-auto shadow-md" />
+                      <p className="font-extrabold text-white font-mono">#CC4400</p>
+                      <p className="text-[8px] text-neutral-500 font-sans uppercase font-bold">Shadow</p>
+                    </div>
+                    <div className="p-3 bg-neutral-900/60 rounded-xl border border-neutral-800/60 space-y-1.5">
+                      <div className="w-5 h-5 bg-[#383A3F] rounded-lg mx-auto shadow-md" />
+                      <p className="font-extrabold text-white">#383A3F</p>
+                      <p className="text-[8px] text-neutral-500 font-sans uppercase font-bold">Slate Grey</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-[#FF5500]/5 border border-[#FF5500]/20 rounded-2xl text-[11px] text-neutral-300 leading-normal font-sans font-medium">
+                  <strong>Branding Directive:</strong> Change &quot;Platform Name&quot; in the form on the left to live-update the corporate footer metadata across all active client seats instantly.
+                </div>
+              </div>
             </div>
 
             {/* Unified Currencies and Gateways Hub */}

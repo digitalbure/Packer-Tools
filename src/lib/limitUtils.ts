@@ -15,7 +15,7 @@ export async function canUseAI(
   }
 
   // Check user limit
-  const plan = adminSettings.plans?.find(p => p.name === user.plan) || adminSettings.plans?.[0];
+  const plan = adminSettings.plans?.find(p => p.id === user.plan || p.name.toLowerCase() === user.plan?.toLowerCase()) || adminSettings.plans?.[0];
   if (!plan) return { allowed: true }; // Fallback if no plans defined
   
   const userUsage = user.aiTokenUsage || 0;
@@ -55,7 +55,7 @@ export async function checkLimit(
 ): Promise<{ allowed: boolean; current: number; limit: number }> {
   if (!adminSettings) return { allowed: true, current: 0, limit: Infinity };
 
-  const plan = adminSettings.plans?.find(p => p.name === user.plan) || adminSettings.plans?.[0];
+  const plan = adminSettings.plans?.find(p => p.id === user.plan || p.name.toLowerCase() === user.plan?.toLowerCase()) || adminSettings.plans?.[0];
   if (!plan) return { allowed: true, current: 0, limit: Infinity };
 
   let limit = Infinity;
@@ -120,7 +120,7 @@ export async function getUsage(
   contacts: { current: number; limit: number };
   aiTokens: { current: number; limit: number };
 }> {
-  const plan = adminSettings?.plans?.find(p => p.name === user.plan) || adminSettings?.plans?.[0];
+  const plan = adminSettings?.plans?.find(p => p.id === user.plan || p.name.toLowerCase() === user.plan?.toLowerCase()) || adminSettings?.plans?.[0];
   
   const [snapLists, snapGear, snapRacks, snapProjects, snapContacts] = await Promise.all([
     getDocs(query(collection(db, 'packingLists'), where('ownerId', '==', user.uid))),

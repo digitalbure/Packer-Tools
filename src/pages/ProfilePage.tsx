@@ -101,8 +101,10 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3">
               <h1 className="text-2xl sm:text-4xl font-black tracking-tighter uppercase">{user.displayName}</h1>
-              {user.plan === 'pro' && (
-                <span className="px-3 py-1 bg-accent text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-glow">Pro</span>
+              {user.plan !== 'free' && (
+                <span className="px-3 py-1 bg-accent text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-glow">
+                  {adminSettings?.plans?.find(p => p.id === user.plan || p.name.toLowerCase() === user.plan?.toLowerCase())?.name || user.plan}
+                </span>
               )}
             </div>
             <p className="text-neutral-500 font-medium break-all">{user.email}</p>
@@ -491,7 +493,9 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                 <div className="absolute top-0 right-0 w-24 h-24 bg-accent/20 blur-3xl rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700" />
                 <div className="relative space-y-1">
                   <div className="micro-label text-white/40">Current Active Plan</div>
-                  <div className="text-3xl font-black uppercase tracking-tighter shrink-0">{user.plan}</div>
+                  <div className="text-3xl font-black uppercase tracking-tighter shrink-0">
+                    {adminSettings?.plans?.find(p => p.id === user.plan || p.name.toLowerCase() === user.plan?.toLowerCase())?.name || user.plan}
+                  </div>
                 </div>
                 {adminSettings?.billingEnabled ? (
                   <button 

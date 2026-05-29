@@ -42,6 +42,7 @@ import { db } from '../firebase';
 import { UserProfile, Organization, Department, Team, UserRole, Terminal, AdminSettings } from '../types';
 import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
+import PackerLogo from '../components/PackerLogo';
 
 interface OrganizationModuleProps {
   user: UserProfile | null;
@@ -89,7 +90,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
   // Sticker Designer States
   const [stickerShape, setStickerShape] = useState<'square' | 'rectangle' | 'rounded-square' | 'rounded-rectangle' | 'circle'>('rounded-rectangle');
   const [stickerSize, setStickerSize] = useState<number>(60); // percentage/pixels mapping
-  const [stickerLogoSrc, setStickerLogoSrc] = useState<'org' | 'dept' | 'team' | 'none'>('org');
+  const [stickerLogoSrc, setStickerLogoSrc] = useState<'packer-tools' | 'org' | 'dept' | 'team' | 'none'>('packer-tools');
   const [stickerTextLine1, setStickerTextLine1] = useState('PROPERTY OF ORGANIZATION');
   const [stickerTextLine2, setStickerTextLine2] = useState('Sony FX3 Cinema Camera');
   const [stickerTextLine3, setStickerTextLine3] = useState('TAG ID: ASSET-87291');
@@ -419,15 +420,53 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
 
   const handlePrintSticker = () => {
     // Collect logo source depending on selection
-    let logoUrlToUse = '';
-    if (stickerLogoSrc === 'org') {
-      logoUrlToUse = org?.settings?.branding?.logo || '';
+    let logoHtmlToUse = '';
+    if (stickerLogoSrc === 'packer-tools') {
+      logoHtmlToUse = `
+        <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 4px;">
+          <svg width="24" height="24" viewBox="0 0 200 200" fill="none" style="flex-shrink: 0;">
+            <polygon points="42,75 54,68 66,75 54,82" fill="${stickerColorText}" opacity="0.75" />
+            <polygon points="42,75 54,82 54,135 42,128" fill="${stickerColorText}" opacity="0.4" />
+            <polygon points="54,82 66,75 66,128 54,135" fill="${stickerColorText}" opacity="0.55" />
+            <polygon points="46,84 50,81 50,87 46,90" fill="${stickerColorText}" />
+
+            <polygon points="57,84 69,77 81,84 69,91" fill="${stickerColorText}" opacity="0.75" />
+            <polygon points="57,84 69,91 69,144 57,137" fill="${stickerColorText}" opacity="0.4" />
+            <polygon points="69,91 81,84 81,137 69,144" fill="${stickerColorText}" opacity="0.55" />
+            <polygon points="61,93 65,90 65,96 61,99" fill="${stickerColorText}" />
+
+            <polygon points="72,93 84,86 96,93 84,100" fill="${stickerColorText}" opacity="0.75" />
+            <polygon points="72,93 84,100 84,153 72,146" fill="${stickerColorText}" opacity="0.4" />
+            <polygon points="84,100 96,93 96,146 84,153" fill="${stickerColorText}" opacity="0.55" />
+            <polygon points="76,102 80,99 80,105 76,108" fill="${stickerColorText}" />
+
+            <polygon points="99,102 111,109 111,162 99,155" fill="${stickerColorText}" opacity="0.5" />
+            <polygon points="111,109 123,102 123,155 111,162" fill="${stickerColorText}" opacity="0.9" />
+            <polygon points="99,102 111,95 123,102 111,109" fill="${stickerColorText}" />
+            <polygon points="111,95 123,88 135,95 123,102" fill="${stickerColorText}" />
+            
+            <polygon points="123,102 153,85 153,115 123,132" fill="${stickerColorText}" opacity="0.9" />
+            <polygon points="111,109 123,102 123,132 111,139" fill="${stickerColorText}" opacity="0.5" />
+            <polygon points="123,102 138,93 138,103 123,112" fill="${stickerColorText}" opacity="0.3" />
+            
+            <polygon points="123,88 135,81 153,92 135,100" fill="${stickerColorText}" />
+            <polygon points="123,124 153,107 153,115 123,132" fill="${stickerColorText}" opacity="0.5" />
+          </svg>
+          <span style="font-size: 10px; font-weight: 900; letter-spacing: 0.1em; color: ${stickerColorText}; font-family: monospace;">PACKER.TOOLS</span>
+        </div>
+      `;
+    } else if (stickerLogoSrc === 'org' && org?.settings?.branding?.logo) {
+      logoHtmlToUse = `<img src="${org.settings.branding.logo}" class="logo-img" />`;
     } else if (stickerLogoSrc === 'dept') {
       const selectedDeptObj = depts.find(d => d.id === selectedStickerDeptId);
-      logoUrlToUse = selectedDeptObj?.logoUrl || '';
+      if (selectedDeptObj?.logoUrl) {
+        logoHtmlToUse = `<img src="${selectedDeptObj.logoUrl}" class="logo-img" />`;
+      }
     } else if (stickerLogoSrc === 'team') {
       const selectedDevObj = teams.find(t => t.id === selectedStickerTeamId);
-      logoUrlToUse = selectedDevObj?.logoUrl || '';
+      if (selectedDevObj?.logoUrl) {
+        logoHtmlToUse = `<img src="${selectedDevObj.logoUrl}" class="logo-img" />`;
+      }
     }
 
     // Determine custom border-radius depending on shape
@@ -538,7 +577,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
         <body>
           <div class="print-sticker">
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
-              ${logoUrlToUse ? `<img src="${logoUrlToUse}" class="logo-img" />` : ''}
+              ${logoHtmlToUse}
               <div class="header-text">${stickerTextLine1}</div>
             </div>
             
@@ -1121,8 +1160,9 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                   {/* Brand Logo Preference Selector */}
                   <div className="space-y-3">
                     <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 ml-1 block">Display Custom Logo</label>
-                    <div className="grid grid-cols-4 gap-1 p-1 bg-neutral-50 rounded-xl mb-2">
+                    <div className="grid grid-cols-5 gap-1 p-1 bg-neutral-50 rounded-xl mb-2">
                       {[
+                        { id: 'packer-tools', label: 'Packer' },
                         { id: 'none', label: 'None' },
                         { id: 'org', label: 'Corp' },
                         { id: 'dept', label: 'Dept' },
@@ -1307,6 +1347,14 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                       {stickerLogoSrc !== 'none' && (
                         <div className="h-7 mb-1 flex items-center justify-center">
                           {(() => {
+                            if (stickerLogoSrc === 'packer-tools') {
+                              return (
+                                <div className="flex items-center gap-1">
+                                  <PackerLogo variant="symbol-only" size={24} className="p-0" monoColor={stickerColorText} />
+                                  <span className="text-[10px] font-black tracking-wider leading-none" style={{ color: stickerColorText, fontFamily: 'monospace' }}>PACKER.TOOLS</span>
+                                </div>
+                              );
+                            }
                             let srcToUse = '';
                             if (stickerLogoSrc === 'org') {
                               srcToUse = org?.settings?.branding?.logo || '';

@@ -45,6 +45,7 @@ import { UserProfile, AdminSettings, FeatureKey } from '../types';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import { logout, db } from '../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
+import PackerLogo from './PackerLogo';
 
 interface SidebarProps {
   user: UserProfile | null;
@@ -172,18 +173,11 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
       >
         {/* Header / Logo */}
         <div className="h-20 flex items-center px-6 border-b border-neutral-100 shrink-0 justify-between">
-          <Link to="/" className="flex items-center gap-3 overflow-hidden" onClick={() => setIsMobileOpen(false)}>
-            <div className="w-10 h-10 bg-primary flex items-center justify-center rounded-xl text-white shadow-lg shrink-0">
-              <Package size={22} />
-            </div>
-            {!isCollapsed && (
-              <motion.span 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-xl font-black uppercase tracking-tighter text-primary whitespace-nowrap"
-              >
-                Packer Tools
-              </motion.span>
+          <Link to="/" className="flex items-center" onClick={() => setIsMobileOpen(false)}>
+            {isCollapsed ? (
+              <PackerLogo variant="symbol-only" size={32} light={true} />
+            ) : (
+              <PackerLogo variant="full" size={32} light={true} />
             )}
           </Link>
           <button onClick={() => setIsMobileOpen(false)} className="lg:hidden p-2 text-neutral-400">

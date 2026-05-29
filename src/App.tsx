@@ -43,6 +43,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import AddGearModal from './components/AddGearModal';
 import Onboarding from './components/Onboarding';
 import DukeyAssistant from './components/DukeyAssistant';
+import Footer from './components/Footer';
 import { AdminSettings, Plan } from './types';
 import { isFeatureEnabled } from './lib/featureUtils';
 
@@ -360,10 +361,13 @@ export default function App() {
             />
           )}
           
-          <div className="flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300">
+          <div className="flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 font-sans">
             <Navbar user={user} adminSettings={adminSettings} onMenuClick={() => setIsMobileSidebarOpen(true)} />
-            <main className="flex-1 w-full max-w-[1700px] mx-auto px-4 sm:px-6 py-6 sm:py-8 overflow-y-auto">
-              <AnimatedRoutes user={user} setUser={setUser} adminSettings={adminSettings} onMenuClick={() => setIsMobileSidebarOpen(true)} />
+            <main className="flex-1 w-full max-w-[1700px] mx-auto px-4 sm:px-6 py-6 sm:py-8 overflow-y-auto flex flex-col justify-between">
+              <div className="flex-1">
+                <AnimatedRoutes user={user} setUser={setUser} adminSettings={adminSettings} onMenuClick={() => setIsMobileSidebarOpen(true)} />
+              </div>
+              <Footer adminSettings={adminSettings} />
             </main>
           </div>
 

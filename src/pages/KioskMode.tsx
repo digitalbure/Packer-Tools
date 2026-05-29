@@ -33,6 +33,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { collection, query, where, getDocs, getDoc, addDoc, serverTimestamp, doc, updateDoc, onSnapshot, limit, arrayUnion } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { GearItem, UserProfile, CheckoutRecord, AdminSettings, Container } from '../types';
+import PackerLogo from '../components/PackerLogo';
 import { toast } from 'sonner';
 
 interface KioskModeProps {
@@ -804,8 +805,9 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       {/* Kiosk Header */}
       <header className="p-4 md:p-8 flex items-center justify-between border-b border-white/5 bg-black/20 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-3 md:gap-6">
-          <div className="w-10 h-10 md:w-16 md:h-16 bg-white text-black rounded-xl md:rounded-2xl flex items-center justify-center">
-            <LayoutGrid size={20} className="md:w-8 md:h-8" />
+          <div className="w-10 h-10 md:w-16 md:h-16 flex items-center justify-center rounded-xl md:rounded-2xl overflow-hidden bg-[#0D0D0D] border border-neutral-800">
+            <PackerLogo variant="symbol-only" size={32} className="md:hidden" />
+            <PackerLogo variant="symbol-only" size={54} className="hidden md:block" />
           </div>
           <div>
             <h1 className="text-xl md:text-4xl font-black uppercase tracking-tighter leading-none">Gear Terminal</h1>

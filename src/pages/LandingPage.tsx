@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LogIn, ArrowRight, Package, Shield, Globe, Zap, Camera, QrCode, ShoppingBag, Truck } from 'lucide-react';
 import { UserProfile, AdminSettings, LandingPageFeature } from '../types';
 import { signInWithGoogle } from '../firebase';
+import PackerLogo from '../components/PackerLogo';
 import { motion, AnimatePresence } from 'motion/react';
 
 const iconMap: { [key: string]: React.ReactNode } = {
@@ -267,11 +268,8 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-primary/5 bg-paper/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
-              <Package size={18} />
-            </div>
-            <span className="font-black uppercase tracking-tighter">{lp?.header?.logoText || 'Packer Tools'}</span>
+          <Link to="/" className="flex items-center gap-1 group">
+            <PackerLogo variant="full" size={32} light={true} />
           </Link>
           
           <nav className="hidden md:flex items-center gap-8">
@@ -634,37 +632,6 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="py-12 px-8 border-t border-primary/5 bg-neutral-50/50">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
-              <Package size={18} />
-            </div>
-            <span className="font-black uppercase tracking-tighter">{lp?.header?.logoText || 'Packer Tools'}</span>
-          </div>
-          <div className="flex gap-8 text-sm font-medium text-neutral-400">
-            {(lp?.footer?.links && lp.footer.links.length > 0) ? lp.footer.links.map((link: any, i: number) => (
-              <a key={i} href={link.href} className="hover:text-primary transition">{link.label}</a>
-            )) : (
-              <>
-                <Link to="/privacy" className="hover:text-primary transition">Privacy</Link>
-                <Link to="/terms" className="hover:text-primary transition">Terms</Link>
-                <Link to="/contact" className="hover:text-primary transition">Contact</Link>
-              </>
-            )}
-          </div>
-          <div className="flex flex-col items-center md:items-end gap-1.5 text-xs text-neutral-400">
-            <div>
-              {lp?.footer?.copyright || `© ${new Date().getFullYear()} Packer Tools. All rights reserved.`}
-            </div>
-            <div className="flex items-center gap-1 font-bold text-neutral-500">
-              App by <a href="https://digitalbure.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary underline decoration-primary font-black tracking-tight transition-all">Digital Bure 🇫🇯</a>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
