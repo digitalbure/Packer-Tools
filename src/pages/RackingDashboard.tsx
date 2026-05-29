@@ -35,6 +35,9 @@ export default function RackingDashboard({ user, adminSettings }: { user: UserPr
       const fetchedRacks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Rack[];
       setRacks(fetchedRacks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
       setLoading(false);
+    }, (error) => {
+      console.warn("RackingDashboard: Error listening to racks:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -51,6 +54,8 @@ export default function RackingDashboard({ user, adminSettings }: { user: UserPr
           ...prev,
           [rack.id]: items
         }));
+      }, (error) => {
+        console.warn("RackingDashboard: Error listening to rack items:", rack.id, error);
       });
     });
 

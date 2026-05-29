@@ -52,12 +52,16 @@ export default function DukeyAssistant({ user }: DukeyAssistantProps) {
     const unsubGear = onSnapshot(qGear, (snapshot) => {
       const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setGearItems(items);
+    }, (error) => {
+      console.warn("DukeyAssistant: Error listening to gear library:", error);
     });
 
     const qList = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid));
     const unsubList = onSnapshot(qList, (snapshot) => {
       const lists = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setPackingLists(lists);
+    }, (error) => {
+      console.warn("DukeyAssistant: Error listening to packing lists:", error);
     });
 
     // Real-time custom inventories sheet integration with sub-items resolving
@@ -87,12 +91,16 @@ export default function DukeyAssistant({ user }: DukeyAssistantProps) {
       } catch (err) {
         console.error("Error subresolving inventories", err);
       }
+    }, (error) => {
+      console.warn("DukeyAssistant: Error listening to inventories:", error);
     });
 
     const qContainers = query(collection(db, 'users', user.uid, 'containers'));
     const unsubContainers = onSnapshot(qContainers, (snapshot) => {
       const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setContainers(items);
+    }, (error) => {
+      console.warn("DukeyAssistant: Error listening to containers:", error);
     });
 
     return () => {

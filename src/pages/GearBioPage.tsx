@@ -79,6 +79,8 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
     const unsubscribeIncidents = onSnapshot(incidentsRef, (snapshot) => {
       const fetchedIncidents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as GearIncident[];
       setIncidents(fetchedIncidents.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+    }, (error) => {
+      console.warn("GearBioPage: Error catching incidents:", error);
     });
 
     // Fetch Owner PROFILE
@@ -87,6 +89,8 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
       if (ownerSnap.exists()) {
         setOwnerProfile(ownerSnap.data());
       }
+    }, (error) => {
+      console.warn("GearBioPage: Error catching owner profile:", error);
     });
 
     return () => {

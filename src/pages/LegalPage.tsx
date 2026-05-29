@@ -21,6 +21,9 @@ export default function LegalPage({ type }: LegalPageProps) {
         setSettings(docSnap.data() as AdminSettings);
       }
       setLoading(false);
+    }, (error) => {
+      console.warn("LegalPage: Error listening to settings global:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();

@@ -1110,6 +1110,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       localStorage.setItem(`gear_cache_sync_time_${user.uid}`, syncTime);
       setLastSyncTime(syncTime);
       setLoading(false);
+    }, (error) => {
+      console.warn("GearLibrary: Error listening to gear library:", error);
+      setLoading(false);
     });
     const unsubscribeSettings = onSnapshot(doc(db, 'adminSettings', 'global'), (docSnap) => {
       if (docSnap.exists()) {
@@ -1117,12 +1120,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         setSettings(settingsData);
         localStorage.setItem(`settings_cache`, JSON.stringify(settingsData));
       }
+    }, (error) => {
+      console.warn("GearLibrary: Error listening to global settings:", error);
     });
 
     const unsubscribeContainers = onSnapshot(collection(db, 'users', user.uid, 'containers'), (snapshot) => {
       const contList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Container));
       setContainers(contList);
       localStorage.setItem(`containers_cache_${user.uid}`, JSON.stringify(contList));
+    }, (error) => {
+      console.warn("GearLibrary: Error listening to containers:", error);
     });
 
     return () => {
@@ -1136,17 +1143,25 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     if (!user.uid) return;
     const unsubOrgs = onSnapshot(query(collection(db, 'organizations'), where('ownerId', '==', user.uid)), (snap) => {
       setOrganizations(snap.docs.map(d => ({ id: d.id, ...d.data() } as Organization)));
+    }, (error) => {
+      console.warn("GearLibrary: Error listening to organizations:", error);
     });
     
     if (user.orgId) {
       const unsubDepts = onSnapshot(query(collection(db, 'departments'), where('orgId', '==', user.orgId)), (snap) => {
         setDepartments(snap.docs.map(d => ({ id: d.id, ...d.data() } as Department)));
+      }, (error) => {
+        console.warn("GearLibrary: Error listening to departments:", error);
       });
       const unsubTeams = onSnapshot(query(collection(db, 'teams'), where('orgId', '==', user.orgId)), (snap) => {
         setTeams(snap.docs.map(d => ({ id: d.id, ...d.data() } as Team)));
+      }, (error) => {
+        console.warn("GearLibrary: Error listening to teams:", error);
       });
       const unsubUsers = onSnapshot(query(collection(db, 'users'), where('orgId', '==', user.orgId)), (snap) => {
         setUsers(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
+      }, (error) => {
+        console.warn("GearLibrary: Error listening to users in org:", error);
       });
       return () => {
         unsubOrgs();

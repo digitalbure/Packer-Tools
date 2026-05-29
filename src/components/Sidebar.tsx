@@ -74,6 +74,8 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
       if (snap.exists()) {
         setProjectData({ id: snap.id, ...snap.data() });
       }
+    }, (error) => {
+      console.warn("Sidebar: Error listening to project doc:", projectId, error);
     });
     return () => unsubscribe();
   }, [projectId]);

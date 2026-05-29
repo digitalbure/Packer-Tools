@@ -46,6 +46,9 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
         navigate('/projects');
       }
       setLoading(false);
+    }, (error) => {
+      console.warn("ProjectDetail: Error listening to project doc:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -68,6 +71,8 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
         ...doc.data()
       })) as PackingList[];
       setPackingLists(lists);
+    }, (error) => {
+      console.warn("ProjectDetail: Error listening to packing lists:", error);
     });
 
     return () => unsubscribe();
@@ -90,6 +95,8 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
         ...doc.data()
       })) as Rack[];
       setRacks(fetchedRacks);
+    }, (error) => {
+      console.warn("ProjectDetail: Error listening to racks:", error);
     });
 
     return () => unsubscribe();
@@ -119,6 +126,8 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
     const qSnapshots = query(collection(db, 'projects', id, 'snapshots'));
     const unsubscribeSnaps = onSnapshot(qSnapshots, (snap) => {
       setSnapshots(snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as any)).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    }, (error) => {
+      console.warn("ProjectDetail: Error listening to snaps:", error);
     });
     return unsubscribeSnaps;
   }, [id]);

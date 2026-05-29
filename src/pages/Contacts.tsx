@@ -66,6 +66,9 @@ export default function Contacts({ user, adminSettings }: ContactsProps) {
       })) as Contact[];
       setContacts(contactData);
       setLoading(false);
+    }, (error) => {
+      console.warn("Contacts: Error listening to contacts:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();

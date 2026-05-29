@@ -159,6 +159,8 @@ export default function App() {
       const q = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid));
       const unsubscribe = onSnapshot(q, (snapshot) => {
         setListsCount(snapshot.size);
+      }, (error) => {
+        console.warn("App: Error listening to packingLists count:", error);
       });
       return () => unsubscribe();
     } else {
@@ -360,6 +362,9 @@ export default function App() {
             setUser(newUser);
           }
           setLoading(false);
+        }, (error) => {
+          console.error("App: Error listening to user profile:", error);
+          setLoading(false);
         });
       } else {
         if (unsubscribeUser) unsubscribeUser();
@@ -372,6 +377,8 @@ export default function App() {
       if (docSnap.exists()) {
         setAdminSettings(docSnap.data() as AdminSettings);
       }
+    }, (error) => {
+      console.warn("App: Error listening to global settings:", error);
     });
 
     return () => {

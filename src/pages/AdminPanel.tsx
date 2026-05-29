@@ -81,14 +81,20 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   useEffect(() => {
     const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       setUsers(snapshot.docs.map(doc => doc.data() as UserProfile));
+    }, (error) => {
+      console.warn("AdminPanel: Error catching users collection:", error);
     });
 
     const unsubscribeLists = onSnapshot(collection(db, 'packingLists'), (snapshot) => {
       setLists(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PackingList)));
+    }, (error) => {
+      console.warn("AdminPanel: Error catching packingLists:", error);
     });
 
     const unsubscribeAllProjects = onSnapshot(collection(db, 'projects'), (snapshot) => {
       setAllProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project)));
+    }, (error) => {
+      console.warn("AdminPanel: Error catching projects:", error);
     });
 
     const unsubscribeSettings = onSnapshot(doc(db, 'adminSettings', 'global'), (docSnap) => {
@@ -274,18 +280,26 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
     const unsubscribeCheckouts = onSnapshot(collection(db, 'checkouts'), (snapshot) => {
       setCheckoutLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CheckoutRecord)));
+    }, (error) => {
+      console.warn("AdminPanel: Error catching checkouts:", error);
     });
 
     const unsubscribeOrgs = onSnapshot(collection(db, 'organizations'), (snapshot) => {
       setOrganizations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Organization)));
+    }, (error) => {
+      console.warn("AdminPanel: Error catching organizations:", error);
     });
 
     const unsubscribeDepts = onSnapshot(collection(db, 'departments'), (snapshot) => {
       setDepartments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department)));
+    }, (error) => {
+      console.warn("AdminPanel: Error catching departments:", error);
     });
 
     const unsubscribeTeams = onSnapshot(collection(db, 'teams'), (snapshot) => {
       setTeams(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Team)));
+    }, (error) => {
+      console.warn("AdminPanel: Error catching teams:", error);
     });
 
     setLoading(false);
