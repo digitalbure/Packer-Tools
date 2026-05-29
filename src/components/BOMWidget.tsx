@@ -26,14 +26,20 @@ interface BOMItem extends BuildItem {
 interface BOMWidgetProps {
   project: Project;
   user: UserProfile;
+  items?: any[];
 }
 
-export default function BOMWidget({ project, user }: BOMWidgetProps) {
+export default function BOMWidget({ project, user, items: passedItems }: BOMWidgetProps) {
   const [items, setItems] = useState<BOMItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
 
   useEffect(() => {
+    if (passedItems) {
+      setItems(passedItems);
+      return;
+    }
+
     const q = query(
       collection(db, 'buildItems'),
       where('projectId', '==', project.id),
@@ -65,7 +71,7 @@ export default function BOMWidget({ project, user }: BOMWidgetProps) {
     });
 
     return unsub;
-  }, [project.id, user.uid]);
+  }, [project.id, user.uid, passedItems]);
 
   const filteredItems = items.filter(i => {
     const matchesSearch = i.name.toLowerCase().includes(searchQuery.toLowerCase()) || 

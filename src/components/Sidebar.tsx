@@ -95,6 +95,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/projects', label: 'Projects', icon: <Briefcase size={20} /> },
     { to: '/kiosk', label: 'Gear Kiosk', icon: <QrCode size={20} /> },
     { to: '/library', label: 'Gear Library', icon: <Package size={20} /> },
+    { to: '/systems-builder', label: 'Systems Builder', icon: <Hammer size={20} /> },
     { 
       to: '/lists', 
       label: 'Lists', 
@@ -292,7 +293,6 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
             <nav className="space-y-1">
               {[
                 { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} /> },
-                { id: 'sandbox', label: 'Build Sandbox', icon: <Hammer size={18} /> },
                 ...(isFeatureEnabledSafe('projectCost') ? [{ id: 'costs', label: 'Costs & Budget', icon: <DollarSign size={18} /> }] : []),
                 ...(isFeatureEnabledSafe('supplierManagement') ? [{ id: 'suppliers', label: 'Vendor CRM', icon: <Building size={18} /> }] : []),
                 ...(isFeatureEnabledSafe('bomManagement') ? [{ id: 'bom', label: 'BOM Composer', icon: <Zap size={18} /> }] : []),

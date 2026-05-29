@@ -48,9 +48,10 @@ interface ComparisonResult {
 interface CompatibilityWidgetProps {
   project: Project;
   user: UserProfile;
+  items?: any[];
 }
 
-export default function CompatibilityWidget({ project, user }: CompatibilityWidgetProps) {
+export default function CompatibilityWidget({ project, user, items: passedItems }: CompatibilityWidgetProps) {
   const [items, setItems] = useState<BuildItem[]>([]);
   const [report, setReport] = useState<CompatibilityReport | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -63,6 +64,11 @@ export default function CompatibilityWidget({ project, user }: CompatibilityWidg
   const [showComparisonModal, setShowComparisonModal] = useState(false);
 
   useEffect(() => {
+    if (passedItems) {
+      setItems(passedItems);
+      return;
+    }
+
     const q = query(
       collection(db, 'buildItems'),
       where('projectId', '==', project.id),
@@ -72,7 +78,7 @@ export default function CompatibilityWidget({ project, user }: CompatibilityWidg
       setItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as BuildItem)));
     });
     return unsub;
-  }, [project.id, user.uid]);
+  }, [project.id, user.uid, passedItems]);
 
   const checkCompatibility = async () => {
     if (items.length < 2) {

@@ -33,9 +33,10 @@ interface ProjectCost {
 interface CostWidgetProps {
   project: Project;
   user: UserProfile;
+  items?: any[];
 }
 
-export default function CostWidget({ project, user }: CostWidgetProps) {
+export default function CostWidget({ project, user, items: passedItems }: CostWidgetProps) {
   const [costs, setCosts] = useState<ProjectCost[]>([]);
   const [buildItems, setBuildItems] = useState<BuildItem[]>([]);
   const [budget, setBudget] = useState(10000); // Default placeholder
@@ -58,6 +59,13 @@ export default function CostWidget({ project, user }: CostWidgetProps) {
       setCosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as ProjectCost)));
     });
 
+    if (passedItems) {
+      setBuildItems(passedItems);
+      return () => {
+        unsubCosts();
+      };
+    }
+
     // Sandbox items for auto-calculation
     const qBuild = query(
       collection(db, 'buildItems'),
@@ -72,7 +80,7 @@ export default function CostWidget({ project, user }: CostWidgetProps) {
       unsubCosts();
       unsubBuild();
     };
-  }, [project.id, user.uid]);
+  }, [project.id, user.uid, passedItems]);
 
   const totalEstimated = costs.reduce((sum, c) => sum + (c.status === 'estimated' ? c.amount : 0), 0) + 
                        buildItems.reduce((sum, i) => sum + ((i.price || 0) * (i.quantity || 1)), 0);

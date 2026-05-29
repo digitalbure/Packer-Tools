@@ -21,6 +21,8 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
   const [allUserRacks, setAllUserRacks] = useState<Rack[]>([]);
   const [loading, setLoading] = useState(true);
   const [snapshots, setSnapshots] = useState<any[]>([]);
+  const [projectPhysItems, setProjectPhysItems] = useState<any[]>([]);
+  const [gearLibrary, setGearLibrary] = useState<any[]>([]);
   const [isAddingList, setIsAddingList] = useState(false);
   const [isAddingRack, setIsAddingRack] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -131,6 +133,71 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
     });
     return unsubscribeSnaps;
   }, [id]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(collection(db, 'users', user.uid, 'gearLibrary'));
+    const unsub = onSnapshot(q, (snap) => {
+      setGearLibrary(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.warn("ProjectDetail: Error listening to gear library:", error);
+    });
+    return unsub;
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!project) return;
+    const listIds = project.listIds || [];
+    const rackIds = project.rackIds || [];
+    if (listIds.length === 0 && rackIds.length === 0) {
+      setProjectPhysItems([]);
+      return;
+    }
+
+    const unsubscribes: (() => void)[] = [];
+    const allItemsMap: { [key: string]: any[] } = {};
+
+    const updateAllItems = () => {
+      const flatItems = Object.values(allItemsMap).flat();
+      setProjectPhysItems(flatItems);
+    };
+
+    listIds.forEach((listId) => {
+      const q = collection(db, 'packingLists', listId, 'items');
+      const unsub = onSnapshot(q, (snap) => {
+        allItemsMap[`list_${listId}`] = snap.docs.map(doc => ({
+          id: doc.id,
+          sourceType: 'list',
+          sourceId: listId,
+          ...doc.data()
+        }));
+        updateAllItems();
+      }, (error) => {
+        console.warn("ProjectDetail: Error listening to packing list items:", listId, error);
+      });
+      unsubscribes.push(unsub);
+    });
+
+    rackIds.forEach((rackId) => {
+      const q = collection(db, 'racks', rackId, 'items');
+      const unsub = onSnapshot(q, (snap) => {
+        allItemsMap[`rack_${rackId}`] = snap.docs.map(doc => ({
+          id: doc.id,
+          sourceType: 'rack',
+          sourceId: rackId,
+          ...doc.data()
+        }));
+        updateAllItems();
+      }, (error) => {
+        console.warn("ProjectDetail: Error listening to rack items:", rackId, error);
+      });
+      unsubscribes.push(unsub);
+    });
+
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, [project?.listIds, project?.rackIds]);
 
   useEffect(() => {
     if (!isAddingRack) return;
@@ -470,6 +537,21 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
     r.name.toLowerCase().includes(rackSearchQuery.toLowerCase())
   );
 
+  const projectItemsMapped = projectPhysItems.map(item => {
+    const gear = item.gearId ? gearLibrary.find((g: any) => g.id === item.gearId) : null;
+    return {
+      id: item.id,
+      name: gear?.name || item.name || 'Unknown Item',
+      category: gear?.category || item.category || 'Other',
+      type: gear?.type || item.type || 'component',
+      brand: gear?.brand || item.brand || '',
+      model: gear?.model || item.model || '',
+      price: gear?.price || item.price || 0,
+      quantity: item.quantity || 1,
+      isPushed: true
+    };
+  });
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'text-green-600 bg-green-50';
@@ -725,86 +807,26 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
               >
-                {!project.isBuildMode ? (
-                  <div className="grid md:grid-cols-12 gap-8 items-start animate-fadeIn">
-                    {/* Activation Panel */}
-                    <div className="md:col-span-5 bg-white rounded-[2rem] p-8 sm:p-10 text-center border border-neutral-100 shadow-xl space-y-6">
-                      <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-                        <Hammer size={32} />
-                      </div>
-                      <div className="space-y-2">
-                         <h3 className="text-xl font-black uppercase tracking-tight">Integrator Sandbox</h3>
-                         <p className="text-neutral-500 text-xs font-semibold leading-relaxed max-w-xs mx-auto">
-                           Onboard virtual components, analyze rigs, and build systems without affecting your core inventory.
-                         </p>
-                      </div>
-                      <button 
-                        onClick={toggleBuildMode}
-                        className="w-full bg-neutral-900 text-white py-3.5 px-6 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:scale-[1.02] active:scale-95 transition"
-                      >
-                        Activate Build Mode
-                      </button>
-                    </div>
-
-                    {/* Snapshots History Panel */}
-                    <div className="md:col-span-7 bg-white rounded-[2rem] p-8 border border-neutral-100 shadow-xl space-y-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-                          <History size={18} />
-                        </div>
-                        <div>
-                          <h4 className="font-black uppercase tracking-tight text-xs text-neutral-800">Sandbox Version Snapshots</h4>
-                          <span className="text-[8px] font-mono font-bold uppercase tracking-widest text-neutral-400">Automatic revert history log</span>
-                        </div>
-                      </div>
-
-                      {snapshots.length === 0 ? (
-                        <div className="py-12 px-6 border-2 border-dashed border-neutral-100 rounded-2xl text-center text-neutral-400">
-                          <History size={32} className="mx-auto text-neutral-300 mb-2 animate-pulse" />
-                          <p className="text-[10px] font-black uppercase tracking-widest">No snapshots catalogued yet</p>
-                          <p className="text-[9px] text-neutral-400 font-medium leading-relaxed max-w-xs mx-auto mt-1 uppercase">
-                            An automatic timestamped version will save when Build Mode is toggled off.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                          {snapshots.map((snap) => (
-                            <div 
-                              key={snap.id} 
-                              className="p-3.5 bg-neutral-50 hover:bg-neutral-100 transition rounded-xl border border-neutral-150 flex items-center justify-between gap-4"
-                            >
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="px-2 py-0.5 bg-neutral-900 text-white text-[8px] font-black uppercase rounded font-mono">
-                                    V{snap.projectVersion || 1} Draft
-                                  </span>
-                                  <span className="text-[10px] font-black text-neutral-700">
-                                    {snap.items?.length || 0} Elements
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-[9px] text-neutral-400 font-bold uppercase tracking-wider">
-                                  <Calendar size={10} />
-                                  <span>{new Date(snap.timestamp).toLocaleString()}</span>
-                                </div>
-                                <div className="text-[9px] font-mono text-neutral-400 uppercase font-black">
-                                  Total Cost: <span className="text-[#0066cc]">${(snap.totalCost || 0).toLocaleString()}</span>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => handleRevertSnapshot(snap)}
-                                className="px-3 py-2 bg-neutral-900 hover:bg-primary text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition shadow-sm"
-                              >
-                                Restore
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                <div className="bg-white rounded-[2.5rem] p-10 text-center border border-neutral-100 shadow-xl space-y-6 max-w-xl mx-auto">
+                  <div className="w-16 h-16 bg-neutral-900 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+                    <Hammer size={32} />
                   </div>
-                ) : (
-                  <BuildModule project={project} user={user} />
-                )}
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-black uppercase tracking-tight">Sandbox Upgraded & Relocated</h3>
+                    <p className="text-neutral-500 text-xs font-semibold leading-relaxed">
+                      The virtual Build Sandbox has been moved to its own dedicated powerhouse module: <span className="font-extrabold text-black">Systems Builder</span>.
+                    </p>
+                    <p className="text-neutral-400 text-[10px] leading-relaxed uppercase tracking-wider">
+                      This allows you to construct and design virtual system hierarchies with either reference blueprints, custom components, or your active inventory gear independently of the project's physical scope!
+                    </p>
+                  </div>
+                  <Link
+                    to="/systems-builder"
+                    className="inline-flex items-center gap-2 bg-neutral-905 hover:bg-neutral-800 text-white bg-neutral-900 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md transition"
+                  >
+                    <span>Open Systems Builder</span>
+                  </Link>
+                </div>
               </motion.div>
             )}
 
@@ -815,7 +837,7 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
               >
-                <CompatibilityWidget project={project} user={user} />
+                <CompatibilityWidget project={project} user={user} items={projectItemsMapped} />
               </motion.div>
             )}
 
@@ -826,7 +848,7 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
               >
-                <CostWidget project={project} user={user} />
+                <CostWidget project={project} user={user} items={projectItemsMapped} />
               </motion.div>
             )}
 
@@ -848,7 +870,7 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
               >
-                <BOMWidget project={project} user={user} />
+                <BOMWidget project={project} user={user} items={projectItemsMapped} />
               </motion.div>
             )}
 

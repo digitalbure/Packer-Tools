@@ -29,6 +29,7 @@ import RackingDashboard from './pages/RackingDashboard';
 import RackDetail from './pages/RackDetail';
 import ProjectDashboard from './pages/ProjectDashboard';
 import ProjectDetail from './pages/ProjectDetail';
+import SystemsBuilder from './pages/SystemsBuilder';
 import TravelCaseModule from './pages/TravelCaseModule';
 import OrganizerModule from './pages/OrganizerModule';
 import ToolingListModule from './pages/ToolingListModule';
@@ -41,6 +42,7 @@ import KioskMode from './pages/KioskMode';
 import GearBioPage from './pages/GearBioPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import AddGearModal from './components/AddGearModal';
+import QuickActionsDrawer from './components/QuickActionsDrawer';
 import Onboarding from './components/Onboarding';
 import DukeyAssistant from './components/DukeyAssistant';
 import Footer from './components/Footer';
@@ -127,6 +129,7 @@ function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick }: {
           <Route path="/ai-wizard" element={isFeatureEnabled('aiWizard', user, adminSettings) ? <AITemplateWizard user={user} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
           <Route path="/library" element={user ? <GearLibrary user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/gear/:id" element={<GearBioPage user={user} adminSettings={adminSettings} />} />
+          <Route path="/systems-builder" element={user ? <SystemsBuilder user={user} /> : <Navigate to="/" />} />
           <Route path="/racks" element={user ? <RackingDashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/rack/:id" element={user ? <RackDetail user={user} /> : <Navigate to="/" />} />
           <Route path="/projects" element={user ? <ProjectDashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
@@ -432,6 +435,7 @@ export default function App() {
 
           {user && <DukeyAssistant user={user} />}
           {user && <AddGearModal user={user} adminSettings={adminSettings} />}
+          {user && <QuickActionsDrawer user={user} />}
         </div>
       </Router>
     </ErrorBoundary>
