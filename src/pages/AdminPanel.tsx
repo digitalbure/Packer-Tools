@@ -108,6 +108,13 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             callbackUrlProd: ''
           };
         }
+        if (!data.marketplaceRegionConfig) {
+          data.marketplaceRegionConfig = {
+            launchCountry: 'Fiji',
+            availableCountries: ['Fiji', 'United States', 'Australia', 'New Zealand', 'United Kingdom', 'Canada'],
+            restrictToAvailableCountries: false
+          };
+        }
         if (!data.aiRecognitionConfig) {
           data.aiRecognitionConfig = {
             enabled: true,
@@ -2920,6 +2927,100 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition"
                   />
                   <p className="text-[10px] text-neutral-400">Policy: Maximum time gear can be checked out before flagging.</p>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-neutral-100">
+                  <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800 flex items-center gap-1.5">
+                    <Globe size={16} className="text-primary shrink-0" />
+                    <span>Marketplace Regional Launch Settings</span>
+                  </h4>
+                  <p className="text-[11px] text-neutral-450 text-neutral-500 font-semibold leading-relaxed uppercase">
+                    Configure active launch properties and territorial limits for visual gear marketplace interactions.
+                  </p>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Launch Country</label>
+                    <select
+                      value={settings?.marketplaceRegionConfig?.launchCountry || 'Fiji'}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSettings(s => {
+                          if (!s) return null;
+                          const cfg = s.marketplaceRegionConfig || { launchCountry: 'Fiji', availableCountries: ['Fiji'], restrictToAvailableCountries: false };
+                          return {
+                            ...s,
+                            marketplaceRegionConfig: { ...cfg, launchCountry: val }
+                          };
+                        });
+                      }}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition font-semibold"
+                    >
+                      <option value="Fiji">Fiji (Launch Target Country)</option>
+                      <option value="United States">United States</option>
+                      <option value="Australia">Australia</option>
+                      <option value="New Zealand">New Zealand</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="Canada">Canada</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Packer Tools Available Countries List</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Fiji', 'United States', 'Australia', 'New Zealand', 'United Kingdom', 'Canada'].map((country) => {
+                        const isAvailable = (settings?.marketplaceRegionConfig?.availableCountries || ['Fiji']).includes(country);
+                        return (
+                          <button
+                            key={country}
+                            type="button"
+                            onClick={() => {
+                              setSettings(s => {
+                                if (!s) return null;
+                                const cfg = s.marketplaceRegionConfig || { launchCountry: 'Fiji', availableCountries: ['Fiji'], restrictToAvailableCountries: false };
+                                const list = cfg.availableCountries || [];
+                                const newList = list.includes(country) 
+                                  ? list.filter(c => c !== country) 
+                                  : [...list, country];
+                                return {
+                                  ...s,
+                                  marketplaceRegionConfig: { ...cfg, availableCountries: newList }
+                                };
+                              });
+                            }}
+                            className={`p-3 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all text-left flex items-center justify-between ${
+                              isAvailable
+                                ? 'bg-primary/10 text-primary border-primary shadow-inner'
+                                : 'bg-neutral-50 text-neutral-400 border-neutral-200/60 hover:border-neutral-300'
+                            }`}
+                          >
+                            <span>{country}</span>
+                            <div className={`w-2.5 h-2.5 rounded-full ${isAvailable ? 'bg-primary' : 'bg-neutral-200'}`} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-xs uppercase text-neutral-800">Restrict Marketplace to Available Countries</p>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider leading-relaxed">Limit bookings and availability warnings strictly if users location is outside chosen countries.</p>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => setSettings(s => {
+                        if (!s) return null;
+                        const cfg = s.marketplaceRegionConfig || { launchCountry: 'Fiji', availableCountries: ['Fiji'], restrictToAvailableCountries: false };
+                        return {
+                          ...s,
+                          marketplaceRegionConfig: { ...cfg, restrictToAvailableCountries: !cfg.restrictToAvailableCountries }
+                        };
+                      })}
+                      className={`w-12 h-6 rounded-full relative transition-colors ${settings?.marketplaceRegionConfig?.restrictToAvailableCountries ? 'bg-primary' : 'bg-neutral-200'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceRegionConfig?.restrictToAvailableCountries ? 'right-1' : 'left-1'}`}></div>
+                    </button>
+                  </div>
                 </div>
               </div>
 

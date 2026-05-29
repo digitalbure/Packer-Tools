@@ -104,6 +104,7 @@ export interface UserProfile {
   activeMarketplaceCurrencies?: string[]; // Currencies activated for renting equipment in marketplace
   defaultBookingFee?: number; // User custom default booking fee % or amount
   defaultSecurityDeposit?: number; // User custom default fixed security deposit
+  country?: string; // User selected marketplace country
 }
 
 export interface Contact {
@@ -717,6 +718,11 @@ export interface AdminSettings {
       idleTimerSeconds: number;
       enforceSupervisorApproval: boolean;
     };
+  };
+  marketplaceRegionConfig?: {
+    launchCountry: string;
+    availableCountries: string[];
+    restrictToAvailableCountries: boolean;
   };
 }
 

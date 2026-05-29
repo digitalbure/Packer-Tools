@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { UserProfile, AdminSettings } from '../types';
 import { 
   Search, 
   MapPin, 
@@ -26,7 +27,8 @@ import {
   Mail,
   Camera,
   Map,
-  Filter
+  Filter,
+  Globe
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -120,10 +122,152 @@ const STAFF_PICKS: ProductItem[] = [
   { id: 'pick-4', name: 'Sony Alpha a7 IV Camera w/Sigma 24-70mm f2.8 lens & Rode VideoMic Pro', brand: 'Sony', model: 'a7 IV Kit', category: 'still-hybrid', price: 70, rating: 4.7, reviews: 19, image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400', ownerName: 'Bogdan Rental', instantBook: true },
 ];
 
-export default function Marketplace() {
+interface MarketplaceProps {
+  user?: UserProfile | null;
+  adminSettings?: AdminSettings | null;
+}
+
+export default function Marketplace({ user, adminSettings }: MarketplaceProps = {}) {
   const [currentMode, setCurrentMode] = useState<'rent' | 'buy'>('rent');
   const [searchQuery, setSearchQuery] = useState('');
-  const [locationQuery, setLocationQuery] = useState('Los Angeles, CA');
+
+  const launchCountry = adminSettings?.marketplaceRegionConfig?.launchCountry || 'Fiji';
+  const availableCountries = adminSettings?.marketplaceRegionConfig?.availableCountries || ['Fiji', 'United States', 'Australia', 'New Zealand', 'United Kingdom', 'Canada'];
+  const restrictToAvailableCountries = adminSettings?.marketplaceRegionConfig?.restrictToAvailableCountries || false;
+
+  const activeCountry = user?.country || launchCountry || 'Fiji';
+  const isFiji = activeCountry === 'Fiji';
+
+  const isAuthorized = user?.country 
+    ? availableCountries.includes(user.country)
+    : true;
+
+  const [locationQuery, setLocationQuery] = useState(isFiji ? 'Suva, Fiji' : 'Los Angeles, CA');
+
+  useEffect(() => {
+    if (isFiji) {
+      setLocationQuery('Suva, Fiji');
+    } else {
+      setLocationQuery(user?.location || 'Los Angeles, CA');
+    }
+  }, [isFiji, user?.location]);
+
+  const currencySymbol = isFiji ? 'FJ$' : '$';
+
+  // Fiji-centric brand/owner mappings
+  const mappedPopularProducts = POPULAR_PRODUCTS.map(p => {
+    if (isFiji) {
+      const fijiOwners: { [key: string]: string } = {
+        'Sum of Parts LLC': 'Fiji Television Ltd',
+        'Bogdan Rental': 'Pacific Film Services (Suva)',
+        'NirvanaMedia': 'Mai TV Fiji',
+        'Brentwood Sizzle': 'Viti Levu Broadcast Group',
+        'Carson Zhu': 'Nadi Bay Rental Center'
+      };
+      return {
+        ...p,
+        ownerName: fijiOwners[p.ownerName || ''] || 'Fiji Media Services',
+        price: Math.round(p.price * 2.2)
+      };
+    }
+    return p;
+  });
+
+  const mappedShippedProducts = SHIPPED_PRODUCTS.map(p => {
+    if (isFiji) {
+      const fijiOwners: { [key: string]: string } = {
+        'Zac Zotic': 'Coconut Media Co. (Suva)',
+        'NirvanaMedia LLC': 'Pacific Film Services Ltd',
+        'Baim': 'Viti West Production Equipment',
+        'Sum of Parts LLC': 'Fiji Television Ltd',
+        "Men's Bread Productions": 'South Pacific Broadcast Center'
+      };
+      return {
+        ...p,
+        ownerName: fijiOwners[p.ownerName || ''] || 'Malamala Film Hub',
+        price: Math.round(p.price * 2.2)
+      };
+    }
+    return p;
+  });
+
+  const mappedSalesProducts = SALES_PRODUCTS.map(p => {
+    if (isFiji) {
+      const fijiOwners: { [key: string]: string } = {
+        'Adam Griffin': 'Elena Bulatiko (Suva)',
+        'LOMISFILM': 'Suva Matte Box Sales',
+        '805 Studios LLC': 'Nadi Event Services',
+        'Ethan Sigmon': 'Viti Levu Spares'
+      };
+      return {
+        ...p,
+        ownerName: fijiOwners[p.ownerName || ''] || 'Tanoa Films Co',
+        price: Math.round(p.price * 2.2),
+        originalPrice: p.originalPrice ? Math.round(p.originalPrice * 2.2) : undefined
+      };
+    }
+    return p;
+  });
+
+  const mappedStaffPicks = STAFF_PICKS.map(p => {
+    if (isFiji) {
+      const fijiOwners: { [key: string]: string } = {
+        'Zac Zotic': 'South Pacific Rentals (Suva)',
+        'Bogdan Rental': 'Fiji Film Equipment Hire',
+        'Sum of Parts LLC': 'Fiji Television Ltd'
+      };
+      return {
+        ...p,
+        ownerName: fijiOwners[p.ownerName || ''] || 'Sandy Cay Camera Co',
+        price: Math.round(p.price * 2.2)
+      };
+    }
+    return p;
+  });
+
+  const mappedCrews = CREW_LIST.map(c => {
+    if (isFiji) {
+      const fijiCrews: { [key: string]: { name: string; title: string; skills: string[]; bio: string } } = {
+        'Ecarum Sumpter': {
+          name: 'Savenaca Ravula',
+          title: 'Senior Coral Reef Videographer & Drone Pilot',
+          skills: ['CAA Fiji Certified Drone Operator', 'Underwater Housing Specialist', 'Fiji Event Director'],
+          bio: 'Bula Vinaka! Professional Director of Photography with 10+ years capturing deep oceans, marine sanctuaries, and local documentaries inside Viti Levu.'
+        },
+        'Sean Chow': {
+          name: 'Jone Vakaloloma',
+          title: 'Suva Broadcast Cinematographer',
+          skills: ['Directing', 'Fiji TV Broadcast Operator', 'Steadicam Expert'],
+          bio: 'Lead camera operator on major Pacific regional meetings, Fiji television news, and local cinema reels.'
+        },
+        'Trent Mills': {
+          name: 'Elena Tagivakatini',
+          title: 'Creative Director & South Pacific Producer',
+          skills: ['Film Producer', 'Cultural Advisor', 'Sound Designer'],
+          bio: 'Specializing in Fiji-local cultural clearances, production logistics, talent sourcing, and commercial storytelling.'
+        },
+        'Abel Garcia Rodriguez': {
+          name: 'Amit Patel',
+          title: 'Commercial Film and Wedding Producer',
+          skills: ['Multi-day Event Coordination', 'Production Management', 'Lighting Arranger'],
+          bio: 'Based in Lautoka. Expert coordinator for grand wedding videography, corporate events, and hotel advertising.'
+        },
+        'Rhys Kroehler': {
+          name: 'Samuela Rokotakala',
+          title: 'Ocean Documentary Filmmaker',
+          skills: ['Underwater Cameraman', 'Water Safety Officer', 'Colorist'],
+          bio: 'BFA recipient from USP. Specialized in marine preservation features, marine biology expedition logging, and island cinematography.'
+        }
+      };
+      const mapped = fijiCrews[c.name] || { name: c.name, title: c.title, skills: c.skills, bio: c.bio };
+      return {
+        ...c,
+        ...mapped
+      };
+    }
+    return c;
+  });
+
   const [isSearchDrawerOpen, setIsSearchDrawerOpen] = useState(false);
   
   // Filtering & Modal parameters
@@ -164,7 +308,7 @@ export default function Marketplace() {
 
   const handleBookingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success(`Booking request sent for ${selectedProduct?.name}! Total Estimated Rental: $${(selectedProduct?.price || 0) * bookingDays}.`);
+    toast.success(`Booking request sent for ${selectedProduct?.name}! Total Estimated Rental: ${currencySymbol}${(selectedProduct?.price || 0) * bookingDays}.`);
     setIsBookingModalOpen(false);
     setSelectedProduct(null);
   };
@@ -178,8 +322,8 @@ export default function Marketplace() {
   };
 
   // Filtering lists based on global searches and chips
-  const allRentals = [...POPULAR_PRODUCTS, ...SHIPPED_PRODUCTS, ...STAFF_PICKS];
-  const allSales = SALES_PRODUCTS;
+  const allRentals = [...mappedPopularProducts, ...mappedShippedProducts, ...mappedStaffPicks];
+  const allSales = mappedSalesProducts;
 
   const filteredProducts = (currentMode === 'rent' ? allRentals : allSales).filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -191,6 +335,20 @@ export default function Marketplace() {
 
   return (
     <div id="marketplace-landing-root" className="min-h-screen bg-white text-neutral-900 pb-20 font-sans selection:bg-neutral-900 selection:text-white">
+      
+      {isFiji && (
+        <div id="fiji-soft-launch-ribbon" className="bg-[#101f18] text-emerald-400 border-b border-emerald-900/40 text-center py-2.5 px-4 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2.5 shadow-md">
+          <Globe size={12} className="animate-pulse" />
+          <span>🌴 Bula Vinaka! Welcome to Fiji's Dedicated Packer Tools Marketplace Hub</span>
+          <span className="bg-emerald-900/60 text-emerald-300 px-2 py-0.5 rounded text-[8px] font-black tracking-wider ml-1">FJD OPERATIONAL</span>
+        </div>
+      )}
+      {!isAuthorized && (
+        <div id="unauthorized-launch-ribbon" className="bg-neutral-950 text-amber-500 border-b border-amber-900/30 text-center py-2.5 px-4 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2.5 shadow-md">
+          <Globe size={12} />
+          <span>⚠️ Soft Launch Notice: Active marketplace services are prioritized in {launchCountry}. Some features may be restricted for {user?.country || 'your current region'}.</span>
+        </div>
+      )}
       
       {/* 1. TOP PREMIUM GRADIENT HERO BANNER */}
       <div 
@@ -859,7 +1017,7 @@ export default function Marketplace() {
                         <div className="flex items-baseline justify-between pt-1 border-t border-neutral-50">
                           <div>
                             <span className="text-sm font-black text-neutral-900">
-                              ${product.price ? product.price.toLocaleString() : 'Call'}
+                              {currencySymbol}{product.price ? product.price.toLocaleString() : 'Call'}
                             </span>
                             <span className="text-[8.5px] text-neutral-400 font-bold uppercase ml-0.5">
                               {product.isSale ? '' : '/day'}
@@ -868,7 +1026,7 @@ export default function Marketplace() {
                           
                           {product.originalPrice && (
                             <span className="text-[9px] text-neutral-400 line-through font-bold">
-                              ${product.originalPrice.toLocaleString()}
+                              {currencySymbol}{product.originalPrice.toLocaleString()}
                             </span>
                           )}
                         </div>
@@ -890,7 +1048,7 @@ export default function Marketplace() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              {SHIPPED_PRODUCTS.slice(0, 5).map((product) => {
+              {mappedShippedProducts.slice(0, 5).map((product) => {
                 const isFav = favoriteItems.has(product.id);
                 return (
                   <div 
@@ -931,7 +1089,7 @@ export default function Marketplace() {
                       </div>
 
                       <div className="space-y-1 text-[8.5px] font-bold text-neutral-500 uppercase">
-                        <div>Price: <span className="text-neutral-900 font-extrabold">${product.price}/day</span></div>
+                        <div>Price: <span className="text-neutral-900 font-extrabold">{currencySymbol}{product.price}/day</span></div>
                         <div className="truncate">Source: {product.ownerName}</div>
                       </div>
                     </div>
@@ -972,7 +1130,7 @@ export default function Marketplace() {
 
           {/* Cards list */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-            {CREW_LIST.map((crew) => (
+            {mappedCrews.map((crew) => (
               <div 
                 key={crew.id}
                 className="bg-white rounded-[2rem] border border-neutral-205 p-6 flex flex-col justify-between gap-5 hover:shadow-xl transition-all hover:border-black"
@@ -1055,7 +1213,7 @@ export default function Marketplace() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {STAFF_PICKS.map((product) => {
+          {mappedStaffPicks.map((product) => {
             const isFav = favoriteItems.has(product.id);
             return (
               <div 
@@ -1096,7 +1254,7 @@ export default function Marketplace() {
 
                   <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
                     <div>
-                      <span className="text-sm font-black text-[#ff4f3a]">${product.price}</span>
+                      <span className="text-sm font-black text-[#ff4f3a]">{currencySymbol}{product.price}</span>
                       <span className="text-[8.5px] text-neutral-400 font-semibold uppercase">/day</span>
                     </div>
                     <span className="text-[8.5px] text-neutral-400 font-black uppercase tracking-wider">
@@ -1199,14 +1357,27 @@ export default function Marketplace() {
 
           {/* Col 2 */}
           <div className="space-y-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Top Cities</h4>
-            <ul className="space-y-2.5 text-[9.5px] font-semibold uppercase tracking-wider">
-              <li><span onClick={() => { setLocationQuery('Los Angeles, CA'); toast.success("Set range scope to Los Angeles"); }} className="hover:text-white cursor-pointer transition">Los Angeles Rentals ›</span></li>
-              <li><span onClick={() => { setLocationQuery('New York, NY'); toast.success("Set range scope to New York"); }} className="hover:text-white cursor-pointer transition">New York Rentals ›</span></li>
-              <li><span onClick={() => { setLocationQuery('Atlanta, GA'); toast.success("Set range scope to Atlanta"); }} className="hover:text-white cursor-pointer transition">Atlanta Rentals ›</span></li>
-              <li><span onClick={() => { setLocationQuery('San Francisco, CA'); toast.success("Set range scope to San Francisco"); }} className="hover:text-white cursor-pointer transition">San Francisco Rentals ›</span></li>
-              <li><span onClick={() => { setLocationQuery('Seattle, WA'); toast.success("Set range scope to Seattle"); }} className="hover:text-white cursor-pointer transition">Seattle Rentals ›</span></li>
-              <li><span onClick={() => { setLocationQuery('Chicago, IL'); toast.success("Set range scope to Chicago"); }} className="hover:text-white cursor-pointer transition">Chicago Rentals ›</span></li>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Top {isFiji ? 'Fiji Regions' : 'Cities'}</h4>
+            <ul className="space-y-2.5 text-[9.5px] font-semibold uppercase tracking-wider text-[#b3b3b3]">
+              {isFiji ? (
+                <>
+                  <li><span onClick={() => { setLocationQuery('Suva, Fiji'); toast.success("Set range scope to Suva"); }} className="hover:text-white cursor-pointer transition">Suva Rentals ›</span></li>
+                  <li><span onClick={() => { setLocationQuery('Nadi, Fiji'); toast.success("Set range scope to Nadi"); }} className="hover:text-white cursor-pointer transition">Nadi Film Hub ›</span></li>
+                  <li><span onClick={() => { setLocationQuery('Lautoka, Fiji'); toast.success("Set range scope to Lautoka"); }} className="hover:text-white cursor-pointer transition">Lautoka Rentals ›</span></li>
+                  <li><span onClick={() => { setLocationQuery('Savusavu, Fiji'); toast.success("Set range scope to Savusavu"); }} className="hover:text-white cursor-pointer transition">Savusavu Bay Center ›</span></li>
+                  <li><span onClick={() => { setLocationQuery('Labasa, Fiji'); toast.success("Set range scope to Labasa"); }} className="hover:text-white cursor-pointer transition">Labasa Rentals ›</span></li>
+                  <li><span onClick={() => { setLocationQuery('Taveuni, Fiji'); toast.success("Set range scope to Taveuni"); }} className="hover:text-white cursor-pointer transition">Taveuni Production Co ›</span></li>
+                </>
+              ) : (
+                <>
+                  <li><span onClick={() => { setLocationQuery('Los Angeles, CA'); toast.success("Set range scope to Los Angeles"); }} className="hover:text-white cursor-pointer transition">Los Angeles Rentals ›</span></li>
+                  <li><span onClick={() => { setLocationQuery('New York, NY'); toast.success("Set range scope to New York"); }} className="hover:text-white cursor-pointer transition">New York Rentals ›</span></li>
+                  <li><span onClick={() => { setLocationQuery('Atlanta, GA'); toast.success("Set range scope to Atlanta"); }} className="hover:text-white cursor-pointer transition">Atlanta Rentals ›</span></li>
+                  <li><span onClick={() => { setLocationQuery('San Francisco, CA'); toast.success("Set range scope to San Francisco"); }} className="hover:text-white cursor-pointer transition">San Francisco Rentals ›</span></li>
+                  <li><span onClick={() => { setLocationQuery('Seattle, WA'); toast.success("Set range scope to Seattle"); }} className="hover:text-white cursor-pointer transition">Seattle Rentals ›</span></li>
+                  <li><span onClick={() => { setLocationQuery('Chicago, IL'); toast.success("Set range scope to Chicago"); }} className="hover:text-white cursor-pointer transition">Chicago Rentals ›</span></li>
+                </>
+              )}
             </ul>
           </div>
 
@@ -1307,7 +1478,7 @@ export default function Marketplace() {
                     <Star size={10} className="fill-amber-400 text-amber-400" />
                     <span className="text-[10px] font-black text-neutral-700">{selectedProduct.rating} ({selectedProduct.reviews} reviews)</span>
                   </div>
-                  <p className="text-[10px] text-neutral-400 font-bold uppercase mt-0.5">Listed Price: ${selectedProduct.price}{selectedProduct.isSale ? '' : '/day'}</p>
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase mt-0.5 font-mono">Listed Price: {currencySymbol}{selectedProduct.price}{selectedProduct.isSale ? '' : '/day'}</p>
                   <p className="text-[9px] text-[#ff4f3a] font-extrabold uppercase">Owner Verified: {selectedProduct.ownerName || 'Verified Partner'}</p>
                 </div>
               </div>
@@ -1344,18 +1515,18 @@ export default function Marketplace() {
                   
                   <div className="flex justify-between items-center text-xs text-neutral-600">
                     <span className="font-semibold uppercase text-[9px]">{selectedProduct.isSale ? 'Outright purchase cost' : `Daily Rate x ${bookingDays} Days`}</span>
-                    <span className="font-black text-neutral-900">${selectedProduct.isSale ? selectedProduct.price.toLocaleString() : (selectedProduct.price * bookingDays).toLocaleString()}</span>
+                    <span className="font-black text-neutral-900">{currencySymbol}{selectedProduct.isSale ? selectedProduct.price.toLocaleString() : (selectedProduct.price * bookingDays).toLocaleString()}</span>
                   </div>
 
                   <div className="flex justify-between items-center text-xs text-neutral-600 border-b border-neutral-200/60 pb-1.5">
                     <span className="font-semibold uppercase text-[9px]">Damage Waiver Coverage</span>
-                    <span className="font-bold text-emerald-600">${selectedProduct.isSale ? '0' : '15'}</span>
+                    <span className="font-bold text-emerald-600">{currencySymbol}{selectedProduct.isSale ? '0' : isFiji ? '30' : '15'}</span>
                   </div>
 
                   <div className="flex justify-between items-center text-xs text-neutral-800 pt-1">
                     <span className="font-black uppercase text-[10px]">Total Quote</span>
                     <span className="font-black text-sm text-[#ff4f3a]">
-                      ${selectedProduct.isSale ? selectedProduct.price.toLocaleString() : (selectedProduct.price * bookingDays + 15).toLocaleString()}
+                      {currencySymbol}{selectedProduct.isSale ? selectedProduct.price.toLocaleString() : (selectedProduct.price * bookingDays + (isFiji ? 30 : 15)).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -1373,9 +1544,12 @@ export default function Marketplace() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-neutral-900 hover:bg-[#ff4f3a] text-white font-black uppercase tracking-widest text-[9px] py-3.5 rounded-xl transition shadow"
+                    disabled={!isAuthorized && restrictToAvailableCountries}
+                    className={`flex-1 font-black uppercase tracking-widest text-[9px] py-3.5 rounded-xl transition shadow ${(!isAuthorized && restrictToAvailableCountries) ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed' : 'bg-neutral-900 hover:bg-[#ff4f3a] text-white'}`}
                   >
-                    {selectedProduct.isSale ? 'Send Purchase Request' : 'Send Booking Request'}
+                    {!isAuthorized && restrictToAvailableCountries 
+                      ? 'Service Unavailable in Region' 
+                      : (selectedProduct.isSale ? 'Send Purchase Request' : 'Send Booking Request')}
                   </button>
                 </div>
               </form>

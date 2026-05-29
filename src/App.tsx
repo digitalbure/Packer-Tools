@@ -114,12 +114,12 @@ function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick }: {
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <Routes location={location}>
-          <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate /> : (adminSettings?.activeLandingPageType === 'marketplace' ? <Marketplace /> : <LandingPage user={user} adminSettings={adminSettings} />))} />
+          <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate /> : (adminSettings?.activeLandingPageType === 'marketplace' ? <Marketplace user={user} adminSettings={adminSettings} /> : <LandingPage user={user} adminSettings={adminSettings} />))} />
           <Route path="/dashboard" element={user ? <Dashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/list/:id" element={<PackingListDetail user={user} adminSettings={adminSettings} />} />
           <Route path="/p/:id" element={<PackingListBioView />} />
           <Route path="/marketplace/:id" element={<MarketplaceView />} />
-          <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/marketplace" element={<Marketplace user={user} adminSettings={adminSettings} />} />
           <Route path="/scan/:id" element={user ? <CameraScanner user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/admin" element={user?.isSuperAdmin ? <AdminPanel user={user} onMenuClick={onMenuClick} /> : <Navigate to="/" />} />
           <Route path="/admin/pages" element={user?.isSuperAdmin ? <PagesManager user={user} /> : <Navigate to="/" />} />
@@ -326,6 +326,11 @@ export default function App() {
               callbackUrlDev: `${window.location.origin}/auth/callback`,
               callbackUrlProd: '',
               paypalClientId: ''
+            },
+            marketplaceRegionConfig: {
+              launchCountry: 'Fiji',
+              availableCountries: ['Fiji', 'United States', 'Australia', 'New Zealand', 'United Kingdom', 'Canada'],
+              restrictToAvailableCountries: false
             }
           };
           await setDoc(settingsRef, defaultSettings);

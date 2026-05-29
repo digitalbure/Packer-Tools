@@ -298,6 +298,68 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                 })}
               </div>
 
+              {/* Geographical Operating Region for User */}
+              <div className="pt-8 border-t border-neutral-100 space-y-4">
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800">Primary Marketplace Country</h4>
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-1">Specify your geographic physical location. Packer Tools availability varies by country.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest font-black text-neutral-400">Select Operating Location</label>
+                    <select
+                      value={user.country || 'Fiji'}
+                      onChange={async (e) => {
+                        const newCountry = e.target.value;
+                        try {
+                          const userRef = doc(db, 'users', user.uid);
+                          await updateDoc(userRef, { country: newCountry });
+                          
+                          // Pre-select appropriate active currency based on selected country
+                          let updatedCurrencies = user.activeMarketplaceCurrencies || ['USD'];
+                          if (newCountry === 'Fiji') {
+                            if (!updatedCurrencies.includes('FJD')) {
+                              updatedCurrencies = [...updatedCurrencies, 'FJD'];
+                              await updateDoc(userRef, { activeMarketplaceCurrencies: updatedCurrencies });
+                            }
+                          }
+                          
+                          onUpdate({ ...user, country: newCountry, activeMarketplaceCurrencies: updatedCurrencies });
+                          toast.success(`Operating region switched to ${newCountry}!`);
+                        } catch (err) {
+                          console.error(err);
+                          toast.error("Error updating location region setting.");
+                        }
+                      }}
+                      className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-200/60 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition font-bold text-neutral-800"
+                    >
+                      <option value="Fiji">Fiji (Launch Country / Active Hub)</option>
+                      <option value="United States">United States</option>
+                      <option value="Australia">Australia</option>
+                      <option value="New Zealand">New Zealand</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="Canada">Canada</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="text-[10px] uppercase tracking-widest font-black text-neutral-400 block pb-1">Geographic Service Status</span>
+                    {(user.country === 'Fiji' || !user.country || (adminSettings?.marketplaceRegionConfig?.availableCountries || ['Fiji']).includes(user.country || 'Fiji')) ? (
+                      <div className="p-4 bg-emerald-50 border border-emerald-500/20 rounded-2xl text-[10px] text-emerald-800 leading-relaxed">
+                        <span className="font-black uppercase text-emerald-600 block pb-0.5">🟢 PARTNER REGION ACTIVE</span>
+                        Packer Tools is fully active in <strong className="font-extrabold uppercase">{user.country || 'Fiji'}</strong>. You can safely rent, list camera gear, buy out products, and benefit from complete local escrows and visual booking protection.
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-amber-50 border border-amber-500/20 rounded-2xl text-[10px] text-amber-800 leading-relaxed">
+                        <span className="font-black uppercase text-amber-600 block pb-0.5">⚠️ SOFT LAUNCH WARNING</span>
+                        Packer Tools operations are not fully launched in <strong className="font-extrabold uppercase">{user.country}</strong>. Active servers are currently focused on Fiji. Safe escrow deposits may be limited.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Customizable Booking Fee & Security Deposit for Paid Users */}
               <div className="pt-8 border-t border-neutral-100 space-y-4">
                 <div className="flex items-center justify-between">
