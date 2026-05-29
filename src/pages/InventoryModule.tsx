@@ -27,6 +27,7 @@ import {
   Globe,
   Database,
   AlertCircle,
+  ShieldAlert,
   Sparkles,
   Upload,
   Download,
@@ -48,7 +49,7 @@ import {
   deleteDoc,
   setDoc
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, GearItem, Organization, Department, Team, AdminSettings } from '../types';
 import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
@@ -93,6 +94,12 @@ export interface InventoryItem {
   status: 'available' | 'in_use' | 'maintenance' | 'retired' | 'missing';
   assetTag: string;
   photoUrls?: string[];
+  lastMaintenanceDate?: string;
+  maintenanceIntervalDays?: number;
+  orgId?: string;
+  deptId?: string;
+  teamId?: string;
+  assignedTo?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -143,9 +150,41 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   const [inventoryFilterCondition, setInventoryFilterCondition] = useState<string>('all');
   const [inventoryFilterStatus, setInventoryFilterStatus] = useState<string>('all');
 
+  // Audit Mode states and helper functions for Inventory Items
+  const [isAuditMode, setIsAuditMode] = useState(false);
+  const [showOnlyAttentionNeeded, setShowOnlyAttentionNeeded] = useState(false);
+
+  const isMaintenanceOutdated = (item: InventoryItem | GearItem) => {
+    if (item.status === 'maintenance') return true;
+    if (item.condition === 'poor') return true;
+    if (item.maintenanceIntervalDays && item.maintenanceIntervalDays > 0) {
+      if (!item.lastMaintenanceDate) return true;
+      try {
+        const last = new Date(item.lastMaintenanceDate).getTime();
+        const nextDue = last + (item.maintenanceIntervalDays * 24 * 60 * 60 * 1000);
+        return nextDue < Date.now();
+      } catch {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const isLowInventory = (item: InventoryItem | GearItem) => {
+    const qty = item.quantity !== undefined ? item.quantity : 1;
+    return qty <= 1;
+  };
+
   // New layout, category filtering and selection states for Custom Inventories
   const [inventoryViewMode, setInventoryViewMode] = useState<'list' | 'grid' | 'compact'>('list');
   const [selectedInventoryItems, setSelectedInventoryItems] = useState<Set<string>>(new Set());
+  const [isInventoryBatchAssignOpen, setIsInventoryBatchAssignOpen] = useState(false);
+  const [inventoryBatchAssignTarget, setInventoryBatchAssignTarget] = useState<{
+    orgId?: string;
+    deptId?: string;
+    teamId?: string;
+    assignedTo?: string;
+  }>({});
   const [selectedInventoryCategory, setSelectedInventoryCategory] = useState<string>('All');
   const [isExportToAnotherOpen, setIsExportToAnotherOpen] = useState(false);
   const [targetAnotherInventoryId, setTargetAnotherInventoryId] = useState('');
@@ -190,6 +229,40 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     } catch (err) {
       console.error(err);
       toast.error("Failed to delete selected items.", { id: toastId });
+    }
+  };
+
+  const handleInventoryBulkAssign = async () => {
+    if (!selectedInventory) return;
+    if (selectedInventoryItems.size === 0) {
+      toast.error("No items selected");
+      return;
+    }
+
+    const toastId = toast.loading(`Batch assigning ${selectedInventoryItems.size} custom items...`);
+    try {
+      const batch = writeBatch(db);
+      const itemsToUpdate = inventoryItems.filter(item => selectedInventoryItems.has(item.id));
+      const colRef = collection(db, 'inventories', selectedInventory.id, 'items');
+
+      itemsToUpdate.forEach(item => {
+        const docRef = doc(colRef, item.id);
+        batch.update(docRef, {
+          orgId: inventoryBatchAssignTarget.orgId || null,
+          deptId: inventoryBatchAssignTarget.deptId || null,
+          teamId: inventoryBatchAssignTarget.teamId || null,
+          assignedTo: inventoryBatchAssignTarget.assignedTo || null,
+          updatedAt: new Date().toISOString()
+        });
+      });
+
+      await batch.commit();
+      setSelectedInventoryItems(new Set());
+      setIsInventoryBatchAssignOpen(false);
+      toast.success(`Successfully batch assigned details to ${itemsToUpdate.length} custom items!`, { id: toastId });
+    } catch (error) {
+      console.error("Custom inventory batch assign error:", error);
+      toast.error("Failed to batch update custom inventory items.", { id: toastId });
     }
   };
 
@@ -380,24 +453,40 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       });
       setInventories(visible);
       setLoadingInventories(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'inventories');
     });
 
     // Subscriptions to existing organizations, departments, teams, users for multi-selectors
-    const unsubOrgs = onSnapshot(query(collection(db, 'organizations')), (snap) => {
+    const unsubOrgs = onSnapshot(query(collection(db, 'organizations'), where('ownerId', '==', user.uid)), (snap) => {
       setOrganizations(snap.docs.map(d => ({ id: d.id, ...d.data() } as Organization)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'organizations');
     });
 
-    const unsubDepts = onSnapshot(query(collection(db, 'departments')), (snap) => {
-      setDepartments(snap.docs.map(d => ({ id: d.id, ...d.data() } as Department)));
-    });
+    let unsubDepts = () => {};
+    let unsubTeams = () => {};
+    let unsubUsers = () => {};
 
-    const unsubTeams = onSnapshot(query(collection(db, 'teams')), (snap) => {
-      setTeams(snap.docs.map(d => ({ id: d.id, ...d.data() } as Team)));
-    });
+    if (user.orgId) {
+      unsubDepts = onSnapshot(query(collection(db, 'departments'), where('orgId', '==', user.orgId)), (snap) => {
+        setDepartments(snap.docs.map(d => ({ id: d.id, ...d.data() } as Department)));
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'departments');
+      });
 
-    const unsubUsers = onSnapshot(query(collection(db, 'users')), (snap) => {
-      setUsers(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
-    });
+      unsubTeams = onSnapshot(query(collection(db, 'teams'), where('orgId', '==', user.orgId)), (snap) => {
+        setTeams(snap.docs.map(d => ({ id: d.id, ...d.data() } as Team)));
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'teams');
+      });
+
+      unsubUsers = onSnapshot(query(collection(db, 'users'), where('orgId', '==', user.orgId)), (snap) => {
+        setUsers(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'users');
+      });
+    }
 
     // Retro-compatible assignment control database feed
     const gearQuery = user.orgId 
@@ -406,6 +495,9 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
     const unsubGear = onSnapshot(gearQuery, (snap) => {
       setGear(snap.docs.map(d => ({ id: d.id, ...d.data() } as GearItem)));
+      setLoadingAllocations(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, user.orgId ? 'gearLibrary (collectionGroup)' : 'users/gearLibrary');
       setLoadingAllocations(false);
     });
 
@@ -432,8 +524,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       setInventoryItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem)));
       setLoadingInventoryItems(false);
     }, (err) => {
-      console.error(err);
-      toast.error("Failed to load inventory assets.");
+      handleFirestoreError(err, OperationType.LIST, `inventories/${selectedInventory.id}/items`);
       setLoadingInventoryItems(false);
     });
 
@@ -854,9 +945,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       const matchesCondition = inventoryFilterCondition === 'all' || item.condition === inventoryFilterCondition;
       const matchesStatus = inventoryFilterStatus === 'all' || item.status === inventoryFilterStatus;
       const matchesCategory = selectedInventoryCategory === 'All' || (item.primaryCategory || 'Other') === selectedInventoryCategory;
+      
+      // Audit Mode attention-needed filter wrapper
+      if (isAuditMode && showOnlyAttentionNeeded) {
+        const needsAttention = isMaintenanceOutdated(item) || isLowInventory(item);
+        if (!needsAttention) return false;
+      }
+
       return matchesSearch && matchesCondition && matchesStatus && matchesCategory;
     });
-  }, [inventoryItems, inventorySearch, inventoryFilterCondition, inventoryFilterStatus, selectedInventoryCategory]);
+  }, [inventoryItems, inventorySearch, inventoryFilterCondition, inventoryFilterStatus, selectedInventoryCategory, isAuditMode, showOnlyAttentionNeeded]);
 
   // Tab 1 Valuation stats derived
   const inventoryValueSum = useMemo(() => {
@@ -1383,6 +1481,30 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
                   <button
                     onClick={() => {
+                      setIsAuditMode(prev => {
+                        const next = !prev;
+                        if (next) {
+                          setShowOnlyAttentionNeeded(true);
+                          toast.success("Audit Mode Enabled: Highlighting low stock or overdue maintenance custom items.");
+                        } else {
+                          setShowOnlyAttentionNeeded(false);
+                          toast("Audit Mode Disabled.");
+                        }
+                        return next;
+                      });
+                    }}
+                    className={`px-4 py-3 border rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer ${
+                      isAuditMode
+                        ? "bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-100 h-11"
+                        : "bg-white border-neutral-200 hover:bg-neutral-50 text-neutral-800 h-11"
+                    }`}
+                  >
+                    <ShieldAlert size={14} className={isAuditMode ? "text-white animate-bounce" : "text-amber-500"} />
+                    <span>{isAuditMode ? "Audit Active" : "Audit Mode"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
                       if (!isSelectedInventoryEditable) {
                         toast.error("Permission Denied: You do not have edit rights on this inventory list.");
                         return;
@@ -1468,6 +1590,45 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                 </div>
               </div>
 
+              {/* Audit Mode Active Alert Banner */}
+              {isAuditMode && (
+                <div className="bg-amber-50/50 border border-amber-200/80 rounded-[2rem] p-6 space-y-4 shadow-sm animate-pulse mb-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-amber-500/15 rounded-2xl text-amber-600 shrink-0 mt-0.5">
+                        <ShieldAlert size={20} />
+                      </div>
+                      <div>
+                        <h4 className="font-sans font-black uppercase text-sm text-neutral-900 tracking-tight flex items-center gap-2">
+                          Audit Mode Active
+                          <span className="bg-amber-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full tracking-normal uppercase">System Overlord View</span>
+                        </h4>
+                        <p className="text-xs text-neutral-500 mt-1">
+                          Identifying custom listing assets requiring attention, specifically:
+                        </p>
+                        <ul className="text-xs text-neutral-400 space-y-1 list-disc pl-4 mt-2 font-medium">
+                          <li>Outdated Maintenance Dates (<span className="text-amber-600 font-bold">past schedule interval days</span>)</li>
+                          <li>Low Inventory Checks (<span className="text-amber-600 font-bold">owned quantity matches or is below 1</span>)</li>
+                          <li>Poor Component Conditions (<span className="text-amber-600 font-bold">damaged/critical status conditions</span>)</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white/85 border border-amber-200/50 px-5 py-3.5 rounded-[1.5rem] shadow-sm shrink-0 self-start md:self-auto">
+                      <input 
+                        type="checkbox"
+                        id="inventoryAuditFilterToggle"
+                        checked={showOnlyAttentionNeeded}
+                        onChange={(e) => setShowOnlyAttentionNeeded(e.target.checked)}
+                        className="w-4 h-4 rounded border-amber-300 text-amber-500 focus:ring-amber-400"
+                      />
+                      <label htmlFor="inventoryAuditFilterToggle" className="text-xs font-black uppercase text-neutral-700 select-none cursor-pointer">
+                        Only show attention items
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* ACTIVE INVENTORY LISTINGS TABLE */}
               {loadingInventoryItems ? (
                 <div className="py-20 flex justify-center">
@@ -1517,30 +1678,53 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-50">
-                          {filteredInventoryItems.map(item => (
-                            <tr key={item.id} className="hover:bg-neutral-50/50 transition-colors">
-                              {isSelectedInventoryEditable && (
+                          {filteredInventoryItems.map(item => {
+                            const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
+                            const isCheckedOut = item.status === 'in_use';
+                            return (
+                              <tr 
+                                key={item.id} 
+                                className={`transition-colors ${
+                                  isAttention 
+                                    ? 'bg-amber-55/40 border-l-4 border-l-amber-500' 
+                                    : selectedInventoryItems.has(item.id) ? 'bg-neutral-100' : 'hover:bg-neutral-50/50'
+                                }`}
+                              >
+                                {isSelectedInventoryEditable && (
+                                  <td className="p-4">
+                                    <button
+                                      onClick={(e) => toggleInventoryItemSelection(item.id, e)}
+                                      className={`w-5 h-5 border rounded flex items-center justify-center transition-colors cursor-pointer ${
+                                        selectedInventoryItems.has(item.id) 
+                                          ? 'bg-black border-black text-white shadow' 
+                                          : 'bg-white border-neutral-300 hover:border-black'
+                                      }`}
+                                    >
+                                      {selectedInventoryItems.has(item.id) && <Check size={12} strokeWidth={4} />}
+                                    </button>
+                                  </td>
+                                )}
                                 <td className="p-4">
-                                  <button
-                                    onClick={(e) => toggleInventoryItemSelection(item.id, e)}
-                                    className={`w-5 h-5 border rounded flex items-center justify-center transition-colors cursor-pointer ${
-                                      selectedInventoryItems.has(item.id) 
-                                        ? 'bg-black border-black text-white shadow' 
-                                        : 'bg-white border-neutral-300 hover:border-black'
-                                    }`}
-                                  >
-                                    {selectedInventoryItems.has(item.id) && <Check size={12} strokeWidth={4} />}
-                                  </button>
+                                  <div className="space-y-0.5">
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-bold text-sm text-neutral-900 leading-tight">{item.name}</p>
+                                      {isCheckedOut && (
+                                        <span className="text-[8px] font-black uppercase text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded">Checked Out</span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <p className="text-[9px] font-mono text-neutral-400 uppercase tracking-widest font-bold">
+                                        {item.assetTag}
+                                      </p>
+                                      {isAuditMode && isMaintenanceOutdated(item) && (
+                                        <span className="text-[8px] font-black uppercase text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded">Maint Overdue</span>
+                                      )}
+                                      {isAuditMode && isLowInventory(item) && (
+                                        <span className="text-[8px] font-black uppercase text-amber-600 bg-amber-50 border border-amber-100 px-1 py-0.5 rounded">Low Stock</span>
+                                      )}
+                                    </div>
+                                  </div>
                                 </td>
-                              )}
-                              <td className="p-4">
-                                <div className="space-y-0.5">
-                                  <p className="font-bold text-sm text-neutral-900 leading-tight">{item.name}</p>
-                                  <p className="text-[9px] font-mono text-neutral-400 uppercase tracking-widest font-bold">
-                                    {item.assetTag}
-                                  </p>
-                                </div>
-                              </td>
                               <td className="p-4 text-xs font-medium text-neutral-600">
                                 <div className="space-y-0.5">
                                   {item.brand && <p><span className="font-bold">Brand:</span> {item.brand}</p>}
@@ -1646,7 +1830,8 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                 </div>
                               </td>
                             </tr>
-                          ))}
+                          );
+                        })}
                         </tbody>
                       </table>
                     </div>
@@ -1654,10 +1839,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
                       {filteredInventoryItems.map((item) => {
                         const photoUrl = (item.photoUrls && item.photoUrls[0]) || `https://picsum.photos/seed/${item.id}/400/400`;
+                        const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
+                        const isCheckedOut = item.status === 'in_use';
                         return (
                           <div
                             key={item.id}
-                            className="group bg-white rounded-[2rem] border border-neutral-200 shadow-sm hover:shadow-2xl transition-all duration-500 overflow-hidden flex flex-col relative h-[380px]"
+                            className={`group bg-white rounded-[2rem] border shadow-sm transition-all duration-500 overflow-hidden flex flex-col relative h-[380px] ${
+                              isAttention 
+                                ? 'ring-2 ring-amber-500 border-amber-500 shadow-amber-100 shadow-lg' 
+                                : 'border-neutral-200 hover:shadow-2xl'
+                            }`}
                           >
                             <div className="relative h-44 overflow-hidden bg-neutral-50 select-none">
                               {isSelectedInventoryEditable && (
@@ -1675,6 +1866,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                   </button>
                                 </div>
                               )}
+
+                              {isCheckedOut && (
+                                <div className="absolute inset-0 bg-neutral-900/65 backdrop-blur-[1px] flex flex-col items-center justify-center p-4 z-10 text-center">
+                                  <span className="px-2.5 py-1 bg-red-650 border border-red-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-md flex items-center gap-1">
+                                    <X size={10} strokeWidth={3} />
+                                    Checked Out / Out
+                                  </span>
+                                </div>
+                              )}
+
                               <img 
                                 src={photoUrl} 
                                 referrerPolicy="no-referrer"
@@ -1693,6 +1894,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
                             <div className="p-6 space-y-4 flex-1 flex flex-col justify-between">
                               <div className="space-y-1.5">
+                                {isAuditMode && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {isMaintenanceOutdated(item) && (
+                                      <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-rose-50 border border-rose-100 text-rose-700">Maint Overdue</span>
+                                    )}
+                                    {isLowInventory(item) && (
+                                      <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-amber-50 border border-amber-100 text-amber-700">Low Stock</span>
+                                    )}
+                                  </div>
+                                )}
                                 <div className="flex items-center justify-between">
                                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0066cc] flex items-center gap-1.5">
                                     {item.primaryCategory}
@@ -1741,10 +1952,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                       {filteredInventoryItems.map((item) => {
                         const photoUrl = (item.photoUrls && item.photoUrls[0]) || `https://picsum.photos/seed/${item.id}/400/400`;
+                        const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
+                        const isCheckedOut = item.status === 'in_use';
                         return (
                           <div
                             key={item.id}
-                            className="group bg-white rounded-2xl border border-neutral-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col relative h-[220px]"
+                            className={`group bg-white rounded-2xl border shadow-sm transition-all duration-300 overflow-hidden flex flex-col relative h-[240px] ${
+                              isAttention 
+                                ? 'ring-2 ring-amber-500 border-amber-500 shadow-md' 
+                                : 'border-neutral-200 hover:shadow-md'
+                            }`}
                           >
                             <div className="relative aspect-square overflow-hidden bg-neutral-50 select-none">
                               {isSelectedInventoryEditable && (
@@ -1762,6 +1979,15 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                   </button>
                                 </div>
                               )}
+
+                              {isCheckedOut && (
+                                <div className="absolute inset-0 bg-neutral-900/65 backdrop-blur-[0.5px] flex flex-col items-center justify-center p-2 z-10 text-center select-none">
+                                  <span className="px-1.5 py-0.5 bg-red-600 border border-red-500 text-white text-[7px] font-black uppercase tracking-widest rounded shadow">
+                                    OUT
+                                  </span>
+                                </div>
+                              )}
+
                               <img 
                                 src={photoUrl} 
                                 referrerPolicy="no-referrer"
@@ -1771,7 +1997,19 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                             </div>
 
                             <div className="p-3 flex-1 flex flex-col justify-between">
-                              <h4 className="font-bold text-[11px] truncate uppercase leading-tight text-neutral-900">{item.name}</h4>
+                              <div>
+                                {isAuditMode && (
+                                  <div className="flex flex-wrap gap-0.5 mb-1">
+                                    {isMaintenanceOutdated(item) && (
+                                      <span className="text-[6.5px] font-black uppercase tracking-wider px-1 rounded bg-rose-50 border border-rose-100 text-rose-700">Maint</span>
+                                    )}
+                                    {isLowInventory(item) && (
+                                      <span className="text-[6.5px] font-black uppercase tracking-wider px-1 rounded bg-amber-50 border border-amber-100 text-amber-700">Low</span>
+                                    )}
+                                  </div>
+                                )}
+                                <h4 className="font-bold text-[11px] truncate uppercase leading-tight text-neutral-900">{item.name}</h4>
+                              </div>
                               <div className="flex items-center justify-between mt-1 pt-2 border-t border-neutral-50">
                                 <span className="text-[9px] font-mono font-bold text-neutral-400">Qty: {item.quantity || 1}</span>
                                 <span className="text-[9px] font-bold text-neutral-900">${(item.price || 0).toLocaleString()}</span>
@@ -1826,6 +2064,23 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       >
                         <Upload className="w-4 h-4 text-emerald-200" />
                         <span>Copy Sheets</span>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setInventoryBatchAssignTarget({
+                            orgId: '',
+                            deptId: '',
+                            teamId: '',
+                            assignedTo: ''
+                          });
+                          setIsInventoryBatchAssignOpen(true);
+                        }}
+                        className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 transition shadow-lg whitespace-nowrap border border-white/5"
+                        title="Batch assign Organization, Department, and Team setting to selected items"
+                      >
+                        <ShieldAlert className="w-4 h-4 text-amber-400" />
+                        <span>Assign Batch</span>
                       </button>
 
                       <button 
@@ -1962,6 +2217,117 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                           className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black uppercase tracking-widest text-xs transition shadow-md select-none"
                         >
                           Delete ({selectedInventoryItems.size})
+                        </button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+
+              {/* Custom Inventories Batch Assignment Modal */}
+              <AnimatePresence>
+                {isInventoryBatchAssignOpen && (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                      className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden border border-neutral-100"
+                    >
+                      <div className="p-6 md:p-8 flex items-center justify-between border-b border-[#f4f4f5]">
+                        <div className="flex items-center gap-3">
+                          <span className="p-3 bg-neutral-900 text-white rounded-2xl">
+                            <ShieldAlert size={20} className="text-amber-400 animate-pulse" />
+                          </span>
+                          <div>
+                            <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Bulk Assignment</h3>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[#0066cc]">
+                              Mapping {selectedInventoryItems.size} custom inventory items
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setIsInventoryBatchAssignOpen(false)}
+                          className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-400 hover:text-neutral-900 transition"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+
+                      <div className="p-6 md:p-8 space-y-4">
+                        <p className="text-xs text-neutral-500 font-medium leading-relaxed font-sans">
+                          Batch assign organization level and sub-team department designations. Selected items will inherit these visibility, checkout permissions and telemetry targets.
+                        </p>
+
+                        <div className="space-y-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Target Organization</label>
+                            <select 
+                              value={inventoryBatchAssignTarget.orgId || ''}
+                              onChange={(e) => setInventoryBatchAssignTarget({ ...inventoryBatchAssignTarget, orgId: e.target.value, deptId: '', teamId: '' })}
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs focus:ring-2 focus:ring-neutral-900 outline-none font-bold uppercase tracking-wider transition"
+                            >
+                              <option value="">None / Unassigned</option>
+                              {organizations.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Target Department</label>
+                            <select 
+                              disabled={!inventoryBatchAssignTarget.orgId}
+                              value={inventoryBatchAssignTarget.deptId || ''}
+                              onChange={(e) => setInventoryBatchAssignTarget({ ...inventoryBatchAssignTarget, deptId: e.target.value, teamId: '' })}
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs focus:ring-2 focus:ring-neutral-900 outline-none font-bold uppercase tracking-wider transition disabled:opacity-50"
+                            >
+                              <option value="">None / Unassigned</option>
+                              {departments.filter(d => d.orgId === inventoryBatchAssignTarget.orgId).map(d => (
+                                <option key={d.id} value={d.id}>{d.name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Target Team</label>
+                            <select 
+                              disabled={!inventoryBatchAssignTarget.deptId}
+                              value={inventoryBatchAssignTarget.teamId || ''}
+                              onChange={(e) => setInventoryBatchAssignTarget({ ...inventoryBatchAssignTarget, teamId: e.target.value })}
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs focus:ring-2 focus:ring-neutral-900 outline-none font-bold uppercase tracking-wider transition disabled:opacity-50"
+                            >
+                              <option value="">None / Unassigned</option>
+                              {teams.filter(t => t.deptId === inventoryBatchAssignTarget.deptId).map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Assign to Member</label>
+                            <select 
+                              value={inventoryBatchAssignTarget.assignedTo || ''}
+                              onChange={(e) => setInventoryBatchAssignTarget({ ...inventoryBatchAssignTarget, assignedTo: e.target.value })}
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs focus:ring-2 focus:ring-neutral-900 outline-none font-bold uppercase tracking-wider transition"
+                            >
+                              <option value="">None / Open (Float)</option>
+                              {users.map(u => <option key={u.uid} value={u.uid}>{u.displayName} ({u.email || u.uid})</option>)}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-8 bg-neutral-50 border-t border-neutral-100 flex gap-4">
+                        <button
+                          onClick={() => setIsInventoryBatchAssignOpen(false)}
+                          className="flex-1 py-4 bg-white border border-neutral-200 text-neutral-600 rounded-2xl font-bold hover:bg-neutral-100 transition shadow-sm text-xs uppercase tracking-wider font-sans"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleInventoryBulkAssign}
+                          className="flex-2 py-4 bg-black text-white hover:bg-neutral-800 rounded-2xl font-black uppercase tracking-widest text-xs transition shadow-lg flex items-center justify-center gap-2"
+                        >
+                          Save Allocations ({selectedInventoryItems.size})
                         </button>
                       </div>
                     </motion.div>

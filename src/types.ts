@@ -222,6 +222,7 @@ export interface GearItem {
   isAvailableForRent?: boolean;
   rentalPrice?: number;
   rentalPeriod?: 'day' | 'week' | 'month';
+  currentHolder?: string;
   createdAt: string;
   updatedAt: string;
 }

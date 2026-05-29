@@ -507,6 +507,31 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   // Workflow guidance model
   const [checkoutGuidanceModal, setCheckoutGuidanceModal] = useState(false);
 
+  // Audit Mode states and helpers
+  const [isAuditMode, setIsAuditMode] = useState(false);
+  const [showOnlyAttentionNeeded, setShowOnlyAttentionNeeded] = useState(false);
+
+  const isMaintenanceOutdated = (item: GearItem) => {
+    if (item.status === 'maintenance') return true;
+    if (item.condition === 'poor') return true;
+    if (item.maintenanceIntervalDays && item.maintenanceIntervalDays > 0) {
+      if (!item.lastMaintenanceDate) return true;
+      try {
+        const last = new Date(item.lastMaintenanceDate).getTime();
+        const nextDue = last + (item.maintenanceIntervalDays * 24 * 60 * 60 * 1000);
+        return nextDue < Date.now();
+      } catch {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const isLowInventory = (item: GearItem) => {
+    const qty = item.quantity !== undefined ? item.quantity : 1;
+    return qty <= 1;
+  };
+
   // AI Compatibility States
   const [isCompatModalOpen, setIsCompatModalOpen] = useState(false);
   const [compatItems, setCompatItems] = useState<GearItem[]>([]);
@@ -1259,6 +1284,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           : (getPrimaryCategory(item) === selectedCategory || getSecondaryCategories(item).includes(selectedCategory))
         );
     const matchesCondition = selectedCondition === 'all' || item.condition === selectedCondition;
+
+    // Audit Mode filters
+    if (isAuditMode && showOnlyAttentionNeeded) {
+      const needsAttention = isMaintenanceOutdated(item) || isLowInventory(item);
+      if (!needsAttention) return false;
+    }
+
     return matchesSearch && matchesCategory && matchesCondition;
   }).sort((a, b) => {
     let comparison = 0;
@@ -1910,10 +1942,14 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       onClick={() => setSelectedGearItemView(item)}
-      className="group bg-white rounded-xl md:rounded-[2rem] border border-neutral-100 shadow-sm hover:shadow-2xl transition-all duration-500 overflow-hidden flex flex-col cursor-pointer min-w-0 w-full"
+      className={`group bg-white rounded-xl md:rounded-[2rem] border transition-all duration-500 overflow-hidden flex flex-col cursor-pointer min-w-0 w-full ${
+        isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
+          ? 'ring-2 ring-amber-500 border-amber-500 shadow-amber-200 shadow-xl'
+          : 'border-neutral-100 shadow-sm hover:shadow-2xl'
+      }`}
     >
       <div className="relative aspect-square sm:aspect-[16/10] overflow-hidden bg-neutral-50">
-        <div className="absolute top-3 left-3 md:top-4 md:left-4 z-10">
+        <div className="absolute top-3 left-3 md:top-4 md:left-4 z-10 font-bold">
           <button 
             type="button"
             onClick={(e) => toggleItemSelection(item.id, e)}
@@ -1926,6 +1962,17 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             <Check size={14} className="md:w-4 md:h-4" strokeWidth={4} />
           </button>
         </div>
+
+        {item.status === 'in_use' && (
+          <div className="absolute inset-0 bg-neutral-900/65 backdrop-blur-[1.5px] flex flex-col items-center justify-center p-4 z-10 text-center select-none">
+            <span className="px-2.5 py-1 bg-red-600 border border-red-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-md flex items-center gap-1">
+              <X size={10} strokeWidth={3} />
+              Checked Out / Unavailable
+            </span>
+            <span className="text-[9px] text-neutral-300 font-bold mt-1 uppercase tracking-wider">{item.currentHolder || 'In Use'}</span>
+          </div>
+        )}
+
         <img 
           src={item.photoUrls[0]} 
           alt={item.name} 
@@ -1941,6 +1988,23 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         )}
       </div>
       <div className="p-4 md:p-6 space-y-3 md:space-y-4 flex-1 flex flex-col">
+        {isAuditMode && (
+          <div className="space-y-1">
+            {isMaintenanceOutdated(item) && (
+              <div className="py-1 px-2.5 bg-rose-50 border border-rose-100 rounded-lg text-[9px] font-black uppercase tracking-wider text-rose-700 flex items-center gap-1">
+                <AlertCircle size={10} className="text-rose-500" />
+                <span>Maint Required</span>
+              </div>
+            )}
+            {isLowInventory(item) && (
+              <div className="py-1 px-2.5 bg-amber-50 border border-amber-100 rounded-lg text-[9px] font-black uppercase tracking-wider text-amber-700 flex items-center gap-1">
+                <AlertCircle size={10} className="text-amber-500" />
+                <span>Low Stock ({item.quantity !== undefined ? item.quantity : 1} owned)</span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-1.5">
@@ -1981,7 +2045,11 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       onClick={() => setSelectedGearItemView(item)}
-      className="group bg-white rounded-2xl border border-neutral-100 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col cursor-pointer"
+      className={`group bg-white rounded-2xl border transition-all duration-300 overflow-hidden flex flex-col cursor-pointer ${
+        isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
+          ? 'ring-2 ring-amber-500 border-amber-500 shadow-md'
+          : 'border-neutral-100 shadow-sm hover:shadow-md'
+      }`}
     >
       <div className="relative aspect-square overflow-hidden bg-neutral-50">
         <div className="absolute top-2 left-2 z-10">
@@ -1997,6 +2065,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             <Check size={10} strokeWidth={4} />
           </button>
         </div>
+
+        {item.status === 'in_use' && (
+          <div className="absolute inset-0 bg-neutral-900/65 backdrop-blur-[1px] flex flex-col items-center justify-center p-2 z-10 text-center select-none">
+            <span className="px-1.5 py-0.5 bg-red-600 border border-red-500 text-white text-[7.5px] font-black uppercase tracking-widest rounded shadow">
+              OUT / IN USE
+            </span>
+            <span className="text-[7.5px] text-neutral-300 font-bold mt-0.5 truncate max-w-full uppercase tracking-wider">{item.currentHolder || 'Checked Out'}</span>
+          </div>
+        )}
+
         <img 
           src={item.photoUrls[0]} 
           alt={item.name} 
@@ -2020,6 +2098,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         </div>
       </div>
       <div className="p-3 space-y-1">
+        {isAuditMode && (
+          <div className="flex flex-wrap gap-1 mb-1">
+            {isMaintenanceOutdated(item) && (
+              <span className="text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-50 border border-rose-100 text-rose-700">Maint Overdue</span>
+            )}
+            {isLowInventory(item) && (
+              <span className="text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-50 border border-amber-100 text-amber-700">Low Stock</span>
+            )}
+          </div>
+        )}
         <h3 className="font-bold text-xs leading-tight line-clamp-1 group-hover:text-primary transition">{item.name}</h3>
         <div className="flex items-center justify-between">
           <p className="text-[8px] font-black uppercase tracking-widest text-neutral-400 flex items-center gap-1">
@@ -2037,7 +2125,11 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   );
 
   const renderTableRow = (item: GearItem) => (
-    <tr key={item.id} className={`border-b border-neutral-50 transition ${selectedItems.has(item.id) ? 'bg-primary/5' : 'hover:bg-neutral-50'}`}>
+    <tr key={item.id} className={`border-b transition ${
+      isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
+        ? 'bg-amber-50/40 border-amber-250 border-l-4 border-l-amber-500' 
+        : selectedItems.has(item.id) ? 'bg-primary/5' : 'hover:bg-neutral-50 border-neutral-50'
+    }`}>
       <td className="px-8 py-4">
         <button 
           type="button"
@@ -2053,10 +2145,30 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       </td>
       <td className="px-8 py-4">
         <div className="flex items-center gap-4">
-          <img src={item.photoUrls[0]} className="w-12 h-12 rounded-xl object-cover border border-neutral-100" />
+          <div className="relative">
+            <img src={item.photoUrls[0]} className="w-12 h-12 rounded-xl object-cover border border-neutral-100" />
+            {item.status === 'in_use' && (
+              <div className="absolute inset-0 bg-neutral-900/60 rounded-xl flex items-center justify-center">
+                <span className="text-[7px] font-black text-rose-500 bg-white px-0.5 rounded leading-none">OUT</span>
+              </div>
+            )}
+          </div>
           <div>
-            <p className="font-bold">{item.name}</p>
-            <p className="text-xs text-neutral-400 font-mono">{item.assetTag}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-bold">{item.name}</p>
+              {item.status === 'in_use' && (
+                <span className="text-[8px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded">Checked Out</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-xs text-neutral-400 font-mono">{item.assetTag}</p>
+              {isAuditMode && isMaintenanceOutdated(item) && (
+                <span className="text-[8px] font-black uppercase text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded">Maint Overdue</span>
+              )}
+              {isAuditMode && isLowInventory(item) && (
+                <span className="text-[8px] font-black uppercase text-amber-600 bg-amber-50 border border-amber-100 px-1 py-0.5 rounded">Low Stock</span>
+              )}
+            </div>
           </div>
         </div>
       </td>
@@ -2094,7 +2206,11 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const renderMobileListItem = (item: GearItem) => (
     <div 
       key={item.id} 
-      className="bg-white p-4 rounded-2xl border border-neutral-100 shadow-sm flex items-center gap-4 hover:border-primary/20 transition-colors cursor-pointer"
+      className={`p-4 rounded-2xl border flex items-center gap-4 transition-all cursor-pointer ${
+        isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
+          ? 'bg-amber-50/30 border-amber-500 ring-2 ring-amber-500'
+          : 'bg-white border-neutral-100 hover:border-primary/20'
+      }`}
       onClick={() => setSelectedGearItemView(item)}
     >
       <div 
@@ -2107,16 +2223,40 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       >
         <Check size={12} className={selectedItems.has(item.id) ? 'opacity-100' : 'opacity-0'} />
       </div>
-      <img src={item.photoUrls[0]} className="w-16 h-16 rounded-xl object-cover border border-neutral-100 shrink-0" />
+      <div className="relative shrink-0">
+        <img src={item.photoUrls[0]} className="w-16 h-16 rounded-xl object-cover border border-neutral-100 shrink-0" />
+        {item.status === 'in_use' && (
+          <div className="absolute inset-0 bg-neutral-900/60 rounded-xl flex items-center justify-center">
+            <span className="text-[8px] font-black text-rose-500 bg-white px-1 py-0.5 rounded leading-none shadow">OUT</span>
+          </div>
+        )}
+      </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="font-bold text-sm truncate">{item.name}</h3>
+          <div className="flex items-center gap-1.5 truncate">
+            <h3 className="font-bold text-sm truncate">{item.name}</h3>
+            {item.status === 'in_use' && (
+              <span className="text-[7px] font-bold text-rose-600 bg-rose-50 px-1 rounded uppercase">Out</span>
+            )}
+          </div>
           <div className={`w-2 h-2 rounded-full shrink-0 ${
             getHealthScore(item) > 70 ? 'bg-green-500' :
             getHealthScore(item) > 40 ? 'bg-amber-500' : 'bg-red-500'
           }`} />
         </div>
-        <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mb-2">{item.category}</p>
+        <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mb-1">{item.category}</p>
+        
+        {isAuditMode && (
+          <div className="flex flex-wrap gap-1 mb-1.5">
+            {isMaintenanceOutdated(item) && (
+              <span className="text-[7.5px] font-black uppercase tracking-wider text-rose-700 bg-rose-50 border border-rose-100 px-1 rounded">Maint Overdue</span>
+            )}
+            {isLowInventory(item) && (
+              <span className="text-[7.5px] font-black uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-100 px-1 rounded">Low Stock</span>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-4 text-[10px] text-neutral-500">
           <span className="flex items-center gap-1"><Weight size={10}/> {item.weight ? `${item.weight}g` : '-'}</span>
           <span className="flex items-center gap-1"><Package size={10}/> x{item.quantity || 1}</span>
@@ -2723,6 +2863,20 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           </div>
           
           <div className="flex flex-wrap sm:flex-nowrap gap-2 md:gap-3 w-full lg:w-auto">
+            <button
+              type="button"
+              id="audit-mode-toggle"
+              onClick={() => setIsAuditMode(prev => !prev)}
+              className={`px-4 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition cursor-pointer select-none ${
+                isAuditMode 
+                  ? "bg-amber-500 text-white border-amber-500 shadow-md animate-pulse"
+                  : "bg-white text-neutral-500 border-neutral-200 hover:text-black hover:border-black"
+              }`}
+            >
+              <Sliders size={12} className={isAuditMode ? "text-white" : "text-neutral-400"} />
+              <span>Audit Mode {isAuditMode ? "ON" : "OFF"}</span>
+            </button>
+
             <div className="flex-1 sm:flex-none sm:w-48 flex items-center gap-2 bg-white border border-neutral-200 rounded-xl px-3 py-2 md:py-2.5 shadow-sm min-w-0">
               <Filter size={14} className="text-neutral-400 shrink-0" />
               <select 
@@ -2761,6 +2915,27 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             </div>
           </div>
         </div>
+
+        {isAuditMode && (
+          <div id="audit-mode-feedback" className="bg-amber-50/80 border border-amber-200/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <Sliders className="text-amber-500 shrink-0" size={16} />
+              <div>
+                <span className="font-extrabold uppercase tracking-wide text-amber-800">Audit Mode Active</span>
+                <p className="text-[11px] text-amber-700 font-medium leading-tight mt-0.5">Highlighting assets with outdated maintenance schedules or low inventory counts.</p>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none text-amber-800 bg-white border border-amber-200 px-3 py-1.5 rounded-xl text-[10px] uppercase tracking-wider font-extrabold hover:bg-amber-50 transition">
+              <input 
+                type="checkbox" 
+                checked={showOnlyAttentionNeeded}
+                onChange={(e) => setShowOnlyAttentionNeeded(e.target.checked)}
+                className="w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500 border-neutral-350 cursor-pointer"
+              />
+              <span>Only show attention items</span>
+            </label>
+          </div>
+        )}
 
         {/* Category Filter Mode Toggle */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs mb-3 border-b border-light pb-3">
@@ -3788,6 +3963,34 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
                         />
                       </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 font-bold">Last Maintenance Date</label>
+                        <input
+                          type="date"
+                          value={newItem.lastMaintenanceDate || ''}
+                          onChange={e => {
+                            setNewItem({ ...newItem, lastMaintenanceDate: e.target.value });
+                            setIsDirty(true);
+                          }}
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition text-xs font-semibold"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 font-bold">Maintenance Interval (Days)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={newItem.maintenanceIntervalDays || ''}
+                          onChange={e => {
+                            setNewItem({ ...newItem, maintenanceIntervalDays: parseInt(e.target.value) || 0 });
+                            setIsDirty(true);
+                          }}
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
+                          placeholder="e.g. 180"
+                        />
+                      </div>
                     </div>
                     
                     <div className="space-y-2">
@@ -4289,6 +4492,28 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       value={editingItem.quantity || 1}
                       onChange={e => setEditingItem({ ...editingItem, quantity: parseInt(e.target.value) || 1 })}
                       className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 font-bold">Last Maintenance Date</label>
+                    <input
+                      type="date"
+                      value={editingItem.lastMaintenanceDate || ''}
+                      onChange={e => setEditingItem({ ...editingItem, lastMaintenanceDate: e.target.value })}
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 font-bold">Maintenance Interval (Days)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editingItem.maintenanceIntervalDays || ''}
+                      onChange={e => setEditingItem({ ...editingItem, maintenanceIntervalDays: parseInt(e.target.value) || 0 })}
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
+                      placeholder="e.g. 180"
                     />
                   </div>
                 </div>
