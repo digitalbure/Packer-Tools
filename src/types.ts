@@ -649,6 +649,7 @@ export interface AdminSettings {
   landingPage?: LandingPageContent;
   landers?: Lander[];
   activeLanderId?: string;
+  activeLandingPageType?: 'main' | 'marketplace';
   billingEnabled: boolean;
   marketplaceVisibility?: 'signed-in' | 'public';
   privacyContent?: string;

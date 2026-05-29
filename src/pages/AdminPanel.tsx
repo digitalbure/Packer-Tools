@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Coins } from 'lucide-react';
+import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Coins, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project } from '../types';
@@ -2346,6 +2346,64 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               >
                 <Save size={18} className="inline mr-2" />
                 Save Changes
+              </button>
+            </div>
+          </div>
+
+          {/* Active Landing Page Selector */}
+          <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-lg font-black uppercase tracking-tight text-neutral-800">Active Landing Page Style Selection</h3>
+              <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider">Select the default interface shown to public, unauthenticated visitors at the root URL (/) of Packer Tools.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                onClick={() => {
+                  setSettings({ ...settings, activeLandingPageType: 'main' });
+                  toast.success("Default root page set to Main Landing Page style");
+                }}
+                className={`p-6 rounded-2xl border text-left transition duration-150 flex items-start gap-4 ${
+                  settings.activeLandingPageType !== 'marketplace'
+                    ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg'
+                    : 'border-neutral-100 bg-neutral-50/40 hover:bg-neutral-50 text-neutral-800 hover:border-neutral-200'
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  settings.activeLandingPageType !== 'marketplace' ? 'bg-white/10 text-white' : 'bg-neutral-100 text-[#ff4f3a]'
+                }`}>
+                  <Layout size={18} />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs font-black uppercase tracking-wider">Main Landing Page</div>
+                  <div className={`text-[10px] uppercase font-bold leading-relaxed ${settings.activeLandingPageType !== 'marketplace' ? 'text-white/60' : 'text-neutral-400'}`}>
+                    Professional visual gear tracking, scenarios, features ticker, and client portal access points.
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setSettings({ ...settings, activeLandingPageType: 'marketplace' });
+                  toast.success("Default root page set to Marketplace Listing Hub");
+                }}
+                className={`p-6 rounded-2xl border text-left transition duration-150 flex items-start gap-4 ${
+                  settings.activeLandingPageType === 'marketplace'
+                    ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg'
+                    : 'border-neutral-100 bg-neutral-50/40 hover:bg-neutral-50 text-neutral-800 hover:border-neutral-200'
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  settings.activeLandingPageType === 'marketplace' ? 'bg-white/10 text-white' : 'bg-rose-50 text-rose-500'
+                }`}>
+                  <ShoppingBag size={18} />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs font-black uppercase tracking-wider">Marketplace Listing Hub</div>
+                  <div className={`text-[10px] uppercase font-bold leading-relaxed ${settings.activeLandingPageType === 'marketplace' ? 'text-white/60' : 'text-neutral-400'}`}>
+                    The ShareGrid-inspired community platform. Active listings, equipment hire, and local creatives.
+                  </div>
+                </div>
               </button>
             </div>
           </div>

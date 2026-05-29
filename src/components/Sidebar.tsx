@@ -38,7 +38,8 @@ import {
   ListChecks,
   Camera,
   AlertCircle,
-  Cpu
+  Cpu,
+  ShoppingBag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings, FeatureKey } from '../types';
@@ -96,6 +97,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/kiosk', label: 'Gear Kiosk', icon: <QrCode size={20} /> },
     { to: '/library', label: 'Gear Library', icon: <Package size={20} /> },
     { to: '/systems-builder', label: 'Systems Builder', icon: <Hammer size={20} /> },
+    { to: '/marketplace', label: 'Marketplace', icon: <ShoppingBag size={20} /> },
     { 
       to: '/lists', 
       label: 'Lists', 
