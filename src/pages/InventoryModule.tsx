@@ -2730,11 +2730,19 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                     <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Operational Status</label>
                     <select
                       value={itemForm.status}
-                      onChange={(e) => setItemForm({ ...itemForm, status: e.target.value as any })}
+                      onChange={(e) => {
+                        if (e.target.value === 'in_use') {
+                          toast.error("Standard catalog items cannot be checked out (set to 'In Use') individually. To check out, include them in an active project Packing List or use Kiosk Terminal Mode.", {
+                            duration: 5000
+                          });
+                          return;
+                        }
+                        setItemForm({ ...itemForm, status: e.target.value as any });
+                      }}
                       className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-2 py-3 text-xs outline-none focus:ring-1 focus:ring-black h-11"
                     >
                       <option value="available">Available</option>
-                      <option value="in_use">In Use</option>
+                      <option value="in_use">In Use (Handover Required)</option>
                       <option value="maintenance">Maintenance</option>
                       <option value="retired">Retired</option>
                       <option value="missing">Missing</option>

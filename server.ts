@@ -58,10 +58,35 @@ const isQuotaError = (error: any): boolean => {
 app.post("/api/analyze-item", async (req, res) => {
   const { url, productName } = req.body;
   try {
+    let webpageTextContent = "";
+    if (url && url.startsWith("http")) {
+      try {
+        const fetchRes = await axios.get(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+          },
+          timeout: 6000
+        });
+        const html = fetchRes.data;
+        if (typeof html === "string") {
+          // Clear scripts and styles to avoid parsing noise
+          let cleanText = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+          cleanText = cleanText.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
+          cleanText = cleanText.replace(/<[^>]+>/g, " ");
+          cleanText = cleanText.replace(/\s+/g, " ");
+          webpageTextContent = cleanText.slice(0, 15000); // Feed the first 15000 characters
+        }
+      } catch (scrapingError: any) {
+        console.error("Scraper failed to download product URL:", scrapingError.message);
+      }
+    }
+
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
       contents: `Search for and extract technical specifications and a high-quality product image for the following product: ${productName || ""} ${url || ""}.
-      Focus on brand, model, detailed specs like IO ports, voltage, frequency, dimensions, weight, a detailed friendly marketing/technical description, and a direct high-quality product image/photo URL (photoUrl) if you can find one via web search results.
+      ${webpageTextContent ? `Below is the scraped text content of the product's webpage that you should analyze to extract perfect details (brand, name, specs, price):\n\n--- WEBPAGE TEXT CONTENT start ---\n${webpageTextContent}\n--- WEBPAGE TEXT CONTENT end ---\n` : ""}
+      Focus on brand, model, detailed specs like IO ports, voltage, frequency, dimensions, weight, a detailed friendly marketing/technical description, and a direct high-quality product image/photo URL (photoUrl) if you can find one via web search results or within the scraped text.
       Return strictly JSON.`,
       config: {
         tools: [{ googleSearch: {} }],

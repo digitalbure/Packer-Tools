@@ -101,6 +101,8 @@ export interface UserProfile {
   createdAt: string;
   extraSeats?: number;
   activeMarketplaceCurrencies?: string[]; // Currencies activated for renting equipment in marketplace
+  defaultBookingFee?: number; // User custom default booking fee % or amount
+  defaultSecurityDeposit?: number; // User custom default fixed security deposit
 }
 
 export interface Contact {
@@ -147,6 +149,13 @@ export interface PackingList {
   version?: number;
   customFields?: { [key: string]: string };
   receivedAt?: string;
+  bookingFeePercent?: number; // Packing list level booking fee percent override
+  securityDeposit?: number; // Packing list level security deposit fixed override
+  rentalStatus?: 'awaiting_payment' | 'awaiting_release' | 'released' | 'returned'; // Stage of the hire workflow
+  bookingClientSignature?: string; // Digital signature of checking out party
+  bookingClientName?: string; // Name of client checking out
+  bookingClientEmail?: string; // Email of client checking out
+  bookingPaidAt?: string; // Timestamp of cleared payment
   createdAt: string;
   updatedAt: string;
 }
@@ -660,6 +669,14 @@ export interface AdminSettings {
   };
   integrationConfig: IntegrationConfig;
   onboardedCurrencies?: OnboardedCurrency[];
+  commissionConfig?: {
+    defaultPercentage: number;
+    defaultAmount: number;
+    strategy: 'percentage' | 'amount' | 'both';
+    categoryOverrides?: { [category: string]: { percentage: number; amount: number; strategy: 'percentage' | 'amount' | 'both' } };
+    listOverrides?: { [listId: string]: { percentage: number; amount: number; strategy: 'percentage' | 'amount' | 'both' } };
+    itemOverrides?: { [itemId: string]: { percentage: number; amount: number; strategy: 'percentage' | 'amount' | 'both' } };
+  };
   moduleWidgetConfigs?: {
     projectCost?: {
       defaultMarginTarget: number;

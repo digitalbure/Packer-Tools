@@ -2741,6 +2741,310 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   <p className="text-[10px] text-neutral-400">Policy: Maximum time gear can be checked out before flagging.</p>
                 </div>
               </div>
+
+              {/* Hire Commissions and Platform Service Fees Panel */}
+              <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-8 mt-8">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-primary/10 text-primary border border-primary/20 rounded-xl">
+                    <Percent size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-neutral-800 uppercase tracking-tight leading-none">Hire Commissions & Service Fees</h3>
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-1">Platform-level revenue share configuration</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Strategy Choice */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider block">Service Fee Strategy</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['percentage', 'amount', 'both'] as const).map((strategy) => (
+                        <button
+                          key={strategy}
+                          type="button"
+                          onClick={() => {
+                            setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.commissionConfig || { defaultPercentage: 5, defaultAmount: 1.5, strategy: 'percentage' };
+                              return {
+                                ...s,
+                                commissionConfig: { ...cfg, strategy }
+                              };
+                            });
+                          }}
+                          className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                            (settings?.commissionConfig?.strategy || 'percentage') === strategy
+                              ? 'bg-primary text-white border-primary shadow-md shadow-primary/10'
+                              : 'bg-neutral-50 text-neutral-400 border-neutral-200/60 hover:border-neutral-300'
+                          }`}
+                        >
+                          {strategy}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Default Rate (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={settings?.commissionConfig?.defaultPercentage ?? 5}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setSettings(s => {
+                            if (!s) return null;
+                            const cfg = s.commissionConfig || { defaultPercentage: 5, defaultAmount: 1.5, strategy: 'percentage' };
+                            return {
+                              ...s,
+                              commissionConfig: { ...cfg, defaultPercentage: val }
+                            };
+                          });
+                        }}
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition font-bold"
+                        placeholder="5"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Default Flat Fee ($)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={settings?.commissionConfig?.defaultAmount ?? 1.5}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setSettings(s => {
+                            if (!s) return null;
+                            const cfg = s.commissionConfig || { defaultPercentage: 5, defaultAmount: 1.5, strategy: 'percentage' };
+                            return {
+                              ...s,
+                              commissionConfig: { ...cfg, defaultAmount: val }
+                            };
+                          });
+                        }}
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition font-bold"
+                        placeholder="1.50"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Overrides Management UI */}
+                  <div className="pt-6 border-t border-neutral-100 space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-400">Dynamic Commission Overrides</h4>
+                    <p className="text-[11px] text-neutral-400 leading-normal">
+                      Customize charges for high-demand asset categories, specific premium list templates, or asset tags.
+                    </p>
+
+                    {/* Category Overrides Section */}
+                    <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-3">
+                      <p className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">Category Overrides</p>
+                      
+                      {Object.entries(settings?.commissionConfig?.categoryOverrides || {}).length > 0 ? (
+                        <div className="space-y-2">
+                          {Object.entries(settings?.commissionConfig?.categoryOverrides || {}).map(([cat, fields]) => (
+                            <div key={cat} className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-neutral-100 font-semibold text-neutral-600">
+                              <span>
+                                <strong className="text-neutral-900">{cat}</strong> ({fields.strategy === 'percentage' ? `${fields.percentage}%` : fields.strategy === 'amount' ? `$${fields.amount}` : `${fields.percentage}% + $${fields.amount}`})
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSettings(s => {
+                                    if (!s || !s.commissionConfig) return null;
+                                    const nextOverrides = { ...(s.commissionConfig.categoryOverrides || {}) };
+                                    delete nextOverrides[cat];
+                                    return {
+                                      ...s,
+                                      commissionConfig: { ...s.commissionConfig, categoryOverrides: nextOverrides }
+                                    };
+                                  });
+                                }}
+                                className="text-red-500 hover:text-red-700 font-extrabold uppercase text-[9px] tracking-widest"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-neutral-400 font-semibold italic">No category overrides created</p>
+                      )}
+
+                      {/* Quick Add Form Category */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const catName = prompt("Enter asset category (e.g., Camera, Audio, Lens):");
+                          if (!catName) return;
+                          const pct = Number(prompt("Enter commission percentage:", "8"));
+                          const amt = Number(prompt("Enter commission flat amount ($):", "2"));
+                          const strat = prompt("Enter strategy ('percentage' | 'amount' | 'both'):", "percentage") as any;
+
+                          setSettings(s => {
+                            if (!s) return null;
+                            const config = s.commissionConfig || { defaultPercentage: 5, defaultAmount: 1.5, strategy: 'percentage' };
+                            const overrides = config.categoryOverrides || {};
+                            return {
+                              ...s,
+                              commissionConfig: {
+                                ...config,
+                                categoryOverrides: {
+                                  ...overrides,
+                                  [catName]: { percentage: pct, amount: amt, strategy: strat || 'percentage' }
+                                }
+                              }
+                            };
+                          });
+                          toast.success(`Category override and rule saved for '${catName}'`);
+                        }}
+                        className="py-1.5 px-3 bg-white hover:bg-neutral-100 text-[10px] font-black uppercase text-primary tracking-widest rounded-lg border border-neutral-200"
+                      >
+                        + Add Category Override
+                      </button>
+                    </div>
+
+                    {/* List Overrides Section */}
+                    <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-3">
+                      <p className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">Packing List Overrides</p>
+                      
+                      {Object.entries(settings?.commissionConfig?.listOverrides || {}).length > 0 ? (
+                        <div className="space-y-2">
+                          {Object.entries(settings?.commissionConfig?.listOverrides || {}).map(([listId, fields]) => (
+                            <div key={listId} className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-neutral-100 font-semibold text-neutral-600">
+                              <span className="truncate max-w-[200px]">
+                                <code className="text-xs bg-neutral-100 px-1 py-0.5 rounded text-neutral-800">{listId}</code> : ({fields.strategy === 'percentage' ? `${fields.percentage}%` : fields.strategy === 'amount' ? `$${fields.amount}` : `${fields.percentage}% + $${fields.amount}`})
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSettings(s => {
+                                    if (!s || !s.commissionConfig) return null;
+                                    const nextOverrides = { ...(s.commissionConfig.listOverrides || {}) };
+                                    delete nextOverrides[listId];
+                                    return {
+                                      ...s,
+                                      commissionConfig: { ...s.commissionConfig, listOverrides: nextOverrides }
+                                    };
+                                  });
+                                }}
+                                className="text-red-500 hover:text-red-700 font-extrabold uppercase text-[9px] tracking-widest"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-neutral-400 font-semibold italic">No packing list overrides created</p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const listId = prompt("Enter specific Packing List ID:");
+                          if (!listId) return;
+                          const pct = Number(prompt("Enter commission percentage:", "12"));
+                          const amt = Number(prompt("Enter commission flat amount ($):", "5"));
+                          const strat = prompt("Enter strategy ('percentage' | 'amount' | 'both'):", "both") as any;
+
+                          setSettings(s => {
+                            if (!s) return null;
+                            const config = s.commissionConfig || { defaultPercentage: 5, defaultAmount: 1.5, strategy: 'percentage' };
+                            const overrides = config.listOverrides || {};
+                            return {
+                              ...s,
+                              commissionConfig: {
+                                ...config,
+                                listOverrides: {
+                                  ...overrides,
+                                  [listId]: { percentage: pct, amount: amt, strategy: strat || 'both' }
+                                }
+                              }
+                            };
+                          });
+                          toast.success(`Rule override saved for list '${listId}'`);
+                        }}
+                        className="py-1.5 px-3 bg-white hover:bg-neutral-100 text-[10px] font-black uppercase text-primary tracking-widest rounded-lg border border-neutral-200"
+                      >
+                        + Add List Override
+                      </button>
+                    </div>
+
+                    {/* Item Overrides Section */}
+                    <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-3">
+                      <p className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">Individual Asset / Item Overrides</p>
+                      
+                      {Object.entries(settings?.commissionConfig?.itemOverrides || {}).length > 0 ? (
+                        <div className="space-y-2">
+                          {Object.entries(settings?.commissionConfig?.itemOverrides || {}).map(([itemId, fields]) => (
+                            <div key={itemId} className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-neutral-100 font-semibold text-neutral-600">
+                              <span>
+                                Item <code className="text-neutral-900 bg-neutral-100 px-1 py-0.5 rounded">{itemId}</code> : ({fields.strategy === 'percentage' ? `${fields.percentage}%` : fields.strategy === 'amount' ? `$${fields.amount}` : `${fields.percentage}% + $${fields.amount}`})
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSettings(s => {
+                                    if (!s || !s.commissionConfig) return null;
+                                    const nextOverrides = { ...(s.commissionConfig.itemOverrides || {}) };
+                                    delete nextOverrides[itemId];
+                                    return {
+                                      ...s,
+                                      commissionConfig: { ...s.commissionConfig, itemOverrides: nextOverrides }
+                                    };
+                                  });
+                                }}
+                                className="text-red-500 hover:text-red-700 font-extrabold uppercase text-[9px] tracking-widest"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-neutral-400 font-semibold italic">No specific asset overrides created</p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const itemId = prompt("Enter specific Asset ID or Gear Item ID:");
+                          if (!itemId) return;
+                          const pct = Number(prompt("Enter commission percentage:", "15"));
+                          const amt = Number(prompt("Enter commission flat amount ($):", "10"));
+                          const strat = prompt("Enter strategy ('percentage' | 'amount' | 'both'):", "percentage") as any;
+
+                          setSettings(s => {
+                            if (!s) return null;
+                            const config = s.commissionConfig || { defaultPercentage: 5, defaultAmount: 1.5, strategy: 'percentage' };
+                            const overrides = config.itemOverrides || {};
+                            return {
+                              ...s,
+                              commissionConfig: {
+                                ...config,
+                                itemOverrides: {
+                                  ...overrides,
+                                  [itemId]: { percentage: pct, amount: amt, strategy: strat || 'percentage' }
+                                }
+                              }
+                            };
+                          });
+                          toast.success(`Rule override saved for item '${itemId}'`);
+                        }}
+                        className="py-1.5 px-3 bg-white hover:bg-neutral-100 text-[10px] font-black uppercase text-primary tracking-widest rounded-lg border border-neutral-200"
+                      >
+                        + Add Item Override
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* End Hire Commissions Panel */}
+
               <button 
                 onClick={async () => {
                   if (settings) {

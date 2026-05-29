@@ -275,6 +275,90 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                   );
                 })}
               </div>
+
+              {/* Customizable Booking Fee & Security Deposit for Paid Users */}
+              <div className="pt-8 border-t border-neutral-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800">Default Hire Fee Structure</h4>
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-1">Setup customizable booking fees and deposits</p>
+                  </div>
+                  {user.plan === 'free' ? (
+                    <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[9px] font-black uppercase tracking-widest rounded-full">
+                      Free Plan Limits Active
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 text-green-500 text-[9px] font-black uppercase tracking-widest rounded-full">
+                      Customization Enabled
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest font-black text-neutral-400">Default Booking/Hire Fee (%)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        disabled={user.plan === 'free'}
+                        value={user.defaultBookingFee ?? 10}
+                        onChange={async (e) => {
+                          const val = Math.min(100, Math.max(0, Number(e.target.value)));
+                          try {
+                            const userRef = doc(db, 'users', user.uid);
+                            await updateDoc(userRef, { defaultBookingFee: val });
+                            onUpdate({ ...user, defaultBookingFee: val });
+                            toast.success("Default booking fee updated");
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className={`w-full px-5 py-3.5 bg-neutral-50 border rounded-2xl outline-none focus:ring-2 focus:ring-primary transition font-bold text-neutral-800 ${
+                          user.plan === 'free' ? 'opacity-50 cursor-not-allowed border-neutral-100' : 'border-neutral-200/60'
+                        }`}
+                        placeholder="10"
+                      />
+                      <span className="absolute right-4 top-4 font-black text-xs text-neutral-400 font-mono">%</span>
+                    </div>
+                    {user.plan === 'free' && (
+                      <p className="text-[9px] text-[#FF5500] font-bold uppercase tracking-widest">🔒 Upgrade to Pro to customize default Booking Fees (currently locked to 10%)</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest font-black text-neutral-400">Default Security Deposit (Fixed)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={user.plan === 'free'}
+                        value={user.defaultSecurityDeposit ?? 150}
+                        onChange={async (e) => {
+                          const val = Math.max(0, Number(e.target.value));
+                          try {
+                            const userRef = doc(db, 'users', user.uid);
+                            await updateDoc(userRef, { defaultSecurityDeposit: val });
+                            onUpdate({ ...user, defaultSecurityDeposit: val });
+                            toast.success("Default security deposit updated");
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className={`w-full px-5 py-3.5 bg-neutral-50 border rounded-2xl outline-none focus:ring-2 focus:ring-primary transition font-bold text-neutral-800 ${
+                          user.plan === 'free' ? 'opacity-50 cursor-not-allowed border-neutral-100' : 'border-neutral-200/60'
+                        }`}
+                        placeholder="150"
+                      />
+                      <span className="absolute right-4 top-4 font-black text-xs text-neutral-400 font-mono">USD</span>
+                    </div>
+                    {user.plan === 'free' && (
+                      <p className="text-[9px] text-[#FF5500] font-bold uppercase tracking-widest">🔒 Upgrade to Pro to customize default Security Deposit (currently locked to $150)</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 

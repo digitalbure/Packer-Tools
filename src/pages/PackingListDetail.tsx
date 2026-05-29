@@ -70,6 +70,8 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [editMarketplaceDetails, setEditMarketplaceDetails] = useState('');
   const [editGeneratedCaption, setEditGeneratedCaption] = useState('');
   const [editStatus, setEditStatus] = useState<'Draft' | 'Active' | 'Sent' | 'Received' | 'Completed'>('Draft');
+  const [editBookingFeePercent, setEditBookingFeePercent] = useState<number>(10);
+  const [editSecurityDeposit, setEditSecurityDeposit] = useState<number>(150);
   const [editCustomFields, setEditCustomFields] = useState<{ [key: string]: string }>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -1346,7 +1348,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       `I'm listing this professionally inventoried kit! Includes ${itemCount} items, all visually verified and tracked.\n\n` +
       `🔥 Key items included:\n• ${topItems}${itemCount > 5 ? '\n• ...and more!' : ''}\n\n` +
       `💰 Price: ${priceStr}\n` +
-      `📍 View full visual inventory, high-res photos & details here:\n${window.location.origin}/marketplace/${id}\n\n` +
+      `📍 View full visual inventory, high-res photos & details here:\n${window.location.origin}/p/${id}\n\n` +
       `This list is managed via Smart Packer - ensuring every item is accounted for.\n\n` +
       `#Marketplace #GearForSale #PackingList #Inventory #SmartPacker #ProfessionalGear`;
       
@@ -1360,8 +1362,116 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         items.map(i => `- ${i.name} (${i.aiLabel || 'General'})`).join('\n') +
         `\n\nTotal items: ${itemCount}\n` +
         `Condition: Professionally maintained\n` +
-        `Visual verification link: ${window.location.origin}/marketplace/${id}`;
+        `Visual verification link: ${window.location.origin}/p/${id}`;
       setEditMarketplaceDetails(detailedDesc);
+    }
+  };
+
+  const getCommissionDetail = () => {
+    if (!adminSettings?.commissionConfig) {
+      return { total: 0, userPayout: list?.price || 0, strategy: 'percentage' };
+    }
+    const config = adminSettings.commissionConfig;
+    const price = list?.price || 0;
+    
+    let percentage = config.defaultPercentage ?? 5;
+    let amount = config.defaultAmount ?? 1.5;
+    let strategy = config.strategy ?? 'percentage';
+
+    // 1. List level Override
+    if (list?.id && config.listOverrides?.[list.id]) {
+      const o = config.listOverrides[list.id];
+      percentage = o.percentage;
+      amount = o.amount;
+      strategy = o.strategy;
+    } else {
+      // 2. Element-level overrides
+      let itemsTotalOverridesCount = 0;
+      let percentSum = 0;
+      let amountSum = 0;
+      let overridden = false;
+      
+      const categoryOverridesMap = config.categoryOverrides || {};
+      const itemOverridesMap = config.itemOverrides || {};
+      
+      for (const item of (items || [])) {
+        if (item.id && itemOverridesMap[item.id]) {
+          const o = itemOverridesMap[item.id];
+          percentSum += o.percentage;
+          amountSum += o.amount;
+          itemsTotalOverridesCount++;
+          overridden = true;
+        } else if (item.aiLabel && categoryOverridesMap[item.aiLabel]) {
+          const o = categoryOverridesMap[item.aiLabel];
+          percentSum += o.percentage;
+          amountSum += o.amount;
+          itemsTotalOverridesCount++;
+          overridden = true;
+        }
+      }
+
+      if (overridden && itemsTotalOverridesCount > 0) {
+        percentage = percentSum / itemsTotalOverridesCount;
+        amount = amountSum;
+      }
+    }
+
+    let total = 0;
+    if (strategy === 'percentage') {
+      total = (price * percentage) / 100;
+    } else if (strategy === 'amount') {
+      total = amount;
+    } else if (strategy === 'both') {
+      total = ((price * percentage) / 100) + amount;
+    }
+    
+    total = Math.min(price, total);
+    return {
+      total,
+      userPayout: Math.max(0, price - total),
+      strategy
+    };
+  };
+
+  const handleReleaseRental = async () => {
+    if (!id || !list) return;
+    try {
+      // 1. Update the list state
+      await updateDoc(doc(db, 'packingLists', id), {
+        rentalStatus: 'released',
+        updatedAt: new Date().toISOString()
+      });
+      // 2. Batch update all items to 'packed' status (meaning checked out)
+      const batchRef = writeBatch(db);
+      for (const item of items) {
+        batchRef.update(doc(db, 'packingLists', id, 'items', item.id), { status: 'packed' });
+      }
+      await batchRef.commit();
+      toast.success(`Successfully checked out & released equipment to ${list.bookingClientName || 'client'}!`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to release equipment.");
+    }
+  };
+
+  const handleReturnRental = async () => {
+    if (!id || !list) return;
+    try {
+      // 1. Update the list state
+      await updateDoc(doc(db, 'packingLists', id), {
+        rentalStatus: 'returned',
+        updatedAt: new Date().toISOString()
+      });
+      // 2. Batch update all items to 'returned' status (meaning checked in)
+      const batchRef = writeBatch(db);
+      for (const item of items) {
+        batchRef.update(doc(db, 'packingLists', id, 'items', item.id), { status: 'returned' });
+      }
+      await batchRef.commit();
+      toast.success(`Successfully returned & checked in all rental items!`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to return equipment.");
     }
   };
 
@@ -1401,6 +1511,8 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         marketplaceEnabled: editMarketplaceEnabled,
         marketplaceDetails: editMarketplaceDetails,
         status: editStatus,
+        bookingFeePercent: Number(editBookingFeePercent),
+        securityDeposit: Number(editSecurityDeposit),
         customFields: editCustomFields,
         updatedAt: new Date().toISOString()
       });
@@ -2005,6 +2117,8 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       setEditMarketplaceEnabled(list?.marketplaceEnabled || false);
                       setEditMarketplaceDetails(list?.marketplaceDetails || '');
                       setEditStatus(list?.status || 'Draft');
+                      setEditBookingFeePercent(list?.bookingFeePercent ?? (user?.defaultBookingFee ?? 10));
+                      setEditSecurityDeposit(list?.securityDeposit ?? (user?.defaultSecurityDeposit ?? 150));
                       setEditCustomFields(list?.customFields || {});
                       setShowMarketplaceModal(true);
                     }}
@@ -2147,6 +2261,139 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
             className="w-full pl-12 pr-4 py-4 bg-white border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary outline-none transition shadow-sm"
           />
         </div>
+
+        {/* Hire / Rental Workflow Cockpit Section */}
+        {list?.transactionType === 'Rental' && (
+          <div className="p-8 bg-amber-500/5 rounded-3xl border border-amber-500/10 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Live Client Rental Console</span>
+                </div>
+                <h4 className="text-base font-black uppercase tracking-tight text-neutral-800">
+                  {(!list.rentalStatus || list.rentalStatus === 'awaiting_payment') && "🕒 Customer Booking & Verification Stage"}
+                  {list.rentalStatus === 'awaiting_release' && "🎉 Pre-payment Received & Agreement Signed!"}
+                  {list.rentalStatus === 'released' && "📦 Equipment Out on Hire"}
+                  {list.rentalStatus === 'returned' && "✅ Rental Agreement Finished & Inspected"}
+                </h4>
+                <p className="text-xs text-neutral-500 font-bold max-w-2xl leading-normal">
+                  {(!list.rentalStatus || list.rentalStatus === 'awaiting_payment') && `Our checkout paywall is active. Send the public list URL to your custom client so they review checking item by item, make pre-payment, and capture digital authorization.`}
+                  {list.rentalStatus === 'awaiting_release' && `Customer ${list.bookingClientName || ''} signed the terms off. Confirm the verification below and release payload.`}
+                  {list.rentalStatus === 'released' && `Equipment is actively in custody of ${list.bookingClientName || ''}. Inspect gear upon pick-up and click to return equipment.`}
+                  {list.rentalStatus === 'returned' && "All items in the packing list have been checked back in, examined, and logged successfully."}
+                </p>
+              </div>
+
+              {/* Shared Bio Link Ref */}
+              <div className="bg-white p-3.5 rounded-xl border border-neutral-150 shadow-sm shrink-0 flex items-center gap-2.5">
+                <div className="space-y-0.5">
+                  <span className="text-[8px] font-bold uppercase text-neutral-400 block tracking-widest leading-none">External Link for Client</span>
+                  <span className="text-[10px] font-mono font-black text-neutral-600 truncate max-w-[150px] block">{window.location.origin}/p/{id}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/p/${id}`);
+                    toast.success("Client review URL copied to clipboard!");
+                  }}
+                  className="py-1.5 px-3 bg-neutral-900 text-white rounded-lg text-[10px] uppercase font-black tracking-wider transition hover:bg-neutral-800"
+                >
+                  Copy Url
+                </button>
+              </div>
+            </div>
+
+            {/* Booking Financial Slip */}
+            {list.rentalStatus && list.rentalStatus !== 'awaiting_payment' && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-neutral-150">
+                <div className="space-y-1 bg-white p-4 rounded-xl border border-neutral-100">
+                  <span className="text-[9px] uppercase tracking-widest text-neutral-400 block font-bold">Verified Customer Credentials</span>
+                  <p className="text-xs font-black text-neutral-800">{list.bookingClientName}</p>
+                  <p className="text-[10px] text-neutral-500 font-mono font-bold">{list.bookingClientEmail}</p>
+                </div>
+                
+                <div className="space-y-1 bg-white p-4 rounded-xl border border-neutral-100">
+                  <span className="text-[9px] uppercase tracking-widest text-neutral-400 block font-bold">Income & Commission Breakdowns</span>
+                  <div className="text-xs text-neutral-600 space-y-0.5">
+                    <div className="flex justify-between font-bold">
+                      <span>Total Rent:</span>
+                      <span>{list.currency || '$'}{list.price}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-red-500">
+                      <span>Service Surcharge:</span>
+                      <span>-{list.currency || '$'}{getCommissionDetail().total.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-black text-green-600 pt-0.5 border-t border-neutral-100">
+                      <span>Net Paid Out:</span>
+                      <span>{list.currency || '$'}{getCommissionDetail().userPayout.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1 bg-white p-4 rounded-xl border border-neutral-100 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[9px] uppercase tracking-widest text-neutral-400 block font-bold mb-1">Customer Digital Signature</span>
+                    {list.bookingClientSignature ? (
+                      <div className="border border-neutral-200/60 rounded-lg p-2 bg-neutral-50 flex items-center justify-center">
+                        {list.bookingClientSignature.startsWith('data:image') ? (
+                          <img src={list.bookingClientSignature} alt="Customer Sig" className="max-h-[30px] object-contain" referrerPolicy="no-referrer" />
+                        ) : (
+                          <span className="font-mono text-xs italic font-extrabold text-neutral-700 select-none tracking-tight">{list.bookingClientSignature}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-neutral-400 font-bold italic">No physical signature found</span>
+                    )}
+                  </div>
+                  {list.bookingPaidAt && (
+                    <span className="text-[9px] font-mono text-neutral-400 uppercase tracking-wider block pt-1">Cleared: {new Date(list.bookingPaidAt).toLocaleString()}</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Actions Footer row */}
+            <div className="pt-4 border-t border-neutral-150 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest font-black">
+                  Current Hire Status:
+                </span>
+                <span className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider rounded-full ${
+                  (!list.rentalStatus || list.rentalStatus === 'awaiting_payment') ? 'bg-amber-100 text-amber-700' :
+                  list.rentalStatus === 'awaiting_release' ? 'bg-indigo-100 text-indigo-700' :
+                  list.rentalStatus === 'released' ? 'bg-emerald-100 text-emerald-700' :
+                  'bg-neutral-200 text-neutral-700'
+                }`}>
+                  {list.rentalStatus || 'awaiting_payment'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {list.rentalStatus === 'awaiting_release' && (
+                  <button
+                    onClick={handleReleaseRental}
+                    className="py-2.5 px-6 bg-primary text-white font-extrabold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/10 hover:opacity-90 transition cursor-pointer"
+                  >
+                    📦 Release & Checkout All Gear
+                  </button>
+                )}
+                {list.rentalStatus === 'released' && (
+                  <button
+                    onClick={handleReturnRental}
+                    className="py-2.5 px-6 bg-neutral-900 hover:bg-neutral-800 text-white font-extrabold text-xs uppercase tracking-widest rounded-xl shadow-lg transition cursor-pointer"
+                  >
+                    ✅ Inspect & Check-In All Returned Gear
+                  </button>
+                )}
+                {list.rentalStatus === 'returned' && (
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
+                    ✓ Complete. This list's rent cycle is finalized.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Progress Bar */}
         <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm space-y-6">
@@ -4123,6 +4370,38 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     </div>
                   </div>
 
+                  {editTransactionType === 'Rental' && (
+                    <div className="grid grid-cols-2 gap-4 mt-2 p-4 bg-primary/5 rounded-2xl border border-primary/15">
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-neutral-400 block pb-1">Hire Booking Fee (%)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          disabled={user?.plan === 'free'}
+                          value={editBookingFeePercent}
+                          onChange={(e) => setEditBookingFeePercent(Math.min(100, Math.max(0, Number(e.target.value))))}
+                          className="w-full px-4 py-3 bg-white border border-neutral-100 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm font-black"
+                          placeholder="e.g. 15"
+                        />
+                        {user?.plan === 'free' && <p className="text-[8px] text-[#FF5500] font-bold uppercase">Locked (10% standard)</p>}
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] uppercase tracking-widest font-black text-neutral-400 block pb-1">Security Deposit ($)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          disabled={user?.plan === 'free'}
+                          value={editSecurityDeposit}
+                          onChange={(e) => setEditSecurityDeposit(Math.max(0, Number(e.target.value)))}
+                          className="w-full px-4 py-3 bg-white border border-neutral-100 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm font-black"
+                          placeholder="e.g. 250"
+                        />
+                        {user?.plan === 'free' && <p className="text-[8px] text-[#FF5500] font-bold uppercase">Locked ($150 standard)</p>}
+                      </div>
+                    </div>
+                  )}
+
                   {(editTransactionType === 'Sale' || editTransactionType === 'Rental') && (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -4259,7 +4538,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                   Copy
                                 </button>
                                 <a
-                                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/marketplace/${id}`)}&quote=${encodeURIComponent(editGeneratedCaption)}`}
+                                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/p/${id}`)}&quote=${encodeURIComponent(editGeneratedCaption)}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="px-4 py-2 bg-[#1877F2] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition flex items-center gap-2"
@@ -4296,7 +4575,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
                         <div className="flex items-center justify-center p-4 bg-white rounded-2xl border border-neutral-100">
                           <QRCodeCanvas 
-                            value={`${window.location.origin}/marketplace/${id}`}
+                            value={`${window.location.origin}/p/${id}`}
                             size={120}
                             level="H"
                             includeMargin={true}
@@ -4306,7 +4585,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                           <button
                             type="button"
                             onClick={() => {
-                              navigator.clipboard.writeText(`${window.location.origin}/marketplace/${id}`);
+                              navigator.clipboard.writeText(`${window.location.origin}/p/${id}`);
                               toast.success("Marketplace link copied!");
                             }}
                             className="flex-1 py-3 bg-white border border-neutral-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-neutral-50 transition flex items-center justify-center gap-2"
@@ -4315,7 +4594,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             Copy Link
                           </button>
                           <a
-                            href={`/marketplace/${id}`}
+                            href={`/p/${id}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex-1 py-3 bg-neutral-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition flex items-center justify-center gap-2"

@@ -34,7 +34,11 @@ import {
   FileSpreadsheet,
   Globe,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Users,
+  Building,
+  Sliders,
+  ShieldCheck
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
@@ -487,6 +491,22 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   });
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  
+  // Batch organizational assignment states
+  const [isBatchAssignModalOpen, setIsBatchAssignModalOpen] = useState(false);
+  const [batchOrgId, setBatchOrgId] = useState('');
+  const [batchDeptId, setBatchDeptId] = useState('');
+  const [batchTeamId, setBatchTeamId] = useState('');
+  const [batchAssignedTo, setBatchAssignedTo] = useState('');
+  const [shouldUpdateOrg, setShouldUpdateOrg] = useState(true);
+  const [shouldUpdateDept, setShouldUpdateDept] = useState(true);
+  const [shouldUpdateTeam, setShouldUpdateTeam] = useState(true);
+  const [shouldUpdateAssignee, setShouldUpdateAssignee] = useState(true);
+  const [isBatchAssigning, setIsBatchAssigning] = useState(false);
+
+  // Workflow guidance model
+  const [checkoutGuidanceModal, setCheckoutGuidanceModal] = useState(false);
+
   // AI Compatibility States
   const [isCompatModalOpen, setIsCompatModalOpen] = useState(false);
   const [compatItems, setCompatItems] = useState<GearItem[]>([]);
@@ -511,6 +531,32 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => {
+    return localStorage.getItem(`gear_cache_sync_time_${user?.uid}`);
+  });
+  const [showOfflineDashboard, setShowOfflineDashboard] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      toast.success("Network connection restored! Re-syncing gear database...");
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      toast.error("Lost network connection. Packer Offline Cache activated.", {
+        description: "You can continue working completely offline.",
+        duration: 5000
+      });
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [user?.uid]);
 
   const toggleItemSelection = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -933,6 +979,45 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     organizationTip?: string;
   } | null>(null);
 
+  // Early local cache loading for lightning-fast offline startup support
+  useEffect(() => {
+    if (!user?.uid) return;
+    const cacheKey = `gear_cache_${user.uid}`;
+    const cachedData = localStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setGear(parsed);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error("Error loading offline cache:", e);
+      }
+    }
+    
+    const containerKey = `containers_cache_${user.uid}`;
+    const cachedCon = localStorage.getItem(containerKey);
+    if (cachedCon) {
+      try {
+        const parsedCon = JSON.parse(cachedCon);
+        if (Array.isArray(parsedCon)) {
+          setContainers(parsedCon);
+        }
+      } catch (e) {}
+    }
+
+    const cachedSett = localStorage.getItem('settings_cache');
+    if (cachedSett) {
+      try {
+        const parsedSett = JSON.parse(cachedSett);
+        if (parsedSett) {
+          setSettings(parsedSett);
+        }
+      } catch (e) {}
+    }
+  }, [user?.uid]);
+
   useEffect(() => {
     const q = query(collection(db, 'users', user.uid, 'gearLibrary'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -993,17 +1078,26 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         return item;
       });
 
-      setGear(items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      const sortedGearList = items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setGear(sortedGearList);
+      localStorage.setItem(`gear_cache_${user.uid}`, JSON.stringify(sortedGearList));
+      const syncTime = new Date().toISOString();
+      localStorage.setItem(`gear_cache_sync_time_${user.uid}`, syncTime);
+      setLastSyncTime(syncTime);
       setLoading(false);
     });
     const unsubscribeSettings = onSnapshot(doc(db, 'adminSettings', 'global'), (docSnap) => {
       if (docSnap.exists()) {
-        setSettings(docSnap.data() as AdminSettings);
+        const settingsData = docSnap.data() as AdminSettings;
+        setSettings(settingsData);
+        localStorage.setItem(`settings_cache`, JSON.stringify(settingsData));
       }
     });
 
     const unsubscribeContainers = onSnapshot(collection(db, 'users', user.uid, 'containers'), (snapshot) => {
-      setContainers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Container)));
+      const contList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Container));
+      setContainers(contList);
+      localStorage.setItem(`containers_cache_${user.uid}`, JSON.stringify(contList));
     });
 
     return () => {
@@ -1074,6 +1168,61 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     } catch (error) {
       console.error("Packing error:", error);
       toast.error("Failed to pack items", { id: toastId });
+    }
+  };
+
+  const handleBatchAssign = async () => {
+    if (selectedItems.size === 0) {
+      toast.error("No items selected");
+      return;
+    }
+    
+    setIsBatchAssigning(true);
+    const toastId = toast.loading(`Batch updating ${selectedItems.size} items...`);
+    
+    try {
+      const batch = writeBatch(db);
+      const updatedAt = new Date().toISOString();
+      
+      selectedItems.forEach(itemId => {
+        const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
+        const updateData: any = { updatedAt };
+        
+        if (shouldUpdateOrg) {
+          updateData.orgId = batchOrgId || '';
+          if (!shouldUpdateDept) {
+            updateData.deptId = '';
+            updateData.teamId = '';
+          }
+        }
+        
+        if (shouldUpdateDept) {
+          updateData.deptId = batchDeptId || '';
+          if (!shouldUpdateTeam) {
+            updateData.teamId = '';
+          }
+        }
+        
+        if (shouldUpdateTeam) {
+          updateData.teamId = batchTeamId || '';
+        }
+        
+        if (shouldUpdateAssignee) {
+          updateData.assignedTo = batchAssignedTo || '';
+        }
+        
+        batch.update(itemRef, updateData);
+      });
+      
+      await batch.commit();
+      setSelectedItems(new Set());
+      setIsBatchAssignModalOpen(false);
+      toast.success(`Successfully batch assigned details to ${selectedItems.size} items!`, { id: toastId });
+    } catch (error) {
+      console.error("Batch assign error:", error);
+      toast.error("Failed to batch update items.", { id: toastId });
+    } finally {
+      setIsBatchAssigning(false);
     }
   };
 
@@ -1979,6 +2128,26 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     </div>
   );
 
+  const exportOfflineBackup = () => {
+    const backupData = {
+      app: 'packer-tools',
+      exportedAt: new Date().toISOString(),
+      user: { uid: user?.uid, email: user?.email },
+      gear,
+      containers,
+      settings
+    };
+    
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `packer_tools_backup_${user?.uid}_${new Date().toISOString().split('T')[0]}.ptbk`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    toast.success("Offline backup exported successfully!");
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -1995,6 +2164,18 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             <h1 className="text-2xl md:text-5xl font-black tracking-tighter flex items-center gap-2 md:gap-3 uppercase italic truncate">
               Gear Library
             </h1>
+            <button 
+              onClick={() => setShowOfflineDashboard(!showOfflineDashboard)}
+              className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 border transition shrink-0 ${
+                isOffline 
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 animate-pulse cursor-pointer' 
+                  : 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 cursor-pointer'
+              }`}
+              title="Click to manage local cached status"
+            >
+              <div className={`w-1.5 h-1.5 rounded-full ${isOffline ? 'bg-amber-500' : 'bg-green-500'}`} />
+              <span>{isOffline ? 'Offline Active' : 'Online / Cached'}</span>
+            </button>
             <button 
               onClick={() => setIsDashboardVisible(!isDashboardVisible)}
               className="p-1.5 md:p-2 bg-neutral-100 hover:bg-neutral-200 rounded-full transition-colors flex items-center gap-2 shrink-0"
@@ -2043,6 +2224,121 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           </button>
         </div>
       </header>
+
+      {/* Offline Management Panel / Notification Callout */}
+      <AnimatePresence>
+        {isOffline && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-amber-500/10 border border-amber-500/20 text-amber-700 px-6 py-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs font-semibold shadow-inner"
+          >
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              </span>
+              <div>
+                <p className="font-black uppercase tracking-wider text-[11px]">Packer Tools Offline Sandbox Active</p>
+                <p className="text-amber-600 font-bold mt-0.5">Running securely from encrypted local cache. All revisions will sync back automatically when cellular or internet connection is restored.</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowOfflineDashboard(!showOfflineDashboard)} 
+              className="px-4 py-2 bg-amber-500 text-white rounded-xl uppercase tracking-wider text-[10px] font-black hover:bg-amber-600 transition self-start md:self-auto cursor-pointer"
+            >
+              Manage Sandbox Cache ({gear.length} items)
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Connection Mode Toggle Dashboard Shelf */}
+      <AnimatePresence>
+        {showOfflineDashboard && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden bg-[#0F1012] border border-neutral-800/80 rounded-[2rem] text-[#E4E4E7]"
+          >
+            <div className="p-6 md:p-8 space-y-6">
+              <div className="flex items-center justify-between border-b border-neutral-800/60 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-xl border ${isOffline ? 'bg-amber-500/10 border-amber-500/40 text-amber-500' : 'bg-green-500/10 border-green-500/40 text-green-500'}`}>
+                    <RefreshCw size={20} className={isOffline ? "" : "animate-spin"} style={{ animationDuration: '6s' }} />
+                  </div>
+                  <div>
+                    <h2 className="text-md font-black uppercase tracking-tight text-white leading-none">Packer Edge Sync Engine</h2>
+                    <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest mt-1">Hybrid Local Database & Media Cache</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowOfflineDashboard(false)}
+                  className="p-2 bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white rounded-lg cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-[#050607] p-5 rounded-2xl border border-neutral-800/40 space-y-2">
+                  <span className="text-[9px] text-[#FF5500] font-black uppercase tracking-wider">Sync Status</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black font-sans tracking-tight">
+                      {isOffline ? 'OFFLINE' : 'ONLINE'}
+                    </span>
+                    <span className={`w-2 h-2 rounded-full ${isOffline ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`} />
+                  </div>
+                  <p className="text-[10px] text-neutral-500 font-bold leading-normal">
+                    {isOffline 
+                      ? "Disconnected from server. Using local multi-tab cache store." 
+                      : "Direct connection with Cloud Run network pool active."}
+                  </p>
+                </div>
+
+                <div className="bg-[#050607] p-5 rounded-2xl border border-neutral-800/40 space-y-2">
+                  <span className="text-[9px] text-neutral-400 font-black uppercase tracking-wider">Stashed Resources</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black font-sans tracking-tight">{gear.length} Items</span>
+                  </div>
+                  <p className="text-[10px] text-neutral-500 font-bold leading-normal">
+                    {containers.length} containers & transit cases cached offline successfully.
+                  </p>
+                </div>
+
+                <div className="bg-[#050607] p-5 rounded-2xl border border-neutral-800/40 space-y-2">
+                  <span className="text-[9px] text-neutral-400 font-black uppercase tracking-wider">Last Server Synchronization</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black font-sans tracking-tight truncate max-w-full">
+                      {lastSyncTime ? format(new Date(lastSyncTime), 'HH:mm:ss') : 'Never'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-neutral-500 font-bold leading-normal">
+                    Recorded {lastSyncTime ? format(new Date(lastSyncTime), 'PP') : 'no local sync timestamp recorded'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-[#18191B] border border-neutral-800/60 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-semibold text-neutral-300">
+                <div className="space-y-1">
+                  <p className="font-extrabold text-white text-[11px] uppercase tracking-wider">Export Sandbox Snapshot Backup (.PTBK)</p>
+                  <p className="text-neutral-500 text-[10px]">Download standard serial JSON container payload of your offline inventory as safety insurance.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={exportOfflineBackup}
+                  className="px-5 py-3 bg-neutral-800 border border-neutral-700 text-white rounded-xl hover:bg-neutral-700 transition flex items-center justify-center gap-2 uppercase tracking-widest text-[10px] font-black shrink-0 cursor-pointer"
+                >
+                  <FileSpreadsheet size={15} />
+                  <span>Export Backup</span>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Stats Overview Dropdown Shelf */}
       <AnimatePresence>
@@ -3238,13 +3534,20 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                         <select
                           value={newItem.status || 'available'}
                           onChange={e => {
+                            if (e.target.value === 'in_use') {
+                              toast.error("Standard catalog items cannot be checked out (set to 'In Use') individually.", {
+                                duration: 5000
+                              });
+                              setCheckoutGuidanceModal(true);
+                              return;
+                            }
                             setNewItem({ ...newItem, status: e.target.value as any });
                             setIsDirty(true);
                           }}
                           className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
                         >
                           <option value="available">Available</option>
-                          <option value="in_use">In Use</option>
+                          <option value="in_use">In Use (Handover Required)</option>
                           <option value="maintenance">Maintenance</option>
                           <option value="retired">Retired</option>
                           <option value="missing">Missing</option>
@@ -3937,11 +4240,20 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Status</label>
                     <select
                       value={editingItem.status || 'available'}
-                      onChange={e => setEditingItem({ ...editingItem, status: e.target.value as any })}
+                      onChange={e => {
+                        if (e.target.value === 'in_use') {
+                          toast.error("Standard catalog items cannot be checked out (set to 'In Use') individually.", {
+                            duration: 5000
+                          });
+                          setCheckoutGuidanceModal(true);
+                          return;
+                        }
+                        setEditingItem({ ...editingItem, status: e.target.value as any });
+                      }}
                       className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
                     >
                       <option value="available">Available</option>
-                      <option value="in_use">In Use</option>
+                      <option value="in_use">In Use (Handover Required)</option>
                       <option value="maintenance">Maintenance</option>
                       <option value="retired">Retired</option>
                       <option value="missing">Missing</option>
@@ -4661,6 +4973,24 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 <span>Export</span>
               </button>
 
+              <button 
+                onClick={() => {
+                  setBatchOrgId('');
+                  setBatchDeptId('');
+                  setBatchTeamId('');
+                  setBatchAssignedTo('');
+                  setShouldUpdateOrg(true);
+                  setShouldUpdateDept(true);
+                  setShouldUpdateTeam(true);
+                  setShouldUpdateAssignee(true);
+                  setIsBatchAssignModalOpen(true);
+                }}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap"
+              >
+                <Sliders size={14} className="text-amber-400 font-bold" />
+                <span>Assign Batch</span>
+              </button>
+
               {selectedItems.size === 2 && (
                 <button 
                   onClick={handleCheckCompatibility}
@@ -5241,6 +5571,284 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 >
                   <Luggage size={18} />
                   <span>Pack Selected Items</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Batch Assign Modal */}
+      <AnimatePresence>
+        {isBatchAssignModalOpen && (
+          <div className="fixed inset-0 bg-neutral-900/65 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 border-b border-neutral-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-black text-neutral-900 flex items-center gap-2">
+                    <Sliders className="text-primary" size={22} />
+                    <span>Batch Assign Settings</span>
+                  </h3>
+                  <p className="text-sm text-neutral-500 font-bold font-sans">Applying changes to {selectedItems.size} selected assets</p>
+                </div>
+                <button onClick={() => setIsBatchAssignModalOpen(false)} className="p-2 hover:bg-neutral-100 rounded-xl transition">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 overflow-y-auto space-y-6 font-sans">
+                {/* Info Tip */}
+                <div className="bg-neutral-50 border border-neutral-150 p-4 rounded-2xl text-xs text-neutral-500 leading-relaxed font-semibold">
+                  Check individual properties to include them in the batch operation. Unchecked fields will remain untouched on existing assets.
+                </div>
+
+                {/* Organization Field */}
+                <div className="space-y-2 border-b border-neutral-50 pb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id="shouldUpdateOrg"
+                        checked={shouldUpdateOrg} 
+                        onChange={(e) => setShouldUpdateOrg(e.target.checked)}
+                        className="w-4 h-4 rounded border-neutral-300 text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="shouldUpdateOrg" className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 select-none cursor-pointer">
+                        Batch Organization
+                      </label>
+                    </div>
+                    {shouldUpdateOrg && (
+                      <span className="text-[8px] font-black uppercase text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">Will Overwrite</span>
+                    )}
+                  </div>
+                  {shouldUpdateOrg && (
+                    <select 
+                      value={batchOrgId}
+                      onChange={(e) => {
+                        setBatchOrgId(e.target.value);
+                        setBatchDeptId('');
+                        setBatchTeamId('');
+                      }}
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary text-xs font-semibold text-neutral-800"
+                    >
+                      <option value="">Personal / Unassigned</option>
+                      {organizations.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                    </select>
+                  )}
+                </div>
+
+                {/* Department Field */}
+                <div className="space-y-2 border-b border-neutral-50 pb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id="shouldUpdateDept"
+                        checked={shouldUpdateDept} 
+                        onChange={(e) => setShouldUpdateDept(e.target.checked)}
+                        className="w-4 h-4 rounded border-neutral-300 text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="shouldUpdateDept" className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 select-none cursor-pointer">
+                        Batch Department
+                      </label>
+                    </div>
+                    {shouldUpdateDept && (
+                      <span className="text-[8px] font-black uppercase text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">Will Overwrite</span>
+                    )}
+                  </div>
+                  {shouldUpdateDept && (
+                    <select 
+                      disabled={!batchOrgId}
+                      value={batchDeptId}
+                      onChange={(e) => {
+                        setBatchDeptId(e.target.value);
+                        setBatchTeamId('');
+                      }}
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 text-xs font-semibold text-neutral-800"
+                    >
+                      <option value="">None / Reset Assigned Department</option>
+                      {departments.filter(d => d.orgId === batchOrgId).map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Team Field */}
+                <div className="space-y-2 border-b border-neutral-50 pb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id="shouldUpdateTeam"
+                        checked={shouldUpdateTeam} 
+                        onChange={(e) => setShouldUpdateTeam(e.target.checked)}
+                        className="w-4 h-4 rounded border-neutral-300 text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="shouldUpdateTeam" className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 select-none cursor-pointer">
+                        Batch Team
+                      </label>
+                    </div>
+                    {shouldUpdateTeam && (
+                      <span className="text-[8px] font-black uppercase text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">Will Overwrite</span>
+                    )}
+                  </div>
+                  {shouldUpdateTeam && (
+                    <select 
+                      disabled={!batchDeptId}
+                      value={batchTeamId}
+                      onChange={(e) => setBatchTeamId(e.target.value)}
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 text-xs font-semibold text-neutral-800"
+                    >
+                      <option value="">None / Reset Assigned Team</option>
+                      {teams.filter(t => t.deptId === batchDeptId).map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Assign to User Field */}
+                <div className="space-y-2 pb-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id="shouldUpdateAssignee"
+                        checked={shouldUpdateAssignee} 
+                        onChange={(e) => setShouldUpdateAssignee(e.target.checked)}
+                        className="w-4 h-4 rounded border-neutral-300 text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="shouldUpdateAssignee" className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 select-none cursor-pointer">
+                        Batch Assign User
+                      </label>
+                    </div>
+                    {shouldUpdateAssignee && (
+                      <span className="text-[8px] font-black uppercase text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">Will Overwrite</span>
+                    )}
+                  </div>
+                  {shouldUpdateAssignee && (
+                    <select 
+                      value={batchAssignedTo}
+                      onChange={(e) => setBatchAssignedTo(e.target.value)}
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary text-xs font-semibold text-neutral-800"
+                    >
+                      <option value="">None (Float / Unassigned)</option>
+                      {users.map(u => <option key={u.uid} value={u.uid}>{u.displayName}</option>)}
+                    </select>
+                  )}
+                </div>
+
+              </div>
+
+              <div className="p-8 bg-neutral-50 border-t border-neutral-100 flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setIsBatchAssignModalOpen(false)}
+                  className="flex-1 py-4 bg-white border border-neutral-200 text-neutral-600 rounded-2xl font-bold hover:bg-neutral-100 transition shadow-sm text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isBatchAssigning || (!shouldUpdateOrg && !shouldUpdateDept && !shouldUpdateTeam && !shouldUpdateAssignee)}
+                  onClick={handleBatchAssign}
+                  className="flex-1 py-4 bg-primary text-white rounded-2xl font-black uppercase text-[10px] tracking-wider hover:brightness-105 transition shadow-lg disabled:opacity-30 flex items-center justify-center gap-2"
+                >
+                  {isBatchAssigning ? <Loader2 size={16} className="animate-spin" /> : <Sliders size={16} />}
+                  <span>Apply Batch Changes</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Checkout Guidance Intercept Modal */}
+      <AnimatePresence>
+        {checkoutGuidanceModal && (
+          <div className="fixed inset-0 bg-neutral-900/70 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col font-sans"
+            >
+              <div className="p-8 border-b border-neutral-100 flex items-center justify-between bg-amber-50">
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="text-amber-655" size={28} />
+                  <div>
+                    <h3 className="text-lg font-black text-neutral-900 uppercase tracking-tight">Handover Workflow Required</h3>
+                    <p className="text-[10px] text-[#5c4000] font-black uppercase tracking-wider">Security and custody tracking enforcement</p>
+                  </div>
+                </div>
+                <button onClick={() => setCheckoutGuidanceModal(false)} className="p-2 hover:bg-amber-100 text-[#5c4000] rounded-xl transition">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <p className="text-xs text-neutral-600 leading-relaxed font-bold">
+                  ⚠️ <strong>Standard platform policy:</strong> Individual stock assets cannot be checked out (set to 'In Use') directly from the catalog. To ensure safety logs, custody signatures, and contract terms are followed, assets must go through one of two official check out tracks:
+                </p>
+
+                <div className="space-y-4">
+                  {/* Track A */}
+                  <div className="p-4 border border-neutral-150 rounded-2xl hover:bg-neutral-50 transition flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-neutral-950 text-white shrink-0 flex items-center justify-center font-black text-xs select-none">A</span>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-xs text-neutral-950 uppercase tracking-tight">Attach to a Packing Checklist</h4>
+                      <p className="text-[11px] text-neutral-500 leading-relaxed font-medium">
+                        Create a planning checklist or include the item in an active packing list inside a project, then complete paywalls & check-out signatures.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Track B */}
+                  <div className="p-4 border border-neutral-150 rounded-2xl hover:bg-neutral-50 transition flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-primary text-white shrink-0 flex items-center justify-center font-black text-xs select-none">B</span>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-xs text-primary uppercase tracking-tight">Self-Service Gear Terminal</h4>
+                      <p className="text-[11px] text-neutral-500 leading-relaxed font-medium">
+                        Open the <strong>Gear Kiosk Terminal (Kiosk Mode)</strong>, enter credentials, and carry out a verified instant handover custody swipe.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 bg-neutral-50 border-t border-neutral-100 flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCheckoutGuidanceModal(false)}
+                  className="flex-1 py-3.5 bg-white border border-neutral-200 text-neutral-600 rounded-xl font-bold hover:bg-neutral-100 transition text-xs shadow-sm"
+                >
+                  Got It
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckoutGuidanceModal(false);
+                    navigate('/logistics');
+                  }}
+                  className="flex-1 py-3.5 bg-neutral-900 hover:bg-black text-white rounded-xl font-black uppercase text-[10px] tracking-wider transition shadow-lg flex items-center justify-center gap-2"
+                >
+                  <span>Go to Packing Lists</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckoutGuidanceModal(false);
+                    navigate('/kiosk');
+                  }}
+                  className="flex-1 py-3.5 bg-primary hover:brightness-105 text-white rounded-xl font-black uppercase text-[10px] tracking-wider transition shadow-lg flex items-center justify-center gap-2"
+                >
+                  <span>Open Kiosk Mode</span>
                 </button>
               </div>
             </motion.div>
