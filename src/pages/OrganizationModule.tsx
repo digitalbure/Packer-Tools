@@ -2225,6 +2225,10 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                         toast.error("Please enter a valid 6-digit code");
                         return;
                       }
+                      if (!isFeatureEnabled('kioskMode', user, adminSettings)) {
+                        toast.error("Your current plan does not include Kiosk Mode. Please upgrade to Pro or Enterprise.");
+                        return;
+                      }
                       try {
                         const q = query(collection(db, 'terminals'), where('pairingCode', '==', pairingCodeInput), where('status', '==', 'pending'));
                         const snap = await getDocs(q);

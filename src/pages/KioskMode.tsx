@@ -35,6 +35,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { GearItem, UserProfile, CheckoutRecord, AdminSettings, Container } from '../types';
 import PackerLogo from '../components/PackerLogo';
 import { toast } from 'sonner';
+import { isFeatureEnabled } from '../lib/featureUtils';
 
 interface KioskModeProps {
   user: UserProfile | null;
@@ -48,6 +49,8 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   const [terminalId, setTerminalId] = useState<string | null>(localStorage.getItem('kiosk_terminal_id'));
   const [isActivated, setIsActivated] = useState<boolean>(false);
   const [pairedUid, setPairedUid] = useState<string | null>(null);
+  const [pairedUser, setPairedUser] = useState<UserProfile | null>(null);
+  const [checkingPlan, setCheckingPlan] = useState<boolean>(false);
   const [step, setStep] = useState<KioskStep>('welcome');
   const [escapeTaps, setEscapeTaps] = useState(0);
   
@@ -156,6 +159,30 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       unsubscribeGear();
       unsubscribeContainers();
     };
+  }, [pairedUid, initialUser]);
+
+  // Synchronize paired user profile to get real-time subscription status and plan attributes
+  useEffect(() => {
+    const targetUid = pairedUid || initialUser?.uid;
+    if (!targetUid) {
+      setPairedUser(null);
+      return;
+    }
+
+    setCheckingPlan(true);
+    const unsub = onSnapshot(doc(db, 'users', targetUid), (snap) => {
+      if (snap.exists()) {
+        setPairedUser({ uid: snap.id, ...snap.data() } as UserProfile);
+      } else {
+        setPairedUser(null);
+      }
+      setCheckingPlan(false);
+    }, (error) => {
+      console.warn("Error fetching paired user profile:", error);
+      setCheckingPlan(false);
+    });
+
+    return () => unsub();
   }, [pairedUid, initialUser]);
 
   useEffect(() => {
@@ -286,6 +313,10 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       const targetUid = initialUser?.uid;
       if (!targetUid) {
         toast.error("Please login first to pair this kiosk with your active account!");
+        return;
+      }
+      if (!isFeatureEnabled('kioskMode', initialUser, adminSettings)) {
+        toast.error("Your current plan does not include Kiosk Mode. Please upgrade to Pro or Enterprise.");
         return;
       }
       await updateDoc(doc(db, 'terminals', terminalId), {
@@ -830,7 +861,59 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       {/* Main Kiosk Viewport */}
       <main className="flex-1 relative flex items-center justify-center p-4 md:p-8 overflow-hidden">
         <AnimatePresence mode="wait">
-          {step === 'activate' && (
+          {pairedUid && pairedUser && !isFeatureEnabled('kioskMode', pairedUser, adminSettings) ? (
+            <motion.div 
+              key="restricted"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="max-w-xl w-full bg-neutral-900 border border-neutral-800 p-10 md:p-16 rounded-[3rem] text-center space-y-8 shadow-2xl"
+            >
+              <div className="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-3xl flex items-center justify-center mx-auto">
+                <Lock size={40} />
+              </div>
+              <div className="space-y-3 font-sans">
+                <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tighter">Plan Check Failed</h2>
+                <div className="text-xs text-neutral-450 font-bold uppercase tracking-wider">
+                  Kiosk Mode is restricted by plan constraints.
+                </div>
+                <div className="bg-neutral-950 p-4 rounded-2xl border border-white/5 space-y-2 mt-4 text-left">
+                  <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-wider text-neutral-400">
+                    <span>Active Account:</span>
+                    <span className="text-white">{pairedUser.displayName || pairedUser.email}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-wider text-rose-400 font-mono">
+                    <span>Current Plan:</span>
+                    <span className="px-2 py-0.5 bg-rose-500/20 rounded font-mono text-[9px]">{pairedUser.plan || 'free'} Tier</span>
+                  </div>
+                </div>
+                <p className="text-xs text-neutral-400 leading-relaxed pt-2">
+                  To continue utilizing continuous visual gear audits, kiosk scan flows, and offline digital tag synchronization, please upgrade this account's subscription to a pro or enterprise tier in your account dashboard.
+                </p>
+              </div>
+
+              <div className="pt-4 flex flex-col sm:flex-row gap-4">
+                <button
+                  onClick={async () => {
+                    if (terminalId) {
+                      await updateDoc(doc(db, 'terminals', terminalId), { status: 'pending', ownerUid: null });
+                    }
+                    localStorage.removeItem('kiosk_terminal_id');
+                    window.location.reload();
+                  }}
+                  className="flex-1 py-4 bg-white/5 border border-white/15 text-white hover:bg-white/10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition"
+                >
+                  Disconnect Terminal
+                </button>
+                <a
+                  href="/dashboard"
+                  className="flex-1 py-4 bg-[#ff4f3a] text-white hover:bg-[#ff4f3a]/95 rounded-2xl text-[11px] font-black uppercase tracking-widest transition flex items-center justify-center font-bold"
+                >
+                  Dashboard Details
+                </a>
+              </div>
+            </motion.div>
+          ) : step === 'activate' ? (
             <motion.div 
               key="activate"
               initial={{ opacity: 0 }}
@@ -871,7 +954,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                 <p className="text-[10px] text-neutral-500 uppercase tracking-[0.2em] font-black">Waiting for secure handshake...</p>
               </div>
             </motion.div>
-          )}
+          ) : null}
 
           {step === 'welcome' && (
             <motion.div 

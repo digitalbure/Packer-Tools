@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, collectionGroup } from 'firebase/firestore';
-import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity } from 'lucide-react';
+import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity, Users, Building2, Globe, Mail, MapPin, Building } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { UserProfile, PackingList, Reminder, AdminSettings, FeatureKey, GearItem } from '../types';
+import { UserProfile, PackingList, Reminder, AdminSettings, FeatureKey, GearItem, Organization } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { updateDoc, getDoc } from 'firebase/firestore';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import { checkLimit } from '../lib/limitUtils';
 import { toast } from 'sonner';
+import Marketplace from './Marketplace';
 
-type DashboardTab = 'overview' | 'lists' | 'templates';
+type DashboardTab = 'overview' | 'lists' | 'templates' | 'directories' | 'marketplace';
 type SortField = 'createdAt' | 'name' | 'status';
 type SortOrder = 'asc' | 'desc';
 type ViewMode = 'grid' | 'list';
@@ -28,6 +29,11 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const [newListName, setNewListName] = useState('');
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [allItems, setAllItems] = useState<any[]>([]);
+  
+  // Custom public directories & sub-group list states
+  const [usersList, setUsersList] = useState<UserProfile[]>([]);
+  const [orgsList, setOrgsList] = useState<Organization[]>([]);
+  const [isDirectoriesLoading, setIsDirectoriesLoading] = useState(true);
   
   // Search, Sort, Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -63,6 +69,10 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       setActiveTab('lists');
     } else if (tabParam === 'overview') {
       setActiveTab('overview');
+    } else if (tabParam === 'directories') {
+      setActiveTab('directories');
+    } else if (tabParam === 'marketplace') {
+      setActiveTab('marketplace');
     }
   }, [location.search, navigate]);
 
@@ -108,11 +118,29 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       handleFirestoreError(error, OperationType.LIST, 'items (collectionGroup)');
     });
 
+    const unsubscribeUsers = onSnapshot(query(collection(db, 'users'), where('isProfilePublic', '==', true)), (snapshot) => {
+      const fetchedUsers = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })) as UserProfile[];
+      setUsersList(fetchedUsers);
+      setIsDirectoriesLoading(false);
+    }, (error) => {
+      console.error("Error fetching directories users:", error);
+      setIsDirectoriesLoading(false);
+    });
+
+    const unsubscribeOrgs = onSnapshot(collection(db, 'organizations'), (snapshot) => {
+      const fetchedOrgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Organization[];
+      setOrgsList(fetchedOrgs);
+    }, (error) => {
+      console.error("Error fetching directories organizations:", error);
+    });
+
     return () => {
       unsubscribeLists();
       unsubscribeReminders();
       unsubscribeGear();
       unsubscribeAllItems();
+      unsubscribeUsers();
+      unsubscribeOrgs();
     };
   }, [user.uid]);
 
@@ -330,6 +358,26 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
           }`}
         >
           Templates ({lists.filter(l => l.isTemplate).length})
+        </button>
+        <button
+          onClick={() => handleTabChange('directories')}
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+            activeTab === 'directories' 
+              ? 'bg-white text-primary shadow-sm' 
+              : 'text-neutral-500 hover:text-neutral-700'
+          }`}
+        >
+          Directories
+        </button>
+        <button
+          onClick={() => handleTabChange('marketplace')}
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+            activeTab === 'marketplace' 
+              ? 'bg-white text-primary shadow-sm' 
+              : 'text-neutral-500 hover:text-neutral-700'
+          }`}
+        >
+          Marketplace
         </button>
       </div>
 
@@ -678,7 +726,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
               </section>
             )}
           </div>
-        ) : (
+        ) : (activeTab === 'lists' || activeTab === 'templates') ? (
           <section className="space-y-8">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
               <div className="flex-1 relative">
@@ -935,6 +983,123 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
               </div>
             )}
           </section>
+        ) : null}
+
+        {activeTab === 'directories' && (
+          <div className="space-y-8 animate-fadeIn">
+            {/* Directories Sub-Tabs/Search Headers */}
+            <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-xl font-black uppercase tracking-tight text-neutral-800">Public Organization & Professional Directories</h2>
+                  <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider">Search active organizations or contact registered users who chose to expose their profile publicly.</p>
+                </div>
+                
+                {/* Search query input */}
+                <div className="relative w-full md:w-80">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
+                  <input
+                    type="text"
+                    placeholder="Search directory..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs font-bold transition"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Organizations Column */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2">
+                  <Building2 size={20} className="text-primary" />
+                  <h3 className="text-base font-black uppercase tracking-tight text-neutral-700">Organizations ({orgsList.length})</h3>
+                </div>
+                
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                  {orgsList.filter(o => o.name?.toLowerCase().includes(searchQuery.toLowerCase()) || o.slug?.toLowerCase().includes(searchQuery.toLowerCase())).map((org) => (
+                    <div key={org.id} className="bg-white p-6 rounded-2xl border border-neutral-150/60 shadow-sm space-y-4 hover:border-neutral-300 transition duration-150">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1 min-w-0">
+                          <h4 className="font-extrabold text-neutral-900 truncate text-sm">{org.name}</h4>
+                          <span className="inline-block px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded text-[9px] font-mono tracking-widest uppercase">
+                            /{org.slug}
+                          </span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${org.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {org.status}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-[10px] font-bold text-neutral-400 uppercase tracking-wider pt-2 border-t border-neutral-100">
+                        <span>Plan: {org.subscriptionPlan || 'Free Tier'}</span>
+                        <span className="text-neutral-500 font-black">ID: {org.id.slice(0, 8)}...</span>
+                      </div>
+                    </div>
+                  ))}
+                  {orgsList.length === 0 && (
+                    <p className="text-neutral-400 text-xs font-bold uppercase tracking-wider italic text-center py-10 bg-white rounded-2xl border border-dashed border-neutral-200">
+                      No organizations available in system.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Public Users Column */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-2">
+                  <Users size={20} className="text-[#ff4f3a]" />
+                  <h3 className="text-base font-black uppercase tracking-tight text-neutral-700">Public User Profiles ({usersList.length})</h3>
+                </div>
+
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                  {usersList.filter(u => u.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) || (u.company || '').toLowerCase().includes(searchQuery.toLowerCase()) || (u.bio || '').toLowerCase().includes(searchQuery.toLowerCase())).map((pubUser) => (
+                    <div key={pubUser.uid} className="bg-white p-6 rounded-2xl border border-neutral-150/60 shadow-sm hover:border-neutral-300 transition duration-150 flex items-start gap-4">
+                      <img
+                        src={pubUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'}
+                        alt={pubUser.displayName}
+                        className="w-12 h-12 rounded-xl object-cover border border-neutral-100 mt-1 shrink-0"
+                      />
+                      <div className="space-y-2 flex-1 min-w-0 font-sans">
+                        <div className="space-y-0.5">
+                          <h4 className="font-extrabold text-neutral-900 truncate text-sm">{pubUser.displayName}</h4>
+                          <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider truncate">
+                            {pubUser.company || 'Independent Contractor'} • {pubUser.location || 'Suva, Fiji'}
+                          </p>
+                        </div>
+                        {pubUser.bio && (
+                          <p className="text-xs text-neutral-500 leading-relaxed font-semibold italic line-clamp-2">
+                            "{pubUser.bio}"
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 text-[10px] font-bold text-neutral-400 uppercase tracking-wider pt-2 border-t border-neutral-100">
+                          <span className="flex items-center gap-1">
+                            <Mail size={12} className="text-neutral-450 shrink-0" />
+                            {pubUser.email}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {usersList.length === 0 && (
+                    <p className="text-neutral-400 text-xs font-bold uppercase tracking-wider italic text-center py-10 bg-white rounded-2xl border border-dashed border-neutral-200">
+                      No public user profiles are currently listed. Go to Profile Settings to make yours public!
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'marketplace' && (
+          <div className="space-y-8 animate-fadeIn">
+            {/* Embed the rich Marketplace Component inside the dashboard seamlessly */}
+            <div className="bg-white p-4 rounded-[2rem] border border-neutral-100 shadow-sm overflow-hidden">
+              <Marketplace />
+            </div>
+          </div>
         )}
 
       <AnimatePresence>

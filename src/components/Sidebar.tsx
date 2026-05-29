@@ -94,7 +94,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
   const navItems = [
     { to: '/organization', label: 'Organization', icon: <Building2 size={20} /> },
     { to: '/projects', label: 'Projects', icon: <Briefcase size={20} /> },
-    { to: '/kiosk', label: 'Gear Kiosk', icon: <QrCode size={20} /> },
+    { to: '/kiosk', label: 'Gear Kiosk', icon: <QrCode size={20} />, feature: 'kioskMode' as FeatureKey },
     { to: '/library', label: 'Gear Library', icon: <Package size={20} /> },
     { to: '/systems-builder', label: 'Systems Builder', icon: <Hammer size={20} /> },
     { to: '/marketplace', label: 'Marketplace', icon: <ShoppingBag size={20} /> },

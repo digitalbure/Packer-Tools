@@ -25,6 +25,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
     website: user.website || '',
     location: user.location || '',
     company: user.company || '',
+    isProfilePublic: user.isProfilePublic || false,
     socialLinks: {
       twitter: user.socialLinks?.twitter || '',
       instagram: user.socialLinks?.instagram || '',
@@ -175,6 +176,21 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                     />
                   </div>
                 </div>
+
+                <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-100/80 flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="text-xs font-black uppercase tracking-wider text-neutral-800 block">Public Profile Directory Visibility</span>
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase leading-relaxed">Toggle to list your branding profile details publicly so other team operators can discover and contact you.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, isProfilePublic: !formData.isProfilePublic })}
+                    className={`w-12 h-6 rounded-full p-1 transition-colors duration-200 outline-none shrink-0 ${formData.isProfilePublic ? 'bg-[#ff4f3a]' : 'bg-neutral-300'}`}
+                  >
+                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${formData.isProfilePublic ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+
                 <button
                   type="submit"
                   disabled={loading}
@@ -208,6 +224,12 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                       <span className="truncate">{user.location || 'Not specified'}</span>
                     </div>
                   </div>
+                </div>
+                <div className="pt-6 border-t border-primary/5 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Directory Visibility</span>
+                  <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${user.isProfilePublic ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-600'}`}>
+                    {user.isProfilePublic ? 'Listed as Public Profile' : 'Private Profile (Hidden)'}
+                  </span>
                 </div>
               </div>
             )}

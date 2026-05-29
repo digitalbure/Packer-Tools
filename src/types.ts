@@ -100,6 +100,7 @@ export interface UserProfile {
   onboardingCompleted?: boolean;
   createdAt: string;
   extraSeats?: number;
+  isProfilePublic?: boolean;
   activeMarketplaceCurrencies?: string[]; // Currencies activated for renting equipment in marketplace
   defaultBookingFee?: number; // User custom default booking fee % or amount
   defaultSecurityDeposit?: number; // User custom default fixed security deposit

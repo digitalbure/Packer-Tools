@@ -90,9 +90,7 @@ export default function Footer({ adminSettings }: FooterProps) {
           <Link to="/terms" className="hover:text-neutral-600 transition">Terms of Use</Link>
         </div>
         <div className="flex items-center gap-1">
-          <span>Executed with</span>
-          <Heart size={10} className="text-accent fill-accent animate-pulse" />
-          <span>by Digital Bure in Suva, Fiji</span>
+          <span>Made in 🇫🇯 with 💙 | App by Digital Bure</span>
         </div>
       </div>
     </footer>
