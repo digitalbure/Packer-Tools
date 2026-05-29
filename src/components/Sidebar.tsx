@@ -98,7 +98,8 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
       label: 'Lists', 
       icon: <Layers size={20} />,
       subItems: [
-        { to: '/dashboard', label: 'Packing Lists', icon: <FileText size={16} /> },
+        { to: '/dashboard?tab=lists', label: 'Packing Lists', icon: <FileText size={16} /> },
+        { to: '/dashboard?tab=templates', label: 'Templates', icon: <FileText size={16} /> },
         { to: '/inventory', label: 'Inventories', icon: <LayoutGrid size={16} /> },
         { to: '/library?type=kit', label: 'Kits', icon: <Zap size={16} /> },
         { to: '/organizer', label: 'Groups & Shelves', icon: <Layout size={16} /> },
@@ -530,7 +531,9 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                               to={sub.to}
                               onClick={() => setIsMobileOpen(false)}
                               className={`flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold transition-colors rounded-lg ${
-                                location.pathname === sub.to || (location.pathname + location.search === sub.to)
+                                location.pathname + location.search === sub.to || 
+                                (sub.to === '/dashboard?tab=lists' && location.pathname === '/dashboard' && !location.search.includes('tab=templates') && !location.search.includes('tab=overview')) ||
+                                (sub.to === '/dashboard?tab=lists' && location.pathname === '/dashboard' && location.search === '')
                                   ? 'text-primary bg-primary/5' 
                                   : 'text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50'
                               }`}

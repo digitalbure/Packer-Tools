@@ -4,7 +4,7 @@ import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDo
 import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, PackingList, Reminder, AdminSettings, FeatureKey, GearItem } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { updateDoc, getDoc } from 'firebase/firestore';
@@ -12,7 +12,7 @@ import { isFeatureEnabled } from '../lib/featureUtils';
 import { checkLimit } from '../lib/limitUtils';
 import { toast } from 'sonner';
 
-type DashboardTab = 'overview' | 'lists';
+type DashboardTab = 'overview' | 'lists' | 'templates';
 type SortField = 'createdAt' | 'name' | 'status';
 type SortOrder = 'asc' | 'desc';
 type ViewMode = 'grid' | 'list';
@@ -40,12 +40,29 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const navigate = useNavigate();
   const location = useLocation();
 
+  const handleTabChange = (tab: DashboardTab) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(location.search);
+    params.set('tab', tab);
+    navigate({ pathname: '/dashboard', search: `?${params.toString()}` }, { replace: true });
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('create') === 'true') {
       setIsCreating(true);
-      // Clear the param
-      navigate('/dashboard', { replace: true });
+      params.delete('create');
+      const searchStr = params.toString();
+      navigate({ pathname: '/dashboard', search: searchStr ? `?${searchStr}` : '' }, { replace: true });
+    }
+
+    const tabParam = params.get('tab');
+    if (tabParam === 'templates') {
+      setActiveTab('templates');
+    } else if (tabParam === 'lists') {
+      setActiveTab('lists');
+    } else if (tabParam === 'overview') {
+      setActiveTab('overview');
     }
   }, [location.search, navigate]);
 
@@ -54,12 +71,17 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
     const unsubscribeLists = onSnapshot(qLists, (snapshot) => {
       const fetchedLists = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as PackingList[];
       setLists(fetchedLists.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'packingLists');
     });
 
     const qReminders = query(collection(db, 'reminders'), where('ownerId', '==', user.uid), where('status', '==', 'pending'));
     const unsubscribeReminders = onSnapshot(qReminders, (snapshot) => {
       const fetchedReminders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Reminder[];
       setReminders(fetchedReminders.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()));
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'reminders');
       setLoading(false);
     });
 
@@ -75,11 +97,15 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
     const unsubscribeGear = onSnapshot(qGear, (snapshot) => {
       const fetchedGear = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as GearItem[];
       setGear(fetchedGear);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/gearLibrary`);
     });
 
     const qAllItems = query(collectionGroup(db, 'items'));
     const unsubscribeAllItems = onSnapshot(qAllItems, (snapshot) => {
       setAllItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'items (collectionGroup)');
     });
 
     return () => {
@@ -114,7 +140,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         ownerEmail: user.email,
         name: newListName,
         description: '',
-        isTemplate: false,
+        isTemplate: activeTab === 'templates',
         shareToken: Math.random().toString(36).substring(2, 15), // Generate token by default
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -142,10 +168,27 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const filteredLists = lists.filter(list => {
     const matchesSearch = list.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === 'all' || list.status === filterStatus;
-    const matchesType = filterType === 'all' || 
-      (filterType === 'template' && list.isTemplate) || 
-      (filterType === 'active' && !list.isTemplate) ||
-      (filterType === 'marketplace' && list.marketplaceEnabled);
+    
+    let matchesType = true;
+    if (activeTab === 'templates') {
+      matchesType = list.isTemplate;
+    } else if (activeTab === 'lists') {
+      // By default in 'lists' tab (Packing Lists), show only non-templates.
+      // If user deliberately changed filterType state, honor it.
+      if (filterType === 'all') {
+        matchesType = !list.isTemplate;
+      } else {
+        matchesType = 
+          (filterType === 'template' && list.isTemplate) || 
+          (filterType === 'active' && !list.isTemplate) ||
+          (filterType === 'marketplace' && list.marketplaceEnabled);
+      }
+    } else {
+      matchesType = filterType === 'all' || 
+        (filterType === 'template' && list.isTemplate) || 
+        (filterType === 'active' && !list.isTemplate) ||
+        (filterType === 'marketplace' && list.marketplaceEnabled);
+    }
     return matchesSearch && matchesStatus && matchesType;
   }).sort((a, b) => {
     let comparison = 0;
@@ -259,7 +302,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       {/* Tabs */}
       <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-2xl w-fit">
         <button
-          onClick={() => setActiveTab('overview')}
+          onClick={() => handleTabChange('overview')}
           className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
             activeTab === 'overview' 
               ? 'bg-white text-primary shadow-sm' 
@@ -269,14 +312,24 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
           Overview
         </button>
         <button
-          onClick={() => setActiveTab('lists')}
+          onClick={() => handleTabChange('lists')}
           className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
             activeTab === 'lists' 
               ? 'bg-white text-primary shadow-sm' 
               : 'text-neutral-500 hover:text-neutral-700'
           }`}
         >
-          Packing Lists ({lists.length})
+          Packing Lists ({lists.filter(l => !l.isTemplate).length})
+        </button>
+        <button
+          onClick={() => handleTabChange('templates')}
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+            activeTab === 'templates' 
+              ? 'bg-white text-primary shadow-sm' 
+              : 'text-neutral-500 hover:text-neutral-700'
+          }`}
+        >
+          Templates ({lists.filter(l => l.isTemplate).length})
         </button>
       </div>
 
@@ -653,16 +706,18 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                     <option value="Sent">Sent</option>
                     <option value="Completed">Completed</option>
                   </select>
-                  <select 
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-primary transition"
-                  >
-                    <option value="all">All Types</option>
-                    <option value="active">Active Lists</option>
-                    <option value="template">Templates</option>
-                    <option value="marketplace">Marketplace</option>
-                  </select>
+                  {activeTab !== 'templates' && (
+                    <select 
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-primary transition"
+                    >
+                      <option value="all">All Types</option>
+                      <option value="active">Active Lists</option>
+                      <option value="template">Templates</option>
+                      <option value="marketplace">Marketplace</option>
+                    </select>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 border-l border-neutral-200 pl-4">
