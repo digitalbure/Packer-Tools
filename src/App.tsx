@@ -337,6 +337,23 @@ export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [listsCount, setListsCount] = useState(0);
+  const [currentHash, setCurrentHash] = useState(window.location.hash);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentHash(window.location.hash);
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
+    const interval = setInterval(handleHashChange, 250);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const isLayoutHidden = currentHash.startsWith('#/kiosk') || currentHash.includes('hideLayout=true');
 
   useEffect(() => {
     if (user) {
@@ -610,7 +627,7 @@ export default function App() {
       <Toaster position="bottom-right" richColors />
       <Router>
         <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans flex overflow-hidden">
-          {user && (
+          {user && !isLayoutHidden && (
             <Sidebar 
               user={user} 
               adminSettings={adminSettings} 
@@ -623,12 +640,16 @@ export default function App() {
           )}
           
           <div className="flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 font-sans">
-            <Navbar user={user} adminSettings={adminSettings} onMenuClick={() => setIsMobileSidebarOpen(true)} />
-            <main className="flex-1 w-full max-w-[1700px] mx-auto px-4 sm:px-6 py-6 sm:py-8 overflow-y-auto flex flex-col justify-between">
+            {!isLayoutHidden && <Navbar user={user} adminSettings={adminSettings} onMenuClick={() => setIsMobileSidebarOpen(true)} />}
+            <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
+              isLayoutHidden 
+                ? 'max-w-none px-0 py-0 sm:px-0 sm:py-0 bg-neutral-900' 
+                : 'max-w-[1700px] mx-auto px-4 sm:px-6 py-6 sm:py-8'
+            }`}>
               <div className="flex-1">
                 <AnimatedRoutes user={user} setUser={setUser} adminSettings={adminSettings} onMenuClick={() => setIsMobileSidebarOpen(true)} />
               </div>
-              <Footer adminSettings={adminSettings} />
+              {!isLayoutHidden && <Footer adminSettings={adminSettings} />}
             </main>
           </div>
 
