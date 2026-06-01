@@ -360,6 +360,80 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                 </div>
               </div>
 
+              {/* Dashboard Layout Preferences */}
+              <div className="pt-8 border-t border-neutral-100 space-y-4">
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800">Dashboard Layout Mode</h4>
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-1">Configure your Workspace landing interface density.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const userRef = doc(db, 'users', user.uid);
+                        await updateDoc(userRef, { dashboardMode: 'minimal' });
+                        onUpdate({ ...user, dashboardMode: 'minimal' });
+                        toast.success("Dashboard switched to Minimal Overview!");
+                      } catch (err) {
+                        console.error(err);
+                        toast.error("Error setting dashboard preference.");
+                      }
+                    }}
+                    className={`p-5 rounded-2xl border text-left transition-all relative ${
+                      (user.dashboardMode || 'minimal') === 'minimal'
+                        ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg'
+                        : 'bg-neutral-50 text-neutral-700 border-neutral-200/60 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="font-extrabold block text-sm tracking-tight">Minimalist Hub (Default)</span>
+                        <p className={`text-[10px] mt-1.5 leading-relaxed font-semibold ${(user.dashboardMode || 'minimal') === 'minimal' ? 'text-neutral-350' : 'text-neutral-450'}`}>
+                          Reduces visual overwhelm by displaying only direct, high-value quick action triggers: Packing List, Asset Inventory, Rack, System Build, and Listing.
+                        </p>
+                      </div>
+                      <div className={`p-1.5 rounded-full shrink-0 ml-3 ${(user.dashboardMode || 'minimal') === 'minimal' ? 'bg-white text-neutral-900' : 'bg-neutral-200 text-neutral-500'}`}>
+                        <Check size={12} className="stroke-[3]" />
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const userRef = doc(db, 'users', user.uid);
+                        await updateDoc(userRef, { dashboardMode: 'all' });
+                        onUpdate({ ...user, dashboardMode: 'all' });
+                        toast.success("Dashboard switched to Comprehensive Overview!");
+                      } catch (err) {
+                        console.error(err);
+                        toast.error("Error setting dashboard preference.");
+                      }
+                    }}
+                    className={`p-5 rounded-2xl border text-left transition-all relative ${
+                      user.dashboardMode === 'all'
+                        ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg'
+                        : 'bg-neutral-50 text-neutral-700 border-neutral-200/60 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="font-extrabold block text-sm tracking-tight">Compendious (Show All)</span>
+                        <p className={`text-[10px] mt-1.5 leading-relaxed font-semibold ${user.dashboardMode === 'all' ? 'text-neutral-350' : 'text-neutral-450'}`}>
+                          Unlocks the complete suite, offering live analytic charts, recent checklist tables, upcoming transaction reminders, and the Kiosk Mode terminal.
+                        </p>
+                      </div>
+                      <div className={`p-1.5 rounded-full shrink-0 ml-3 ${user.dashboardMode === 'all' ? 'bg-white text-neutral-900' : 'bg-neutral-200 text-neutral-500'}`}>
+                        <Check size={12} className="stroke-[3]" />
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Customizable Booking Fee & Security Deposit for Paid Users */}
               <div className="pt-8 border-t border-neutral-100 space-y-4">
                 <div className="flex items-center justify-between">
@@ -449,7 +523,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
           {/* Active Beta Notifications Desk */}
           <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8 animate-fade-in">
             <header className="space-y-1">
-              <span className="micro-label bg-amber-50 text-amber-500 border border-amber-200 px-2 py-0.5 rounded-full inline-block font-black">Beta Sandbox v1.0.0-beta.1</span>
+              <span className="micro-label bg-amber-50 text-amber-500 border border-amber-200 px-2 py-0.5 rounded-full inline-block font-black">Beta Sandbox v1.0.0-beta.2</span>
               <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
                 <Mail className="text-primary shrink-0" />
                 <span>Notification Testing Desk</span>
@@ -565,7 +639,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                         toast.success("Welcome notification slip generated!");
                         setTestResult({
                           ...data,
-                          subject: `Welcome to Packer Tools! [v1.0.0-beta.1 Onboarding]`
+                          subject: `Welcome to Packer Tools! [v1.0.0-beta.2 Onboarding]`
                         });
                         setShowTestHtml(true);
                       } else {

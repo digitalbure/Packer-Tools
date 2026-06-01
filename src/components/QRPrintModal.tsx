@@ -7,7 +7,7 @@ import { GearItem, UserProfile } from '../types';
 interface PrintableItem {
   id: string;
   name: string;
-  assetTag: string;
+  assetTag?: string;
   brand?: string;
   category?: string;
   ownerId?: string;

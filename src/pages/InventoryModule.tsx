@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Package, 
+  Cpu,
   Search, 
   Filter, 
   Building2, 
@@ -143,6 +144,55 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     selectedInventory.collaborators?.some(c => c.email && c.email.toLowerCase() === user?.email?.toLowerCase() && c.role === 'editor') || 
     user?.role === 'admin' || 
     user?.isSuperAdmin;
+
+  // BOM Lead Time & Supply Chain Risk Analyzer states
+  const [bomAnalysisResult, setBomAnalysisResult] = useState<any | null>(null);
+  const [isAnalyzingBom, setIsAnalyzingBom] = useState(false);
+  const [isBomModalOpen, setIsBomModalOpen] = useState(false);
+
+  const triggerBomAnalysis = async () => {
+    if (!selectedInventory || inventoryItems.length === 0) {
+      toast.error("Add custom items to your sheet first before running supply chain check.");
+      return;
+    }
+    
+    setIsAnalyzingBom(true);
+    setBomAnalysisResult(null);
+    setIsBomModalOpen(true);
+
+    try {
+      const isLiveEnabled = !!adminSettings?.integrationConfig?.bomLeadServiceEnabled;
+      const riskThreshold = adminSettings?.integrationConfig?.bomRiskThreshold || 7;
+
+      const targetItems = inventoryItems.map(item => ({
+        name: item.name,
+        category: item.primaryCategory || "General",
+        quantity: item.quantity || 1
+      }));
+
+      const res = await fetch("/api/services/analyze-leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: targetItems,
+          isEnabled: isLiveEnabled,
+          riskThreshold
+        })
+      });
+
+      const data = await res.json();
+      if (data.status === "success") {
+        setBomAnalysisResult(data);
+      } else {
+        toast.error("Failed to parse analysis results");
+      }
+    } catch (err) {
+      console.error("BOM analysis failure:", err);
+      toast.error("BOM lead times analyzer request failed.");
+    } finally {
+      setIsAnalyzingBom(false);
+    }
+  };
 
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [loadingInventoryItems, setLoadingInventoryItems] = useState(false);
@@ -1350,10 +1400,19 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                   <ChevronLeft size={16} />
                   <span>Back to Custom inventories</span>
                 </button>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider block">
-                    ACTIVE LIST: {selectedInventory.name}
-                  </span>
+                <div className="flex flex-wrap items-center gap-4 justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider block">
+                      ACTIVE LIST: {selectedInventory.name}
+                    </span>
+                  </div>
+                  <button
+                    onClick={triggerBomAnalysis}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#ff4f3a]/10 hover:bg-[#ff4f3a]/25 text-[#ff4f3a] rounded-xl text-[9px] font-black uppercase tracking-widest transition"
+                  >
+                    <Cpu size={12} className="animate-pulse" />
+                    <span>Lead-Time & Supply Chain Analyzer</span>
+                  </button>
                 </div>
               </div>
 
@@ -3272,6 +3331,145 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                     Save Allocations
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* BOM LEAD TIME & RISKS MODAL */}
+      <AnimatePresence>
+        {isBomModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsBomModalOpen(false)}
+              className="absolute inset-0 bg-neutral-950/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="p-8 border-b border-neutral-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-black text-white rounded-2xl flex items-center justify-center shadow-lg">
+                    <Cpu size={22} className="animate-spin text-primary" style={{ animationDuration: '3s' }} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black uppercase tracking-tight">Supply Chain & Lead Time Analyzer</h2>
+                    <p className="text-neutral-450 text-[9px] font-black uppercase tracking-wider">
+                      Module Status: Active v1.0.8 • System: {adminSettings?.integrationConfig?.bomLeadServiceEnabled ? "Live Gemini AI Scraper" : "Offline Simulation"}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setIsBomModalOpen(false)} className="p-2 hover:bg-neutral-100 rounded-full transition">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6 overflow-y-auto flex-1">
+                {isAnalyzingBom ? (
+                  <div className="py-16 text-center space-y-4">
+                    <div className="w-12 h-12 border-4 border-black/10 border-t-black rounded-full animate-spin mx-auto" />
+                    <p className="text-xs font-mono font-bold uppercase tracking-widest text-[#ff4f3a]">
+                      Querying distributors, calculating backlog queues ...
+                    </p>
+                  </div>
+                ) : bomAnalysisResult ? (
+                  <div className="space-y-6">
+                    {/* Source Warning Tag */}
+                    <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+                      bomAnalysisResult.source?.includes("Live") 
+                        ? "bg-emerald-50 border-emerald-100 text-emerald-800" 
+                        : "bg-amber-50 border-amber-100 text-amber-800"
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 bg-current rounded-full animate-pulse" />
+                        <span className="text-[10px] font-mono font-black uppercase tracking-widest">
+                          {bomAnalysisResult.source || "Heuristic Engine fallback"}
+                        </span>
+                      </div>
+                      <span className="text-[8px] font-mono font-bold bg-white/60 px-2 py-0.5 rounded-full">
+                        THRESHOLD: {adminSettings?.integrationConfig?.bomRiskThreshold || 7} DAYS
+                      </span>
+                    </div>
+
+                    {/* Summary box */}
+                    <div className="bg-neutral-50 p-6 rounded-[1.5rem] border border-neutral-100 space-y-2">
+                      <h4 className="text-xs font-black uppercase tracking-tight text-neutral-900">Analysis Summary</h4>
+                      <p className="text-xs text-neutral-600 leading-relaxed font-semibold">
+                        {bomAnalysisResult.summary}
+                      </p>
+                    </div>
+
+                    {/* Table / Results */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-black uppercase tracking-tight text-neutral-900">Itemized Lead-Times & Risks</h4>
+                      <div className="space-y-3">
+                        {bomAnalysisResult.analysis?.map((item: any, idx: number) => (
+                          <div key={idx} className="bg-white p-4 rounded-2xl border border-neutral-100 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:shadow-md transition">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm text-neutral-900">{item.itemName}</span>
+                                <span className="text-[9px] text-[#ff4f3a] bg-[#ff4f3a]/10 px-2 py-0.5 rounded-full font-bold uppercase">
+                                  {item.category}
+                                </span>
+                              </div>
+                              <p className="text-xs text-neutral-500 leading-relaxed">{item.notes}</p>
+                              {item.alternativeSupplier && (
+                                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mt-1">
+                                  Alt Vendor: {item.alternativeSupplier}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0 self-end md:self-auto">
+                              <div className="text-right">
+                                <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest leading-none">EST. READY</p>
+                                <p className="text-md font-black">{item.estimatedLeadDays} Days</p>
+                              </div>
+                              <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest ${
+                                item.riskLevel === 'high' 
+                                  ? 'bg-rose-100 text-rose-700' 
+                                  : item.riskLevel === 'medium' 
+                                  ? 'bg-amber-100 text-amber-700' 
+                                  : 'bg-emerald-100 text-emerald-700'
+                              }`}>
+                                {item.riskLevel}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Mitigation Protocols */}
+                    {bomAnalysisResult.generalMitigation && (
+                      <div className="bg-emerald-50/50 p-6 rounded-[1.5rem] border border-emerald-50 space-y-2">
+                        <h4 className="text-xs font-black uppercase tracking-tight text-emerald-900">Mitigation Protocol Recommendations</h4>
+                        <p className="text-xs text-emerald-700 leading-relaxed font-semibold">
+                          {bomAnalysisResult.generalMitigation}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="py-16 text-center text-neutral-400 font-bold uppercase tracking-widest text-xs">
+                    No results available
+                  </div>
+                )}
+              </div>
+
+              <div className="p-8 border-t border-neutral-100 flex-shrink-0">
+                <button 
+                  onClick={() => setIsBomModalOpen(false)}
+                  className="w-full py-4 bg-neutral-900 hover:bg-black text-white rounded-[1.5rem] font-bold uppercase tracking-widest text-[10px] transition"
+                >
+                  Close Analysis
+                </button>
               </div>
             </motion.div>
           </div>

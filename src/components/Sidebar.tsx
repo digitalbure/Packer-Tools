@@ -47,6 +47,7 @@ import { isFeatureEnabled } from '../lib/featureUtils';
 import { logout, db } from '../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import PackerLogo from './PackerLogo';
+import { toast } from 'sonner';
 
 interface SidebarProps {
   user: UserProfile | null;
@@ -98,6 +99,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/library', label: 'Gear Library', icon: <Package size={20} /> },
     { to: '/systems-builder', label: 'Systems Builder', icon: <Hammer size={20} /> },
     { to: '/marketplace', label: 'Marketplace', icon: <ShoppingBag size={20} /> },
+    { to: '/listings', label: 'Listings', icon: <ListChecks size={20} /> },
     { 
       to: '/lists', 
       label: 'Lists', 
@@ -125,7 +127,10 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
       icon: <Zap size={20} />, 
       feature: 'aiWizard' as FeatureKey 
     },
-  ].filter(item => !item.feature || isFeatureEnabled(item.feature, user, adminSettings));
+  ].filter(item => {
+    if (item.feature === 'kioskMode') return true;
+    return !item.feature || isFeatureEnabled(item.feature, user, adminSettings);
+  });
 
   const adminNavItems = [
     { to: '/admin?tab=analytics', label: 'Platform Analytics', icon: <BarChart3 size={20} /> },
@@ -137,6 +142,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/admin?tab=features', label: 'Global Features', icon: <Zap size={20} /> },
     { to: '/admin?tab=integrations', label: 'Integrations & API', icon: <Globe size={20} /> },
     { to: '/admin?tab=checkouts', label: 'Checkout Logs', icon: <Package size={20} /> },
+    { to: '/admin?tab=listings', label: 'Marketplace Listings', icon: <ShoppingBag size={20} /> },
     { to: '/admin?tab=kiosk', label: 'Kiosk Settings', icon: <QrCode size={20} /> },
     { to: '/admin?tab=landing', label: 'Landing Page', icon: <Layout size={20} /> },
     { to: '/admin/pages', label: 'Custom Pages', icon: <FileText size={20} /> },
@@ -483,25 +489,38 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                 const hasSubItems = 'subItems' in item && (item as any).subItems?.length > 0;
                 const isSubOpen = openSubItems.includes(item.to);
 
+                const isKioskModeItem = item.feature === 'kioskMode';
+                const isKioskQualified = isFeatureEnabled('kioskMode', user, adminSettings);
+                const isKioskDisabled = isKioskModeItem && !isKioskQualified;
+
                 return (
                   <div key={item.to} className="space-y-1">
                     <div className="flex items-center gap-1">
                       <Link
-                        to={item.to}
-                        onClick={() => setIsMobileOpen(false)}
+                        to={isKioskDisabled ? '#' : item.to}
+                        onClick={(e) => {
+                          if (isKioskDisabled) {
+                            e.preventDefault();
+                            toast.error("The self-service Gear Kiosk is a premium module. Please subscribe to Pro or Enterprise plans to activate Kiosk check-out!");
+                            return;
+                          }
+                          setIsMobileOpen(false);
+                        }}
                         className={`flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold transition-all group ${
-                          isActive 
-                            ? 'bg-primary text-white shadow-lg shadow-primary/20' 
-                            : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 border-none'
+                          isKioskDisabled
+                            ? 'text-neutral-300 opacity-60 bg-neutral-50/50 cursor-not-allowed border-none'
+                            : isActive 
+                              ? 'bg-primary text-white shadow-lg shadow-primary/20' 
+                              : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 border-none'
                         } ${isCollapsed ? 'justify-center' : ''}`}
-                        title={isCollapsed ? item.label : ''}
+                        title={isCollapsed ? (isKioskDisabled ? `${item.label} (Premium Required)` : item.label) : ''}
                       >
                         <div className="shrink-0 flex items-center justify-center w-6">{item.icon}</div>
                         {!isCollapsed && (
                           <motion.span
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="text-sm whitespace-nowrap"
+                            className="text-sm whitespace-nowrap text-left"
                           >
                             {item.label}
                           </motion.span>
@@ -665,7 +684,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v1.0.0-β' : 'Version 1.0.0-beta.1'}
+            {isCollapsed ? 'v1.0.0-β.2' : 'Version 1.0.0-beta.2'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest mt-1 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">

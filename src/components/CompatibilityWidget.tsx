@@ -124,7 +124,10 @@ export default function CompatibilityWidget({ project, user, items: passedItems 
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h3 className="text-2xl font-black uppercase tracking-tighter">System Intelligence</h3>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-2xl font-black uppercase tracking-tighter">System Intelligence</h3>
+            <span className="font-mono text-[9px] text-[#ff4f3a] bg-[#ff4f3a]/10 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">v1.1.2</span>
+          </div>
           <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">AI-driven compatibility and technical verification</p>
         </div>
         <div className="flex gap-4">

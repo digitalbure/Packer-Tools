@@ -61,6 +61,28 @@ export default function SupplierWidget({ project, user }: SupplierWidgetProps) {
     isPreferred: false
   });
 
+  const [scraperEnabled, setScraperEnabled] = useState(false);
+  const [scraperModel, setScraperModel] = useState("gemini-3.5-flash");
+  const [vendorsCatalog, setVendorsCatalog] = useState<any[]>([]);
+  const [catalogSource, setCatalogSource] = useState("Loading...");
+  const [isSearchingCatalog, setIsSearchingCatalog] = useState(false);
+
+  // Sync settings
+  useEffect(() => {
+    // Import doc from firebase/firestore safely
+    const { doc } = require('firebase/firestore');
+    const unsub = onSnapshot(doc(db, 'adminSettings', 'global'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data?.integrationConfig) {
+          setScraperEnabled(!!data.integrationConfig.supplierScraperServiceEnabled);
+          setScraperModel(data.integrationConfig.supplierScraperModel || "gemini-3.5-flash");
+        }
+      }
+    });
+    return unsub;
+  }, []);
+
   useEffect(() => {
     const q = query(
       collection(db, 'suppliers'),
@@ -72,6 +94,43 @@ export default function SupplierWidget({ project, user }: SupplierWidgetProps) {
     });
     return unsub;
   }, [project.id, user.uid]);
+
+  // Fetch catalog from live API or fall back local
+  useEffect(() => {
+    let active = true;
+    const fetchCatalog = async () => {
+      setIsSearchingCatalog(true);
+      try {
+        const res = await fetch("/api/services/suppliers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: searchQuery,
+            isEnabled: scraperEnabled,
+            modelName: scraperModel
+          })
+        });
+        const data = await res.json();
+        if (active && data.status === "success") {
+          setVendorsCatalog(data.suppliers || []);
+          setCatalogSource(data.source || "Static Catalog");
+        }
+      } catch (err) {
+        console.error("Supplier search fail:", err);
+      } finally {
+        if (active) setIsSearchingCatalog(false);
+      }
+    };
+
+    const handler = setTimeout(() => {
+      fetchCatalog();
+    }, 450);
+
+    return () => {
+      active = false;
+      clearTimeout(handler);
+    };
+  }, [searchQuery, scraperEnabled, scraperModel]);
 
   const handleAddSupplier = async (data: Partial<Supplier>) => {
     try {
@@ -96,16 +155,14 @@ export default function SupplierWidget({ project, user }: SupplierWidgetProps) {
     }
   };
 
-  const filteredCatalog = MOCK_SUPPLIERS_CATALOG.filter(s => 
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h3 className="text-2xl font-black uppercase tracking-tighter">Project Suppliers</h3>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-2xl font-black uppercase tracking-tighter">Project Suppliers</h3>
+            <span className="font-mono text-[9px] text-[#ff4f3a] bg-[#ff4f3a]/10 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">v1.0.5</span>
+          </div>
           <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Manage vendors and search marketplace</p>
         </div>
         <button 
@@ -183,8 +240,11 @@ export default function SupplierWidget({ project, user }: SupplierWidgetProps) {
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-[60px] -mr-16 -mt-16" />
             
             <div className="space-y-1 relative">
-              <h3 className="text-xl font-black uppercase tracking-tighter italic">Vendor Scraper</h3>
-              <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Search 1,200+ industry suppliers</p>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-black uppercase tracking-tighter italic">Vendor Scraper</h3>
+                <span className="font-mono text-[8px] bg-white/10 text-white/80 px-2 py-0.5 rounded-full">{scraperEnabled ? "LIVE SCAPE AI" : "LOCAL CACHE"}</span>
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Source: {catalogSource}</p>
             </div>
 
             <div className="relative">
@@ -198,21 +258,32 @@ export default function SupplierWidget({ project, user }: SupplierWidgetProps) {
             </div>
 
             <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide">
-              {filteredCatalog.map((c, i) => (
-                <button
-                  key={i}
-                  onClick={() => handleAddSupplier({ ...c, rating: 5, isPreferred: false })}
-                  className="w-full p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-left transition-all group flex items-center justify-between"
-                >
-                  <div className="min-w-0">
-                    <p className="font-bold text-sm truncate">{c.name}</p>
-                    <p className="text-[9px] text-neutral-500 font-black uppercase tracking-widest mt-1">{c.category}</p>
-                  </div>
-                  <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-primary group-hover:scale-110 transition">
-                    <Plus size={16} />
-                  </div>
-                </button>
-              ))}
+              {isSearchingCatalog ? (
+                <div className="py-8 text-center text-neutral-500 font-mono text-[10px]">
+                  <span className="animate-pulse">CRAWLING GLOBAL DIRECTORIES...</span>
+                </div>
+              ) : vendorsCatalog.length === 0 ? (
+                <div className="py-8 text-center text-neutral-500 font-mono text-[10px]">
+                  NO VENDORS FOUND
+                </div>
+              ) : (
+                vendorsCatalog.map((c, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleAddSupplier({ ...c, rating: c.rating || 5, isPreferred: false })}
+                    className="w-full p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-left transition-all group flex items-center justify-between"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <p className="font-bold text-sm truncate">{c.name}</p>
+                      <p className="text-[9px] text-neutral-500 font-black uppercase tracking-widest mt-1">{c.category}</p>
+                      {c.notes && <p className="text-[9px] text-neutral-400 mt-1 italic line-clamp-1">{c.notes}</p>}
+                    </div>
+                    <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-primary group-hover:scale-110 transition shrink-0">
+                      <Plus size={16} />
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           </div>
 

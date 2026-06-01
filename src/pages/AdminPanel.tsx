@@ -8,6 +8,7 @@ import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, 
 import { motion, AnimatePresence } from 'motion/react';
 import PagesManager from './PagesManager';
 import PackerLogo from '../components/PackerLogo';
+import AdminDocsTab from '../components/AdminDocsTab';
 import { AreaChart, Area, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cell, CartesianGrid } from 'recharts';
 
 export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, onMenuClick?: () => void }) {
@@ -36,6 +37,12 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const [teams, setTeams] = useState<Team[]>([]);
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [checkoutLogs, setCheckoutLogs] = useState<CheckoutRecord[]>([]);
+  const [editingListing, setEditingListing] = useState<PackingList | null>(null);
+  const [isListingEditModalOpen, setIsListingEditModalOpen] = useState(false);
+  const [listingSearchQuery, setListingSearchQuery] = useState('');
+  const [listingFilter, setListingFilter] = useState<'all' | 'featured' | 'sponsored' | 'suspended'>('all');
+  const [editingUserForListings, setEditingUserForListings] = useState<UserProfile | null>(null);
+  const [isUserListingsModalOpen, setIsUserListingsModalOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = (searchParams.get('tab') as any) || 'analytics';
   
@@ -64,6 +71,160 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     { id: '3', time: '09:35:18', message: 'Gemini API token estimator sync complete', level: 'info' },
     { id: '4', time: '09:38:05', message: 'Kiosk email webhook triggered: dispatch simulated', level: 'info' }
   ]);
+
+  // Real-time GCP pricing state from GCP Pricing API
+  const [gcpPricingData, setGcpPricingData] = useState<{
+    status: string;
+    source: string;
+    rates: {
+      cloudRun: {
+        cpuSecond: number;
+        memoryGbSecond: number;
+        request: number;
+      };
+      firestore: {
+        read: number;
+        write: number;
+        delete: number;
+        storageGbMonth: number;
+      };
+    };
+    details?: string;
+    simulatedMetrics?: {
+      lastUpdated: string;
+    };
+  } | null>(null);
+  const [isGcpPricingLoading, setIsGcpPricingLoading] = useState<boolean>(true);
+  const [gcpPricingError, setGcpPricingError] = useState<string | null>(null);
+
+  const fetchGcpPricing = async () => {
+    try {
+      setIsGcpPricingLoading(true);
+      const res = await fetch('/api/gcp-pricing');
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data = await res.json();
+      setGcpPricingData(data);
+    } catch (err: any) {
+      console.error("Error fetching GCP pricing dashboard stats:", err);
+      setGcpPricingError(err.message || "Failed to fetch GCP pricing metadata.");
+    } finally {
+      setIsGcpPricingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGcpPricing();
+  }, []);
+
+  const getActualBilling = () => {
+    const rates = gcpPricingData?.rates || {
+      cloudRun: { cpuSecond: 0.000024, memoryGbSecond: 0.0000025, request: 0.0000004 },
+      firestore: { read: 0.0000006, write: 0.0000018, delete: 0.0000002, storageGbMonth: 0.18 }
+    };
+
+    const multiplier = simulatedLoadMultiplier || 1.0;
+    
+    // Cloud Run estimative monthly loads
+    const estimatedCpuSec = (users.length * 150 + lists.length * 60) * multiplier;
+    const estimatedRamSec = (users.length * 300 + lists.length * 120) * multiplier;
+    const estimatedRequests = (users.length * 2000 + lists.length * 600) * multiplier;
+
+    // Firestore actual operation monthly counts
+    const firestoreReads = (users.length * 45 + lists.length * 10) * multiplier;
+    const firestoreWrites = (lists.length * 5 + checkoutLogs.length * 20) * multiplier;
+    const firestoreDeletes = (lists.length * 2) * multiplier;
+    const firestoreStorageGb = (users.length * 0.002 + lists.length * 0.005); // baseline
+
+    const runCpuCost = estimatedCpuSec * rates.cloudRun.cpuSecond;
+    const runRamCost = estimatedRamSec * rates.cloudRun.memoryGbSecond;
+    const runReqCost = estimatedRequests * rates.cloudRun.request;
+
+    const fsReadCost = firestoreReads * rates.firestore.read;
+    const fsWriteCost = firestoreWrites * rates.firestore.write;
+    const fsDeleteCost = firestoreDeletes * rates.firestore.delete;
+    const fsStorageCost = firestoreStorageGb * rates.firestore.storageGbMonth;
+
+    const runTotal = runCpuCost + runRamCost + runReqCost;
+    const fsTotal = fsReadCost + fsWriteCost + fsDeleteCost + fsStorageCost;
+    const total = runTotal + fsTotal;
+
+    return {
+      runCpuCost,
+      runRamCost,
+      runReqCost,
+      runTotal,
+      fsReadCost,
+      fsWriteCost,
+      fsDeleteCost,
+      fsStorageCost,
+      fsTotal,
+      total,
+      breakdown: [
+        { name: 'Cloud Run CPU', value: runCpuCost, percentage: (runCpuCost / (total || 1)) * 100 },
+        { name: 'Cloud Run RAM', value: runRamCost, percentage: (runRamCost / (total || 1)) * 100 },
+        { name: 'Cloud Run Requests', value: runReqCost, percentage: (runReqCost / (total || 1)) * 100 },
+        { name: 'Firestore Reads', value: fsReadCost, percentage: (fsReadCost / (total || 1)) * 100 },
+        { name: 'Firestore Writes', value: fsWriteCost, percentage: (fsWriteCost / (total || 1)) * 100 },
+        { name: 'Firestore Deletes', value: fsDeleteCost, percentage: (fsDeleteCost / (total || 1)) * 100 },
+        { name: 'Firestore Storage', value: fsStorageCost, percentage: (fsStorageCost / (total || 1)) * 100 }
+      ]
+    };
+  };
+
+  const getSimulatedCost = () => {
+    return (lists.length * 0.03 + users.length * 0.15 + (lists.length * 6000 * (telemetryModel === 'gemini-1.5-pro' ? 2.19/1000000 : 0.13/1000000))) * simulatedLoadMultiplier;
+  };
+
+  const getBillingTrendData = () => {
+    const rates = gcpPricingData?.rates || {
+      cloudRun: { cpuSecond: 0.000024, memoryGbSecond: 0.0000025, request: 0.0000004 },
+      firestore: { read: 0.0000006, write: 0.0000018, delete: 0.0000002, storageGbMonth: 0.18 }
+    };
+
+    const multiplier = simulatedLoadMultiplier || 1.0;
+    const months = ['Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'];
+    const baseScale = [0.65, 0.72, 0.81, 0.88, 0.94, 1.0];
+
+    return months.map((month, idx) => {
+      const scale = baseScale[idx] * multiplier;
+      
+      const uCount = Math.max(1, Math.round(users.length * scale));
+      const lCount = Math.max(1, Math.round(lists.length * scale));
+      const cCount = Math.max(1, Math.round(checkoutLogs.length * scale));
+
+      const estimatedCpuSec = (uCount * 150 + lCount * 60);
+      const estimatedRamSec = (uCount * 300 + lCount * 120);
+      const estimatedRequests = (uCount * 2000 + lCount * 600);
+
+      const firestoreReads = (uCount * 45 + lCount * 10);
+      const firestoreWrites = (lCount * 5 + cCount * 20);
+      const firestoreDeletes = (lCount * 2);
+      const firestoreStorageGb = (uCount * 0.002 + lCount * 0.005);
+
+      const actualRunCost = (estimatedCpuSec * rates.cloudRun.cpuSecond) + 
+                             (estimatedRamSec * rates.cloudRun.memoryGbSecond) + 
+                             (estimatedRequests * rates.cloudRun.request);
+      
+      const actualFsCost = (firestoreReads * rates.firestore.read) +
+                            (firestoreWrites * rates.firestore.write) +
+                            (firestoreDeletes * rates.firestore.delete) +
+                            (firestoreStorageGb * rates.firestore.storageGbMonth);
+
+      const actualTotal = Number((actualRunCost + actualFsCost).toFixed(2));
+      const simTotal = Number(((lCount * 0.03 + uCount * 0.15 + (lCount * 6000 * 0.13/1000000))).toFixed(2));
+
+      return {
+        month,
+        "Actual GCP Cost ($)": actualTotal,
+        "Simulated Metric ($)": simTotal,
+        Scale: (scale * 100).toFixed(0) + '%'
+      };
+    });
+  };
+
+  const actualCostDetails = getActualBilling();
+  const simulatedCost = getSimulatedCost();
+  const billingTrendData = getBillingTrendData();
 
   // Currency and payment gateway states
   const [isAddingCurrency, setIsAddingCurrency] = useState(false);
@@ -105,8 +266,23 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             apiEnabled: false,
             wordpressEnabled: false,
             callbackUrlDev: `${window.location.origin}/auth/callback`,
-            callbackUrlProd: ''
+            callbackUrlProd: '',
+            gcpPricingServiceEnabled: true,
+            supplierScraperServiceEnabled: false,
+            supplierScraperModel: 'gemini-3.5-flash',
+            compatibilityServiceEnabled: true,
+            compatibilityModel: 'gemini-3.5-flash',
+            bomLeadServiceEnabled: true,
+            bomRiskThreshold: 7
           };
+        } else {
+          if (data.integrationConfig.gcpPricingServiceEnabled === undefined) data.integrationConfig.gcpPricingServiceEnabled = true;
+          if (data.integrationConfig.supplierScraperServiceEnabled === undefined) data.integrationConfig.supplierScraperServiceEnabled = false;
+          if (!data.integrationConfig.supplierScraperModel) data.integrationConfig.supplierScraperModel = 'gemini-3.5-flash';
+          if (data.integrationConfig.compatibilityServiceEnabled === undefined) data.integrationConfig.compatibilityServiceEnabled = true;
+          if (!data.integrationConfig.compatibilityModel) data.integrationConfig.compatibilityModel = 'gemini-3.5-flash';
+          if (data.integrationConfig.bomLeadServiceEnabled === undefined) data.integrationConfig.bomLeadServiceEnabled = true;
+          if (!data.integrationConfig.bomRiskThreshold) data.integrationConfig.bomRiskThreshold = 7;
         }
         if (!data.marketplaceRegionConfig) {
           data.marketplaceRegionConfig = {
@@ -351,6 +527,62 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     }
   };
 
+  const handleSaveListingAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingListing) return;
+    try {
+      const listRef = doc(db, 'packingLists', editingListing.id);
+      await updateDoc(listRef, {
+        name: editingListing.name,
+        marketplacePrice: Number(editingListing.marketplacePrice || 0),
+        securityDeposit: Number(editingListing.securityDeposit || 0),
+        marketplaceDetails: editingListing.marketplaceDetails || '',
+        marketplaceCurrency: editingListing.marketplaceCurrency || 'USD',
+        transactionType: editingListing.transactionType || 'rent',
+        featured: editingListing.featured || false,
+        featuredPriority: Number(editingListing.featuredPriority || 0),
+        sponsored: editingListing.sponsored || false,
+        adHeadline: editingListing.adHeadline || '',
+        moderationStatus: editingListing.moderationStatus || 'approved',
+        updatedAt: new Date().toISOString()
+      });
+      toast.success("Listing moderation settings saved!");
+      setIsListingEditModalOpen(false);
+      setEditingListing(null);
+    } catch (error) {
+      console.error("Error saving listing moderation details:", error);
+      toast.error("Failed to update listing settings.");
+    }
+  };
+
+  const handleDeleteListingAdmin = async (listId: string) => {
+    if (!window.confirm("Are you sure you want to completely delete this marketplace listing? This will delete the entire packing list template/records.")) return;
+    try {
+      await deleteDoc(doc(db, 'packingLists', listId));
+      toast.success("Listing successfully deleted from the platform.");
+      if (editingListing?.id === listId) {
+        setEditingListing(null);
+        setIsListingEditModalOpen(false);
+      }
+    } catch (error) {
+      console.error("Error deleting listing as admin:", error);
+      toast.error("Failed to delete listing.");
+    }
+  };
+
+  const handleToggleMarketplaceAdmin = async (listId: string, enabled: boolean) => {
+    try {
+      await updateDoc(doc(db, 'packingLists', listId), {
+        marketplaceEnabled: enabled,
+        updatedAt: new Date().toISOString()
+      });
+      toast.success(enabled ? "Listing is now active on the marketplace." : "Listing removed from marketplace.");
+    } catch (error) {
+      console.error("Error toggling marketplace as admin:", error);
+      toast.error("Failed to toggle listing visibility.");
+    }
+  };
+
   if (loading) return <div className="flex justify-center py-24 animate-spin"><BarChart3 size={48} /></div>;
 
   const tabs = [
@@ -363,10 +595,12 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     { id: 'features', icon: <Zap size={18} />, label: 'Features', description: 'Global module toggles' },
     { id: 'integrations', icon: <Globe size={18} />, label: 'Integrations', description: 'API & 3rd party sync' },
     { id: 'checkouts', icon: <Package size={18} />, label: 'Log Logs', description: 'Equipment checkout logs' },
+    { id: 'listings', icon: <ShoppingBag size={18} />, label: 'Marketplace Listings', description: 'Moderate listings, ads & featured items' },
     { id: 'kiosk', icon: <QrCode size={18} />, label: 'Kiosk Settings', description: 'Gear kiosk & terminal configuration' },
     { id: 'landing', icon: <Layout size={18} />, label: 'Landing Page', description: 'Public site content' },
     { id: 'pages', icon: <FileText size={18} />, label: 'Manage Pages', description: 'Terms, policies & documents' },
-    { id: 'settings', icon: <Settings size={18} />, label: 'Settings', description: 'Global configuration' }
+    { id: 'settings', icon: <Settings size={18} />, label: 'Settings', description: 'Global configuration' },
+    { id: 'docs', icon: <HelpCircle size={18} />, label: 'App Documentation', description: 'Packer Tools University & Widget Setup' }
   ];
 
   const baseRun = (0.45 + lists.length * 0.008) * simulatedLoadMultiplier;
@@ -1338,6 +1572,146 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             </div>
           </div>
 
+          {/* External Services Manager Section */}
+          <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-8">
+            <div className="border-b border-neutral-100 pb-4">
+              <h3 className="text-2xl font-black flex items-center gap-2">
+                <Cpu className="text-primary animate-pulse" />
+                <span>External Services & Heuristic Engines</span>
+              </h3>
+              <p className="text-sm text-neutral-400">Configure real functional API service layers or default sandbox simulation modes for key widgets.</p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* GCP Pricing */}
+              <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-sm block">GCP Pricing Sync API Service</span>
+                    <span className="text-[10px] uppercase font-black tracking-wider text-neutral-400">Rate Calculator</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setSettings(s => s ? { ...s, integrationConfig: { ...s.integrationConfig, gcpPricingServiceEnabled: !s.integrationConfig.gcpPricingServiceEnabled } } : null)}
+                    className={`w-12 h-6 rounded-full relative transition-colors ${settings?.integrationConfig?.gcpPricingServiceEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.integrationConfig?.gcpPricingServiceEnabled ? 'right-1' : 'left-1'}`}></div>
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  Fetches live infrastructure SKUs from Google Cloud Billing API. If disabled, system falls back to active cached rates.
+                </p>
+                <div className="space-y-2 pt-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Custom Billing API Override Key</label>
+                  <input
+                    type="password"
+                    placeholder="Auto-inherits master project credentials if empty"
+                    value={settings?.integrationConfig?.gcpPricingApiKey || ''}
+                    onChange={(e) => setSettings(s => s ? { ...s, integrationConfig: { ...s.integrationConfig, gcpPricingApiKey: e.target.value } } : null)}
+                    className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Vendor Scraper */}
+              <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-sm block">Live Supplier Crawler API</span>
+                    <span className="text-[10px] uppercase font-black tracking-wider text-neutral-400">Supplier Search</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setSettings(s => s ? { ...s, integrationConfig: { ...s.integrationConfig, supplierScraperServiceEnabled: !s.integrationConfig.supplierScraperServiceEnabled } } : null)}
+                    className={`w-12 h-6 rounded-full relative transition-colors ${settings?.integrationConfig?.supplierScraperServiceEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.integrationConfig?.supplierScraperServiceEnabled ? 'right-1' : 'left-1'}`}></div>
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  Triggers remote crawls of manufacturer catalogs via Gemini to find real AV/Parts distributors. If disabled, system searches offline catalog.
+                </p>
+                <div className="space-y-2 pt-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Crawler Brain Inference Model</label>
+                  <select
+                    value={settings?.integrationConfig?.supplierScraperModel || 'gemini-3.5-flash'}
+                    onChange={(e) => setSettings(s => s ? { ...s, integrationConfig: { ...s.integrationConfig, supplierScraperModel: e.target.value } } : null)}
+                    className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-xl outline-none text-xs"
+                  >
+                    <option value="gemini-3.5-flash">Gemini 3.5 Flash (Default - High Speed)</option>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (Precision Context)</option>
+                    <option value="custom_heuristic">Rule-based Standby Crawler</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Intelligence System */}
+              <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-sm block">Whole-Build Technical Verification</span>
+                    <span className="text-[10px] uppercase font-black tracking-wider text-neutral-400">Compatibility AI</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setSettings(s => s ? { ...s, integrationConfig: { ...s.integrationConfig, compatibilityServiceEnabled: !s.integrationConfig.compatibilityServiceEnabled } } : null)}
+                    className={`w-12 h-6 rounded-full relative transition-colors ${settings?.integrationConfig?.compatibilityServiceEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.integrationConfig?.compatibilityServiceEnabled ? 'right-1' : 'left-1'}`}></div>
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  Runs professional physical pinout, wattage, signal type (e.g. SDI, Dante, HDMI), & optical checking. If disabled, rule heuristics apply.
+                </p>
+                <div className="space-y-2 pt-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Engine Model Weight</label>
+                  <select
+                    value={settings?.integrationConfig?.compatibilityModel || 'gemini-3.5-flash'}
+                    onChange={(e) => setSettings(s => s ? { ...s, integrationConfig: { ...s.integrationConfig, compatibilityModel: e.target.value } } : null)}
+                    className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-xl outline-none text-xs"
+                  >
+                    <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro Ultra-Specs Analyzer</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* BOM lead times */}
+              <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-sm block">BOM Lead Time & Risk Heuristics API</span>
+                    <span className="text-[10px] uppercase font-black tracking-wider text-neutral-400">Supply Chain Risk</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setSettings(s => s ? { ...s, integrationConfig: { ...s.integrationConfig, bomLeadServiceEnabled: !s.integrationConfig.bomLeadServiceEnabled } } : null)}
+                    className={`w-12 h-6 rounded-full relative transition-colors ${settings?.integrationConfig?.bomLeadServiceEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.integrationConfig?.bomLeadServiceEnabled ? 'right-1' : 'left-1'}`}></div>
+                  </button>
+                </div>
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  Queries international logistic routes and manufacturing shortage lists for listed BOM components.
+                </p>
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Risk Alarm Threshold</label>
+                    <span className="text-xs font-bold text-primary font-mono">{settings?.integrationConfig?.bomRiskThreshold || 7} Days</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="30"
+                    value={settings?.integrationConfig?.bomRiskThreshold || 7}
+                    onChange={(e) => setSettings(s => s ? { ...s, integrationConfig: { ...s.integrationConfig, bomRiskThreshold: parseInt(e.target.value) } } : null)}
+                    className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-end">
             <button 
               onClick={async () => {
@@ -1373,6 +1747,224 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Global GCP Pricing & Bill Trends Widget */}
+          <div id="gcp-pricing-analytics" className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-8">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 border-b border-neutral-100 pb-6">
+              <div className="space-y-1">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center">
+                    <Coins size={22} />
+                  </div>
+                  <h3 className="text-2xl font-black text-neutral-900 tracking-tight">GCP Real-Time Infrastructure Costs</h3>
+                </div>
+                <p className="text-neutral-500 text-sm">Comparison of actual API-fetched billing tariffs against simulated activity models.</p>
+              </div>
+
+              {/* Sync and Control Status Panel */}
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2 bg-neutral-50 px-4 py-2 rounded-xl border border-neutral-100">
+                  <span className={`w-2.5 h-2.5 rounded-full ${isGcpPricingLoading ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`}></span>
+                  <span className="text-xs font-bold text-neutral-600 tracking-wide uppercase">
+                    {isGcpPricingLoading ? 'Syncing Catalog...' : gcpPricingData?.source || 'GCP Pricing API Live Sync'}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fetchGcpPricing}
+                  disabled={isGcpPricingLoading}
+                  className="px-4 py-2 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 disabled:bg-neutral-200 disabled:text-neutral-400 transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Activity size={12} className={isGcpPricingLoading ? 'animate-spin' : ''} />
+                  <span>Sync Catalog</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Simulated Activity Scaler Interactive Control */}
+            <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-100/85 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-1 max-w-lg">
+                <h4 className="font-bold text-neutral-900 flex items-center gap-2">
+                  <Percent size={16} className="text-primary" />
+                  <span>Interactive Load Simulator</span>
+                </h4>
+                <p className="text-xs text-neutral-500">
+                  Slide or configure the global loading multiplier to watch actual and simulated billing trends scale proportionally based on operations volume.
+                </p>
+              </div>
+              <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="flex-1 md:w-64">
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="5.0"
+                    step="0.1"
+                    value={simulatedLoadMultiplier}
+                    onChange={(e) => setSimulatedLoadMultiplier(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900"
+                  />
+                  <div className="flex justify-between text-[10px] text-neutral-400 font-bold mt-1">
+                    <span>0.1x Minimal</span>
+                    <span>1.x Baseline</span>
+                    <span>5.0x Extreme Load</span>
+                  </div>
+                </div>
+                <div className="bg-white px-4 py-2.5 rounded-2xl border border-neutral-200/60 font-mono font-black text-neutral-900 text-sm shadow-sm">
+                  {simulatedLoadMultiplier.toFixed(1)}x Load
+                </div>
+              </div>
+            </div>
+
+            {/* Grid display: Billing Metrics Overview */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Cost comparison card */}
+              <div className="bg-emerald-50/40 p-6 border border-emerald-100 rounded-3xl space-y-4 shadow-sm">
+                <p className="text-[10px] font-black tracking-widest text-emerald-600 uppercase">Actual Calculated Billing (Mo.)</p>
+                <div className="space-y-1">
+                  <h3 className="text-4xl font-black text-emerald-700 font-mono">
+                    ${actualCostDetails.total.toFixed(2)}
+                  </h3>
+                  <p className="text-xs text-emerald-600/80 font-semibold">
+                    Computed using real-time API pricing rates applied to active workloads
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-emerald-100 flex items-center justify-between text-xs text-emerald-700/80 font-bold">
+                  <span>Cloud Run subtotal:</span>
+                  <span className="font-mono font-black">${actualCostDetails.runTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-emerald-700/80 font-bold">
+                  <span>Firestore subtotal:</span>
+                  <span className="font-mono font-black">${actualCostDetails.fsTotal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Simulated Cost comparison card */}
+              <div className="bg-amber-50/40 p-6 border border-amber-100 rounded-3xl space-y-4 shadow-sm">
+                <p className="text-[10px] font-black tracking-widest text-amber-600 uppercase">Simulated Metric Cost (Mo.)</p>
+                <div className="space-y-1">
+                  <h3 className="text-4xl font-black text-amber-700 font-mono">
+                    ${simulatedCost.toFixed(2)}
+                  </h3>
+                  <p className="text-xs text-amber-600/80 font-semibold">
+                    Simulated model metrics static forecast at current profile parameters
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-amber-100 flex items-center justify-between text-xs text-amber-700/80 font-bold">
+                  <span>Base User fees ($0.15):</span>
+                  <span className="font-mono font-black">${(users.length * 0.15 * simulatedLoadMultiplier).toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-amber-700/80 font-bold">
+                  <span>Base Pack fees ($0.03):</span>
+                  <span className="font-mono font-black">${(lists.length * 0.03 * simulatedLoadMultiplier).toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* API Rates card */}
+              <div className="bg-neutral-50 p-6 border border-neutral-100 rounded-3xl space-y-4 shadow-sm">
+                <p className="text-[10px] font-black tracking-widest text-neutral-500 uppercase">GCP Pricing API Catalog Rates</p>
+                <div className="space-y-2 text-xs font-semibold text-neutral-700">
+                  <div className="flex justify-between items-center pb-1 border-b border-neutral-200/50">
+                    <span className="text-neutral-500">Cloud Run CPU / sec:</span>
+                    <span className="font-mono text-neutral-900">${(gcpPricingData?.rates?.cloudRun?.cpuSecond || 0.000024).toFixed(8)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pb-1 border-b border-neutral-200/50">
+                    <span className="text-neutral-500">Cloud Run RAM / sec:</span>
+                    <span className="font-mono text-neutral-900">${(gcpPricingData?.rates?.cloudRun?.memoryGbSecond || 0.0000025).toFixed(8)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pb-1 border-b border-neutral-200/50">
+                    <span className="text-neutral-500">Cloud Run Req / Million:</span>
+                    <span className="font-mono text-neutral-900">${(((gcpPricingData?.rates?.cloudRun?.request || 0.0000004) || 0) * 1000000).toFixed(4)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-neutral-500">Firestore Writes / 100k:</span>
+                    <span className="font-mono text-emerald-600">${(((gcpPricingData?.rates?.firestore?.write || 0.0000018) || 0) * 100000).toFixed(4)}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-neutral-400 italic font-medium">
+                  *Last updated: {gcpPricingData?.simulatedMetrics?.lastUpdated ? new Date(gcpPricingData.simulatedMetrics.lastUpdated).toLocaleTimeString() : 'Just now'}
+                </p>
+              </div>
+            </div>
+
+            {/* Cost trajectory & Comparison Area Chart */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="font-bold text-neutral-900">Historical Comparison Trajectory</h4>
+                  <p className="text-xs text-neutral-500">Dynamic projection comparing real tariff calculations against simulated metric averages</p>
+                </div>
+                <div className="flex items-center gap-4 text-xs font-black">
+                  <span className="flex items-center gap-1.5 text-emerald-600">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    Actual GCP Cost
+                  </span>
+                  <span className="flex items-center gap-1.5 text-amber-500">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                    Simulated Metric
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={billingTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorGcp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorSim" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                    <XAxis dataKey="month" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
+                    <Tooltip 
+                      contentStyle={{ background: '#171717', border: 'none', borderRadius: '1rem', color: '#fff', fontSize: '11px' }}
+                      itemStyle={{ color: '#fff' }}
+                    />
+                    <Area type="monotone" dataKey="Actual GCP Cost ($)" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorGcp)" />
+                    <Area type="monotone" dataKey="Simulated Metric ($)" stroke="#f59e0b" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSim)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Sub-resource breakdown visualization */}
+            <div className="space-y-3">
+              <h4 className="font-bold text-neutral-900 text-sm">GCP Workload Cost Distribution (Actual Tariffs)</h4>
+              <div className="w-full h-3 bg-neutral-100 rounded-full flex overflow-hidden">
+                {actualCostDetails.breakdown.map((item, idx) => {
+                  const colors = ['bg-emerald-500', 'bg-emerald-400', 'bg-emerald-300', 'bg-indigo-500', 'bg-indigo-400', 'bg-indigo-300', 'bg-sky-500'];
+                  if (item.value <= 0) return null;
+                  return (
+                    <div
+                      key={idx}
+                      className={`h-full ${colors[idx % colors.length]}`}
+                      style={{ width: `${item.percentage}%` }}
+                      title={`${item.name}: $${item.value.toFixed(4)} (${item.percentage.toFixed(1)}%)`}
+                    />
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap gap-4 pt-1">
+                {actualCostDetails.breakdown.map((item, idx) => {
+                  const bulletColors = ['bg-emerald-500', 'bg-emerald-400', 'bg-emerald-300', 'bg-indigo-500', 'bg-indigo-400', 'bg-indigo-300', 'bg-sky-500'];
+                  if (item.value <= 0) return null;
+                  return (
+                    <div key={idx} className="flex items-center gap-1.5 text-[10px] font-bold text-neutral-500">
+                      <span className={`w-2 h-2 rounded-full ${bulletColors[idx % bulletColors.length]}`}></span>
+                      <span>{item.name}:</span>
+                      <span className="font-mono text-neutral-900">${item.value.toFixed(3)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-8">
@@ -2207,6 +2799,16 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
                     <td className="px-8 py-6 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => {
+                            setEditingUserForListings(u);
+                            setIsUserListingsModalOpen(true);
+                          }}
+                          className="p-2 text-neutral-400 hover:text-[#ff4f3a] transition rounded-lg hover:bg-neutral-100 mr-1"
+                          title="Manage User Listings"
+                        >
+                          <ShoppingBag size={16} />
+                        </button>
                         <button className="p-2 text-neutral-400 hover:text-primary transition rounded-lg hover:bg-neutral-100">
                           <Mail size={16} />
                         </button>
@@ -2237,6 +2839,16 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     </div>
                   </div>
                   <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        setEditingUserForListings(u);
+                        setIsUserListingsModalOpen(true);
+                      }}
+                      className="p-3 bg-neutral-50 text-neutral-400 hover:text-[#ff4f3a] rounded-xl"
+                      title="Manage User Listings"
+                    >
+                      <ShoppingBag size={16}/>
+                    </button>
                     <button className="p-3 bg-neutral-50 text-neutral-400 rounded-xl"><Mail size={16}/></button>
                     <button className="p-3 bg-red-50 text-red-400 rounded-xl"><Trash2 size={16}/></button>
                   </div>
@@ -2315,6 +2927,558 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
           </div>
         </div>
       )}
+
+      {activeTab === 'listings' && (
+        <div className="space-y-8 animate-in fade-in duration-300">
+          {/* Stats Bar */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-2">
+              <span className="text-neutral-400 text-[10px] font-black uppercase tracking-widest block">Total Listings</span>
+              <p className="text-3xl font-black text-neutral-900">{lists.filter(l => l.marketplaceEnabled).length}</p>
+            </div>
+            <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-2">
+              <span className="text-amber-500 text-[10px] font-black uppercase tracking-widest block">Featured Listings</span>
+              <p className="text-3xl font-black text-amber-600">{lists.filter(l => l.marketplaceEnabled && l.featured).length}</p>
+            </div>
+            <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-2">
+              <span className="text-indigo-500 text-[10px] font-black uppercase tracking-widest block">Sponsored Ads</span>
+              <p className="text-3xl font-black text-indigo-600">{lists.filter(l => l.marketplaceEnabled && l.sponsored).length}</p>
+            </div>
+            <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-2">
+              <span className="text-red-500 text-[10px] font-black uppercase tracking-widest block">Suspended/Pending</span>
+              <p className="text-3xl font-black text-red-600">{lists.filter(l => l.marketplaceEnabled && (l.moderationStatus === 'suspended' || l.moderationStatus === 'pending')).length}</p>
+            </div>
+          </div>
+
+          {/* Filtering and Search Controls */}
+          <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex bg-neutral-100 p-1 rounded-xl shrink-0 self-start md:self-auto overflow-x-auto w-full md:w-auto">
+              <button
+                onClick={() => setListingFilter('all')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition whitespace-nowrap ${listingFilter === 'all' ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'}`}
+              >
+                All Listings
+              </button>
+              <button
+                onClick={() => setListingFilter('featured')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition whitespace-nowrap ${listingFilter === 'featured' ? 'bg-white shadow-sm text-amber-600' : 'text-neutral-500 hover:text-neutral-800'}`}
+              >
+                Featured
+              </button>
+              <button
+                onClick={() => setListingFilter('sponsored')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition whitespace-nowrap ${listingFilter === 'sponsored' ? 'bg-white shadow-sm text-indigo-600' : 'text-neutral-500 hover:text-neutral-800'}`}
+              >
+                Sponsored (Ads)
+              </button>
+              <button
+                onClick={() => setListingFilter('suspended')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition whitespace-nowrap ${listingFilter === 'suspended' ? 'bg-white shadow-sm text-red-600' : 'text-neutral-500 hover:text-neutral-800'}`}
+              >
+                Review Items
+              </button>
+            </div>
+
+            <div className="relative flex-1 max-w-md w-full">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
+              <input
+                type="text"
+                value={listingSearchQuery}
+                onChange={(e) => setListingSearchQuery(e.target.value)}
+                placeholder="Search listings by name, category, or owner email..."
+                className="w-full pl-12 pr-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl text-xs font-bold outline-none border focus:border-neutral-200 transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Master Listing Directory */}
+          <div className="bg-white rounded-[2rem] border border-neutral-100 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-neutral-50">
+              <h3 className="font-extrabold text-neutral-900 uppercase tracking-tight text-sm">Marketplace Directory</h3>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-neutral-50 border-b border-neutral-100 text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                    <th className="px-8 py-5">Item Manifest</th>
+                    <th className="px-8 py-5">Owner</th>
+                    <th className="px-5 py-5">Pricing & Deposit</th>
+                    <th className="px-5 py-5">Badges</th>
+                    <th className="px-5 py-5">Status</th>
+                    <th className="px-8 py-5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-50">
+                  {lists
+                    .filter(l => l.marketplaceEnabled)
+                    .filter(l => {
+                      if (listingFilter === 'featured') return l.featured;
+                      if (listingFilter === 'sponsored') return l.sponsored;
+                      if (listingFilter === 'suspended') return l.moderationStatus === 'suspended' || l.moderationStatus === 'pending';
+                      return true;
+                    })
+                    .filter(l => {
+                      const query = listingSearchQuery.toLowerCase();
+                      return (
+                        (l.name?.toLowerCase() || '').includes(query) ||
+                        (l.category?.toLowerCase() || '').includes(query) ||
+                        (l.ownerEmail?.toLowerCase() || '').includes(query) ||
+                        (l.marketplaceDetails?.toLowerCase() || '').includes(query)
+                      );
+                    })
+                    .map((l) => {
+                      const owner = users.find(u => u.uid === l.ownerId);
+                      return (
+                        <tr key={l.id} className="hover:bg-neutral-50/50 transition">
+                          <td className="px-8 py-5 font-bold text-xs text-neutral-900">
+                            <div className="space-y-0.5">
+                              <span className="font-black text-neutral-800">{l.name}</span>
+                              <div className="flex items-center gap-1.5 text-[8px] font-bold text-neutral-400 uppercase tracking-wider">
+                                <span>{l.transactionType === 'Sale' ? 'For Sale' : 'For Rent'}</span>
+                                <span>•</span>
+                                <span>{l.itemsCount || 0} items</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-8 py-5">
+                            <div className="flex items-center gap-2">
+                              {owner?.photoURL ? (
+                                <img src={owner.photoURL} alt={owner.displayName} className="w-6 h-6 rounded-full" />
+                              ) : (
+                                <div className="w-6 h-6 bg-neutral-100 text-neutral-500 flex items-center justify-center rounded-full text-[8px] font-bold uppercase">
+                                  {l.ownerEmail?.charAt(0) || 'U'}
+                                </div>
+                              )}
+                              <div className="text-[10px]">
+                                <p className="font-bold text-neutral-800 leading-none">{owner?.displayName || l.ownerEmail?.split('@')[0] || 'Unknown'}</p>
+                                <p className="text-[8px] text-neutral-400 font-medium leading-none mt-0.5">{l.ownerEmail || 'No Email'}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-5 font-bold text-xs">
+                            <div className="space-y-0.5 text-neutral-700">
+                              <span className="text-neutral-950 font-black">{l.marketplacePrice || 0} {l.marketplaceCurrency || 'USD'}</span>
+                              {l.securityDeposit ? (
+                                <span className="block text-[8px] text-neutral-400">Dep: {l.securityDeposit} {l.marketplaceCurrency || 'USD'}</span>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-5 py-5">
+                            <div className="flex flex-wrap gap-1">
+                              {l.featured && (
+                                <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 border border-amber-200/50 text-[8px] font-black uppercase tracking-wider rounded-md">
+                                  Featured
+                                </span>
+                              )}
+                              {l.sponsored && (
+                                <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-200/50 text-[8px] font-black uppercase tracking-wider rounded-md">
+                                  Sponsor Ad
+                                </span>
+                              )}
+                              {!l.featured && !l.sponsored && (
+                                <span className="text-[10px] text-neutral-300 font-medium italic">-</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-5 py-5">
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
+                              l.moderationStatus === 'suspended' ? 'bg-red-50 text-red-600 border border-red-200/50' :
+                              l.moderationStatus === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-200/50' :
+                              'bg-green-50 text-green-700 border border-green-200/50'
+                            }`}>
+                              {l.moderationStatus || 'approved'}
+                            </span>
+                          </td>
+                          <td className="px-8 py-5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setEditingListing(l);
+                                  setIsListingEditModalOpen(true);
+                                }}
+                                className="p-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition-all"
+                                title="Moderate Listing Parameters"
+                              >
+                                <Edit2 size={12} />
+                                <span>Moderate</span>
+                              </button>
+                              <button
+                                onClick={() => handleToggleMarketplaceAdmin(l.id, false)}
+                                className="p-2 hover:bg-neutral-100 text-neutral-400 hover:text-red-500 rounded-lg transition-all"
+                                title="Unpublish from Marketplace"
+                              >
+                                <EyeOff size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteListingAdmin(l.id)}
+                                className="p-2 hover:bg-red-50 text-neutral-400 hover:text-red-600 rounded-lg transition-all"
+                                title="Delete Listing completely"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1: Edit Listing Moderation Details */}
+      <AnimatePresence>
+        {isListingEditModalOpen && editingListing && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-sm animate-fade-in">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 bg-neutral-900 text-white flex justify-between items-center">
+                <div className="space-y-0.5">
+                  <h3 className="text-base font-black uppercase tracking-tight">Moderate: {editingListing.name}</h3>
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Configure marketplace status, premium advertisement highlights, and billing features.</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsListingEditModalOpen(false);
+                    setEditingListing(null);
+                  }}
+                  className="p-1 rounded-full bg-white/10 hover:bg-white/20 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveListingAdmin} className="p-6 overflow-y-auto space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Moderation Status</label>
+                    <select
+                      value={editingListing.moderationStatus || 'approved'}
+                      onChange={(e) => setEditingListing({...editingListing, moderationStatus: e.target.value as any})}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl text-xs font-bold"
+                    >
+                      <option value="approved">Approved & Live</option>
+                      <option value="pending">Pending Verification</option>
+                      <option value="suspended">Suspended / Hidden</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Listing Transaction Type</label>
+                    <select
+                      value={editingListing.transactionType || 'rent'}
+                      onChange={(e) => setEditingListing({...editingListing, transactionType: e.target.value as any})}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl text-xs font-bold"
+                    >
+                      <option value="rent">Rent Out</option>
+                      <option value="sale">Sell Outright</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Market Price Override</label>
+                    <input
+                      type="number"
+                      value={editingListing.marketplacePrice || 0}
+                      onChange={(e) => setEditingListing({...editingListing, marketplacePrice: Number(e.target.value)})}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl text-xs font-bold"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Currency</label>
+                    <select
+                      value={editingListing.marketplaceCurrency || 'USD'}
+                      onChange={(e) => setEditingListing({...editingListing, marketplaceCurrency: e.target.value})}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl text-xs font-bold"
+                    >
+                      <option value="USD">USD ($)</option>
+                      <option value="FJD">FJD (FJ$)</option>
+                      <option value="AUD">AUD (A$)</option>
+                      <option value="NZD">NZD (NZ$)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Security Deposit Override</label>
+                  <input
+                    type="number"
+                    value={editingListing.securityDeposit || 0}
+                    onChange={(e) => setEditingListing({...editingListing, securityDeposit: Number(e.target.value)})}
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl text-xs font-bold"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Description / Specifications</label>
+                  <textarea
+                    value={editingListing.marketplaceDetails || ''}
+                    onChange={(e) => setEditingListing({...editingListing, marketplaceDetails: e.target.value})}
+                    rows={4}
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl text-xs font-bold outline-none resize-none"
+                    placeholder="Enter gear details, specs, package components, policies, or rental constraints..."
+                  />
+                </div>
+
+                {/* ADVANCED ADMIN CONTROLS for Paid / Advertised / Highlighted listings */}
+                <div className="bg-neutral-50 p-6 rounded-2xl border border-neutral-100 space-y-4">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-500 flex items-center gap-1.5">
+                    <Zap size={14} className="text-amber-500" />
+                    Premium Visibility & Advertising Controls
+                  </h4>
+
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editingListing.featured || false}
+                        onChange={(e) => setEditingListing({...editingListing, featured: e.target.checked})}
+                        className="mt-1 rounded border-neutral-300 text-amber-500 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                      />
+                      <div className="select-none">
+                        <span className="text-xs font-extrabold text-neutral-800 block">Featured Listing (Staff Pick)</span>
+                        <span className="text-[9px] text-neutral-400 font-medium block">Pushes the item to prominent "Staff Picks" rows or top of product feed with highlighting.</span>
+                      </div>
+                    </label>
+
+                    {editingListing.featured && (
+                      <div className="pl-7 space-y-1">
+                        <label className="text-[8px] font-black uppercase tracking-wide text-neutral-400">Featured Sorting Priority (Weight)</label>
+                        <input
+                          type="number"
+                          value={editingListing.featuredPriority || 0}
+                          onChange={(e) => setEditingListing({...editingListing, featuredPriority: Number(e.target.value)})}
+                          className="w-32 px-3 py-1.5 bg-white border border-neutral-200 rounded-lg text-xs font-bold"
+                          placeholder="0 = Default"
+                        />
+                      </div>
+                    )}
+
+                    <hr className="border-neutral-200/50 my-2" />
+
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editingListing.sponsored || false}
+                        onChange={(e) => setEditingListing({...editingListing, sponsored: e.target.checked})}
+                        className="mt-1 rounded border-neutral-300 text-indigo-500 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                      />
+                      <div className="select-none">
+                        <span className="text-xs font-extrabold text-neutral-800 block">Sponsored Campaign (Ad Placement)</span>
+                        <span className="text-[9px] text-neutral-400 font-medium block">Unlocks ad banners, places high-impact sidebar placements, and enablescustom text highlights.</span>
+                      </div>
+                    </label>
+
+                    {editingListing.sponsored && (
+                      <div className="pl-7 space-y-1.5 animate-in fade-in duration-200">
+                        <label className="text-[8px] font-black uppercase tracking-wide text-neutral-400">Ad Headline Pitch / Banner Headline</label>
+                        <input
+                          type="text"
+                          value={editingListing.adHeadline || ''}
+                          onChange={(e) => setEditingListing({...editingListing, adHeadline: e.target.value})}
+                          className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-bold"
+                          placeholder="e.g. '🔥 Summer Special: 20% off all booking days this week!'"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsListingEditModalOpen(false);
+                      setEditingListing(null);
+                    }}
+                    className="flex-1 px-6 py-3 bg-neutral-100 text-neutral-700 rounded-xl font-bold hover:bg-neutral-200 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-6 py-3 bg-neutral-900 text-white rounded-xl font-bold hover:bg-neutral-800 transition"
+                  >
+                    Save Moderation settings
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL 2: User specific listings & subscription plan config */}
+      <AnimatePresence>
+        {isUserListingsModalOpen && editingUserForListings && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-sm animate-fade-in">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 bg-neutral-900 text-white flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <img src={editingUserForListings.photoURL} alt={editingUserForListings.displayName} className="w-10 h-10 rounded-full border-2 border-white/20 shadow" />
+                  <div>
+                    <h3 className="text-sm md:text-base font-black uppercase tracking-tight">{editingUserForListings.displayName}_s Listings hub</h3>
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">{editingUserForListings.email}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsUserListingsModalOpen(false);
+                    setEditingUserForListings(null);
+                  }}
+                  className="p-1 rounded-full bg-white/10 hover:bg-white/20 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                {/* PLAN CONTROLS */}
+                <div className="bg-neutral-50 p-6 rounded-2xl border border-neutral-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">User subscription plan tier</span>
+                    <span className="text-xs font-bold text-neutral-800 block">You are modifying the user plan. Features such as marketplace listings limits, booking commission structures, and storage quotas adhere to this plan.</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={editingUserForListings.plan || 'free'}
+                      onChange={(e) => {
+                        handleUpdatePlan(editingUserForListings.uid, e.target.value);
+                        setEditingUserForListings({...editingUserForListings, plan: e.target.value});
+                      }}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border outline-none font-bold transition ${
+                        editingUserForListings.plan === 'free' ? 'bg-neutral-100 text-neutral-700 border-neutral-200' :
+                        'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20'
+                      }`}
+                    >
+                      <option value="free">Free Starter Plan</option>
+                      {settings?.plans?.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* USER LISTINGS TABLE */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-neutral-800 flex items-center gap-2">
+                    <ShoppingBag size={14} className="text-[#ff4f3a]" />
+                    Active Marketplace Offerings
+                  </h4>
+
+                  {lists.filter(l => l.ownerId === editingUserForListings.uid && l.marketplaceEnabled).length === 0 ? (
+                    <div className="p-12 border-2 border-dashed border-neutral-100 rounded-2xl text-center text-neutral-400 italic text-xs">
+                      No active listings or marketplace offerings for this user at the moment.
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden shadow-sm">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="bg-neutral-50 text-[9px] font-black uppercase tracking-widest text-neutral-400 border-b border-neutral-100">
+                            <th className="px-6 py-4">Manifest Info</th>
+                            <th className="px-5 py-4">Type</th>
+                            <th className="px-5 py-4">Price</th>
+                            <th className="px-5 py-4">Feature/Ad Badges</th>
+                            <th className="px-6 py-4 text-right">Moderation Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-50 text-xs">
+                          {lists
+                            .filter(l => l.ownerId === editingUserForListings.uid && l.marketplaceEnabled)
+                            .map((l) => (
+                              <tr key={l.id} className="hover:bg-neutral-50/50">
+                                <td className="px-6 py-4 font-bold text-neutral-800">
+                                  <div>
+                                    <p className="font-extrabold text-[#ff4f3a]">{l.name}</p>
+                                    <p className="text-[9px] text-neutral-400 mt-0.5">{l.itemsCount || 0} items listed</p>
+                                  </div>
+                                </td>
+                                <td className="px-5 py-4">
+                                  <span className="font-black text-neutral-500 uppercase text-[9px] tracking-wide">
+                                    {l.transactionType === 'Sale' ? 'Sale' : 'Rental'}
+                                  </span>
+                                </td>
+                                <td className="px-5 py-4 font-extrabold">
+                                  {l.marketplacePrice || 0} {l.marketplaceCurrency || 'USD'}
+                                </td>
+                                <td className="px-5 py-4">
+                                  <div className="flex gap-1">
+                                    {l.featured && (
+                                      <span className="px-1.5 py-0.5 bg-amber-50 text-amber-500 font-extrabold text-[8px] rounded uppercase">Featured</span>
+                                    )}
+                                    {l.sponsored && (
+                                      <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-500 font-extrabold text-[8px] rounded uppercase">Sponsor Ad</span>
+                                    )}
+                                    {!l.featured && !l.sponsored && <span className="text-neutral-300">-</span>}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setEditingListing(l);
+                                        setIsListingEditModalOpen(true);
+                                      }}
+                                      className="p-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg transition"
+                                      title="Edit Moderation Params"
+                                    >
+                                      <Edit2 size={12} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleToggleMarketplaceAdmin(l.id, false)}
+                                      className="p-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-500 hover:text-red-500 rounded-lg transition"
+                                      title="Unpublish"
+                                    >
+                                      <EyeOff size={12} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteListingAdmin(l.id)}
+                                      className="p-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition"
+                                      title="Delete Manifest Completely"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6 bg-neutral-50 border-t border-neutral-100 text-right">
+                <button
+                  onClick={() => {
+                    setIsUserListingsModalOpen(false);
+                    setEditingUserForListings(null);
+                  }}
+                  className="px-8 py-3 bg-neutral-900 text-white rounded-xl font-bold hover:bg-neutral-800 transition shadow-sm"
+                >
+                  Close Manager
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {activeTab === 'landing' && settings && (
         <div className="space-y-12">
@@ -2418,7 +3582,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   <div className="space-y-1">
                     <div className="text-xs font-black uppercase tracking-wider">Marketplace Listing Hub</div>
                     <div className={`text-[10px] uppercase font-bold leading-relaxed ${settings.activeLandingPageType === 'marketplace' ? 'text-white/60' : 'text-neutral-400'}`}>
-                      The ShareGrid-inspired community platform. Active listings, equipment hire, and local creatives.
+                      The Packer public gear marketplace. Active listings, equipment hire, and local creatives.
                     </div>
                   </div>
                 </button>
@@ -3020,6 +4184,368 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     >
                       <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceRegionConfig?.restrictToAvailableCountries ? 'right-1' : 'left-1'}`}></div>
                     </button>
+                  </div>
+
+                  {/* Marketplace Landing Page Copy & Core Visual Controls */}
+                  <div className="space-y-4 pt-6 border-t border-neutral-100">
+                    <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800 flex items-center gap-1.5">
+                      <Layout size={16} className="text-primary shrink-0" />
+                      <span>Marketplace Landing Page Customization</span>
+                    </h4>
+                    <p className="text-[11px] text-neutral-500 font-semibold leading-relaxed uppercase">
+                      Directly configure the visual copies, dual promos, verification options, and section display rules for the marketplace landing hub.
+                    </p>
+
+                    <div className="space-y-4 p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Hero Subtitle Badge Copy</label>
+                        <input
+                          type="text"
+                          value={settings?.marketplaceLandingPageConfig?.heroSubtitle || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, heroSubtitle: val } };
+                            });
+                          }}
+                          className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold outline-none"
+                          placeholder="Packer verified marketplace"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Hero Primary Headline Copy</label>
+                        <input
+                          type="text"
+                          value={settings?.marketplaceLandingPageConfig?.heroTitle || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, heroTitle: val } };
+                            });
+                          }}
+                          className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none font-sans"
+                          placeholder="The largest, most trusted camera sharing community"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Hero Description/Policy Block Copy</label>
+                        <textarea
+                          rows={2}
+                          value={settings?.marketplaceLandingPageConfig?.heroDescription || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, heroDescription: val } };
+                            });
+                          }}
+                          className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold outline-none resize-none font-sans"
+                          placeholder="Professional visual equipment hire & purchase marketplace..."
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Partner Logos Header text</label>
+                        <input
+                          type="text"
+                          value={settings?.marketplaceLandingPageConfig?.partnerLogosText || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, partnerLogosText: val } };
+                            });
+                          }}
+                          className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold outline-none"
+                          placeholder="Members of Packer Network"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Partner Logos list (Comma-separated)</label>
+                        <input
+                          type="text"
+                          value={settings?.marketplaceLandingPageConfig?.partnerLogosList?.join(', ') || ''}
+                          onChange={(e) => {
+                            const val = e.target.value.split(',').map(logo => logo.trim()).filter(Boolean);
+                            setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, partnerLogosList: val } };
+                            });
+                          }}
+                          className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold outline-none"
+                          placeholder="facebook, amazon studios, HBO, Disney"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Section Display Switches */}
+                      <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Granular Page Section Display Toggles</p>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
+                          <div>
+                            <p className="font-bold text-xs uppercase text-neutral-800">Show Dual Promos</p>
+                            <p className="text-[8.5px] text-neutral-450 uppercase">Insights & Student Banner block</p>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showPromotions: cfg.showPromotions !== false ? false : true } };
+                            })}
+                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showPromotions !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                          >
+                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showPromotions !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
+                          <div>
+                            <p className="font-bold text-xs uppercase text-neutral-800">Show Staff Picks</p>
+                            <p className="text-[8.5px] text-neutral-450 uppercase">Handpicked products display</p>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showStaffPicks: cfg.showStaffPicks !== false ? false : true } };
+                            })}
+                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showStaffPicks !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                          >
+                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showStaffPicks !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
+                          <div>
+                            <p className="font-bold text-xs uppercase text-neutral-800">Show Categories</p>
+                            <p className="text-[8.5px] text-neutral-450 uppercase">Horizontal Categories Slider</p>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showCategories: cfg.showCategories !== false ? false : true } };
+                            })}
+                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showCategories !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                          >
+                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showCategories !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
+                          <div>
+                            <p className="font-bold text-xs uppercase text-neutral-800">Show Guarantees CTA</p>
+                            <p className="text-[8.5px] text-neutral-450 uppercase">List Your Gear & Guarantees section</p>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showGuarantees: cfg.showGuarantees !== false ? false : true } };
+                            })}
+                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showGuarantees !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                          >
+                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showGuarantees !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205 md:col-span-2">
+                          <div>
+                            <p className="font-bold text-xs uppercase text-neutral-800">Enforce Operator Academics Verification</p>
+                            <p className="text-[8.5px] text-neutral-450 uppercase">Mandatory verification checks for claiming student promotions</p>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, requiresEduVerification: cfg.requiresEduVerification !== false ? false : true } };
+                            })}
+                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.requiresEduVerification !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                          >
+                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.requiresEduVerification !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 pt-4 border-t border-neutral-100">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Advertising Banner Content Customizer</p>
+                      
+                      {/* Banner A customization fields */}
+                      <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-100 space-y-3">
+                        <p className="text-[9.5px] font-black uppercase text-neutral-800 tracking-wide">Promotion Banner A (Left Block)</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner A Headline Copy</label>
+                            <input
+                              type="text"
+                              value={settings?.marketplaceLandingPageConfig?.bannerATitle || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSettings(s => {
+                                  if (!s) return null;
+                                  const cfg = s.marketplaceLandingPageConfig || {};
+                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerATitle: val } };
+                                });
+                              }}
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none"
+                              placeholder="Packer Insights"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner A Button text</label>
+                            <input
+                              type="text"
+                              value={settings?.marketplaceLandingPageConfig?.bannerAButtonText || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSettings(s => {
+                                  if (!s) return null;
+                                  const cfg = s.marketplaceLandingPageConfig || {};
+                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerAButtonText: val } };
+                                });
+                              }}
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none"
+                              placeholder="View Report"
+                            />
+                          </div>
+
+                          <div className="space-y-1 md:col-span-2">
+                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner A Subtitle description</label>
+                            <input
+                              type="text"
+                              value={settings?.marketplaceLandingPageConfig?.bannerASubtitle || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSettings(s => {
+                                  if (!s) return null;
+                                  const cfg = s.marketplaceLandingPageConfig || {};
+                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerASubtitle: val } };
+                                });
+                              }}
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none"
+                              placeholder="Get the latest data on which products rented..."
+                            />
+                          </div>
+
+                          <div className="space-y-1 md:col-span-2">
+                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner A Visual image link (url)</label>
+                            <input
+                              type="text"
+                              value={settings?.marketplaceLandingPageConfig?.bannerAImage || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSettings(s => {
+                                  if (!s) return null;
+                                  const cfg = s.marketplaceLandingPageConfig || {};
+                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerAImage: val } };
+                                });
+                              }}
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-[10px] font-semibold outline-none"
+                              placeholder="https://images.unsplash.com/..."
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Banner B customization fields */}
+                      <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-100 space-y-3">
+                        <p className="text-[9.5px] font-black uppercase text-neutral-800 tracking-wide">Promotion Banner B (Right Block)</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner B Headline Copy</label>
+                            <input
+                              type="text"
+                              value={settings?.marketplaceLandingPageConfig?.bannerBTitle || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSettings(s => {
+                                  if (!s) return null;
+                                  const cfg = s.marketplaceLandingPageConfig || {};
+                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerBTitle: val } };
+                                });
+                              }}
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none"
+                              placeholder="Exclusive Student Discounts"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner B Button text</label>
+                            <input
+                              type="text"
+                              value={settings?.marketplaceLandingPageConfig?.bannerBButtonText || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSettings(s => {
+                                  if (!s) return null;
+                                  const cfg = s.marketplaceLandingPageConfig || {};
+                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerBButtonText: val } };
+                                });
+                              }}
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none"
+                              placeholder="Claim Now"
+                            />
+                          </div>
+
+                          <div className="space-y-1 md:col-span-2">
+                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner B Subtitle description</label>
+                            <input
+                              type="text"
+                              value={settings?.marketplaceLandingPageConfig?.bannerBSubtitle || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSettings(s => {
+                                  if (!s) return null;
+                                  const cfg = s.marketplaceLandingPageConfig || {};
+                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerBSubtitle: val } };
+                                });
+                              }}
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none"
+                              placeholder="Are you enrolled in film academy? Enjoy..."
+                            />
+                          </div>
+
+                          <div className="space-y-1 md:col-span-2">
+                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner B Visual image link (url)</label>
+                            <input
+                              type="text"
+                              value={settings?.marketplaceLandingPageConfig?.bannerBImage || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSettings(s => {
+                                  if (!s) return null;
+                                  const cfg = s.marketplaceLandingPageConfig || {};
+                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerBImage: val } };
+                                });
+                              }}
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-[10px] font-semibold outline-none"
+                              placeholder="https://images.unsplash.com/..."
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -4480,6 +6006,10 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             </div>
           </div>
         </div>
+      )}
+
+      {activeTab === 'docs' && (
+        <AdminDocsTab />
       )}
           </motion.div>
         </AnimatePresence>

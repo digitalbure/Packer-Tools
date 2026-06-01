@@ -86,7 +86,10 @@ export default function BOMWidget({ project, user, items: passedItems }: BOMWidg
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <h3 className="text-2xl font-black uppercase tracking-tighter">Bill of Materials</h3>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-2xl font-black uppercase tracking-tighter">Bill of Materials</h3>
+            <span className="font-mono text-[9px] text-[#ff4f3a] bg-[#ff4f3a]/10 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">v1.3.4</span>
+          </div>
           <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Validated component list and source correlation</p>
         </div>
         <div className="flex items-center gap-3">

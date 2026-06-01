@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings } from '../types';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { 
   Search, 
   MapPin, 
@@ -32,7 +34,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// High-quality mock data mimicking the real ShareGrid layout
+// High-quality mock data mimicking a professional gear marketplace layout
 interface CategoryItem {
   id: string;
   name: string;
@@ -57,6 +59,12 @@ interface ProductItem {
   shippingDays?: number;
   isShipped?: boolean;
   isSale?: boolean;
+  addOns?: Array<{
+    itemId?: string;
+    name: string;
+    price: number;
+    useDefaultPrice?: boolean;
+  }>;
 }
 
 interface CrewItem {
@@ -83,11 +91,11 @@ const CATEGORIES: CategoryItem[] = [
 ];
 
 const POPULAR_PRODUCTS: ProductItem[] = [
-  { id: 'rent-1', name: 'Sony FX3 Full-Frame Cinema Camera', brand: 'Sony', model: 'FX3', category: 'cinema-cameras', price: 50, rating: 4.8, reviews: 92, image: 'https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=400', ownerName: 'Sum of Parts LLC', instantBook: true },
-  { id: 'rent-2', name: 'Sony FX6 Full-Frame Cinema Camera', brand: 'Sony', model: 'FX6', category: 'cinema-cameras', price: 75, rating: 4.9, reviews: 120, image: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=400', ownerName: 'Bogdan Rental', instantBook: true },
-  { id: 'rent-3', name: 'Zeiss Super Speed Prime Lens Set 35/50/85', brand: 'Zeiss', model: 'Super Speed', category: 'cinema-lenses', price: 150, rating: 5.0, reviews: 11, image: 'https://images.unsplash.com/photo-1617005082133-5c8cdd97eadd?auto=format&fit=crop&q=80&w=400', ownerName: 'NirvanaMedia', instantBook: false },
-  { id: 'rent-4', name: 'ARRI Alexa Mini LF Package + Wireless Video', brand: 'ARRI', model: 'Alexa Mini LF', category: 'cinema-cameras', price: 250, rating: 4.9, reviews: 45, image: 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?auto=format&fit=crop&q=80&w=400', ownerName: 'Brentwood Sizzle', instantBook: true },
-  { id: 'rent-5', name: 'Sony Alpha a7S III Mirrorless Camera', brand: 'Sony', model: 'a7S III', category: 'still-hybrid', price: 40, rating: 4.7, reviews: 74, image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400', ownerName: 'Carson Zhu', instantBook: true },
+  { id: 'rent-1', name: 'Sony FX3 Full-Frame Cinema Camera', brand: 'Sony', model: 'FX3', category: 'cinema-cameras', price: 50, rating: 4.8, reviews: 92, image: 'https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=400', ownerName: 'Sum of Parts LLC', instantBook: true, addOns: [{ name: 'Sony CFexpress 80GB Type-A Card', price: 10 }, { name: 'Sachtler Flowtech 75 Tripod System', price: 25 }] },
+  { id: 'rent-2', name: 'Sony FX6 Full-Frame Cinema Camera', brand: 'Sony', model: 'FX6', category: 'cinema-cameras', price: 75, rating: 4.9, reviews: 120, image: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=400', ownerName: 'Bogdan Rental', instantBook: true, addOns: [{ name: 'Sony 160GB CFexpress Card Type-A', price: 15 }, { name: 'E-Image 2-Stage Carbon Fiber Tripod', price: 20 }] },
+  { id: 'rent-3', name: 'Zeiss Super Speed Prime Lens Set 35/50/85', brand: 'Zeiss', model: 'Super Speed', category: 'cinema-lenses', price: 150, rating: 5.0, reviews: 11, image: 'https://images.unsplash.com/photo-1617005082133-5c8cdd97eadd?auto=format&fit=crop&q=80&w=400', ownerName: 'NirvanaMedia', instantBook: false, addOns: [{ name: 'Tiffen 77mm Variable ND Filter Set', price: 8 }] },
+  { id: 'rent-4', name: 'ARRI Alexa Mini LF Package + Wireless Video', brand: 'ARRI', model: 'Alexa Mini LF', category: 'cinema-cameras', price: 250, rating: 4.9, reviews: 45, image: 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?auto=format&fit=crop&q=80&w=400', ownerName: 'Brentwood Sizzle', instantBook: true, addOns: [{ name: 'Teradek Bolt 4K LT 750 Receiver Module', price: 40 }] },
+  { id: 'rent-5', name: 'Sony Alpha a7S III Mirrorless Camera', brand: 'Sony', model: 'a7S III', category: 'still-hybrid', price: 40, rating: 4.7, reviews: 74, image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400', ownerName: 'Carson Zhu', instantBook: true, addOns: [{ name: 'Atomos Ninja V 5" Touchscreen Monitor', price: 12 }, { name: 'Zhiyun Crane 3S Handheld Stabilizer Gimbal', price: 18 }] },
   { id: 'rent-6', name: 'Cooke SP3 Full Frame cinema prime Lens', brand: 'Cooke', model: 'SP3', category: 'cinema-lenses', price: 245, rating: 4.9, reviews: 8, image: 'https://images.unsplash.com/photo-1617005082133-5c8cdd97eadd?auto=format&fit=crop&q=80&w=400', ownerName: 'Bogdan Rental', instantBook: false },
 ];
 
@@ -128,12 +136,73 @@ interface MarketplaceProps {
 }
 
 export default function Marketplace({ user, adminSettings }: MarketplaceProps = {}) {
+  const navigate = useNavigate();
   const [currentMode, setCurrentMode] = useState<'rent' | 'buy'>('rent');
   const [searchQuery, setSearchQuery] = useState('');
+  const [userListings, setUserListings] = useState<any[]>([]);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'packingLists'),
+      where('marketplaceEnabled', '==', true)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const dbListings = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name || 'Untitled List',
+          brand: data.brand || 'Custom Bundle',
+          model: data.model || 'Kit',
+          category: data.category || 'cinema-cameras',
+          price: Number(data.marketplacePrice || 0),
+          originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
+          rating: 5.0,
+          reviews: 1,
+          image: data.image || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
+          ownerName: data.ownerEmail ? data.ownerEmail.split('@')[0] : 'Owner',
+          ownerRating: 5.0,
+          instantBook: true,
+          isUserListing: true,
+          isSale: data.transactionType === 'sale',
+          featured: data.featured || false,
+          sponsored: data.sponsored || false,
+          adHeadline: data.adHeadline || '',
+          moderationStatus: data.moderationStatus || 'approved',
+          description: data.marketplaceDetails || data.description || '',
+          securityDeposit: data.securityDeposit || 0,
+        };
+      }).filter(item => item.moderationStatus !== 'suspended');
+      setUserListings(dbListings);
+    }, (error) => {
+      console.error("Marketplace: Error loading custom listings:", error);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const launchCountry = adminSettings?.marketplaceRegionConfig?.launchCountry || 'Fiji';
   const availableCountries = adminSettings?.marketplaceRegionConfig?.availableCountries || ['Fiji', 'United States', 'Australia', 'New Zealand', 'United Kingdom', 'Canada'];
   const restrictToAvailableCountries = adminSettings?.marketplaceRegionConfig?.restrictToAvailableCountries || false;
+
+  const landingConfig = adminSettings?.marketplaceLandingPageConfig || {};
+  const heroTitle = landingConfig.heroTitle || 'The largest, most trusted camera sharing community';
+  const heroSubtitle = landingConfig.heroSubtitle || 'Packer verified marketplace';
+  const heroDescription = landingConfig.heroDescription || 'Professional visual equipment hire & purchase marketplace. Connecting production crews on Viti Levu and beyond.';
+  const showPromotions = landingConfig.showPromotions !== false;
+  const bannerATitle = landingConfig.bannerATitle || 'Packer Insights';
+  const bannerASubtitle = landingConfig.bannerASubtitle || 'Get the latest data on which products rented & sold best across major organizations.';
+  const bannerAButtonText = landingConfig.bannerAButtonText || 'View Report';
+  const bannerAImage = landingConfig.bannerAImage || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400';
+  const bannerBTitle = landingConfig.bannerBTitle || 'Exclusive Student Discounts';
+  const bannerBSubtitle = landingConfig.bannerBSubtitle || 'Are you enrolled in film academy? Enjoy up to a 20% discount as a verified student operator.';
+  const bannerBButtonText = landingConfig.bannerBButtonText || 'Claim Now';
+  const bannerBImage = landingConfig.bannerBImage || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=300';
+  const showStaffPicks = landingConfig.showStaffPicks !== false;
+  const showCategories = landingConfig.showCategories !== false;
+  const showGuarantees = landingConfig.showGuarantees !== false;
+  const requiresEduVerification = landingConfig.requiresEduVerification !== false;
+  const partnerLogosText = landingConfig.partnerLogosText || 'Members of Packer Network';
+  const partnerLogosList = landingConfig.partnerLogosList || ['facebook', 'amazon studios', 'HBO', 'Disney'];
 
   const activeCountry = user?.country || launchCountry || 'Fiji';
   const isFiji = activeCountry === 'Fiji';
@@ -279,6 +348,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   // Custom interactive flow state
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [bookingDays, setBookingDays] = useState(3);
+  const [selectedAddOns, setSelectedAddOns] = useState<Set<number>>(new Set());
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [crewMessageText, setCrewMessageText] = useState('');
   
@@ -291,6 +361,12 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  useEffect(() => {
+    if (!isBookingModalOpen) {
+      setSelectedAddOns(new Set());
+    }
+  }, [isBookingModalOpen]);
 
   const toggleFavorite = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -322,16 +398,35 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   };
 
   // Filtering lists based on global searches and chips
-  const allRentals = [...mappedPopularProducts, ...mappedShippedProducts, ...mappedStaffPicks];
-  const allSales = mappedSalesProducts;
+  const allRentals = [
+    ...userListings.filter(l => !l.isSale),
+    ...mappedPopularProducts,
+    ...mappedShippedProducts,
+    ...mappedStaffPicks
+  ];
+  const allSales = [
+    ...userListings.filter(l => l.isSale),
+    ...mappedSalesProducts
+  ];
 
-  const filteredProducts = (currentMode === 'rent' ? allRentals : allSales).filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          item.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          item.model.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredProducts = (currentMode === 'rent' ? allRentals : allSales)
+    .filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            item.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            item.model.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a: any, b: any) => {
+      // Prioritize Sponsored Ads first, then Featured items, then custom priority sorting
+      if (a.sponsored && !b.sponsored) return -1;
+      if (!a.sponsored && b.sponsored) return 1;
+      if (a.featured && !b.featured) return -1;
+      if (!a.featured && b.featured) return 1;
+      const weightA = a.featuredPriority || 0;
+      const weightB = b.featuredPriority || 0;
+      return weightB - weightA;
+    });
 
   return (
     <div id="marketplace-landing-root" className="min-h-screen bg-white text-neutral-900 pb-20 font-sans selection:bg-neutral-900 selection:text-white">
@@ -366,10 +461,10 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
         {/* Brand Header */}
         <div className="max-w-7xl mx-auto flex items-center justify-between pointer-events-auto absolute top-6 left-6 right-6 z-10">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center font-black text-white text-base shadow-lg">
-              S
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-black text-white text-base shadow-lg">
+              P
             </div>
-            <span className="font-bold uppercase tracking-wider text-sm">ShareGrid Packer</span>
+            <span className="font-bold uppercase tracking-wider text-sm">Packer Marketplace</span>
           </div>
           <div className="flex items-center gap-4 text-xs font-semibold">
             <span className="text-neutral-300">New around here?</span>
@@ -383,18 +478,20 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
         </div>
 
         {/* Content */}
-        <div className="max-w-4xl mx-auto mt-6 space-y-8 relative z-10">
+        <div className="max-w-4xl mx-auto mt-6 space-y-6 relative z-10">
           <div className="space-y-4">
              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest text-[#ff4f3a]">
                <Flame size={12} className="animate-pulse" />
-               <span>Packer verified marketplace</span>
+               <span>{heroSubtitle}</span>
              </div>
-             <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-               The largest, most trusted <br />
-               <span className="bg-gradient-to-r from-amber-300 via-rose-300 to-purple-300 bg-clip-text text-transparent">
-                 camera sharing community
-               </span>
+             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
+               {heroTitle}
              </h1>
+             {heroDescription && (
+               <p className="text-sm md:text-base text-neutral-300 font-semibold max-w-2xl mx-auto leading-relaxed uppercase tracking-wide">
+                 {heroDescription}
+               </p>
+             )}
           </div>
 
           {/* Mode Switcher Rent vs Buy */}
@@ -467,12 +564,11 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
           {/* Members section logos displaying high quality partners */}
           <div className="pt-6 space-y-3.5 opacity-60">
-            <p className="text-[10px] font-black tracking-widest text-neutral-400 uppercase">Members of ShareGrid Pack</p>
+            <p className="text-[10px] font-black tracking-widest text-neutral-400 uppercase">{partnerLogosText}</p>
             <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4 text-xs font-black tracking-wider text-neutral-300">
-              <span className="hover:text-white transition cursor-default">facebook</span>
-              <span className="hover:text-white transition cursor-default">amazon studios</span>
-              <span className="hover:text-white transition cursor-default">HBO</span>
-              <span className="hover:text-white transition cursor-default">Disney</span>
+              {partnerLogosList.map((logo, index) => (
+                <span key={index} className="hover:text-white transition cursor-default uppercase">{logo}</span>
+              ))}
             </div>
           </div>
 
@@ -639,7 +735,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       {/* 2. EXPLORE LAYOUT PANEL (Rentals, Buy-Sell, Gigs, Locations - MATCHING SCREENSHOT 1) */}
       <div id="explore-cards-section" className="max-w-7xl mx-auto px-6 md:px-12 py-12 space-y-6">
         <div>
-          <h2 className="text-xl font-extrabold tracking-tight text-neutral-900 uppercase">Explore ShareGrid Packer</h2>
+          <h2 className="text-xl font-extrabold tracking-tight text-neutral-900 uppercase">Explore Packer Marketplace</h2>
           <p className="text-xs text-neutral-400 font-semibold uppercase mt-1 tracking-wider">On-demand production components & services</p>
         </div>
 
@@ -726,146 +822,156 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
 
       {/* 3. DUAL ADVERTISING PROMOTION BANNERS (INSIGHTS AND STUDENT DISCOUNTS - MATCHING SCREENSHOT 1) */}
-      <div id="marketplace-promotions" className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          {/* Banner A: ShareGrid Insights */}
-          <div className="bg-[#101524] text-white rounded-[2rem] overflow-hidden p-8 flex flex-col md:flex-row justify-between items-center gap-6 border border-neutral-850 shadow-xl relative">
-            <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-sky-500/10 blur-[60px] pointer-events-none" />
-            <div className="space-y-4 max-w-sm">
-              <span className="inline-block bg-[#ff4f3a] text-white font-extrabold text-[8px] uppercase tracking-widest px-3 py-1 rounded-full">
-                ★ NEW FOR 2026
-              </span>
-              <h3 className="text-3xl font-black uppercase tracking-tight leading-tight">
-                ShareGrid <br /> Insights
-              </h3>
-              <p className="text-neutral-400 text-xs font-medium leading-relaxed uppercase">
-                Get the latest data on which products rented & sold best across major organizations.
-              </p>
-              <button 
-                onClick={() => toast.success("Pricing indexes report compiled. Sent to registered email!")}
-                className="bg-white hover:bg-neutral-100 text-neutral-900 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition transform active:scale-95 text-center block md:inline-block"
-              >
-                View Report
-              </button>
-            </div>
+      {showPromotions && (
+        <div id="marketplace-promotions" className="max-w-7xl mx-auto px-6 md:px-12 py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
-            {/* Camera visual object */}
-            <div className="w-48 h-40 relative rounded-2xl overflow-hidden shadow-2xl bg-neutral-900 border border-white/5">
-              <img 
-                src="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400" 
-                alt="Sony FX3 Camera Block" 
-                className="w-full h-full object-cover object-center grayscale hover:grayscale-0 transition duration-500"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-          </div>
-
-          {/* Banner B: Student Discounts */}
-          <div className="bg-[#1a1b35] text-white rounded-[2rem] overflow-hidden p-8 flex flex-col md:flex-row justify-between items-center gap-6 border border-neutral-850 shadow-xl relative">
-            <div className="absolute bottom-0 left-0 w-[150px] h-[150px] bg-indigo-500/10 blur-[60px] pointer-events-none" />
-            <div className="space-y-4 max-w-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-black">∞</div>
-                <span className="font-extrabold text-[9px] uppercase tracking-widest text-[#ff4f3a]">EXCLUSIVE STUDENT PARTNERS</span>
+            {/* Banner A */}
+            <div className="bg-[#101524] text-white rounded-[2rem] overflow-hidden p-8 flex flex-col md:flex-row justify-between items-center gap-6 border border-neutral-850 shadow-xl relative">
+              <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-sky-500/10 blur-[60px] pointer-events-none" />
+              <div className="space-y-4 max-w-sm">
+                <span className="inline-block bg-[#ff4f3a] text-white font-extrabold text-[8px] uppercase tracking-widest px-3 py-1 rounded-full">
+                  ★ NEW FOR 2026
+                </span>
+                <h3 className="text-3xl font-black uppercase tracking-tight leading-tight">
+                  {bannerATitle}
+                </h3>
+                <p className="text-neutral-400 text-xs font-medium leading-relaxed uppercase">
+                  {bannerASubtitle}
+                </p>
+                <button 
+                  onClick={() => toast.success("Feature action simulated inside this sandbox!")}
+                  className="bg-white hover:bg-neutral-100 text-neutral-900 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition transform active:scale-95 text-center block md:inline-block"
+                >
+                  {bannerAButtonText}
+                </button>
               </div>
-              <h3 className="text-2xl font-black uppercase tracking-tight leading-tight">
-                Exclusive <span className="text-indigo-300">Student</span> <br /> Discounts
-              </h3>
-              <p className="text-neutral-400 text-xs font-medium leading-relaxed uppercase">
-                Are you enrolled in film academy? Enjoy up to a 20% discount as a verified student operator.
-              </p>
-              <button 
-                onClick={() => toast.success("Student verification dialog opened. Authorize via .edu handle.")}
-                className="bg-[#ff4f3a] hover:bg-[#e43f2a] text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition transform active:scale-95 text-center block md:inline-block"
-              >
-                Claim Now
-              </button>
+              
+              {/* Image visual object */}
+              {bannerAImage && (
+                <div className="w-48 h-40 relative rounded-2xl overflow-hidden shadow-2xl bg-neutral-900 border border-white/5">
+                  <img 
+                    src={bannerAImage} 
+                    alt="Promo Banner object" 
+                    className="w-full h-full object-cover object-center grayscale hover:grayscale-0 transition duration-500"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              )}
             </div>
 
-            {/* Student Portrait photo visual */}
-            <div className="w-48 h-40 relative rounded-2xl overflow-hidden shadow-2xl bg-neutral-900 border border-white/5">
-              <img 
-                src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=300" 
-                alt="Student Operator Portrait" 
-                className="w-full h-full object-cover object-center transform hover:scale-105 transition duration-500"
-                referrerPolicy="no-referrer"
-              />
+            {/* Banner B */}
+            <div className="bg-[#1a1b35] text-white rounded-[2rem] overflow-hidden p-8 flex flex-col md:flex-row justify-between items-center gap-6 border border-neutral-850 shadow-xl relative">
+              <div className="absolute bottom-0 left-0 w-[150px] h-[150px] bg-indigo-500/10 blur-[60px] pointer-events-none" />
+              <div className="space-y-4 max-w-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-black">∞</div>
+                  <span className="font-extrabold text-[9px] uppercase tracking-widest text-[#ff4f3a]">
+                    {requiresEduVerification ? "Verification Active" : "Special Rate Offer"}
+                  </span>
+                </div>
+                <h3 className="text-2xl font-black uppercase tracking-tight leading-tight">
+                  {bannerBTitle}
+                </h3>
+                <p className="text-neutral-400 text-xs font-medium leading-relaxed uppercase">
+                  {bannerBSubtitle}
+                </p>
+                <button 
+                  onClick={() => toast.success("Verification dialog activated in user workspace.")}
+                  className="bg-[#ff4f3a] hover:bg-[#e43f2a] text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition transform active:scale-95 text-center block md:inline-block"
+                >
+                  {bannerBButtonText}
+                </button>
+              </div>
+
+              {/* Image visual object */}
+              {bannerBImage && (
+                <div className="w-48 h-40 relative rounded-2xl overflow-hidden shadow-2xl bg-neutral-900 border border-white/5">
+                  <img 
+                    src={bannerBImage} 
+                    alt="Promo Banner Operator" 
+                    className="w-full h-full object-cover object-center transform hover:scale-105 transition duration-500"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              )}
             </div>
+
           </div>
-
         </div>
-      </div>
+      )}
 
 
       {/* 4. DESIGN BROWSE CATEGORIES CAROUSEL (MATCHING SCREENSHOT 3) */}
-      <div id="marketplace-categories-section" className="max-w-7xl mx-auto px-6 md:px-12 py-10 space-y-6">
-        <div className="flex items-end justify-between border-b border-neutral-100 pb-4">
-          <div>
-            <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight">Browse Categories</h2>
-            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">Near {locationQuery}</p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setSelectedCategory(null);
-                toast.success("Filters reset: showing all categories.");
-              }}
-              className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 hover:text-black transition"
-            >
-              View All Categories
-            </button>
-            <div className="flex gap-1">
-              <button 
-                onClick={() => toast.info("Hold & drag to scroll categories horizontally.")}
-                className="w-7 h-7 bg-neutral-50 hover:bg-neutral-100 rounded-full flex items-center justify-center border border-neutral-200 text-neutral-600 transition"
+      {showCategories && (
+        <div id="marketplace-categories-section" className="max-w-7xl mx-auto px-6 md:px-12 py-10 space-y-6">
+          <div className="flex items-end justify-between border-b border-neutral-100 pb-4">
+            <div>
+              <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight">Browse Categories</h2>
+              <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">Near {locationQuery}</p>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setSelectedCategory(null);
+                  toast.success("Filters reset: showing all categories.");
+                }}
+                className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 hover:text-black transition"
               >
-                <ChevronLeft size={14} />
+                View All Categories
               </button>
-              <button 
-                onClick={() => toast.info("Swipe panels to review more items.")}
-                className="w-7 h-7 bg-neutral-50 hover:bg-neutral-100 rounded-full flex items-center justify-center border border-neutral-200 text-neutral-600 transition"
-              >
-                <ChevronRight size={14} />
-              </button>
+              <div className="flex gap-1">
+                <button 
+                  onClick={() => toast.info("Hold & drag to scroll categories horizontally.")}
+                  className="w-7 h-7 bg-neutral-50 hover:bg-neutral-100 rounded-full flex items-center justify-center border border-neutral-200 text-neutral-600 transition"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <button 
+                  onClick={() => toast.info("Swipe panels to review more items.")}
+                  className="w-7 h-7 bg-neutral-50 hover:bg-neutral-100 rounded-full flex items-center justify-center border border-neutral-200 text-neutral-600 transition"
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Categories grid horizontal layout */}
-        <div className="flex overflow-x-auto gap-4 py-2 pr-4 scrollbar-hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          {CATEGORIES.map((cat) => {
-            const isSelected = selectedCategory === cat.id;
-            return (
-              <div 
-                key={cat.id}
-                onClick={() => {
-                  setSelectedCategory(isSelected ? null : cat.id);
-                  toast.success(isSelected ? "Cleared category filter" : `Showing ${cat.name} only`);
-                }}
-                className={`flex-none w-[170px] bg-neutral-50 hover:bg-white cursor-pointer rounded-2xl p-3 border hover:border-neutral-300 hover:shadow-md transition duration-200 space-y-3 shrink-0 ${isSelected ? 'border-[#ff4f3a] bg-rose-50/10' : 'border-neutral-100'}`}
-              >
-                {/* Category block thumb */}
-                <div className="w-full h-24 overflow-hidden rounded-xl bg-neutral-100 relative">
-                  <img 
-                    src={cat.image} 
-                    alt={cat.name} 
-                    className="w-full h-full object-cover transform hover:scale-110 transition duration-300"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute bottom-1.5 right-1.5 bg-neutral-900/80 text-white font-mono text-[7.5px] font-bold uppercase tracking-widest px-2 py-0.5 rounded">
-                    {cat.count.toLocaleString()} Listings
+          {/* Categories grid horizontal layout */}
+          <div className="flex overflow-x-auto gap-4 py-2 pr-4 scrollbar-hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {CATEGORIES.map((cat) => {
+              const isSelected = selectedCategory === cat.id;
+              return (
+                <div 
+                  key={cat.id}
+                  onClick={() => {
+                    setSelectedCategory(isSelected ? null : cat.id);
+                    toast.success(isSelected ? "Cleared category filter" : `Showing ${cat.name} only`);
+                  }}
+                  className={`flex-none w-[170px] bg-neutral-50 hover:bg-white cursor-pointer rounded-2xl p-3 border hover:border-neutral-300 hover:shadow-md transition duration-200 space-y-3 shrink-0 ${isSelected ? 'border-[#ff4f3a] bg-rose-50/10' : 'border-neutral-100'}`}
+                >
+                  {/* Category block thumb */}
+                  <div className="w-full h-24 overflow-hidden rounded-xl bg-neutral-100 relative">
+                    <img 
+                      src={cat.image} 
+                      alt={cat.name} 
+                      className="w-full h-full object-cover transform hover:scale-110 transition duration-300"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute bottom-1.5 right-1.5 bg-neutral-900/80 text-white font-mono text-[7.5px] font-bold uppercase tracking-widest px-2 py-0.5 rounded">
+                      {cat.count.toLocaleString()} Listings
+                    </div>
+                  </div>
+                  <div className="space-y-0.5 px-0.5">
+                    <p className="text-[10px] font-black uppercase text-neutral-800 line-clamp-1 truncate">{cat.name}</p>
                   </div>
                 </div>
-                <div className="space-y-0.5 px-0.5">
-                  <p className="text-[10px] font-black uppercase text-neutral-800 line-clamp-1 truncate">{cat.name}</p>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
 
       {/* 5. INTERACTIVE PRODUCTS DISPLAY PANELS FOR SELECTION (RENTALS, SHIPPING & BUY COMPILATIONS) */}
@@ -938,10 +1044,17 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                   <div 
                     key={product.id}
                     onClick={() => {
-                      setSelectedProduct(product);
-                      setIsBookingModalOpen(true);
+                      if (product.isUserListing) {
+                        navigate('/marketplace/' + product.id);
+                      } else {
+                        setSelectedProduct(product);
+                        setIsBookingModalOpen(true);
+                      }
                     }}
-                    className="group cursor-pointer bg-white rounded-2xl border border-neutral-100 overflow-hidden hover:border-neutral-300 hover:shadow-xl transition duration-200 flex flex-col justify-between"
+                    className={`group cursor-pointer bg-white rounded-2xl overflow-hidden hover:shadow-xl transition duration-300 flex flex-col justify-between ${
+                      product.sponsored ? 'border-2 border-indigo-600/30 bg-indigo-50/5' :
+                      product.featured ? 'border-2 border-amber-500/30' : 'border border-neutral-100'
+                    }`}
                   >
                     {/* Item Image with favorite trigger */}
                     <div className="h-44 w-full bg-neutral-50 relative overflow-hidden shrink-0">
@@ -954,17 +1067,24 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                       
                       {/* Top elements */}
                       <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
-                        {product.instantBook && (
-                          <span className="bg-emerald-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wide shadow-sm">
-                            Instant Book
+                        {product.sponsored ? (
+                          <span className="bg-indigo-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wide shadow-sm flex items-center gap-1">
+                            <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                            Sponsored Ad
                           </span>
-                        )}
-                        {product.isSale && (
+                        ) : product.featured ? (
+                          <span className="bg-amber-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wide shadow-sm">
+                            ★ Staff Pick
+                          </span>
+                        ) : product.isSale ? (
                           <span className="bg-[#ff4f3a] text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wide shadow-sm">
                             For Sale
                           </span>
-                        )}
-                        {!product.instantBook && !product.isSale && (
+                        ) : product.instantBook ? (
+                          <span className="bg-emerald-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wide shadow-sm">
+                            Instant Book
+                          </span>
+                        ) : (
                           <span className="bg-neutral-900/60 text-white text-[7.5px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide backdrop-blur-md">
                             Daily Rent
                           </span>
@@ -995,6 +1115,11 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                         <h4 className="text-[10.5px] font-black uppercase text-neutral-800 line-clamp-2 leading-snug group-hover:text-black" title={product.name}>
                           {product.name}
                         </h4>
+                        {product.sponsored && product.adHeadline && (
+                          <div className="mt-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-lg text-[8px] font-extrabold text-indigo-700 select-none leading-normal">
+                            📢 {product.adHeadline}
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -1206,135 +1331,139 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
 
       {/* 7. STAFF RENTAL PICKS (MATCHING SCREENSHOT 5) */}
-      <div id="staff-picks-section" className="max-w-7xl mx-auto px-6 md:px-12 py-16 space-y-8">
-        <div>
-          <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight">Staff Rental Picks</h2>
-          <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider mt-1">Handpicked rigs verified for compatibility and output quality near {locationQuery}</p>
-        </div>
+      {showStaffPicks && (
+        <div id="staff-picks-section" className="max-w-7xl mx-auto px-6 md:px-12 py-16 space-y-8">
+          <div>
+            <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight">Staff Rental Picks</h2>
+            <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider mt-1">Handpicked rigs verified for compatibility and output quality near {locationQuery}</p>
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {mappedStaffPicks.map((product) => {
-            const isFav = favoriteItems.has(product.id);
-            return (
-              <div 
-                key={product.id}
-                onClick={() => {
-                  setSelectedProduct(product);
-                  setIsBookingModalOpen(true);
-                }}
-                className="group cursor-pointer bg-white rounded-3xl border border-neutral-105 overflow-hidden hover:shadow-2xl transition duration-200 flex flex-col justify-between shadow-xs"
-              >
-                <div className="h-44 w-full bg-neutral-50 relative overflow-hidden shrink-0">
-                  <img 
-                    src={product.image} 
-                    alt={product.name} 
-                    className="w-full h-full object-cover object-center transform group-hover:scale-105 transition duration-550"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                    <span className="bg-[#ff4f3a] text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wider shadow">
-                      ★ STAFF PICK
-                    </span>
-                    <button
-                      onClick={(e) => toggleFavorite(product.id, e)}
-                      className="w-7 h-7 bg-white/95 rounded-full flex items-center justify-center text-neutral-500 hover:text-red-500"
-                    >
-                      <Heart size={14} className={isFav ? 'fill-red-500 text-red-500' : ''} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-5 space-y-3.5 flex-1 flex flex-col justify-between">
-                  <div className="space-y-1">
-                    <p className="text-[8.5px] font-mono text-neutral-400 uppercase tracking-widest">{product.brand}</p>
-                    <h4 className="text-[10.5px] font-black uppercase text-neutral-800 line-clamp-2 leading-relaxed" title={product.name}>
-                      {product.name}
-                    </h4>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
-                    <div>
-                      <span className="text-sm font-black text-[#ff4f3a]">{currencySymbol}{product.price}</span>
-                      <span className="text-[8.5px] text-neutral-400 font-semibold uppercase">/day</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {mappedStaffPicks.map((product) => {
+              const isFav = favoriteItems.has(product.id);
+              return (
+                <div 
+                  key={product.id}
+                  onClick={() => {
+                    setSelectedProduct(product);
+                    setIsBookingModalOpen(true);
+                  }}
+                  className="group cursor-pointer bg-white rounded-3xl border border-neutral-105 overflow-hidden hover:shadow-2xl transition duration-200 flex flex-col justify-between shadow-xs"
+                >
+                  <div className="h-44 w-full bg-neutral-50 relative overflow-hidden shrink-0">
+                    <img 
+                      src={product.image} 
+                      alt={product.name} 
+                      className="w-full h-full object-cover object-center transform group-hover:scale-105 transition duration-550"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                      <span className="bg-[#ff4f3a] text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wider shadow">
+                        ★ STAFF PICK
+                      </span>
+                      <button
+                        onClick={(e) => toggleFavorite(product.id, e)}
+                        className="w-7 h-7 bg-white/95 rounded-full flex items-center justify-center text-neutral-500 hover:text-red-500"
+                      >
+                        <Heart size={14} className={isFav ? 'fill-red-500 text-red-500' : ''} />
+                      </button>
                     </div>
-                    <span className="text-[8.5px] text-neutral-400 font-black uppercase tracking-wider">
-                      ⚡ INSTANT BOOK
-                    </span>
+                  </div>
+
+                  <div className="p-5 space-y-3.5 flex-1 flex flex-col justify-between">
+                    <div className="space-y-1">
+                      <p className="text-[8.5px] font-mono text-neutral-400 uppercase tracking-widest">{product.brand}</p>
+                      <h4 className="text-[10.5px] font-black uppercase text-neutral-800 line-clamp-2 leading-relaxed" title={product.name}>
+                        {product.name}
+                      </h4>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+                      <div>
+                        <span className="text-sm font-black text-[#ff4f3a]">{currencySymbol}{product.price}</span>
+                        <span className="text-[8.5px] text-neutral-400 font-semibold uppercase">/day</span>
+                      </div>
+                      <span className="text-[8.5px] text-neutral-400 font-black uppercase tracking-wider">
+                        ⚡ INSTANT BOOK
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
 
       {/* 8. LIST YOUR GEAR PANEL CTA (MATCHING SCREENSHOT 5) */}
-      <div id="list-your-gear-banner" className="max-w-7xl mx-auto px-6 md:px-12 py-10">
-        <div className="bg-neutral-50 rounded-[3rem] p-10 md:p-14 text-center border border-neutral-150 space-y-8 max-w-5xl mx-auto shadow-xl relative overflow-hidden">
-          {/* Top circle aesthetic decoration */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-rose-500/5 blur-[50px] rounded-full pointer-events-none" />
+      {showGuarantees && (
+        <div id="list-your-gear-banner" className="max-w-7xl mx-auto px-6 md:px-12 py-10">
+          <div className="bg-neutral-50 rounded-[3rem] p-10 md:p-14 text-center border border-neutral-150 space-y-8 max-w-5xl mx-auto shadow-xl relative overflow-hidden">
+            {/* Top circle aesthetic decoration */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-rose-500/5 blur-[50px] rounded-full pointer-events-none" />
 
-          <div className="space-y-4">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-neutral-900 tracking-tight uppercase">
-              Rent or Sell your Camera Gear
-            </h2>
-            <p className="text-neutral-550 text-xs font-semibold leading-relaxed max-w-2xl mx-auto uppercase tracking-wider text-neutral-400">
-              Join thousands of gear owners who have listed over <span className="font-extrabold text-neutral-900">$1 billion</span> worth of professional gear catalogued.
-            </p>
-          </div>
-
-          {/* Core values block columns */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left border-y border-neutral-200/60 py-10">
-            {/* Sub column 1 */}
-            <div className="space-y-2">
-              <div className="w-10 h-10 bg-rose-50 text-[#ff4f3a] rounded-xl flex items-center justify-center">
-                <DollarSign size={18} />
-              </div>
-              <h4 className="text-[11px] font-black uppercase text-neutral-800 tracking-wider">Earn money renting your gear</h4>
-              <p className="text-[10px] text-neutral-400 leading-relaxed font-semibold uppercase">
-                Put your gear to work while you aren\'t using it. Meet local creatives and make extra cash renting your scope to them. Soon, your gear will pay for itself!
+            <div className="space-y-4">
+              <h2 className="text-3xl md:text-4xl font-extrabold text-neutral-900 tracking-tight uppercase">
+                Rent or Sell your Camera Gear
+              </h2>
+              <p className="text-neutral-550 text-xs font-semibold leading-relaxed max-w-2xl mx-auto uppercase tracking-wider text-neutral-400">
+                Join thousands of gear owners who have listed over <span className="font-extrabold text-neutral-900">$1 billion</span> worth of professional gear catalogued.
               </p>
             </div>
 
-            {/* Sub column 2 */}
-            <div className="space-y-2">
-              <div className="w-10 h-10 bg-orange-50 text-orange-500 rounded-xl flex items-center justify-center">
-                <ShoppingBag size={18} />
+            {/* Core values block columns */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left border-y border-neutral-200/60 py-10">
+              {/* Sub column 1 */}
+              <div className="space-y-2">
+                <div className="w-10 h-10 bg-rose-50 text-[#ff4f3a] rounded-xl flex items-center justify-center">
+                  <DollarSign size={18} />
+                </div>
+                <h4 className="text-[11px] font-black uppercase text-neutral-800 tracking-wider">Earn money renting your gear</h4>
+                <p className="text-[10px] text-neutral-400 leading-relaxed font-semibold uppercase">
+                  Put your gear to work while you aren\'t using it. Meet local creatives and make extra cash renting your scope to them. Soon, your gear will pay for itself!
+                </p>
               </div>
-              <h4 className="text-[11px] font-black uppercase text-neutral-800 tracking-wider">Sell your gear, keep more of your money</h4>
-              <p className="text-[10px] text-[#ff4f3a] leading-relaxed font-black uppercase">
-                Promote your gear to a vibrant community of filmmakers and photographers nationwide, enjoy significant seller protections, and only pay a 5% fee - with a maximum cap of $500.
-              </p>
-            </div>
 
-            {/* Sub column 3 */}
-            <div className="space-y-2">
-              <div className="w-10 h-10 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center">
-                <CheckCircle2 size={18} />
+              {/* Sub column 2 */}
+              <div className="space-y-2">
+                <div className="w-10 h-10 bg-orange-50 text-orange-500 rounded-xl flex items-center justify-center">
+                  <ShoppingBag size={18} />
+                </div>
+                <h4 className="text-[11px] font-black uppercase text-neutral-800 tracking-wider">Sell your gear, keep more of your money</h4>
+                <p className="text-[10px] text-[#ff4f3a] leading-relaxed font-black uppercase">
+                  Promote your gear to a vibrant community of filmmakers and photographers nationwide, enjoy significant seller protections, and only pay a 5% fee - with a maximum cap of $500.
+                </p>
               </div>
-              <h4 className="text-[11px] font-black uppercase text-neutral-800 tracking-wider">Renter & Seller Guarantees</h4>
-              <p className="text-[10px] text-neutral-400 leading-relaxed font-semibold uppercase">
-                Integrate premium Athos Insurance coverages. ShareGrid offers an extensive selection of coverage options as well as renter and seller guarantees to ensure everyone feels safe and protected.
-              </p>
-            </div>
-          </div>
 
-          <div className="space-y-3.5 pt-4">
-            <button
-              onClick={() => toast.success("Owner gear-onboarding wizard loaded! Ready to add new listing record.")}
-              className="inline-flex bg-[#ff4f3a] hover:bg-[#e43f2a] hover:scale-[1.02] text-white font-black text-xs uppercase tracking-widest px-10 py-4 rounded-xl shadow-xl transition"
-            >
-              List your gear
-            </button>
-            <div className="flex justify-center gap-6 text-[9.5px] font-black uppercase tracking-wider text-neutral-450 text-neutral-500">
-              <span onClick={() => toast.info("Opening informational handbook.")} className="cursor-pointer hover:text-black transition underline">Learn about renting</span>
-              <span onClick={() => toast.info("Listing fee terms: 5% flat fee on finalized sales.")} className="cursor-pointer hover:text-black transition underline">Learn about selling</span>
+              {/* Sub column 3 */}
+              <div className="space-y-2">
+                <div className="w-10 h-10 bg-indigo-50 text-indigo-505 rounded-xl flex items-center justify-center">
+                  <CheckCircle2 size={18} />
+                </div>
+                <h4 className="text-[11px] font-black uppercase text-neutral-800 tracking-wider">Renter & Seller Guarantees</h4>
+                <p className="text-[10px] text-neutral-400 leading-relaxed font-semibold uppercase">
+                  Integrate premium insurance coverages. Packer Tools offers an extensive selection of coverage options as well as renter and seller guarantees to ensure everyone feels safe and protected.
+                </p>
+              </div>
             </div>
-          </div>
 
+            <div className="space-y-3.5 pt-4">
+              <button
+                onClick={() => toast.success("Owner gear-onboarding wizard loaded! Ready to add new listing record.")}
+                className="inline-flex bg-[#ff4f3a] hover:bg-[#e43f2a] hover:scale-[1.02] text-white font-black text-xs uppercase tracking-widest px-10 py-4 rounded-xl shadow-xl transition"
+              >
+                List your gear
+              </button>
+              <div className="flex justify-center gap-6 text-[9.5px] font-black uppercase tracking-wider text-neutral-450 text-neutral-500">
+                <span onClick={() => toast.info("Opening informational handbook.")} className="cursor-pointer hover:text-black transition underline">Learn about renting</span>
+                <span onClick={() => toast.info("Listing fee terms: 5% flat fee on finalized sales.")} className="cursor-pointer hover:text-black transition underline">Learn about selling</span>
+              </div>
+            </div>
+
+          </div>
         </div>
-      </div>
+      )}
 
 
       {/* 9. EXTENSIVE LANDING DIRECTORY FOOTER (MATCHING SCREENSHOT 5) */}
@@ -1406,7 +1535,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
             <h4 className="text-[10px] font-black uppercase tracking-widest text-white">Terms</h4>
             <ul className="space-y-2.5 text-[9.5px] font-semibold uppercase tracking-wider">
               <li><Link to="/terms" className="hover:text-white transition">Terms of Service ›</Link></li>
-              <li><span onClick={() => toast.info("Premium terms of lease")} className="hover:text-white cursor-pointer transition">ShareGrid Plus Terms ›</span></li>
+              <li><span onClick={() => toast.info("Premium terms of lease")} className="hover:text-white cursor-pointer transition">Packer Plus Terms ›</span></li>
               <li><Link to="/privacy" className="hover:text-white transition">Privacy Policy ›</Link></li>
               <li><span onClick={() => toast.info("Standard code of community integrity")} className="hover:text-white cursor-pointer transition">Community Rules ›</span></li>
               <li><span onClick={() => toast.info("Standard trust guidelines")} className="hover:text-white cursor-pointer transition">Trust and Safety ›</span></li>
@@ -1418,7 +1547,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
         {/* Closing details */}
         <div className="max-w-7xl mx-auto px-6 md:px-12 mt-16 pt-8 border-t border-neutral-900 flex flex-col sm:flex-row justify-between items-center gap-4 text-[9px] uppercase tracking-widest font-mono text-neutral-600">
           <div>
-            © 2026 ShareGrid Platforms, LLC or its affiliates. Logos provided by Clearbit.
+            © 2026 Packer Tools Platforms, LLC or its affiliates. Logos provided by Clearbit.
           </div>
           <div>
             Made with ♥ in Seattle
@@ -1485,22 +1614,63 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
               {/* Form Input fields */}
               <form onSubmit={handleBookingSubmit} className="space-y-4">
-                
                 {!selectedProduct.isSale ? (
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Rental duration (Days)</label>
-                    <div className="grid grid-cols-4 gap-2 text-center">
-                      {[1, 3, 7, 14].map((days) => (
-                        <button
-                          key={days}
-                          type="button"
-                          onClick={() => setBookingDays(days)}
-                          className={`py-2 rounded-xl text-xs font-black transition-all ${bookingDays === days ? 'bg-[#ff4f3a] text-white shadow-md' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700'}`}
-                        >
-                          {days} {days === 1 ? 'Day' : 'Days'}
-                        </button>
-                      ))}
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Rental duration (Days)</label>
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        {[1, 3, 7, 14].map((days) => (
+                          <button
+                            key={days}
+                            type="button"
+                            onClick={() => setBookingDays(days)}
+                            className={`py-2 rounded-xl text-xs font-black transition-all ${bookingDays === days ? 'bg-[#ff4f3a] text-white shadow-md' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700'}`}
+                          >
+                            {days} {days === 1 ? 'Day' : 'Days'}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+
+                    {/* Optional Rental Add-ons Checklist */}
+                    {selectedProduct.addOns && selectedProduct.addOns.length > 0 && (
+                      <div className="space-y-2 border-t border-neutral-100 pt-3 text-left">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-[#ff4f3a]">Optional Rental Add-Ons</label>
+                        <p className="text-[10px] text-neutral-400 leading-normal">Rent these bundled accessories at heavily promotional rates:</p>
+                        <div className="border border-neutral-100 rounded-2xl divide-y divide-neutral-100 overflow-hidden bg-neutral-50/50">
+                          {selectedProduct.addOns.map((add, idx) => {
+                            const isSelected = selectedAddOns.has(idx);
+                            return (
+                              <label key={idx} className="flex items-center justify-between p-2.5 hover:bg-neutral-50 cursor-pointer select-none transition">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {
+                                      const updated = new Set(selectedAddOns);
+                                      if (isSelected) {
+                                        updated.delete(idx);
+                                      } else {
+                                        updated.add(idx);
+                                      }
+                                      setSelectedAddOns(updated);
+                                    }}
+                                    className="h-4 w-4 text-[#ff4f3a] border-neutral-300 rounded focus:ring-0 cursor-pointer"
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-[11px] text-neutral-800">{add.name}</span>
+                                    <span className="text-[9px] text-[#ff4f3a]/80 font-bold uppercase tracking-wide">Bundle Offer Acc.</span>
+                                  </div>
+                                </div>
+                                <span className="font-extrabold text-xs text-emerald-600">
+                                  {add.price === 0 ? 'FREE' : `+ ${currencySymbol}${add.price}/day`}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="bg-rose-50/50 p-4 border border-rose-100/50 rounded-2xl text-[10px] text-neutral-500 leading-relaxed">
@@ -1518,7 +1688,16 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                     <span className="font-black text-neutral-900">{currencySymbol}{selectedProduct.isSale ? selectedProduct.price.toLocaleString() : (selectedProduct.price * bookingDays).toLocaleString()}</span>
                   </div>
 
-                  <div className="flex justify-between items-center text-xs text-neutral-600 border-b border-neutral-200/60 pb-1.5">
+                  {!selectedProduct.isSale && selectedAddOns.size > 0 && (
+                    <div className="flex justify-between items-center text-xs text-neutral-600">
+                      <span className="font-semibold uppercase text-[9px]">Add-Ons ({selectedAddOns.size} selected)</span>
+                      <span className="font-black text-emerald-600">
+                        + {currencySymbol}{(Array.from(selectedAddOns).reduce((sum, idx) => sum + (selectedProduct.addOns?.[idx]?.price || 0), 0) * bookingDays).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center text-xs text-neutral-600 border-b border-neutral-200/60 pb-1.5 font-sans">
                     <span className="font-semibold uppercase text-[9px]">Damage Waiver Coverage</span>
                     <span className="font-bold text-emerald-600">{currencySymbol}{selectedProduct.isSale ? '0' : isFiji ? '30' : '15'}</span>
                   </div>
@@ -1526,7 +1705,12 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                   <div className="flex justify-between items-center text-xs text-neutral-800 pt-1">
                     <span className="font-black uppercase text-[10px]">Total Quote</span>
                     <span className="font-black text-sm text-[#ff4f3a]">
-                      {currencySymbol}{selectedProduct.isSale ? selectedProduct.price.toLocaleString() : (selectedProduct.price * bookingDays + (isFiji ? 30 : 15)).toLocaleString()}
+                      {currencySymbol}
+                      {selectedProduct.isSale 
+                        ? selectedProduct.price.toLocaleString() 
+                        : (
+                            (selectedProduct.price + Array.from(selectedAddOns).reduce((sum, idx) => sum + (selectedProduct.addOns?.[idx]?.price || 0), 0)) * bookingDays + (isFiji ? 30 : 15)
+                          ).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -1629,7 +1813,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                 <div className="p-4 bg-blue-50/40 rounded-2xl border border-blue-100/50 flex gap-3 text-[10px] text-blue-800 leading-relaxed">
                   <Info size={16} className="shrink-0 mt-0.5 text-blue-600" />
                   <p>
-                    All communication is logged for security protection. ShareGrid Packer guarantees payment safety escrows and visual damage waivers for on-set accidents.
+                    All communication is logged for security protection. Packer Marketplace guarantees payment safety escrows and visual damage waivers for on-set accidents.
                   </p>
                 </div>
 

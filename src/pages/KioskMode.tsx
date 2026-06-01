@@ -42,7 +42,7 @@ interface KioskModeProps {
   adminSettings: AdminSettings | null;
 }
 
-type KioskStep = 'welcome' | 'activate' | 'scan' | 'search' | 'confirm' | 'user_details' | 'sign' | 'complete' | 'case_explorer' | 'case_pack' | 'create_case' | 'review' | 'receipt' | 'order_view';
+type KioskStep = 'welcome' | 'activate' | 'scan' | 'search' | 'confirm' | 'user_details' | 'sign' | 'complete' | 'case_explorer' | 'case_pack' | 'create_case' | 'review' | 'receipt' | 'order_view' | 'configure';
 type KioskAction = 'checkout' | 'checkin' | 'pack' | 'order';
 
 const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings }) => {
@@ -53,6 +53,23 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   const [checkingPlan, setCheckingPlan] = useState<boolean>(false);
   const [step, setStep] = useState<KioskStep>('welcome');
   const [escapeTaps, setEscapeTaps] = useState(0);
+
+  // Active Terminal Source Configuration
+  const [activeSourceType, setActiveSourceType] = useState<'gearLibrary' | 'customInventory'>('gearLibrary');
+  const [terminalInventoryId, setTerminalInventoryId] = useState<string | null>(null);
+  
+  // Database Entities load states
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [teams, setTeams] = useState<any[]>([]);
+  const [inventories, setInventories] = useState<any[]>([]);
+
+  // Setup options selection
+  const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+  const [selectedSourceType, setSelectedSourceType] = useState<'gearLibrary' | 'customInventory'>('gearLibrary');
+  const [selectedInventoryId, setSelectedInventoryId] = useState<string>('');
   
   // Custom states for the interactive Cart/Self-Service Fast-Food Kiosk
   const [cart, setCart] = useState<{ item: GearItem; qty: number }[]>([]);
@@ -135,20 +152,141 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   const sigCanvas = useRef<SignatureCanvas>(null);
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
-  // Initialize terminal or listen to pairing
+  // Synchronically load organizations, departments, teams, custom inventories
   useEffect(() => {
     const targetUid = pairedUid || initialUser?.uid;
     if (!targetUid) return;
 
-    const gearPath = `users/${targetUid}/gearLibrary`;
+    // Load custom inventories
+    const qInvs = query(collection(db, 'inventories'));
+    const unsubInvs = onSnapshot(qInvs, (snap) => {
+      setInventories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => console.warn("Invs load warning:", err));
+
+    // Load organizations
+    const qOrgs = query(collection(db, 'organizations'), where('ownerId', '==', targetUid));
+    const unsubOrgs = onSnapshot(qOrgs, (snap) => {
+      setOrganizations(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => console.warn("Orgs load warning:", err));
+
+    return () => {
+      unsubInvs();
+      unsubOrgs();
+    };
+  }, [pairedUid, initialUser?.uid]);
+
+  // Load departments & teams when selectedOrgId changes
+  useEffect(() => {
+    if (!selectedOrgId) {
+      setDepartments([]);
+      setTeams([]);
+      return;
+    }
+
+    const qDepts = query(collection(db, 'departments'), where('orgId', '==', selectedOrgId));
+    const unsubDepts = onSnapshot(qDepts, (snap) => {
+      setDepartments(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => console.warn("Depts load warning:", err));
+
+    const qTeams = query(collection(db, 'teams'), where('orgId', '==', selectedOrgId));
+    const unsubTeams = onSnapshot(qTeams, (snap) => {
+      setTeams(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => console.warn("Teams load warning:", err));
+
+    return () => {
+      unsubDepts();
+      unsubTeams();
+    };
+  }, [selectedOrgId]);
+
+  // Dynamic real-time gear catalog loading with strict checkout filters
+  // This supports both central gearLibrary and custom lists + filters by org/dept/team + skips sale products
+  useEffect(() => {
+    const targetUid = pairedUid || initialUser?.uid;
+    if (!targetUid) return;
+
+    let unsubscribe = () => {};
+
+    if (activeSourceType === 'gearLibrary') {
+      const gearPath = `users/${targetUid}/gearLibrary`;
+      unsubscribe = onSnapshot(collection(db, 'users', targetUid, 'gearLibrary'), (snapshot) => {
+        let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GearItem));
+        
+        // Kiosk will not process sales or items specifically configured for purchase/sales
+        items = items.filter(item => !item.isSale);
+
+        // Filter by organization context if selected
+        if (selectedOrgId) {
+          items = items.filter(item => item.orgId === selectedOrgId);
+        }
+        // Filter by department context if selected
+        if (selectedDeptId && selectedDeptId !== 'all') {
+          items = items.filter(item => item.deptId === selectedDeptId);
+        }
+        // Filter by team context if selected
+        if (selectedTeamId && selectedTeamId !== 'all') {
+          items = items.filter(item => item.teamId === selectedTeamId);
+        }
+
+        setGear(items);
+      }, (error) => {
+        console.warn("Dynamic gearLibrary load failed:", error);
+      });
+    } else if (activeSourceType === 'customInventory' && terminalInventoryId) {
+      unsubscribe = onSnapshot(collection(db, 'inventories', terminalInventoryId, 'items'), (snapshot) => {
+        let items = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name,
+            brand: data.brand || '',
+            model: data.model || '',
+            category: data.category || 'Gear',
+            assetTag: data.assetTag || data.id || doc.id,
+            status: data.status || 'available',
+            condition: data.condition || 'good',
+            isSale: data.isSale || false,
+            price: data.price || 0,
+            quantity: data.quantity || 1,
+            orgId: data.orgId || '',
+            deptId: data.deptId || '',
+            teamId: data.teamId || ''
+          } as unknown as GearItem;
+        });
+
+        // Kiosk will not process sales or items specifically configured for purchase/sales
+        items = items.filter(item => !item.isSale);
+
+        // Filter by organization context if selected
+        if (selectedOrgId) {
+          items = items.filter(item => !item.orgId || item.orgId === selectedOrgId);
+        }
+        // Filter by department context if selected
+        if (selectedDeptId && selectedDeptId !== 'all') {
+          items = items.filter(item => !item.deptId || item.deptId === selectedDeptId);
+        }
+        // Filter by team context if selected
+        if (selectedTeamId && selectedTeamId !== 'all') {
+          items = items.filter(item => !item.teamId || item.teamId === selectedTeamId);
+        }
+
+        setGear(items);
+      }, (error) => {
+        console.warn("Dynamic customInventory load failed: ", error);
+      });
+    }
+
+    return () => {
+      unsubscribe();
+    };
+  }, [pairedUid, initialUser?.uid, activeSourceType, terminalInventoryId, selectedOrgId, selectedDeptId, selectedTeamId]);
+
+  // Handle container listeners
+  useEffect(() => {
+    const targetUid = pairedUid || initialUser?.uid;
+    if (!targetUid) return;
+
     const containerPath = `users/${targetUid}/containers`;
-
-    const unsubscribeGear = onSnapshot(collection(db, 'users', targetUid, 'gearLibrary'), (snapshot) => {
-      setGear(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GearItem)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, gearPath);
-    });
-
     const unsubscribeContainers = onSnapshot(collection(db, 'users', targetUid, 'containers'), (snapshot) => {
       setContainers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Container)));
     }, (error) => {
@@ -156,7 +294,6 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     });
 
     return () => {
-      unsubscribeGear();
       unsubscribeContainers();
     };
   }, [pairedUid, initialUser]);
@@ -220,7 +357,12 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
             if (data.status === 'active' && data.ownerUid) {
               setPairedUid(data.ownerUid);
               setIsActivated(true);
-              setStep('welcome');
+              const configured = localStorage.getItem('kiosk_configured');
+              if (configured === 'true') {
+                setStep('welcome');
+              } else {
+                setStep('configure');
+              }
             } else {
               setStep('activate');
               setPairingCode(data.pairingCode);
@@ -326,7 +468,12 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       });
       setPairedUid(targetUid);
       setIsActivated(true);
-      setStep('welcome');
+      const configured = localStorage.getItem('kiosk_configured');
+      if (configured === 'true') {
+        setStep('welcome');
+      } else {
+        setStep('configure');
+      }
       toast.success("Terminal paired and fully activated!");
     } catch (err) {
       console.error("Handshake activation failed", err);
@@ -447,6 +594,13 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     });
   };
 
+  const getItemDocRef = (itemId: string, targetUid: string) => {
+    if (activeSourceType === 'customInventory' && terminalInventoryId) {
+      return doc(db, 'inventories', terminalInventoryId, 'items', itemId);
+    }
+    return doc(db, 'users', targetUid, 'gearLibrary', itemId);
+  };
+
   const handleScanSuccess = async (scannedValue: string) => {
     if (step === 'case_pack') {
       handlePackItem(scannedValue);
@@ -478,30 +632,85 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       let foundItem: GearItem | null = null;
 
       // 1. First try direct document ID lookup (in case the scanned value is the document ID)
-      const directDocRef = doc(db, 'users', targetUid, 'gearLibrary', decodedValue);
+      const directDocRef = getItemDocRef(decodedValue, targetUid);
       const directDocSnap = await getDoc(directDocRef);
       if (directDocSnap.exists()) {
-        foundItem = { id: directDocSnap.id, ...directDocSnap.data() } as GearItem;
+        const dData = directDocSnap.data();
+        if (activeSourceType === 'customInventory') {
+          foundItem = {
+            id: directDocSnap.id,
+            name: dData.name,
+            brand: dData.brand || '',
+            model: dData.model || '',
+            category: dData.category || 'Gear',
+            assetTag: dData.assetTag || dData.id || directDocSnap.id,
+            status: dData.status || 'available',
+            condition: dData.condition || 'good',
+            isSale: dData.isSale || false,
+            price: dData.price || 0,
+            quantity: dData.quantity || 1
+          } as unknown as GearItem;
+        } else {
+          foundItem = { id: directDocSnap.id, ...dData } as GearItem;
+        }
       } else {
         // 2. Try looking up by the 'assetTag' field (classic tag search)
+        const colRef = activeSourceType === 'customInventory' && terminalInventoryId
+          ? collection(db, 'inventories', terminalInventoryId, 'items')
+          : collection(db, 'users', targetUid, 'gearLibrary');
+
         const qTag = query(
-          collection(db, 'users', targetUid, 'gearLibrary'),
+          colRef,
           where('assetTag', '==', decodedValue),
           limit(1)
         );
         const tagSnap = await getDocs(qTag);
         if (!tagSnap.empty) {
-          foundItem = { id: tagSnap.docs[0].id, ...tagSnap.docs[0].data() } as GearItem;
+          const dData = tagSnap.docs[0].data();
+          if (activeSourceType === 'customInventory') {
+            foundItem = {
+              id: tagSnap.docs[0].id,
+              name: dData.name,
+              brand: dData.brand || '',
+              model: dData.model || '',
+              category: dData.category || 'Gear',
+              assetTag: dData.assetTag || dData.id || tagSnap.docs[0].id,
+              status: dData.status || 'available',
+              condition: dData.condition || 'good',
+              isSale: dData.isSale || false,
+              price: dData.price || 0,
+              quantity: dData.quantity || 1
+            } as unknown as GearItem;
+          } else {
+            foundItem = { id: tagSnap.docs[0].id, ...dData } as GearItem;
+          }
         } else {
           // 3. Fallback: search by 'assetTag' using the raw undecoded value in case the tag was custom
           const qRawTag = query(
-            collection(db, 'users', targetUid, 'gearLibrary'),
+            colRef,
             where('assetTag', '==', scannedValue),
             limit(1)
           );
           const rawTagSnap = await getDocs(qRawTag);
           if (!rawTagSnap.empty) {
-            foundItem = { id: rawTagSnap.docs[0].id, ...rawTagSnap.docs[0].data() } as GearItem;
+            const dData = rawTagSnap.docs[0].data();
+            if (activeSourceType === 'customInventory') {
+              foundItem = {
+                id: rawTagSnap.docs[0].id,
+                name: dData.name,
+                brand: dData.brand || '',
+                model: dData.model || '',
+                category: dData.category || 'Gear',
+                assetTag: dData.assetTag || dData.id || rawTagSnap.docs[0].id,
+                status: dData.status || 'available',
+                condition: dData.condition || 'good',
+                isSale: dData.isSale || false,
+                price: dData.price || 0,
+                quantity: dData.quantity || 1
+              } as unknown as GearItem;
+            } else {
+              foundItem = { id: rawTagSnap.docs[0].id, ...dData } as GearItem;
+            }
           }
         }
       }
@@ -557,7 +766,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
         await addDoc(collection(db, 'checkouts'), checkoutData);
         
         // Update item status in organization database
-        const userGearRef = doc(db, 'users', targetUid, 'gearLibrary', item.id);
+        const userGearRef = getItemDocRef(item.id, targetUid);
         await updateDoc(userGearRef, {
           status: 'in_use',
           currentHolder: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
@@ -567,7 +776,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
         // Update child items if it's external kit contents
         if (item.isKit && item.childItemIds?.length) {
           for (const childId of item.childItemIds) {
-            const childRef = doc(db, 'users', targetUid, 'gearLibrary', childId);
+            const childRef = getItemDocRef(childId, targetUid);
             await updateDoc(childRef, {
               status: 'in_use',
               currentHolder: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
@@ -629,7 +838,8 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
           }
         }
 
-        await updateDoc(doc(db, 'users', targetUid, 'gearLibrary', item.id), {
+        const userGearRef = getItemDocRef(item.id, targetUid);
+        await updateDoc(userGearRef, {
           status: 'available',
           currentHolder: null,
           lastCheckedIn: serverTimestamp()
@@ -638,7 +848,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
         // Update child items if it's a kit
         if (item.isKit && item.childItemIds?.length) {
           for (const childId of item.childItemIds) {
-            const childRef = doc(db, 'users', targetUid, 'gearLibrary', childId);
+            const childRef = getItemDocRef(childId, targetUid);
             await updateDoc(childRef, {
               status: 'available',
               currentHolder: null,
@@ -843,17 +1053,28 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
           <div>
             <h1 className="text-xl md:text-4xl font-black uppercase tracking-tighter leading-none">Gear Terminal</h1>
             <p className="text-[10px] md:text-xs text-neutral-500 font-bold uppercase tracking-widest mt-0.5 md:mt-1">
-              {adminSettings?.branding?.companyName || 'PackerTools.AI'} • System Active
+              {adminSettings?.branding?.companyName || 'PackerTools.AI'} • {activeSourceType === 'customInventory' ? 'Custom List Context' : 'Central Gear catalog'}
             </p>
           </div>
         </div>
         
-        <div className="text-right">
-          <div className="text-xl md:text-4xl font-mono font-black tabular-nums">
-            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </div>
-          <div className="text-[8px] md:text-xs font-black uppercase tracking-widest text-neutral-500">
-            {currentTime.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+        <div className="flex items-center gap-4 md:gap-6">
+          {isActivated && (
+            <button
+              onClick={() => setStep('configure')}
+              className="p-3 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white rounded-xl transition border border-white/5"
+              title="Configure Terminal Context"
+            >
+              <Settings size={20} />
+            </button>
+          )}
+          <div className="text-right">
+            <div className="text-xl md:text-4xl font-mono font-black tabular-nums">
+              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
+            <div className="text-[8px] md:text-xs font-black uppercase tracking-widest text-neutral-500 text-right">
+              {currentTime.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+            </div>
           </div>
         </div>
       </header>
@@ -911,6 +1132,200 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                 >
                   Dashboard Details
                 </a>
+              </div>
+            </motion.div>
+          ) : step === 'configure' ? (
+            <motion.div 
+              key="configure"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="max-w-2xl w-full bg-[#111] border border-white/10 p-8 md:p-12 rounded-[2.5rem] text-left space-y-8 shadow-2xl relative"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-primary/20 text-primary rounded-2xl flex items-center justify-center">
+                    <Settings size={22} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight text-white">Terminal Config Settings</h2>
+                    <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider font-mono">Select workspace and gear catalog context</p>
+                  </div>
+                </div>
+                {localStorage.getItem('kiosk_configured') === 'true' && (
+                  <button 
+                    onClick={() => setStep('welcome')}
+                    className="p-2.5 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white rounded-xl transition"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-6">
+                {/* Organization Selection (Required) */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-450 block">Active Organization (Required)</label>
+                  <select
+                    value={selectedOrgId}
+                    onChange={(e) => {
+                      setSelectedOrgId(e.target.value);
+                      setSelectedDeptId('');
+                      setSelectedTeamId('');
+                    }}
+                    className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm font-semibold uppercase tracking-wide text-white outline-none focus:border-primary transition"
+                  >
+                    <option value="">-- SELECT ORGANIZATION --</option>
+                    {organizations.map(org => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
+                    ))}
+                  </select>
+                  {organizations.length === 0 && (
+                    <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider mt-1">
+                      ⚠️ No active organizations found. Please create an organization in your main workspace first.
+                    </p>
+                  )}
+                </div>
+
+                {/* Grid for Departments and Teams (Only visible if Org is selected) */}
+                {selectedOrgId && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-450 block">Department Option</label>
+                      <select
+                        value={selectedDeptId}
+                        onChange={(e) => setSelectedDeptId(e.target.value)}
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm font-semibold uppercase tracking-wide text-white outline-none focus:border-primary transition"
+                      >
+                        <option value="all">ALL DEPARTMENTS / CENTRAL</option>
+                        {departments.map(dept => (
+                          <option key={dept.id} value={dept.id}>{dept.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-450 block">Team Context Option</label>
+                      <select
+                        value={selectedTeamId}
+                        onChange={(e) => setSelectedTeamId(e.target.value)}
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm font-semibold uppercase tracking-wide text-white outline-none focus:border-primary transition"
+                      >
+                        <option value="all">ALL TEAMS</option>
+                        {teams.map(team => (
+                          <option key={team.id} value={team.id}>{team.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Equipment Source Integration Setting */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-450 block">Equipment Source Integration</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSourceType('gearLibrary');
+                        setSelectedInventoryId('');
+                      }}
+                      className={`p-4 rounded-2xl border text-center transition flex flex-col items-center justify-center gap-2 ${
+                        selectedSourceType === 'gearLibrary'
+                          ? 'bg-primary/20 border-primary text-white font-bold'
+                          : 'bg-black/20 border-white/10 text-neutral-400 hover:bg-white/5 font-semibold'
+                      }`}
+                    >
+                      <Package size={18} />
+                      <span className="text-xs uppercase tracking-wider">Central Gear Library</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSourceType('customInventory')}
+                      className={`p-4 rounded-2xl border text-center transition flex flex-col items-center justify-center gap-2 ${
+                        selectedSourceType === 'customInventory'
+                          ? 'bg-primary/20 border-primary text-white font-bold'
+                          : 'bg-black/20 border-white/10 text-neutral-400 hover:bg-white/5 font-semibold'
+                      }`}
+                    >
+                      <LayoutGrid size={18} />
+                      <span className="text-xs uppercase tracking-wider">Custom Inventory</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Custom Inventory List dropdown (Conditional) */}
+                {selectedSourceType === 'customInventory' && (
+                  <div className="space-y-2 animate-fade-in font-sans">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-450 block">Select Custom Inventory Manifest</label>
+                    <select
+                      value={selectedInventoryId}
+                      onChange={(e) => setSelectedInventoryId(e.target.value)}
+                      className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-sm font-semibold uppercase tracking-wide text-white outline-none focus:border-primary transition"
+                    >
+                      <option value="">-- SELECT CUSTOM INVENTORY --</option>
+                      {inventories.map(inv => (
+                        <option key={inv.id} value={inv.id}>{inv.name || `Inventory #${inv.id.slice(0,6)}`}</option>
+                      ))}
+                    </select>
+                    {inventories.length === 0 && (
+                      <p className="text-[10px] text-amber-500 font-bold uppercase tracking-wider mt-1">
+                        ⚠️ No custom inventories found. Please create one in your inventory dashboard module.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-6 border-t border-white/5 flex gap-4">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (terminalId) {
+                      await updateDoc(doc(db, 'terminals', terminalId), { status: 'pending', ownerUid: null });
+                    }
+                    localStorage.removeItem('kiosk_terminal_id');
+                    localStorage.removeItem('kiosk_configured');
+                    window.location.reload();
+                  }}
+                  className="px-6 py-4 bg-white/5 border border-white/10 hover:bg-rose-500/10 hover:border-rose-500/30 text-neutral-400 hover:text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-wider transition"
+                >
+                  Unpair & reset
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!selectedOrgId) {
+                      toast.error("Please select an organization context!");
+                      return;
+                    }
+                    if (selectedSourceType === 'customInventory' && !selectedInventoryId) {
+                      toast.error("Please pick a custom inventory list!");
+                      return;
+                    }
+
+                    // Save all options
+                    localStorage.setItem('kiosk_active_source_type', selectedSourceType);
+                    localStorage.setItem('kiosk_terminal_inventory_id', selectedInventoryId);
+                    localStorage.setItem('kiosk_selected_org_id', selectedOrgId);
+                    localStorage.setItem('kiosk_selected_dept_id', selectedDeptId);
+                    localStorage.setItem('kiosk_selected_team_id', selectedTeamId);
+                    localStorage.setItem('kiosk_configured', 'true');
+
+                    // Update live active state triggers
+                    setActiveSourceType(selectedSourceType);
+                    setTerminalInventoryId(selectedInventoryId);
+
+                    setStep('welcome');
+                    toast.success("Terminal configuration successfully activated!");
+                  }}
+                  className="flex-1 px-8 py-4 bg-primary text-white hover:bg-primary/95 rounded-xl text-[10px] font-black uppercase tracking-wider transition shadow-lg flex items-center justify-center gap-2 font-bold"
+                >
+                  <CheckCircle2 size={14} />
+                  <span>Save & Activate Kiosk Workspace</span>
+                </button>
               </div>
             </motion.div>
           ) : step === 'activate' ? (

@@ -105,6 +105,7 @@ export interface UserProfile {
   defaultBookingFee?: number; // User custom default booking fee % or amount
   defaultSecurityDeposit?: number; // User custom default fixed security deposit
   country?: string; // User selected marketplace country
+  dashboardMode?: 'minimal' | 'all';
 }
 
 export interface Contact {
@@ -149,6 +150,13 @@ export interface PackingList {
   marketplaceDetails?: string;
   stage?: 'proposed' | 'actual';
   version?: number;
+  featured?: boolean;
+  featuredPriority?: number;
+  sponsored?: boolean;
+  adHeadline?: string;
+  moderationStatus?: 'approved' | 'pending' | 'suspended';
+  category?: string;
+  itemsCount?: number;
   customFields?: { [key: string]: string };
   receivedAt?: string;
   bookingFeePercent?: number; // Packing list level booking fee percent override
@@ -219,14 +227,20 @@ export interface GearItem {
   organizationTip?: string;
   photoUrls: string[];
   specs?: any;
-  assetTag: string;
-  quantity: number;
+  assetTag?: string;
+  quantity?: number;
   isAvailableForRent?: boolean;
   rentalPrice?: number;
   rentalPeriod?: 'day' | 'week' | 'month';
   currentHolder?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isSale?: boolean;
+  kitId?: string | null;
+  marketplaceType?: 'rental' | 'sale' | 'both' | null;
+  isAvailableForSale?: boolean;
+  salePrice?: number;
+  addOns?: { itemId?: string; name: string; price: number; useDefaultPrice?: boolean }[];
 }
 
 export interface Container {
@@ -472,6 +486,14 @@ export interface IntegrationConfig {
   callbackUrlDev?: string;
   callbackUrlProd?: string;
   paypalClientId?: string;
+  gcpPricingServiceEnabled?: boolean;
+  gcpPricingApiKey?: string;
+  supplierScraperServiceEnabled?: boolean;
+  supplierScraperModel?: string;
+  compatibilityServiceEnabled?: boolean;
+  compatibilityModel?: string;
+  bomLeadServiceEnabled?: boolean;
+  bomRiskThreshold?: number;
 }
 
 export interface LandingPagePair {
@@ -723,6 +745,26 @@ export interface AdminSettings {
     launchCountry: string;
     availableCountries: string[];
     restrictToAvailableCountries: boolean;
+  };
+  marketplaceLandingPageConfig?: {
+    heroTitle?: string;
+    heroSubtitle?: string;
+    heroDescription?: string;
+    showPromotions?: boolean;
+    bannerATitle?: string;
+    bannerASubtitle?: string;
+    bannerAButtonText?: string;
+    bannerAImage?: string;
+    bannerBTitle?: string;
+    bannerBSubtitle?: string;
+    bannerBButtonText?: string;
+    bannerBImage?: string;
+    showStaffPicks?: boolean;
+    showCategories?: boolean;
+    showGuarantees?: boolean;
+    requiresEduVerification?: boolean;
+    partnerLogosText?: string;
+    partnerLogosList?: string[];
   };
 }
 

@@ -747,6 +747,11 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [isDirty, setIsDirty] = useState(false);
   const [childItems, setChildItems] = useState<GearItem[]>([]);
   const [isAddingToKit, setIsAddingToKit] = useState(false);
+  const [showAddOnCreator, setShowAddOnCreator] = useState(false);
+  const [selectedAddOnItemId, setSelectedAddOnItemId] = useState('');
+  const [customAddOnName, setCustomAddOnName] = useState('');
+  const [addOnPriceOption, setAddOnPriceOption] = useState<'default' | 'custom'>('custom');
+  const [addOnCustomPrice, setAddOnCustomPrice] = useState(0);
   const [inheritanceModal, setInheritanceModal] = useState<{
     isOpen: boolean;
     pendingItem: GearItem | null;
@@ -1829,6 +1834,413 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }
+  };
+
+  const renderMarketplaceSetup = (item: GearItem, setItem: (updatedItem: GearItem) => void) => {
+    const isMarketplaceEnabled = item.secondaryCategories?.includes('Rentable') || false;
+
+    // Helper to add addon
+    const handleAddAddOn = () => {
+      let addonName = '';
+      let defaultPrice = 0;
+      
+      if (selectedAddOnItemId) {
+        const found = gear.find(g => g.id === selectedAddOnItemId);
+        if (found) {
+          addonName = `${found.brand || ''} ${found.model || found.name}`.trim();
+          defaultPrice = found.rentalPrice || 0;
+        }
+      } else if (customAddOnName.trim()) {
+        addonName = customAddOnName.trim();
+      }
+
+      if (!addonName) {
+        toast.error("Please specify a custom accessory name or select an existing gear item");
+        return;
+      }
+
+      const finalPrice = addOnPriceOption === 'default' ? defaultPrice : addOnCustomPrice;
+
+      const newAddOn = {
+        itemId: selectedAddOnItemId || undefined,
+        name: addonName,
+        price: finalPrice,
+        useDefaultPrice: addOnPriceOption === 'default'
+      };
+
+      const currentAddOns = item.addOns || [];
+      setItem({
+        ...item,
+        addOns: [...currentAddOns, newAddOn]
+      });
+
+      // Reset form
+      setSelectedAddOnItemId('');
+      setCustomAddOnName('');
+      setAddOnCustomPrice(0);
+      setAddOnPriceOption('custom');
+      setShowAddOnCreator(false);
+      toast.success(`Add-on "${addonName}" bundled successfully!`);
+    };
+
+    const handleRemoveAddOn = (index: number) => {
+      const current = item.addOns || [];
+      const updated = current.filter((_, idx) => idx !== index);
+      setItem({ ...item, addOns: updated });
+      toast.success("Add-on removed");
+    };
+
+    return (
+      <div className="bg-white rounded-3xl p-6 border border-neutral-200/80 space-y-5 shadow-sm text-left">
+        <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+          <div>
+            <h4 className="font-extrabold text-sm text-neutral-800 flex items-center gap-2">
+              <Globe size={18} className="text-[#0066cc]" />
+              <span>Public Marketplace Configuration</span>
+            </h4>
+            <p className="text-[11px] text-neutral-500 mt-1">
+              Configure rentability, outright buyouts, and bundle accessories.
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input 
+              type="checkbox" 
+              checked={isMarketplaceEnabled}
+              onChange={(e) => {
+                const list = item.secondaryCategories || [];
+                const updatedCategories = e.target.checked 
+                  ? [...list, 'Rentable']
+                  : list.filter(c => c !== 'Rentable');
+                setItem({ 
+                  ...item, 
+                  secondaryCategories: updatedCategories,
+                  isAvailableForRent: e.target.checked ? true : item.isAvailableForRent,
+                  isSale: e.target.checked ? item.isSale : false
+                });
+              }}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-neutral-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0044cc]"></div>
+          </label>
+        </div>
+
+        {isMarketplaceEnabled ? (
+          <div className="space-y-6 animate-fadeIn font-sans">
+            {/* Listing Flexibility Choice */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Flexibility Settings</span>
+              <p className="text-[11px] text-neutral-400">Make this item available for daily rental, outright purchase/sale, or both options simultaneously.</p>
+              
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentlyRent = item.isAvailableForRent !== false;
+                    const nextRent = !currentlyRent;
+                    // Prevent unchecking both
+                    if (!nextRent && !item.isSale) {
+                      toast.error("At least one option must be selected if marketplace is active.");
+                      return;
+                    }
+                    setItem({ ...item, isAvailableForRent: nextRent });
+                  }}
+                  className={`flex flex-col items-start p-3.5 rounded-2xl border text-left transition ${
+                    item.isAvailableForRent !== false
+                      ? 'bg-neutral-50 border-neutral-900 ring-1 ring-neutral-900'
+                      : 'bg-white border-neutral-200 hover:border-neutral-300'
+                  }`}
+                >
+                  <span className="font-bold text-xs text-neutral-900 flex items-center gap-1.5">
+                    <input 
+                      type="checkbox" 
+                      checked={item.isAvailableForRent !== false} 
+                      onChange={() => {}} // handled by parent btn
+                      className="rounded text-neutral-900 focus:ring-0" 
+                    />
+                    <span>Allow Daily Rental</span>
+                  </span>
+                  <span className="text-[10px] text-neutral-400 mt-1">Renters reserve this per day.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextSale = !item.isSale;
+                    // Prevent unchecking both
+                    if (!nextSale && item.isAvailableForRent === false) {
+                      toast.error("At least one option must be selected if marketplace is active.");
+                      return;
+                    }
+                    setItem({ ...item, isSale: nextSale });
+                  }}
+                  className={`flex flex-col items-start p-3.5 rounded-2xl border text-left transition ${
+                    item.isSale === true
+                      ? 'bg-neutral-50 border-neutral-900 ring-1 ring-neutral-900'
+                      : 'bg-white border-neutral-200 hover:border-neutral-300'
+                  }`}
+                >
+                  <span className="font-bold text-xs text-neutral-900 flex items-center gap-1.5">
+                    <input 
+                      type="checkbox" 
+                      checked={item.isSale === true} 
+                      onChange={() => {}} // handled by parent btn
+                      className="rounded text-neutral-900 focus:ring-0" 
+                    />
+                    <span>Allow Outright Buyout</span>
+                  </span>
+                  <span className="text-[10px] text-neutral-400 mt-1">Users purchase item out-of-hand.</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Rental Rates Setting */}
+            {item.isAvailableForRent !== false && (
+              <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200/60 grid sm:grid-cols-2 gap-4 animate-fadeIn">
+                <div className="col-span-2 border-b border-neutral-100 pb-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#0066cc]">Daily Hire Rental Rate</span>
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black tracking-widest text-neutral-500">Rental Price / Day</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-400">{item.currency || '$'}</span>
+                    <input
+                      type="number"
+                      value={item.rentalPrice || ''}
+                      onChange={(e) => setItem({ ...item, rentalPrice: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl pl-8 pr-4 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0066cc]"
+                      placeholder="e.g. 45"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black tracking-widest text-neutral-500">Currency Unit</label>
+                  <select
+                    value={item.currency || '$'}
+                    onChange={(e) => setItem({ ...item, currency: e.target.value })}
+                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0066cc]"
+                  >
+                    <option value="$">USD ($)</option>
+                    <option value="€">EUR (€)</option>
+                    <option value="£">GBP (£)</option>
+                    <option value="A$">AUD (A$)</option>
+                    <option value="FJD">FJD (FJD)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1 col-span-2">
+                  <label className="text-[9px] uppercase font-black tracking-widest text-neutral-500">Rental Policy</label>
+                  <select
+                    value={item.rentalPeriod || 'day'}
+                    onChange={(e) => setItem({ ...item, rentalPeriod: e.target.value as any })}
+                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0066cc]"
+                  >
+                    <option value="day">Instant Booking (Auto-accept reservation contracts)</option>
+                    <option value="week">Manual verification (Host verification requirements)</option>
+                  </select>
+                </div>
+
+                {/* Rental Add-ons Support */}
+                <div className="col-span-2 pt-3 border-t border-neutral-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-neutral-500 block">Optional Rental Add-Ons</span>
+                      <span className="text-[10px] text-neutral-400 block -mt-0.5">Bundle lenses, cables, or filters with custom rates.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddOnCreator(!showAddOnCreator)}
+                      className="flex items-center gap-1 bg-[#0066cc]/15 hover:bg-[#0066cc]/25 text-[#0066cc] px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all"
+                    >
+                      <Plus size={11} />
+                      <span>{showAddOnCreator ? 'Hide Form' : 'Add Add-On'}</span>
+                    </button>
+                  </div>
+
+                  {showAddOnCreator && (
+                    <div className="bg-white border border-neutral-200 p-3.5 rounded-xl space-y-3.5 shadow-sm animate-fadeIn text-xs">
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Step 1: Choose or name the Add-On</label>
+                        <select
+                          value={selectedAddOnItemId}
+                          onChange={(e) => {
+                            setSelectedAddOnItemId(e.target.value);
+                            if (e.target.value) {
+                              const selected = gear.find(g => g.id === e.target.value);
+                              if (selected) {
+                                setAddOnCustomPrice(selected.rentalPrice || 0);
+                              }
+                              setCustomAddOnName('');
+                            }
+                          }}
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs outline-none"
+                        >
+                          <option value="">-- Select from existing Gear Library --</option>
+                          {gear.filter(g => g.id !== item.id).map(g => (
+                            <option key={g.id} value={g.id}>
+                              {g.brand || ''} {g.model || g.name} (Own rate: {g.currency || 'FJD'} {g.rentalPrice || 0}/day)
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="flex items-center gap-2">
+                          <hr className="grow border-neutral-200" />
+                          <span className="text-[9px] text-neutral-400 uppercase font-bold">Or Add Custom Accessory</span>
+                          <hr className="grow border-neutral-200" />
+                        </div>
+
+                        <input
+                          type="text"
+                          disabled={!!selectedAddOnItemId}
+                          value={customAddOnName}
+                          onChange={(e) => setCustomAddOnName(e.target.value)}
+                          placeholder="e.g. Filter Kit / SD Card / Rain Cover"
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs outline-none disabled:opacity-50"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Step 2: Price Configuration (Flex Rate & Discounts)</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            disabled={!selectedAddOnItemId}
+                            onClick={() => {
+                              setAddOnPriceOption('default');
+                              const selected = gear.find(g => g.id === selectedAddOnItemId);
+                              if (selected) {
+                                setAddOnCustomPrice(selected.rentalPrice || 0);
+                              }
+                            }}
+                            className={`p-2 rounded-lg border text-left text-[11px] transition ${
+                              addOnPriceOption === 'default'
+                                ? 'bg-neutral-900 text-white border-neutral-900'
+                                : 'bg-neutral-50 text-neutral-600 border-neutral-200 disabled:opacity-30'
+                            }`}
+                          >
+                            <span className="font-bold block">Default Value</span>
+                            <span className="text-[9px] opacity-75">Use item's regular price</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setAddOnPriceOption('custom')}
+                            className={`p-2 rounded-lg border text-left text-[11px] transition ${
+                              addOnPriceOption === 'custom'
+                                ? 'bg-neutral-900 text-white border-neutral-900'
+                                : 'bg-neutral-50 text-neutral-600 border-neutral-200'
+                            }`}
+                          >
+                            <span className="font-bold block">Discounted/Cheaper/Free</span>
+                            <span className="text-[9px] opacity-75">Set special promotional rate</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {addOnPriceOption === 'custom' && (
+                        <div className="space-y-1">
+                          <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Special Rate if booked together</label>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1.5 text-xs font-bold text-neutral-400">{item.currency || '$'}</span>
+                            <input
+                              type="number"
+                              value={addOnCustomPrice}
+                              onChange={(e) => setAddOnCustomPrice(parseFloat(e.target.value) || 0)}
+                              className="w-2/3 bg-neutral-50 border border-neutral-200 rounded-lg pl-7 pr-4 py-1 text-xs outline-none"
+                              placeholder="0 for free"
+                            />
+                            <span className="text-[10px] text-neutral-400 p-2 italic">{addOnCustomPrice === 0 ? '🆓 FREE Add-on!' : 'Special bundle rate'}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAddOnCreator(false);
+                            setSelectedAddOnItemId('');
+                            setCustomAddOnName('');
+                          }}
+                          className="px-3 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-[10px] font-black uppercase tracking-wider"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddAddOn}
+                          className="px-3 py-1 bg-[#0066cc] hover:bg-[#0055b3] text-white rounded-lg text-[10px] font-black uppercase tracking-wider"
+                        >
+                          Add Add-on Option
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Render list of active addons */}
+                  <div className="space-y-2">
+                    {item.addOns && item.addOns.length > 0 ? (
+                      <div className="border border-neutral-200 rounded-xl divide-y divide-neutral-100 overflow-hidden bg-white">
+                        {item.addOns.map((add, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2.5 text-xs">
+                            <div className="flex flex-col">
+                              <span className="font-bold text-neutral-800">{add.name}</span>
+                              <span className="text-[10px] text-neutral-400 italic">
+                                {add.itemId ? '🏷️ Catalogued Item' : '⚙️ Custom Accessory'} | Price if bundled: <strong className="text-emerald-600">{item.currency || '$'}{add.price}</strong> {add.price === 0 && ' (Free!)'}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAddOn(idx)}
+                              className="p-1.5 text-neutral-400 hover:text-red-500 rounded-lg hover:bg-neutral-50 transition"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center p-3 border border-dashed border-neutral-200 rounded-xl bg-white">
+                        <p className="text-[10px] text-neutral-400 italic">No add-ons associated yet. Offer discounts on key accessories!</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Outright sale price setup */}
+            {item.isSale === true && (
+              <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200/60 grid sm:grid-cols-2 gap-4 animate-fadeIn">
+                <div className="col-span-2 border-b border-neutral-100 pb-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#0066cc]">Outright Buyout Purchase Option</span>
+                </div>
+
+                <div className="space-y-1 col-span-2">
+                  <label className="text-[9px] uppercase font-black tracking-widest text-neutral-500">Buyout Sale Price</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-400">{item.currency || '$'}</span>
+                    <input
+                      type="number"
+                      value={item.salePrice || item.price || ''}
+                      onChange={(e) => setItem({ ...item, salePrice: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl pl-8 pr-4 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0066cc]"
+                      placeholder="Enter outright sales price"
+                    />
+                  </div>
+                  <p className="text-[10px] text-neutral-400 mt-1">Allows users inside or outside your organization to securely purchase this asset from your storage pool.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-[11px] text-neutral-400 italic text-center py-2 bg-neutral-50 rounded-2xl">
+            Toggle on to activate marketplace listings and build flexible bundle/sale workflows.
+          </p>
+        )}
+      </div>
+    );
   };
 
   const renderAISuggestions = (item: Partial<GearItem>, setItem: (item: any) => void) => {
@@ -4615,78 +5027,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
                 {/* Rentability & Marketplace Setup */}
                 <div className="space-y-4 pt-6 border-t border-neutral-100">
-                  <div className="bg-neutral-900 rounded-[2rem] p-6 text-white space-y-4 shadow-xl">
-                    <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-                      <div>
-                        <h4 className="font-black uppercase text-xs tracking-wider text-white flex items-center gap-1.5">
-                          <Shield size={14} className="text-emerald-400" />
-                          <span>Enable Equipment Rental Pool</span>
-                        </h4>
-                        <p className="text-[9px] text-neutral-400 font-sans">Allows other users to view and reserve this asset in the marketplace.</p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={editingItem.secondaryCategories?.includes('Rentable') || false}
-                        onChange={(e) => {
-                          const list = editingItem.secondaryCategories || [];
-                          const updated = e.target.checked 
-                            ? [...list, 'Rentable']
-                            : list.filter(c => c !== 'Rentable');
-                          setEditingItem({ ...editingItem, secondaryCategories: updated });
-                        }}
-                        className="h-5 w-5 text-primary border-neutral-700 rounded bg-neutral-800 focus:ring-transparent cursor-pointer"
-                      />
-                    </div>
-
-                    {editingItem.secondaryCategories?.includes('Rentable') ? (
-                      <div className="grid sm:grid-cols-2 gap-4 pt-2 text-left">
-                        <div className="space-y-1">
-                          <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Rental Price / Day</label>
-                          <div className="relative">
-                            <span className="absolute left-3.5 top-2 text-xs font-bold text-neutral-300">$</span>
-                            <input
-                              type="number"
-                              value={editingItem.rentalPrice || ''}
-                              onChange={(e) => setEditingItem({ ...editingItem, rentalPrice: parseFloat(e.target.value) || 0 })}
-                              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl pl-8 pr-4 py-2 text-xs outline-none focus:ring-2 focus:ring-primary transition text-white"
-                              placeholder="e.g. 45"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Currency Unit</label>
-                          <select
-                            value={editingItem.currency || '$'}
-                            onChange={(e) => setEditingItem({ ...editingItem, currency: e.target.value })}
-                            className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary transition text-white font-sans"
-                          >
-                            <option value="$">USD ($)</option>
-                            <option value="€">EUR (€)</option>
-                            <option value="£">GBP (£)</option>
-                            <option value="A$">AUD (A$)</option>
-                            <option value="FJD">FJD (FJD)</option>
-                          </select>
-                        </div>
-
-                        <div className="space-y-1 col-span-2 font-sans font-medium text-xs">
-                          <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Rental Policy</label>
-                          <select
-                            value={editingItem.rentalPeriod || 'day'}
-                            onChange={(e) => setEditingItem({ ...editingItem, rentalPeriod: e.target.value as any })}
-                            className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary transition text-white"
-                          >
-                            <option value="day">Instant Booking (Auto-accept reservation contracts)</option>
-                            <option value="week">Manual verification (Host verification and signature required)</option>
-                          </select>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-[10px] text-neutral-500 italic text-center py-2">
-                        Enable the rental profile toggle above to configure rental and marketplace parameters.
-                      </p>
-                    )}
-                  </div>
+                  {renderMarketplaceSetup(editingItem, setEditingItem)}
                 </div>
 
                 <div className="space-y-4 pt-6 border-t border-neutral-100">
@@ -4745,74 +5086,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   </div>
                 </div>
 
-                <div className="space-y-4 pt-6 border-t border-neutral-100">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-primary">Rentability & Marketplace</h3>
-                  <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-100 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-bold text-xs text-neutral-800">Enable Equipment Rental Profile</h4>
-                        <p className="text-[10px] text-neutral-400">Allows listing the asset on the public marketplace.</p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={editingItem.secondaryCategories?.includes('Rentable') || false}
-                        onChange={(e) => {
-                          const list = editingItem.secondaryCategories || [];
-                          const updated = e.target.checked 
-                            ? [...list, 'Rentable']
-                            : list.filter(c => c !== 'Rentable');
-                          setEditingItem({ ...editingItem, secondaryCategories: updated });
-                        }}
-                        className="h-5 w-5 text-primary border-neutral-300 rounded focus:ring-primary cursor-pointer"
-                      />
-                    </div>
 
-                    {(editingItem.secondaryCategories?.includes('Rentable')) && (
-                      <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-neutral-200">
-                        <div className="space-y-1">
-                          <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Rental Price / Day</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-500">{editingItem.currency || '$'}</span>
-                            <input
-                              type="number"
-                              value={editingItem.rentalPrice || ''}
-                              onChange={(e) => setEditingItem({ ...editingItem, rentalPrice: parseFloat(e.target.value) || 0 })}
-                              className="w-full bg-white border border-neutral-200 rounded-xl pl-8 pr-4 py-2.5 text-xs outline-none focus:ring-2 focus:ring-primary transition"
-                              placeholder="e.g. 45"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Currency Unit</label>
-                          <select
-                            value={editingItem.currency || '$'}
-                            onChange={(e) => setEditingItem({ ...editingItem, currency: e.target.value })}
-                            className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2.5 text-xs outline-none focus:ring-2 focus:ring-primary transition"
-                          >
-                            <option value="$">USD ($)</option>
-                            <option value="€">EUR (€)</option>
-                            <option value="£">GBP (£)</option>
-                            <option value="A$">AUD (A$)</option>
-                            <option value="FJD">FJD (FJD)</option>
-                          </select>
-                        </div>
-
-                        <div className="space-y-1 col-span-2">
-                          <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Rental Policy</label>
-                          <select
-                            value={editingItem.rentalPeriod || 'day'}
-                            onChange={(e) => setEditingItem({ ...editingItem, rentalPeriod: e.target.value as any })}
-                            className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2.5 text-xs outline-none focus:ring-2 focus:ring-primary transition"
-                          >
-                            <option value="day">Instant Booking (Auto-accept reservation contracts)</option>
-                            <option value="week">Manual verification (Host verification and signature required)</option>
-                          </select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">

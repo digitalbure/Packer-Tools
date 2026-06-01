@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, collectionGroup } from 'firebase/firestore';
-import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity, Users, Building2, Globe, Mail, MapPin, Building } from 'lucide-react';
+import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity, Users, Building2, Globe, Mail, MapPin, Building, Download } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -12,8 +12,9 @@ import { isFeatureEnabled } from '../lib/featureUtils';
 import { checkLimit } from '../lib/limitUtils';
 import { toast } from 'sonner';
 import Marketplace from './Marketplace';
+import DeveloperTab from '../components/DeveloperTab';
 
-type DashboardTab = 'overview' | 'lists' | 'templates' | 'directories' | 'marketplace';
+type DashboardTab = 'overview' | 'lists' | 'templates' | 'directories' | 'marketplace' | 'developer';
 type SortField = 'createdAt' | 'name' | 'status';
 type SortOrder = 'asc' | 'desc';
 type ViewMode = 'grid' | 'list';
@@ -42,6 +43,8 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [kioskActive, setKioskActive] = useState<boolean>((user as any).kioskModuleActive || false);
+  const activePlan = adminSettings?.plans?.find(p => p.id === user.plan || p.name.toLowerCase() === user.plan?.toLowerCase()) || adminSettings?.plans?.[0];
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -73,6 +76,8 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       setActiveTab('directories');
     } else if (tabParam === 'marketplace') {
       setActiveTab('marketplace');
+    } else if (tabParam === 'developer') {
+      setActiveTab('developer');
     }
   }, [location.search, navigate]);
 
@@ -379,9 +384,287 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         >
           Marketplace
         </button>
+        <button
+          onClick={() => handleTabChange('developer')}
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+            activeTab === 'developer' 
+              ? 'bg-white text-primary shadow-sm' 
+              : 'text-neutral-500 hover:text-neutral-700'
+          }`}
+        >
+          Developer API & Embeds
+        </button>
       </div>
 
       {activeTab === 'overview' ? (
+        (user.dashboardMode || 'minimal') === 'minimal' ? (
+          <div className="space-y-12 animate-in fade-in duration-300">
+            {/* Quick Action Grid */}
+            <div className="bg-neutral-50/50 p-8 sm:p-10 rounded-[2.5rem] border border-neutral-100/80 shadow-sm space-y-8">
+              <div className="space-y-2 text-left">
+                <span className="micro-label bg-primary/10 text-primary border border-primary/10 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
+                  Minimalist Workspace
+                </span>
+                <h2 className="text-3xl font-black text-neutral-900 tracking-tight">Rapid Action Hub</h2>
+                <p className="text-sm text-neutral-500 font-medium font-sans">Create packing lists, check inventories, publish listings, and configure AV rack gear.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* 1. +Packing List */}
+                <button
+                  type="button"
+                  onClick={() => setIsCreating(true)}
+                  className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
+                >
+                  <div className="w-10 h-10 bg-[#ff3b30]/10 text-[#ff3b30] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#ff3b30] group-hover:text-white">
+                    <Plus size={20} className="stroke-[3]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ Packing List</span>
+                      <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-2 py-0.5 rounded-full select-none font-mono">
+                        {lists.length}/{activePlan?.maxPackingLists || 3}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
+                      Create new camera gear logs, templates, or travel checklists.
+                    </p>
+                  </div>
+                </button>
+
+                {/* 2. +Inventory */}
+                <button
+                  type="button"
+                  onClick={() => navigate('/inventory')}
+                  className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
+                >
+                  <div className="w-10 h-10 bg-[#34c759]/10 text-[#34c759] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#34c759] group-hover:text-white">
+                    <Plus size={20} className="stroke-[3]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ Inventory</span>
+                      <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-2 py-0.5 rounded-full select-none font-mono">
+                        {gear.length}/{activePlan?.maxGearItems || 50}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
+                      Add items to your direct departments, storage rooms, or Custom Sheets.
+                    </p>
+                  </div>
+                </button>
+
+                {/* 3. +Rack */}
+                <button
+                  type="button"
+                  onClick={() => navigate('/racks')}
+                  className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
+                >
+                  <div className="w-10 h-10 bg-[#007aff]/10 text-[#007aff] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#007aff] group-hover:text-white">
+                    <Plus size={20} className="stroke-[3]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ Rack</span>
+                      <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-2 py-0.5 rounded-full select-none font-mono">
+                        Limit: {activePlan?.maxRacks || 1}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
+                      Establish vertically-aligned space limits for technical hardware cases.
+                    </p>
+                  </div>
+                </button>
+
+                {/* 4. +System Build */}
+                <button
+                  type="button"
+                  onClick={() => navigate('/systems-builder')}
+                  className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
+                >
+                  <div className="w-10 h-10 bg-[#5856d6]/15 text-[#5856d6] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#5856d6] group-hover:text-white">
+                    <Plus size={20} className="stroke-[3]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ System Build</span>
+                      <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-2 py-0.5 rounded-full select-none font-mono">
+                        Limit: {activePlan?.maxProjects || 3}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
+                      Construct and test detailed video or hybrid studio rigs.
+                    </p>
+                  </div>
+                </button>
+
+                {/* 5. +Listing */}
+                <button
+                  type="button"
+                  onClick={() => navigate('/listings')}
+                  className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
+                >
+                  <div className="w-10 h-10 bg-[#ff9500]/10 text-[#ff9500] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#ff9500] group-hover:text-white">
+                    <Plus size={20} className="stroke-[3]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ Listing</span>
+                      <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2.5 py-0.5 rounded-full select-none">
+                        Market
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
+                      Publish a camera kit to our verification marketplace for rent or sales.
+                    </p>
+                  </div>
+                </button>
+
+                {/* Info & Settings Link Card */}
+                <div className="p-6 bg-primary/5 rounded-3xl border border-primary/10 flex flex-col justify-between h-48 text-left">
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-primary">Need Analytics?</span>
+                    <p className="text-xs text-neutral-600 leading-normal font-semibold">
+                      To view full billing reports, category piecharts, health ratios and the self-checkout Kiosk terminal, switch your dashboard preset to <strong className="font-bold">Show All</strong>.
+                    </p>
+                  </div>
+                  <Link
+                    to="/profile"
+                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1.5"
+                  >
+                    Configure In Settings <ChevronRight size={14} />
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Lists and Reminders */}
+            <div className="space-y-12">
+              <section className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                      <Package size={24} />
+                    </div>
+                    <h2 className="text-2xl font-bold">Recent Packing Lists</h2>
+                  </div>
+                  <button 
+                    onClick={() => setActiveTab('lists')}
+                    className="text-primary font-bold hover:underline flex items-center gap-1"
+                  >
+                    View All <ChevronRight size={16} />
+                  </button>
+                </div>
+                {loading ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                    {[1, 2, 3, 4, 5, 6].map(i => (
+                      <div key={i} className="h-24 bg-neutral-100 rounded-2xl animate-pulse"></div>
+                    ))}
+                  </div>
+                ) : recentLists.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                    {recentLists.map((list) => (
+                      <Link
+                        key={list.id}
+                        to={`/list/${list.id}`}
+                        className="group block bg-white p-4 rounded-2xl border border-neutral-100 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden text-left"
+                      >
+                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => handleDeleteList(e, list.id)}
+                            className="p-1.5 text-neutral-400 hover:text-red-500 transition"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                        <div className="flex flex-col items-center text-center gap-3">
+                          <div className="w-10 h-10 bg-neutral-50 rounded-xl flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                            <Package size={20} />
+                          </div>
+                          <div className="space-y-1 min-w-0 w-full">
+                            <h3 className="text-xs font-bold group-hover:text-primary transition-colors truncate">{list.name}</h3>
+                            <div className="flex items-center justify-center gap-1 text-[8px] text-neutral-400">
+                              <Clock size={8} />
+                              <span>{new Date(list.createdAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-white rounded-[2rem] border border-dashed border-neutral-200">
+                    <p className="text-neutral-500">No lists yet. Create one to get started!</p>
+                  </div>
+                )}
+              </section>
+
+              {reminders.length > 0 && (
+                <section className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                      <Bell size={24} />
+                    </div>
+                    <h2 className="text-2xl font-bold">Upcoming Reminders</h2>
+                  </div>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {reminders.map((reminder) => {
+                      const isOverdue = new Date(reminder.dueDate) < new Date();
+                      return (
+                        <div 
+                          key={reminder.id} 
+                          className={`p-6 rounded-3xl border transition-all flex flex-col justify-between gap-4 text-left ${
+                            isOverdue ? 'bg-red-50 border-red-100' : 'bg-white border-neutral-100 shadow-sm'
+                          }`}
+                        >
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between">
+                              <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
+                                reminder.type === 'return' ? 'bg-green-100 text-green-700' :
+                                reminder.type === 'pack' ? 'bg-neutral-100 text-neutral-700' :
+                                'bg-neutral-100 text-neutral-600'
+                              }`}>
+                                {reminder.type}
+                              </div>
+                              <button 
+                                onClick={() => handleCompleteReminder(reminder.id)}
+                                className="text-neutral-300 hover:text-green-500 transition"
+                                title="Mark as Completed"
+                              >
+                                <CheckCircle2 size={20} />
+                              </button>
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-neutral-900 line-clamp-1">
+                                {reminder.itemName || 'Packing List Reminder'}
+                              </h3>
+                              <p className="text-xs text-neutral-500 line-clamp-1">
+                                {reminder.recipientName ? `Renter: ${reminder.recipientName}` : `List: ${lists.find(l => l.id === reminder.listId)?.name || 'Unknown List'}`}
+                              </p>
+                            </div>
+                            <div className={`flex items-center gap-2 text-xs font-bold ${isOverdue ? 'text-red-500' : 'text-neutral-400'}`}>
+                              {isOverdue ? <AlertCircle size={14} /> : <Calendar size={14} />}
+                              <span>{new Date(reminder.dueDate).toLocaleString()}</span>
+                            </div>
+                            {reminder.message && (
+                              <p className="text-xs text-neutral-400 italic line-clamp-2">"{reminder.message}"</p>
+                            )}
+                          </div>
+                          <Link 
+                            to={`/list/${reminder.listId}`}
+                            className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                          >
+                            View List <ChevronRight size={12} />
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+            </div>
+          </div>
+        ) : (
           <div className="space-y-12">
             {/* Stats Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
@@ -603,6 +886,149 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
               </div>
             </section>
 
+            {/* Gear Kiosk Terminal Hub */}
+            <section className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                    <QrCode size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black uppercase tracking-tight">Kiosk Terminal Hub</h2>
+                    <p className="text-neutral-500 text-[10px] font-black uppercase tracking-widest font-sans">Self-Service Sign-out station for devices</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[2rem] border border-neutral-100 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-12">
+                <div className="p-6 sm:p-8 md:col-span-7 space-y-6 flex flex-col justify-between text-left">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                        isFeatureEnabled('kioskMode', user, adminSettings)
+                          ? (kioskActive ? 'bg-green-100 text-green-700' : 'bg-neutral-150 text-neutral-500')
+                          : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {!isFeatureEnabled('kioskMode', user, adminSettings)
+                          ? 'Upgrade Plan Required' 
+                          : (kioskActive ? '● Kiosk Active & Operational' : 'Deactivated (By Default)')}
+                      </span>
+                      <span className="text-neutral-400 text-[9px] uppercase font-bold tracking-widest font-mono">Device-Level Suite</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-black uppercase tracking-tight text-neutral-800">Tablet Check-Out & Check-In Kiosk</h3>
+                      <p className="text-xs text-neutral-500 leading-relaxed font-semibold">
+                        Convert any iPad, Android tablet, or spare phone into a rapid gear sign-out terminal. Users can scan gear tags, verify inventories, pack travel cases, and generate instant checkout receipts right from a physical self-service station.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-neutral-100 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    {!isFeatureEnabled('kioskMode', user, adminSettings) ? (
+                      <div className="space-y-3 w-full">
+                        <div className="flex items-center gap-3 text-amber-600 bg-amber-50 border border-amber-100 p-4 rounded-xl text-xs font-bold uppercase tracking-wide">
+                          <AlertCircle size={16} className="shrink-0" />
+                          <span>Your active {user.plan || 'Free'} plan does not include Kiosk Station licensing.</span>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const userRef = doc(db, 'users', user.uid);
+                              await updateDoc(userRef, { plan: 'pro' });
+                              toast.success("Simulated upgrade successful! Kiosk Mode is now unlocked. Reloading to apply changes.");
+                              window.location.reload();
+                            } catch (e) {
+                              toast.error("Failed to upgrade plan.");
+                            }
+                          }}
+                          className="px-5 py-3 bg-neutral-900 border border-neutral-800 hover:bg-black text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition duration-150 flex items-center gap-2 shadow-lg"
+                        >
+                          <Zap size={14} className="text-amber-400 fill-amber-400" />
+                          <span>Simulate Instant Upgrade to Pro</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3 w-full">
+                        <div className="flex items-center justify-between bg-neutral-50 p-4 border border-neutral-150 rounded-2xl w-full">
+                          <div className="space-y-0.5">
+                            <span className="text-xs font-black uppercase tracking-wider text-neutral-800">Activate Kiosk Module</span>
+                            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wide">Toggle module on or off for your organization</p>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              const nextVal = !kioskActive;
+                              setKioskActive(nextVal);
+                              try {
+                                const userRef = doc(db, 'users', user.uid);
+                                await updateDoc(userRef, { kioskModuleActive: nextVal });
+                                toast.success(nextVal ? "Kiosk module enabled! Standalone app download is now available." : "Kiosk module disabled.");
+                              } catch (e) {
+                                toast.error("Failed to update status.");
+                              }
+                            }}
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${kioskActive ? 'bg-primary' : 'bg-neutral-200'}`}
+                          >
+                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${kioskActive ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+
+                        {kioskActive && (
+                          <div className="flex flex-wrap gap-3 pt-2">
+                            <Link
+                              to="/kiosk"
+                              target="_blank"
+                              className="px-5 py-3 bg-primary hover:bg-primary/95 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition shadow-lg shrink-0 flex items-center gap-2"
+                            >
+                              <QrCode size={14} />
+                              <span>Open Standalone Kiosk App</span>
+                            </Link>
+
+                            <button
+                              onClick={() => {
+                                toast.success("This dedicated Kiosk PWA App is ready! Adding to your tablet device or home screen turns it into a locked Checkout Station.", { duration: 5000 });
+                              }}
+                              className="px-5 py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border border-neutral-200 text-[10px] font-black uppercase tracking-wider rounded-xl transition shrink-0 flex items-center gap-2"
+                            >
+                              <Download size={14} />
+                              <span>Install PWA (Zero Clutter Kiosk)</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className={`p-6 sm:p-8 md:col-span-5 bg-neutral-50/50 border-t md:border-t-0 md:border-l border-neutral-100 flex flex-col items-center justify-center text-center space-y-4 ${!kioskActive ? 'opacity-30 select-none' : ''}`}>
+                  {kioskActive ? (
+                    <>
+                      <div className="bg-white p-4 rounded-2xl border border-neutral-150 shadow-sm">
+                        <QRCodeCanvas 
+                          value={`${window.location.origin}/#/kiosk?ownerUid=${user.uid}`}
+                          size={130}
+                          level="H"
+                          includeMargin={false}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-neutral-800">Scan to Launch Kiosk</p>
+                        <p className="text-[10px] text-neutral-450 font-bold uppercase tracking-wider leading-relaxed max-w-xs mx-auto">
+                          Scan with your tablet or iPad camera to instantly deploy this check-in/out station device.
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="py-8 space-y-2">
+                      <QrCode size={48} className="mx-auto text-neutral-300 stroke-[1.5]" />
+                      <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest text-[10px]">Kiosk Setup Locked</p>
+                      <p className="text-[10px] font-bold text-neutral-400 max-w-xs mx-auto">Activate the kiosk module on the left to reveal unique QR setup codes.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+
             <section className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -726,7 +1152,8 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
               </section>
             )}
           </div>
-        ) : (activeTab === 'lists' || activeTab === 'templates') ? (
+        )
+      ) : (activeTab === 'lists' || activeTab === 'templates') ? (
           <section className="space-y-8">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
               <div className="flex-1 relative">
@@ -1097,7 +1524,15 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
           <div className="space-y-8 animate-fadeIn">
             {/* Embed the rich Marketplace Component inside the dashboard seamlessly */}
             <div className="bg-white p-4 rounded-[2rem] border border-neutral-100 shadow-sm overflow-hidden">
-              <Marketplace />
+              <Marketplace user={user} adminSettings={adminSettings} />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'developer' && (
+          <div className="space-y-8 animate-fadeIn">
+            <div className="bg-white p-8 rounded-[2rem] border border-neutral-100 shadow-sm overflow-hidden">
+              <DeveloperTab user={user} lists={lists} />
             </div>
           </div>
         )}

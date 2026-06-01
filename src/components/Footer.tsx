@@ -72,7 +72,7 @@ export default function Footer({ adminSettings }: FooterProps) {
             </li>
             <li>
               <span className="text-[10px] text-neutral-400 font-mono tracking-tighter">
-                Version v1.0.0-beta.1 (BSP/Fiji)
+                Version v1.0.0-beta.2 (BSP/Fiji)
               </span>
             </li>
           </ul>

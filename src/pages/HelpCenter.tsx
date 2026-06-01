@@ -18,6 +18,7 @@ const categories = [
   { id: 'ai-wizard', name: 'AI Wizard', icon: <Zap size={18} /> },
   { id: 'moving', name: 'Projects', icon: <Truck size={18} /> },
   { id: 'billing', name: 'Billing', icon: <Shield size={18} /> },
+  { id: 'developer', name: 'Developer & Embeds', icon: <Globe size={18} /> },
 ];
 
 const articles = [
@@ -181,6 +182,77 @@ const articles = [
       { title: "Define Session Session Limits", description: "Specify session timeouts and screen saver intervals to protect unsupervised terminals." }
     ],
     tips: ["For high-security operations, enable 'Supervisor Signature' to force manual manager overrides on all kiosk transactions."]
+  },
+  {
+    id: 'embed-rental-shop',
+    title: "Embedding the Custom Rental Shop Storefront",
+    description: "Learn how to instantly place a fully functioning storefront directly into your commercial website with zero backend code.",
+    category: 'developer',
+    steps: [
+      { title: "Generate Custom Iframe or Script", description: "Navigate to 'Developer API & Embeds' inside your dashboard and customize colors, themes, and lists according to your platform layout." },
+      { title: "Incorporate Widget Snippet", description: "Copy either the responsive HTML IFRAME embed code or the CSS bundle CDN client-side SDK code." },
+      { title: "Paste into Site Builder", description: "Drop the block directly into Webflow, Squarespace, WordPress, or any hand-coded HTML block. The storefront will automatically match lists, pricing details, and booking logs instantly." }
+    ],
+    tips: ["To unlock paid checkout capabilities inside your embedded rental storefront, link your PayPal or Stripe setup under Admin settings first."]
+  },
+  {
+    id: 'rest-api-sandbox',
+    title: "Utilizing REST APIs & API Keys",
+    description: "Connect to Packer database logs and query lists, gear items, and barcodes with standard HTTP REST calls.",
+    category: 'developer',
+    steps: [
+      { title: "Acquire Secret Key Credentials", description: "Obtain your confidential live secure API token starting with 'pk_live_packer_...' in the Developer panel." },
+      { title: "Configure Headers", description: "Include the credential in HTTP requests using either Authorization Bearer headers or 'x-api-key' custom parameters." },
+      { title: "Test Queries on Sandbox Client", description: "Use our interactive Sandbox API client to execute GET `/api/developer/lists` or `/api/developer/gear` and inspect structured JSON answers directly." }
+    ],
+    tips: ["Do not expose private credentials inside browser-side React or HTML. Always proxy confidential fetch operations through backend server routes."]
+  },
+  {
+    id: 'api-integration-examples',
+    title: "API Authentication & Fetch Blueprints",
+    description: "Get started immediately with copyable snippets for safe list and gear inventory endpoints retrieval.",
+    category: 'developer',
+    steps: [
+      { title: "Header Configuration & TLS", description: "Construct your outbound requests targeting the secure HTTPS container channels. Include 'x-api-key' with your client token in the header." },
+      { title: "Retrieve Active Manifests", description: "Fetch 'GET /api/developer/lists' to extract the complete list of bookings, item counts, hire prices, and periodicities." },
+      { title: "Query Master Gear Catalog", description: "Fetch 'GET /api/developer/gear' to extract your total registered catalog assets, serial numbers, categories, and maintenance timers." }
+    ],
+    tips: [
+      "Keep API calls inside your server-side environment (Node.js, python, or NextJS Server Components) to safeguard your private credentials.",
+      "The sandbox explorer in the 'Developer API & Embeds' dashboard tab lets you examine return fields instantly with a live sandbox click."
+    ],
+    codeSamples: [
+      {
+        title: "List Retrieval (Node.js/JS)",
+        code: `// Retrieve active rental lists
+fetch('https://packer-tools.run.app/api/developer/lists', {
+  method: 'GET',
+  headers: {
+    'x-api-key': 'pk_live_packer_your_key_here',
+    'Content-Type': 'application/json'
+  }
+})
+.then(res => res.json())
+.then(data => {
+  console.log("Found Active Lists:", data.lists);
+})
+.catch(err => console.error("API error:", err));`
+      },
+      {
+        title: "Gear Catalog Retrieval (Python)",
+        code: `# Retrieve registered master gear
+import requests
+
+url = "https://packer-tools.run.app/api/developer/gear"
+headers = {
+    "x-api-key": "pk_live_packer_your_key_here",
+    "Content-Type": "application/json"
+}
+
+response = requests.get(url, headers=headers)
+print("Master Inventory Payload:", response.json())`
+      }
+    ]
   }
 ];
 
@@ -542,6 +614,25 @@ export default function HelpCenter({ user }: HelpCenterProps) {
                               <p key={tIdx} className="text-neutral-600 text-xs font-semibold italic">
                                 {tip}
                               </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {'codeSamples' in article && (article as any).codeSamples && (
+                        <div className="space-y-4 pt-4 border-t border-neutral-100">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-900 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 bg-[#ff4f3a] rounded-full" />
+                            <span>API Code Integration Snippets</span>
+                          </h4>
+                          <div className="grid md:grid-cols-2 gap-6">
+                            {((article as any).codeSamples as any[]).map((sample, sIdx) => (
+                              <div key={sIdx} className="space-y-2">
+                                <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block">{sample.title}</span>
+                                <pre className="p-4 bg-neutral-900 text-emerald-400 rounded-2xl text-[10px] font-mono overflow-x-auto whitespace-pre leading-relaxed border border-neutral-800 text-left">
+                                  {sample.code}
+                                </pre>
+                              </div>
                             ))}
                           </div>
                         </div>
