@@ -3,6 +3,7 @@
   "appId": "1:1033830358250:web:88d117a16ed27adbcecb93",
   "apiKey": "AIzaSyC6wmbqC1Y3kKQ3Zs9gS1xs7NzHaYSfz3U",
   "authDomain": "packer-tools.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-8af96458-c1d9-4cdf-9c9a-815dee7f9c70",
   "storageBucket": "packer-tools.firebasestorage.app",
   "messagingSenderId": "1033830358250",
   "measurementId": ""
