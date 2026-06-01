@@ -36,7 +36,7 @@ export default function Footer({ adminSettings }: FooterProps) {
           <div className="flex items-center gap-2 pt-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[10px] font-mono font-extrabold text-neutral-400 uppercase tracking-wider">
-              BSP Sandbox Verified • Fiji Edition 🇫🇯
+              Fiji Community 🇫🇯
             </span>
           </div>
         </div>
@@ -81,7 +81,7 @@ export default function Footer({ adminSettings }: FooterProps) {
             </li>
             <li>
               <span className="text-[10px] text-neutral-400 font-mono tracking-tighter">
-                Version v1.0.0-beta.2 (BSP/Fiji)
+                Version v1.0.0-beta.2 (Fiji Community)
               </span>
             </li>
           </ul>

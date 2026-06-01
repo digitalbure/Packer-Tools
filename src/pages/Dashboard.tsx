@@ -48,6 +48,128 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
 
   const navigate = useNavigate();
   const location = useLocation();
+  const hasShownMaintenanceToast = React.useRef(false);
+
+  // Filter gear items that have reached their maintenanceIntervalDays cycle thresholds
+  const maintenanceAlerts = React.useMemo(() => {
+    return gear.map(item => {
+      if (!item.maintenanceIntervalDays || item.maintenanceIntervalDays <= 0) {
+        return null;
+      }
+      
+      if (item.status === 'maintenance') {
+        return {
+          item,
+          isOverdue: true,
+          status: 'maintenance' as const,
+          daysRemaining: 0,
+          nextDueText: 'Currently undergoing maintenance'
+        };
+      }
+      
+      if (item.condition === 'poor') {
+        return {
+          item,
+          isOverdue: true,
+          status: 'overdue' as const,
+          daysRemaining: 0,
+          nextDueText: 'Poor Condition - Requires service action'
+        };
+      }
+      
+      if (!item.lastMaintenanceDate) {
+        return {
+          item,
+          isOverdue: true,
+          status: 'overdue' as const,
+          daysRemaining: 0,
+          nextDueText: 'Never Maintained - Schedule now'
+        };
+      }
+      
+      try {
+        const last = new Date(item.lastMaintenanceDate).getTime();
+        const nextDue = last + (item.maintenanceIntervalDays * 24 * 60 * 60 * 1000);
+        const diffMs = nextDue - Date.now();
+        const daysRemaining = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+        const isOverdue = diffMs < 0;
+        
+        // Show if overdue or nearing in next 10 days
+        if (daysRemaining <= 10) {
+          return {
+            item,
+            isOverdue,
+            status: isOverdue ? ('overdue' as const) : ('soon' as const),
+            daysRemaining,
+            nextDueText: isOverdue 
+              ? `Overdue by ${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) !== 1 ? 's' : ''}` 
+              : `Due in ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''}`
+          };
+        }
+      } catch (e) {
+        return {
+          item,
+          isOverdue: true,
+          status: 'overdue' as const,
+          daysRemaining: 0,
+          nextDueText: 'Error parsing date'
+        };
+      }
+      return null;
+    }).filter((a): a is NonNullable<typeof a> => a !== null);
+  }, [gear]);
+
+  // Load-time maintenance UI alert trigger
+  useEffect(() => {
+    if (loading || gear.length === 0 || hasShownMaintenanceToast.current) return;
+    
+    const overdueCount = maintenanceAlerts.filter(a => a.isOverdue).length;
+    if (overdueCount > 0) {
+      hasShownMaintenanceToast.current = true;
+      toast.warning(`Maintenance Alert: ${overdueCount} gear item${overdueCount !== 1 ? 's' : ''} overdue for service!`, {
+        description: "Review your Gear Maintenance Alerts panel to perform clean & fit or schedule reminders.",
+        duration: 6000
+      });
+    }
+  }, [loading, gear, maintenanceAlerts]);
+
+  const handleRecordItemMaintenanceDoc = async (itemId: string, itemName: string) => {
+    try {
+      await updateDoc(doc(db, 'users', user.uid, 'gearLibrary', itemId), {
+        lastMaintenanceDate: new Date().toISOString().split('T')[0],
+        status: 'available',
+        condition: 'good'
+      });
+      toast.success(`Logged maintenance complete for "${itemName}". Interval reset!`);
+    } catch (err) {
+      console.error("Error logging gear item maintenance:", err);
+      toast.error(`Failed to register maintenance log for "${itemName}".`);
+    }
+  };
+
+  const handleCreateMaintenanceReminder = async (item: GearItem) => {
+    try {
+      const nextDueDate = item.lastMaintenanceDate 
+        ? new Date(new Date(item.lastMaintenanceDate).getTime() + (item.maintenanceIntervalDays || 30) * 24 * 60 * 60 * 1000).toISOString()
+        : new Date().toISOString();
+      
+      await addDoc(collection(db, 'reminders'), {
+        ownerId: user.uid,
+        listId: '',
+        itemId: item.id,
+        itemName: item.name,
+        type: 'maintenance',
+        dueDate: nextDueDate,
+        status: 'pending',
+        message: `Scheduled maintenance check for ${item.name}`,
+        createdAt: new Date().toISOString()
+      });
+      toast.success(`Registered a formal maintenance task for "${item.name}"!`);
+    } catch (err) {
+      console.error("Error creating maintenance reminder document:", err);
+      toast.error("Failed to register reminder task.");
+    }
+  };
 
   const handleTabChange = (tab: DashboardTab) => {
     setActiveTab(tab);
@@ -603,6 +725,100 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                 )}
               </section>
 
+              {/* Gear Maintenance Alerts & Reminders Center */}
+              {maintenanceAlerts.length > 0 && (
+                <section className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-[#FF5500]/10 text-[#FF5500] rounded-xl flex items-center justify-center">
+                        <Wrench size={22} className="animate-pulse" />
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-black text-neutral-900 tracking-tight text-left">Gear Maintenance Service Center</h2>
+                        <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider font-sans text-left">Active notifications based on customized cycle intervals</p>
+                      </div>
+                    </div>
+                    <span className="bg-[#FF5500] text-white text-[10px] font-black px-3 py-1 rounded-full animate-bounce shrink-0">
+                      {maintenanceAlerts.length} Action{maintenanceAlerts.length !== 1 ? 's' : ''} Needed
+                    </span>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {maintenanceAlerts.map(({ item, isOverdue, status: alertStatus, daysRemaining, nextDueText }) => {
+                      const hasTask = reminders.some(r => r.itemId === item.id && r.type === 'maintenance' && r.status === 'pending');
+                      return (
+                        <div 
+                          key={`maint-${item.id}`} 
+                          className="p-6 rounded-3xl border transition-all flex flex-col justify-between gap-5 text-left bg-white shadow-sm border-neutral-100 hover:border-[#FF5500]/40"
+                        >
+                          <div className="space-y-3.5">
+                            <div className="flex items-start justify-between">
+                              <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                isOverdue 
+                                  ? 'bg-red-50 text-red-600 border border-red-100/50' 
+                                  : 'bg-amber-50 text-amber-600 border border-amber-100/50'
+                              }`}>
+                                {isOverdue ? 'Overdue Service' : 'Service Imminent'}
+                              </span>
+                              <span className="text-[10px] font-mono text-neutral-400 font-bold">
+                                Every {item.maintenanceIntervalDays} Days
+                              </span>
+                            </div>
+
+                            <div>
+                              <h3 className="font-extrabold text-neutral-900 text-base line-clamp-1">
+                                {item.name}
+                              </h3>
+                              <p className="text-xs font-mono text-neutral-400 mt-0.5">
+                                {item.brand ? `${item.brand} • ` : ''}{item.category || 'Gear'}
+                              </p>
+                            </div>
+
+                            <div className="p-3.5 rounded-2xl bg-neutral-50/60 border border-neutral-100 space-y-1">
+                              <div className="flex justify-between text-[10px] font-bold text-neutral-500">
+                                <span>Last Action:</span>
+                                <span>{item.lastMaintenanceDate || 'Never'}</span>
+                              </div>
+                              <div className={`text-[11px] font-black flex items-center gap-1.5 ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}>
+                                <AlertCircle size={13} className="shrink-0" />
+                                <span className="tracking-tight">{nextDueText}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              onClick={() => handleRecordItemMaintenanceDoc(item.id, item.name)}
+                              className="flex-1 py-2 px-3 bg-neutral-900 hover:bg-[#FF5500] hover:text-white text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-1.5 shadow-sm shadow-neutral-900/10 cursor-pointer"
+                              title="Perform full check and reset countdown"
+                            >
+                              <CheckCircle2 size={12} />
+                              <span>Log Service</span>
+                            </button>
+                            
+                            {hasTask ? (
+                              <div className="px-3 py-2 bg-green-50 border border-green-100 rounded-xl text-green-600 text-[9px] font-black uppercase tracking-widest flex items-center gap-1 shrink-0">
+                                <Clock size={11} />
+                                <span>Scheduled</span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleCreateMaintenanceReminder(item)}
+                                className="py-2 px-3 bg-neutral-50 hover:bg-neutral-150 text-neutral-600 border border-neutral-200/50 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                title="Add to dashboard pending task list"
+                              >
+                                <Calendar size={12} />
+                                <span>Remind</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
               {reminders.length > 0 && (
                 <section className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
                   <div className="flex items-center gap-3">
@@ -1091,6 +1307,100 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                 </div>
               )}
             </section>
+
+            {/* Gear Maintenance Alerts & Reminders Center */}
+            {maintenanceAlerts.length > 0 && (
+              <section className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-[#FF5500]/10 text-[#FF5500] rounded-xl flex items-center justify-center">
+                      <Wrench size={22} className="animate-pulse" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black text-neutral-900 tracking-tight text-left">Gear Maintenance Service Center</h2>
+                      <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider font-sans text-left">Active notifications based on customized cycle intervals</p>
+                    </div>
+                  </div>
+                  <span className="bg-[#FF5500] text-white text-[10px] font-black px-3 py-1 rounded-full animate-bounce shrink-0">
+                    {maintenanceAlerts.length} Action{maintenanceAlerts.length !== 1 ? 's' : ''} Needed
+                  </span>
+                </div>
+
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {maintenanceAlerts.map(({ item, isOverdue, status: alertStatus, daysRemaining, nextDueText }) => {
+                    const hasTask = reminders.some(r => r.itemId === item.id && r.type === 'maintenance' && r.status === 'pending');
+                    return (
+                      <div 
+                        key={`maint-det-${item.id}`} 
+                        className="p-6 rounded-3xl border transition-all flex flex-col justify-between gap-5 text-left bg-white shadow-sm border-neutral-100 hover:border-[#FF5500]/40"
+                      >
+                        <div className="space-y-3.5">
+                          <div className="flex items-start justify-between">
+                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                              isOverdue 
+                                ? 'bg-red-50 text-red-600 border border-red-100/50' 
+                                : 'bg-amber-50 text-amber-600 border border-amber-100/50'
+                            }`}>
+                              {isOverdue ? 'Overdue Service' : 'Service Imminent'}
+                            </span>
+                            <span className="text-[10px] font-mono text-neutral-400 font-bold">
+                              Every {item.maintenanceIntervalDays} Days
+                            </span>
+                          </div>
+
+                          <div>
+                            <h3 className="font-extrabold text-neutral-900 text-base line-clamp-1">
+                              {item.name}
+                            </h3>
+                            <p className="text-xs font-mono text-neutral-400 mt-0.5">
+                              {item.brand ? `${item.brand} • ` : ''}{item.category || 'Gear'}
+                            </p>
+                          </div>
+
+                          <div className="p-3.5 rounded-2xl bg-neutral-50/60 border border-neutral-100 space-y-1">
+                             <div className="flex justify-between text-[10px] font-bold text-neutral-500">
+                               <span>Last Action:</span>
+                               <span>{item.lastMaintenanceDate || 'Never'}</span>
+                             </div>
+                             <div className={`text-[11px] font-black flex items-center gap-1.5 ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}>
+                               <AlertCircle size={13} className="shrink-0" />
+                               <span className="tracking-tight">{nextDueText}</span>
+                             </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={() => handleRecordItemMaintenanceDoc(item.id, item.name)}
+                            className="flex-1 py-2 px-3 bg-neutral-900 hover:bg-[#FF5500] hover:text-white text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-1.5 shadow-sm shadow-neutral-900/10 cursor-pointer"
+                            title="Perform full check and reset countdown"
+                          >
+                            <CheckCircle2 size={12} />
+                            <span>Log Service</span>
+                          </button>
+                          
+                          {hasTask ? (
+                            <div className="px-3 py-2 bg-green-50 border border-green-100 rounded-xl text-green-600 text-[9px] font-black uppercase tracking-widest flex items-center gap-1 shrink-0">
+                              <Clock size={11} />
+                              <span>Scheduled</span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleCreateMaintenanceReminder(item)}
+                              className="py-2 px-3 bg-neutral-50 hover:bg-neutral-150 text-neutral-600 border border-neutral-200/50 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer"
+                              title="Add to dashboard pending task list"
+                            >
+                              <Calendar size={12} />
+                              <span>Remind</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
             {reminders.length > 0 && (
               <section className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
