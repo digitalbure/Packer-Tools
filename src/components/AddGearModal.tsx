@@ -993,7 +993,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
 
                 <div className="bg-white p-3.5 rounded-2xl border border-neutral-100 shadow-md">
                   <QRCodeCanvas 
-                    value={`${window.location.origin}/#/gear/${newlyCreatedId}`}
+                    value={`${window.location.origin}/#/gear/${newlyCreatedId}?owner=${user?.uid || ''}`}
                     size={100}
                     level="Q"
                   />

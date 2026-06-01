@@ -365,7 +365,7 @@ export default function App() {
     };
   }, []);
 
-  const isLayoutHidden = currentHash.startsWith('#/kiosk') || currentHash.includes('hideLayout=true');
+  const isLayoutHidden = currentHash.startsWith('#/kiosk') || currentHash.includes('hideLayout=true') || currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/');
 
   useEffect(() => {
     if (user) {
@@ -663,7 +663,7 @@ export default function App() {
             )}
             <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
               isLayoutHidden 
-                ? 'max-w-none px-0 py-0 sm:px-0 sm:py-0 bg-neutral-900' 
+                ? `max-w-none px-0 py-0 sm:px-0 sm:py-0 ${(currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/')) ? 'bg-neutral-50' : 'bg-neutral-900'}` 
                 : 'max-w-[1700px] mx-auto px-4 sm:px-6 py-6 sm:py-8'
             }`}>
               <div className="flex-1">

@@ -17,9 +17,10 @@ interface ShareModalProps {
   type: 'gear' | 'kit' | 'list';
   data: any; // GearItem or PackingList
   onClose: () => void;
+  user?: any;
 }
 
-export default function ShareModal({ type, data, onClose }: ShareModalProps) {
+export default function ShareModal({ type, data, onClose, user }: ShareModalProps) {
   if (!data) return null;
 
   // Determine item specifics
@@ -31,7 +32,8 @@ export default function ShareModal({ type, data, onClose }: ShareModalProps) {
   // Construct the shareable bio/profile link
   let shareUrl = '';
   if (isGear) {
-    shareUrl = `${window.location.origin}/#/gear/${data.id}`;
+    const ownerId = data.ownerId || user?.uid || '';
+    shareUrl = `${window.location.origin}/#/gear/${data.id}?owner=${ownerId}`;
   } else {
     shareUrl = `${window.location.origin}/#/p/${data.id}${data.shareToken ? `?token=${data.shareToken}` : ''}`;
   }

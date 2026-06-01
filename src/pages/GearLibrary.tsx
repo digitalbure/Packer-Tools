@@ -6910,6 +6910,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             type={sharingGearType} 
             data={sharingGearItem} 
             onClose={() => setSharingGearItem(null)} 
+            user={user}
           />
         )}
       </AnimatePresence>
