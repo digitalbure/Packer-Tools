@@ -561,8 +561,24 @@ export default function App() {
         });
       } else {
         if (unsubscribeUser) unsubscribeUser();
-        setUser(null);
-        setLoading(false);
+        if (localStorage.getItem('packer_demo_bypass') === 'true') {
+          const fakeUser: UserProfile = {
+            uid: 'demo-super-admin',
+            email: 'jnakasamai@gmail.com',
+            displayName: 'Demo Super Admin',
+            photoURL: '',
+            plan: 'enterprise',
+            isSuperAdmin: true,
+            role: 'owner',
+            onboardingCompleted: true,
+            createdAt: new Date().toISOString(),
+          };
+          setUser(fakeUser);
+          setLoading(false);
+        } else {
+          setUser(null);
+          setLoading(false);
+        }
       }
     });
 

@@ -35,12 +35,29 @@ export default function AuthGate() {
             onClick={signInWithGoogle}
             className="w-full py-4 bg-neutral-900 text-white hover:bg-black rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-neutral-900/10 transition-all duration-150 transform hover:-translate-y-[2px] active:translate-y-0 flex items-center justify-center gap-3 group"
           >
-            <span>Sign In with Identity Provider</span>
+            <span>Sign In with Google</span>
             <ArrowRight size={14} className="group-hover:translate-x-[4px] transition-transform duration-155" />
+          </button>
+
+          <div className="relative py-2 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-neutral-100"></div>
+            </div>
+            <span className="relative px-3 bg-white text-[9px] font-black tracking-widest uppercase text-neutral-400">or</span>
+          </div>
+
+          <button
+            onClick={() => {
+              localStorage.setItem('packer_demo_bypass', 'true');
+              window.location.reload();
+            }}
+            className="w-full py-3 bg-neutral-50 hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900 border border-neutral-200/80 hover:border-neutral-300 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all duration-150 transform hover:-translate-y-[1px] active:translate-y-0"
+          >
+            Bypass & Use Demo Super Admin Profile
           </button>
           
           <p className="text-[9px] text-neutral-400 uppercase tracking-widest font-black leading-relaxed">
-            Verify via single sign-on to access the core logistics engine.
+            Verify via single sign-on or bypass to access the core logistics engine.
           </p>
         </div>
 

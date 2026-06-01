@@ -57,6 +57,33 @@ export const signInWithGoogle = async () => {
       errorMsg = 'Sign-in request is already active, or was blocked/cancelled by the iframe environment settings.';
     }
 
+    if (error.code === 'auth/configuration-not-found' || errorMsg.includes('configuration-not-found')) {
+      const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
+      const setupInstructions = isEmbedded 
+        ? "⚠️ Action Required: Google Authentication is not enabled for this project.\n\n1. Enable Auth in your Firebase Console: https://console.firebase.google.com/project/packer-tools-app/authentication\n2. Turn on Google authentication provider.\n3. Be sure to click 'Open in new tab' on this preview's top-right to log in successfully!"
+        : "⚠️ Action Required: Google Authentication is not enabled for this project.\n\n1. Visit the Firebase Authentication page: https://console.firebase.google.com/project/packer-tools-app/authentication\n2. Click 'Get Started' and enable the 'Google' sign-in provider in the 'Sign-in method' tab!";
+      
+      toast.error(setupInstructions, { duration: 25000 });
+      console.error('Login error:', error);
+      return null;
+    }
+
+    if (error.code === 'auth/unauthorized-domain' || errorMsg.includes('unauthorized-domain')) {
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+      const projectId = firebaseConfig.projectId || 'packer-tools-app';
+      const setupInstructions = `⚠️ Unauthorized Domain: "${hostname}" must be authorized in Firebase.\n\n` +
+        `1. Open Firebase Console for your project:\n` +
+        `   https://console.firebase.google.com/project/${projectId}/authentication/settings\n` +
+        `2. Look for "Authorized domains" and click "Add domain".\n` +
+        `3. Copy & paste this hostname:\n` +
+        `   👉 ${hostname}\n` +
+        `4. Refresh or click Sign In again to log in successfully!`;
+
+      toast.error(setupInstructions, { duration: 30000 });
+      console.error('Login error (unauthorized domain):', error);
+      return null;
+    }
+
     const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
     if (isEmbedded) {
       toast.error(
@@ -74,7 +101,10 @@ export const signInWithGoogle = async () => {
   }
 };
 
-export const logout = () => signOut(auth);
+export const logout = () => {
+  localStorage.removeItem('packer_demo_bypass');
+  return signOut(auth);
+};
 
 export enum OperationType {
   CREATE = 'create',
