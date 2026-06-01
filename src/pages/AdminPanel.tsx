@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Coins, ShoppingBag, Eye, EyeOff } from 'lucide-react';
+import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Coins, ShoppingBag, Eye, EyeOff, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project } from '../types';
@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import PagesManager from './PagesManager';
 import PackerLogo from '../components/PackerLogo';
 import AdminDocsTab from '../components/AdminDocsTab';
+import FirebaseMigrator from '../components/FirebaseMigrator';
 import { AreaChart, Area, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cell, CartesianGrid } from 'recharts';
 
 export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, onMenuClick?: () => void }) {
@@ -600,6 +601,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     { id: 'landing', icon: <Layout size={18} />, label: 'Landing Page', description: 'Public site content' },
     { id: 'pages', icon: <FileText size={18} />, label: 'Manage Pages', description: 'Terms, policies & documents' },
     { id: 'settings', icon: <Settings size={18} />, label: 'Settings', description: 'Global configuration' },
+    { id: 'migration', icon: <Database size={18} />, label: 'Firebase Migration', description: 'Migrate data from old Firebase' },
     { id: 'docs', icon: <HelpCircle size={18} />, label: 'App Documentation', description: 'Packer Tools University & Widget Setup' }
   ];
 
@@ -6006,6 +6008,10 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             </div>
           </div>
         </div>
+      )}
+
+      {activeTab === 'migration' && (
+        <FirebaseMigrator />
       )}
 
       {activeTab === 'docs' && (

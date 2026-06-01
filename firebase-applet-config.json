@@ -1,10 +1,10 @@
 {
   "projectId": "packer-tools-app",
-  "appId": "1:95794666306:web:35c34c6325d0796bedc6db",
+  "appId": "1:95794666306:web:9548c3ee06591acbedc6db",
   "apiKey": "AIzaSyBNNkB587QQv4sDaq7PT0r50OLeNUOGbPM",
   "authDomain": "packer-tools-app.firebaseapp.com",
-  "firestoreDatabaseId": "(default)",
+  "firestoreDatabaseId": "ai-studio-8af96458-c1d9-4cdf-9c9a-815dee7f9c70",
   "storageBucket": "packer-tools-app.firebasestorage.app",
   "messagingSenderId": "95794666306",
-  "measurementId": "G-XC6TMLMT9K"
+  "measurementId": ""
 }

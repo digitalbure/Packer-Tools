@@ -64,7 +64,7 @@ export const signInWithGoogle = async () => {
         : "⚠️ Action Required: Google Authentication is not enabled for this project.\n\n1. Visit the Firebase Authentication page: https://console.firebase.google.com/project/packer-tools-app/authentication\n2. Click 'Get Started' and enable the 'Google' sign-in provider in the 'Sign-in method' tab!";
       
       toast.error(setupInstructions, { duration: 25000 });
-      console.error('Login error:', error);
+      console.warn('Login warning (configuration not found):', error);
       return null;
     }
 
@@ -80,7 +80,7 @@ export const signInWithGoogle = async () => {
         `4. Refresh or click Sign In again to log in successfully!`;
 
       toast.error(setupInstructions, { duration: 30000 });
-      console.error('Login error (unauthorized domain):', error);
+      console.warn('Login warning (unauthorized domain):', error);
       return null;
     }
 
@@ -94,7 +94,7 @@ export const signInWithGoogle = async () => {
       toast.error(`Firebase Login Error: ${errorMsg}`);
     }
 
-    console.error('Login error:', error);
+    console.warn('Login warning:', error);
     return null;
   } finally {
     isSigningIn = false;

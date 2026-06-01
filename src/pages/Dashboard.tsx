@@ -101,9 +101,13 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
     });
 
     const fetchSettings = async () => {
-      const settingsDoc = await getDoc(doc(db, 'adminSettings', 'global'));
-      if (settingsDoc.exists()) {
-        setAdminSettings(settingsDoc.data() as AdminSettings);
+      try {
+        const settingsDoc = await getDoc(doc(db, 'adminSettings', 'global'));
+        if (settingsDoc.exists()) {
+          setAdminSettings(settingsDoc.data() as AdminSettings);
+        }
+      } catch (err) {
+        console.warn("Dashboard: Error fetching global admin settings:", err);
       }
     };
     fetchSettings();
