@@ -1355,6 +1355,23 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     });
   };
 
+  const cleanUndefinedFields = (obj: any): any => {
+    if (obj === null || typeof obj !== 'object') {
+      return obj;
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(item => cleanUndefinedFields(item));
+    }
+    const clean: any = {};
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      if (val !== undefined) {
+        clean[key] = cleanUndefinedFields(val);
+      }
+    }
+    return clean;
+  };
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
@@ -1365,7 +1382,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       const path = `users/${user.uid}/gearLibrary/${id}`;
 
       const pCat = data.primaryCategory || data.category || 'Other';
-      const updatePayload = {
+      const updatePayload = cleanUndefinedFields({
         ...data,
         category: pCat,
         primaryCategory: pCat,
@@ -1375,10 +1392,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         serialNumber: data.serialNumber || '',
         releaseYear: data.releaseYear || '',
         updatedAt: updatedAt
-      };
+      });
 
       // Log version before updating
-      await addDoc(collection(db, 'users', user.uid, 'gearLibrary', id, 'versions'), {
+      await addDoc(collection(db, 'users', user.uid, 'gearLibrary', id, 'versions'), cleanUndefinedFields({
         gearId: id,
         name: data.name,
         category: pCat,
@@ -1386,7 +1403,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         photoUrls: data.photoUrls || [],
         updatedAt: updatedAt,
         updatedBy: user.uid
-      });
+      }));
 
       await updateDoc(doc(db, 'users', user.uid, 'gearLibrary', id), updatePayload);
 
@@ -1458,7 +1475,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           };
           
           const { id, ...data } = updatedItem;
-          await updateDoc(doc(db, 'users', user.uid, 'gearLibrary', id), data);
+          await updateDoc(doc(db, 'users', user.uid, 'gearLibrary', id), cleanUndefinedFields(data));
           setEditingItem(updatedItem);
           setShowHistory(false);
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
@@ -1725,7 +1742,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     try {
       const path = `users/${user.uid}/gearLibrary`;
       const pCat = newItem.primaryCategory || newItem.category || 'Other';
-      await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), {
+      await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), cleanUndefinedFields({
         ...newItem,
         category: pCat,
         primaryCategory: pCat,
@@ -1740,7 +1757,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         quantity: newItem.quantity || 1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
+      }));
       setIsAddModalOpen(false);
       setNewItem({
         name: '',
