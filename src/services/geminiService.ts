@@ -1,7 +1,19 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { GearItem, Container, PackingItem } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new Proxy({} as GoogleGenAI, {
+  get(target, prop, receiver) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      throw new Error("GEMINI_API_KEY is not defined in the client environment.");
+    }
+    if (!(target as any).models) {
+      const actualAI = new GoogleGenAI({ apiKey: key });
+      Object.assign(target, actualAI);
+    }
+    return Reflect.get(target, prop, receiver);
+  }
+});
 
 export async function identifyItem(base64Image: string): Promise<{ 
   name: string; 
