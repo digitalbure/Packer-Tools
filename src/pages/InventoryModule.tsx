@@ -1106,6 +1106,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    toast.success(`Successfully exported "${selectedInventory?.name || 'custom'}" inventory list to CSV!`);
   };
 
   // Export detailed inventory audit report

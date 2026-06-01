@@ -85,14 +85,32 @@ const DEFAULT_TESTIMONIALS = [
 ];
 
 const IndustrialTicker = ({ pairs }: { pairs: { by: string, for: string }[] }) => {
+  const validPairs = Array.isArray(pairs) 
+    ? pairs.filter(p => p && typeof p.by === 'string' && typeof p.for === 'string')
+    : [];
+
+  const activePairs = validPairs.length > 0 ? validPairs : [
+    { by: "Production Crews", for: "Camera Kit Labeling" },
+    { by: "Logistics Teams", for: "Team Kit Distribution" },
+    { by: "Mountaineers", for: "Expedition Readiness" },
+    { by: "Safety Teams", for: "Compliance Audit Reporting" }
+  ];
+
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
+    setIndex(0);
+  }, [activePairs.length]);
+
+  useEffect(() => {
+    if (activePairs.length <= 1) return;
     const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % pairs.length);
+      setIndex((prev) => (prev + 1) % activePairs.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, [pairs.length]);
+  }, [activePairs.length]);
+
+  const currentPair = activePairs[index] || { by: "", for: "" };
 
   return (
     <div className="space-y-8 md:space-y-12 max-w-full overflow-visible">
@@ -112,7 +130,7 @@ const IndustrialTicker = ({ pairs }: { pairs: { by: string, for: string }[] }) =
               className="w-full"
             >
               <h2 className="text-3xl md:text-5xl font-black tracking-tighter uppercase text-primary font-mono leading-[0.9] break-words">
-                {pairs[index].by}
+                {currentPair.by}
               </h2>
             </motion.div>
           </AnimatePresence>
@@ -135,7 +153,7 @@ const IndustrialTicker = ({ pairs }: { pairs: { by: string, for: string }[] }) =
               className="w-full"
             >
               <h2 className="text-3xl md:text-5xl font-black tracking-tighter uppercase text-accent font-mono leading-[0.9] break-words">
-                {pairs[index].for}
+                {currentPair.for}
               </h2>
             </motion.div>
           </AnimatePresence>
@@ -273,7 +291,7 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
           </Link>
           
           <nav className="hidden md:flex items-center gap-8">
-            {lp?.header?.links.map((link, i) => (
+            {(Array.isArray(lp?.header?.links) ? lp.header.links : []).map((link, i) => (
               <a key={i} href={link.href} className="text-xs font-bold uppercase tracking-widest hover:text-accent transition-colors">
                 {link.label}
               </a>
@@ -331,9 +349,8 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
               <div className="px-2 py-1 bg-safety-yellow text-primary text-[10px] font-black uppercase tracking-widest rounded">System v2.4</div>
               <span className="micro-label">{lp?.hero?.subtitle || 'Industrial Grade Gear Tracking'}</span>
             </div>
-            
-            <h1 className="text-6xl md:text-[120px] font-black tracking-tighter leading-[0.82] uppercase whitespace-pre-line">
-              {lp?.hero?.title ? lp.hero.title.split('. ').map((part, i) => (
+                    <h1 className="text-6xl md:text-[120px] font-black tracking-tighter leading-[0.82] uppercase whitespace-pre-line">
+              {typeof lp?.hero?.title === 'string' ? lp.hero.title.split('. ').map((part, i) => (
                 <span key={i} className={i % 2 !== 0 ? 'text-accent' : 'text-primary'}>
                   {part}{i < lp.hero.title.split('. ').length - 1 ? '.' : ''} <br />
                 </span>
@@ -350,7 +367,7 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
             {(lp?.ticker?.isEnabled !== false) && (
               <div className="max-w-md">
                 <IndustrialTicker 
-                  pairs={lp?.ticker?.pairs || [
+                  pairs={Array.isArray(lp?.ticker?.pairs) ? lp.ticker.pairs : [
                     { by: "Production Crews", for: "Camera Kit Labeling" },
                     { by: "Logistics Teams", for: "Team Kit Distribution" },
                     { by: "Mountaineers", for: "Expedition Readiness" },
@@ -402,7 +419,7 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
 
           {(lp?.stats?.isEnabled !== false) && (
             <div className="pt-12 grid grid-cols-3 gap-8 border-t border-primary/5">
-              {(lp?.stats?.items || [
+              {(Array.isArray(lp?.stats?.items) ? lp.stats.items : [
                 { label: "Recognition", value: "99.2%" },
                 { label: "Active Users", value: "12k+" },
                 { label: "Kits Managed", value: "450k" }
@@ -447,7 +464,7 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
           </div>
 
           <div className="grid md:grid-cols-3 gap-1px bg-primary/10 border border-primary/10 rounded-3xl overflow-hidden relative z-10">
-            {( (lp?.features as any)?.items || [
+            {( Array.isArray((lp?.features as any)?.items) ? (lp.features as any).items : [
               { 
                 icon: 'Camera', 
                 title: "Visual Audit", 
@@ -463,7 +480,7 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
                 title: "Marketplace Sync", 
                 description: "Instantly deploy gear lists to global marketplaces. One-click sharing with professional formatting and visual verification." 
               }
-            ] as any[] ).map((feature: any, i: number) => (
+            ] ).map((feature: any, i: number) => (
               <div key={i} className="bg-paper p-12 space-y-8 hover:bg-white transition-all duration-500 group border-b md:border-b-0 md:border-r border-primary/5 last:border-0">
                 <div className="w-12 h-12 flex items-center justify-center text-primary group-hover:text-accent transition-colors">
                   {iconMap[feature.icon] || <Package />}
@@ -497,7 +514,7 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
             </div>
  
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {((lp?.scenarios as any)?.items || DEFAULT_SCENARIOS).map((s: any, i: number) => (
+              {(Array.isArray((lp?.scenarios as any)?.items) ? (lp.scenarios as any).items : DEFAULT_SCENARIOS).map((s: any, i: number) => (
                 <motion.div 
                   key={i}
                   whileHover={{ y: -5 }}
@@ -532,7 +549,7 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
             <p className="text-neutral-500 font-medium max-w-md mx-auto">{lp?.testimonials?.subtitle || "Real field feedback from engineers and safety leads trusted to pack and deploy critical hardware."}</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {(lp?.testimonials?.items || DEFAULT_TESTIMONIALS).map((t: any, i: number) => (
+            {(Array.isArray(lp?.testimonials?.items) ? lp.testimonials.items : DEFAULT_TESTIMONIALS).map((t: any, i: number) => (
               <div key={i} className="bg-white p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6 hover:shadow-md transition-all">
                 <p className="text-sm font-medium leading-relaxed italic text-neutral-600">"{t.content}"</p>
                 <div className="flex items-center gap-4 pt-2 border-t border-neutral-50">
@@ -556,7 +573,7 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
             <p className="text-neutral-500 font-medium">{lp?.faq?.subtitle || "Everything you need to know about Packer's digital-to-physical inventory pipeline."}</p>
           </div>
           <div className="space-y-4">
-            {(lp?.faq?.items || DEFAULT_FAQ).map((item: any, i: number) => (
+            {(Array.isArray(lp?.faq?.items) ? lp.faq.items : DEFAULT_FAQ).map((item: any, i: number) => (
               <div key={i} className="bg-white p-8 rounded-3xl border border-neutral-150/60 shadow-sm space-y-3 hover:border-neutral-300 transition-all">
                 <h3 className="text-base font-black uppercase tracking-tight text-neutral-900 flex items-center gap-2">
                   <span className="text-accent font-mono font-black py-0.5 px-2 bg-neutral-100 rounded text-xs select-none">Q</span> {item.question}
@@ -605,7 +622,7 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
                     <div>
                       <h3 className="text-xl font-bold uppercase tracking-tight">{plan.name}</h3>
                       <p className={`${plan.price > 0 ? 'text-primary/40' : 'text-white/40'} text-xs font-medium`}>
-                        {plan.features.slice(0, 3).map(f => f.replace(/([A-Z])/g, ' $1')).join(', ')}...
+                        {Array.isArray(plan.features) ? plan.features.slice(0, 3).map(f => f.replace(/([A-Z])/g, ' $1')).join(', ') : ''}...
                       </p>
                     </div>
                     <div className="text-right">
