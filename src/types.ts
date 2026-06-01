@@ -106,6 +106,17 @@ export interface UserProfile {
   defaultSecurityDeposit?: number; // User custom default fixed security deposit
   country?: string; // User selected marketplace country
   dashboardMode?: 'minimal' | 'all';
+  // KYC & Verified Seller Store Fields
+  kycStatus?: 'not_started' | 'pending' | 'verified' | 'rejected';
+  kycSubmittedAt?: string;
+  kycFullIdName?: string;
+  kycIdType?: 'passport' | 'national_id' | 'drivers_license';
+  kycIdNumber?: string;
+  kycRejectReason?: string;
+  storeName?: string;
+  storeBio?: string;
+  storeLogo?: string;
+  storeCustomUrl?: string;
 }
 
 export interface Contact {
@@ -660,7 +671,19 @@ export interface Terminal {
   };
 }
 
+export interface AppCommunity {
+  id: string;
+  name: string;
+  country: string;
+  countryCode: string;
+  currency: string;
+  flag: string;
+  companyName?: string;
+  isActive: boolean;
+}
+
 export interface AdminSettings {
+  communities?: AppCommunity[];
   branding: {
     logo?: string;
     primaryColor?: string;

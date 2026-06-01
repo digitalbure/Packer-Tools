@@ -6,11 +6,32 @@ import { AdminSettings } from '../types';
 
 interface FooterProps {
   adminSettings: AdminSettings | null;
+  selectedCommunity?: string | null;
+  onOpenSelector?: () => void;
 }
 
-export default function Footer({ adminSettings }: FooterProps) {
+export default function Footer({ adminSettings, selectedCommunity, onOpenSelector }: FooterProps) {
   const currentYear = new Date().getFullYear();
   const companyName = adminSettings?.branding?.companyName || 'Packer Tools';
+
+  const activeCommunities = adminSettings?.communities || [
+    { id: 'fiji', name: 'Fiji Community', country: 'Fiji', countryCode: 'FJ', currency: 'FJD', flag: '🇫🇯', companyName: 'Packer Tools Fiji', isActive: true },
+    { id: 'australia', name: 'Australian Community', country: 'Australia', countryCode: 'AU', currency: 'AUD', flag: '🇦🇺', companyName: 'Packer Tools Australia', isActive: true },
+    { id: 'new_zealand', name: 'New Zealand Community', country: 'New Zealand', countryCode: 'NZ', currency: 'NZD', flag: '🇳🇿', companyName: 'Packer Tools New Zealand', isActive: true }
+  ];
+
+  const currentComm = activeCommunities.find(c => c.id === selectedCommunity);
+  
+  let communityLabel = 'Global Portal 🌐';
+  let versionSuffix = 'Global Site';
+
+  if (currentComm) {
+    communityLabel = `${currentComm.name} ${currentComm.flag}`;
+    versionSuffix = currentComm.name;
+  } else if (!selectedCommunity) {
+    communityLabel = 'Select Community 📍';
+    versionSuffix = 'Standard';
+  }
 
   return (
     <footer className="w-full bg-white border-t border-neutral-200/60 mt-12 py-12 px-6 sm:px-12 class-footer">
@@ -33,14 +54,18 @@ export default function Footer({ adminSettings }: FooterProps) {
           <p className="text-xs text-neutral-500 font-semibold leading-relaxed max-w-sm">
             Professional-grade AV logistics, rack assembly planning, and gear lifecycle orchestration. Built for high-stakes on-set execution.
           </p>
-          <div className="flex items-center gap-2 pt-2">
+          <div 
+            onClick={onOpenSelector}
+            className="flex items-center gap-2 pt-2 cursor-pointer hover:opacity-85 transition group inline-flex"
+            title="Switch geographic community hub"
+          >
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-mono font-extrabold text-neutral-400 uppercase tracking-wider">
-              Fiji Community 🇫🇯
+            <span className="text-[10px] font-mono font-extrabold text-neutral-400 group-hover:text-primary uppercase tracking-wider transition-colors">
+              {communityLabel} • Switch Hub
             </span>
           </div>
         </div>
-
+        
         {/* Workspace Quicklinks */}
         <div className="space-y-4 text-left">
           <h4 className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Active Workspace</h4>
@@ -81,7 +106,7 @@ export default function Footer({ adminSettings }: FooterProps) {
             </li>
             <li>
               <span className="text-[10px] text-neutral-400 font-mono tracking-tighter">
-                Version v1.0.0-beta.2 (Fiji Community)
+                Version v1.0.0-beta.2 ({versionSuffix})
               </span>
             </li>
           </ul>
@@ -99,7 +124,7 @@ export default function Footer({ adminSettings }: FooterProps) {
           <Link to="/terms" className="hover:text-neutral-600 transition">Terms of Use</Link>
         </div>
         <div className="flex items-center gap-1">
-          <span>Made in 🇫🇯 with 💙 | App by Digital Bure</span>
+          <span>{currentComm ? `Community: ${currentComm.name}` : 'Global Site'} | App by Digital Bure</span>
         </div>
       </div>
     </footer>

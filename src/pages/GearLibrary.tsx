@@ -1641,6 +1641,73 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     }
   };
 
+  const [isEstimatingWeight, setIsEstimatingWeight] = useState(false);
+
+  const handleEstimateWeight = async (target: 'new' | 'edit') => {
+    const item = target === 'edit' ? editingItem : newItem;
+    if (!item) return;
+
+    if (!item.name?.trim()) {
+      toast.error('Please enter an item name first so AI has context');
+      return;
+    }
+
+    const aiCheck = await canUseAI(user, settings);
+    if (!aiCheck.allowed) {
+      toast.error(aiCheck.reason);
+      return;
+    }
+
+    setIsEstimatingWeight(true);
+    const toastId = toast.loading("AI is estimating weight...");
+    try {
+      const response = await fetch("/api/estimate-weight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: item.name,
+          brand: item.brand || '',
+          model: item.model || '',
+          description: item.description || ''
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Server error: " + response.status);
+      }
+
+      const data = await response.json();
+      if (data.weight !== undefined) {
+        if (target === 'edit') {
+          setEditingItem(prev => prev ? {
+            ...prev,
+            weight: data.weight,
+            weightUnit: data.weightUnit || prev.weightUnit || 'g'
+          } : null);
+        } else {
+          setNewItem(prev => ({
+            ...prev,
+            weight: data.weight,
+            weightUnit: data.weightUnit || prev.weightUnit || 'g'
+          }));
+        }
+        await trackAIUsage(user.uid);
+        if (data.reasoning) {
+          toast.success(`Weight loaded: ${data.weight} ${data.weightUnit}. ${data.reasoning}`, { id: toastId, duration: 6000 });
+        } else {
+          toast.success(`Weight estimated successfully: ${data.weight} ${data.weightUnit}`, { id: toastId });
+        }
+      } else {
+        toast.error("Could not obtain weight specs from AI.", { id: toastId });
+      }
+    } catch (error) {
+      console.error("AI Weight estimation failed:", error);
+      toast.error("AI Weight estimation failed. Please try again.", { id: toastId });
+    } finally {
+      setIsEstimatingWeight(false);
+    }
+  };
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -4322,7 +4389,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   >
                     <div className="grid sm:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Weight</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Weight</label>
+                          <button 
+                            type="button"
+                            onClick={() => handleEstimateWeight('new')}
+                            disabled={isEstimatingWeight || !newItem.name}
+                            className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80 disabled:opacity-50 transition"
+                            title="AI Assistant: Search and fill automatic weight specs based on name/brand"
+                          >
+                            <Sparkles size={12} className={isEstimatingWeight ? 'animate-spin' : ''} />
+                            <span>{isEstimatingWeight ? 'Consulting specs...' : 'AI Pull Weight'}</span>
+                          </button>
+                        </div>
                         <div className="flex gap-2">
                           <input
                             type="number"
@@ -4844,8 +4923,21 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       </div>
                     </div>
                   </div>
+
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Weight</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Weight</label>
+                      <button 
+                        type="button"
+                        onClick={() => handleEstimateWeight('edit')}
+                        disabled={isEstimatingWeight || !editingItem.name}
+                        className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80 disabled:opacity-50 transition"
+                        title="AI Assistant: Search and fill automatic weight specs based on name/brand"
+                      >
+                        <Sparkles size={12} className={isEstimatingWeight ? 'animate-spin' : ''} />
+                        <span>{isEstimatingWeight ? 'Consulting specs...' : 'AI Pull Weight'}</span>
+                      </button>
+                    </div>
                     <div className="flex gap-2">
                       <input
                         type="number"

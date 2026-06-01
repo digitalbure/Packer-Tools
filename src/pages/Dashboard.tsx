@@ -1874,7 +1874,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
 
               <div className="bg-neutral-50 p-6 rounded-3xl flex justify-center border border-neutral-100">
                 <QRCodeCanvas 
-                  value={`${window.location.origin}/p/${sharingList.id}${sharingList.shareToken ? `?token=${sharingList.shareToken}` : ''}`} 
+                  value={`${window.location.origin}/#/p/${sharingList.id}${sharingList.shareToken ? `?token=${sharingList.shareToken}` : ''}`} 
                   size={200}
                   level="H"
                   includeMargin={true}
@@ -1884,7 +1884,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
               <div className="flex gap-3">
                 <button
                   onClick={() => {
-                    const url = `${window.location.origin}/p/${sharingList.id}${sharingList.shareToken ? `?token=${sharingList.shareToken}` : ''}`;
+                    const url = `${window.location.origin}/#/p/${sharingList.id}${sharingList.shareToken ? `?token=${sharingList.shareToken}` : ''}`;
                     navigator.clipboard.writeText(url);
                     setSharingList(null);
                     toast.success('Link copied to clipboard');

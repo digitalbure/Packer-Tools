@@ -6,26 +6,61 @@ import { signInWithGoogle, logout } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import { isFeatureEnabled } from '../lib/featureUtils';
 
-export default function Navbar({ user, adminSettings, onMenuClick }: { user: UserProfile | null, adminSettings: AdminSettings | null, onMenuClick?: () => void }) {
+export default function Navbar({ 
+  user, 
+  adminSettings, 
+  onMenuClick,
+  selectedCommunity,
+  onOpenSelector
+}: { 
+  user: UserProfile | null, 
+  adminSettings: AdminSettings | null, 
+  onMenuClick?: () => void,
+  selectedCommunity?: string | null,
+  onOpenSelector?: () => void
+}) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
+  const activeCommunities = adminSettings?.communities || [
+    { id: 'fiji', name: 'Fiji Community', country: 'Fiji', countryCode: 'FJ', currency: 'FJD', flag: '🇫🇯', companyName: 'Packer Tools Fiji', isActive: true },
+    { id: 'australia', name: 'Australian Community', country: 'Australia', countryCode: 'AU', currency: 'AUD', flag: '🇦🇺', companyName: 'Packer Tools Australia', isActive: true },
+    { id: 'new_zealand', name: 'New Zealand Community', country: 'New Zealand', countryCode: 'NZ', currency: 'NZD', flag: '🇳🇿', companyName: 'Packer Tools New Zealand', isActive: true }
+  ];
+
+  const currentComm = activeCommunities.find(c => c.id === selectedCommunity);
+
   return (
     <nav className="bg-paper/80 backdrop-blur-xl border-b border-primary/5 sticky top-0 z-50">
       <div className="w-full max-w-[1700px] mx-auto px-6 h-20 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2 group">
-          {adminSettings?.branding?.logo ? (
-            <div className="flex items-center gap-2">
-              <img src={adminSettings.branding.logo} className="h-9 w-auto max-w-[140px] object-contain shrink-0 rounded-md" alt="Logo" referrerPolicy="no-referrer" />
-              <span className="font-extrabold text-sm text-neutral-800 tracking-tight group-hover:text-primary transition-colors">
-                {adminSettings?.branding?.companyName || 'Packer Tools'}
-              </span>
-            </div>
-          ) : (
-            <PackerLogo variant="full" size={36} light={true} />
+        <div className="flex items-center gap-4">
+          <Link to="/" className="flex items-center gap-2 group">
+            {adminSettings?.branding?.logo ? (
+              <div className="flex items-center gap-2">
+                <img src={adminSettings.branding.logo} className="h-9 w-auto max-w-[140px] object-contain shrink-0 rounded-md" alt="Logo" referrerPolicy="no-referrer" />
+                <span className="font-extrabold text-sm text-neutral-800 tracking-tight group-hover:text-primary transition-colors">
+                  {adminSettings?.branding?.companyName || 'Packer Tools'}
+                </span>
+              </div>
+            ) : (
+              <PackerLogo variant="full" size={36} light={true} />
+            )}
+          </Link>
+
+          {/* Active Community Badge */}
+          {onOpenSelector && (
+            <button 
+              onClick={onOpenSelector}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-600 rounded-full text-xs font-semibold font-sans transition border border-neutral-200/50 cursor-pointer inline-flex"
+              title="Click to switch community region"
+            >
+              <span>{currentComm ? currentComm.flag : '🌐'}</span>
+              <span className="text-[10px] font-black uppercase tracking-wider">{currentComm ? currentComm.name : 'Global Portal'}</span>
+              <span className="text-[8px] text-neutral-400">▼</span>
+            </button>
           )}
-        </Link>
+        </div>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-6">

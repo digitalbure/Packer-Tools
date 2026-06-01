@@ -756,6 +756,85 @@ ${childItems.map((item: any) => `  * ${item.name || item} (Brand: ${item.brand |
   }
 });
 
+app.post("/api/estimate-weight", async (req, res) => {
+  const { name, brand, model, description } = req.body;
+  try {
+    const prompt = `You are an expert equipment cataloging and logistics assistant. Your job is to search for or calculate the physical weight of an item based on its name, brand, model, and description. Do not guess wildly, but provide realistic or exact specifications.
+    
+    Item details:
+    - Name: ${name || "N/A"}
+    - Brand: ${brand || "N/A"}
+    - Model: ${model || "N/A"}
+    - Description: ${description || "N/A"}
+    
+    Look up official specifications if possible, or make a very accurate weight estimation. 
+    Return strictly a JSON object with:
+    - weight (number: the numerical value of the weight)
+    - weightUnit (string: must be one of "g", "kg", "lb", "oz". Pick whichever unit matches typical official specifications, usually grams or kg for camera gear)
+    - reasoning (string: a warm, concise 1-sentence explanation of where the specification comes from or how the weight was calculated, e.g., "Sony FX3 body officially weighs 640g, and 715g with battery and memory card inserted.")`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            weight: { type: Type.NUMBER },
+            weightUnit: { type: Type.STRING },
+            reasoning: { type: Type.STRING }
+          },
+          required: ["weight", "weightUnit", "reasoning"]
+        }
+      }
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    console.error("Gemini Estimate Weight Error (falling back to offline weight heuristics):", error);
+    
+    // Heuristic offline fallback based on item name matching!
+    const nameLower = (String(name || "") + " " + String(model || "") + " " + String(brand || "")).toLowerCase();
+    
+    let weight = 0.5;
+    let weightUnit = 'kg';
+    let reasoning = "Estimated typical weight for generic production gear (Offline Fallback).";
+    
+    if (nameLower.includes("camera") && nameLower.includes("fx3")) {
+      weight = 715; weightUnit = 'g'; reasoning = "Sony FX3 body weights approximately 715g with battery and memory card (Offline Fallback).";
+    } else if (nameLower.includes("camera") || nameLower.includes("body")) {
+      weight = 1.2; weightUnit = 'kg'; reasoning = "Typical professional camera body with battery weighs around 1.2kg (Offline Fallback).";
+    } else if (nameLower.includes("sm7b")) {
+      weight = 765; weightUnit = 'g'; reasoning = "Shure SM7B vocal microphone is officially 765g (Offline Fallback).";
+    } else if (nameLower.includes("mic") || nameLower.includes("audio") || nameLower.includes("microphone")) {
+      weight = 300; weightUnit = 'g'; reasoning = "Average handheld or studio condenser microphone weighs around 300g (Offline Fallback).";
+    } else if (nameLower.includes("lens") && (nameLower.includes("70-200") || nameLower.includes("telephoto"))) {
+      weight = 1.4; weightUnit = 'kg'; reasoning = "A professional 70-200mm telephoto lens typically weighs around 1.4kg (Offline Fallback).";
+    } else if (nameLower.includes("lens")) {
+      weight = 500; weightUnit = 'g'; reasoning = "Standard prime/zoom photo lens typically weighs around 500g (Offline Fallback).";
+    } else if (nameLower.includes("battery") && nameLower.includes("v-mount")) {
+      weight = 800; weightUnit = 'g'; reasoning = "Standard high-capacity V-Mount battery weighs approximately 800g (Offline Fallback).";
+    } else if (nameLower.includes("light") && nameLower.includes("600d")) {
+      weight = 4.69; weightUnit = 'kg'; reasoning = "Aputure LS 600d lamp head weighs approximately 4.69kg (Offline Fallback).";
+    } else if (nameLower.includes("light") || nameLower.includes("led")) {
+      weight = 2.5; weightUnit = 'kg'; reasoning = "Standard portable studio LED light fixture weighs around 2.5kg (Offline Fallback).";
+    } else if (nameLower.includes("tripod") || nameLower.includes("stand")) {
+      weight = 3.5; weightUnit = 'kg'; reasoning = "Average heavy-duty support stand or tripod weighs around 3.5kg (Offline Fallback).";
+    }
+    
+    res.json({
+      weight,
+      weightUnit,
+      reasoning,
+      aiWarning: isQuotaError(error)
+        ? "AI Quota Limit Exceeded (429). Prepared local heuristic estimate."
+        : "Standard weight estimate active."
+    });
+  }
+});
+
 app.post("/api/paypal/create-order", async (req, res) => {
   try {
     const { planId, amount } = req.body;

@@ -486,7 +486,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                             style={{ width: `${itemConfig.qrSize}mm`, height: `${itemConfig.qrSize}mm` }}
                           >
                             <QRCodeCanvas
-                              value={item.id ? `${window.location.origin}/gear/${item.id}?owner=${item.ownerId || user?.uid || ''}` : item.assetTag}
+                              value={item.id ? `${window.location.origin}/#/gear/${item.id}?owner=${item.ownerId || user?.uid || ''}` : item.assetTag}
                               size={itemConfig.qrSize * 3.78} // mm to px approx
                               level="H"
                               includeMargin={false}

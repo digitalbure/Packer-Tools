@@ -1348,7 +1348,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       `I'm listing this professionally inventoried kit! Includes ${itemCount} items, all visually verified and tracked.\n\n` +
       `🔥 Key items included:\n• ${topItems}${itemCount > 5 ? '\n• ...and more!' : ''}\n\n` +
       `💰 Price: ${priceStr}\n` +
-      `📍 View full visual inventory, high-res photos & details here:\n${window.location.origin}/p/${id}\n\n` +
+      `📍 View full visual inventory, high-res photos & details here:\n${window.location.origin}/#/p/${id}\n\n` +
       `This list is managed via Smart Packer - ensuring every item is accounted for.\n\n` +
       `#Marketplace #GearForSale #PackingList #Inventory #SmartPacker #ProfessionalGear`;
       
@@ -1362,7 +1362,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         items.map(i => `- ${i.name} (${i.aiLabel || 'General'})`).join('\n') +
         `\n\nTotal items: ${itemCount}\n` +
         `Condition: Professionally maintained\n` +
-        `Visual verification link: ${window.location.origin}/p/${id}`;
+        `Visual verification link: ${window.location.origin}/#/p/${id}`;
       setEditMarketplaceDetails(detailedDesc);
     }
   };
@@ -1545,7 +1545,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     }
   };
 
-  const shareUrl = `${window.location.origin}/p/${id}${list?.shareToken ? `?token=${list.shareToken}` : ''}`;
+  const shareUrl = `${window.location.origin}/#/p/${id}${list?.shareToken ? `?token=${list.shareToken}` : ''}`;
 
   if (loading) return <div className="flex justify-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
   if (!list) return null;
@@ -2289,11 +2289,11 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
               <div className="bg-white p-3.5 rounded-xl border border-neutral-150 shadow-sm shrink-0 flex items-center gap-2.5">
                 <div className="space-y-0.5">
                   <span className="text-[8px] font-bold uppercase text-neutral-400 block tracking-widest leading-none">External Link for Client</span>
-                  <span className="text-[10px] font-mono font-black text-neutral-600 truncate max-w-[150px] block">{window.location.origin}/p/{id}</span>
+                  <span className="text-[10px] font-mono font-black text-neutral-600 truncate max-w-[150px] block">{window.location.origin}/#/p/{id}</span>
                 </div>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/p/${id}`);
+                    navigator.clipboard.writeText(`${window.location.origin}/#/p/${id}`);
                     toast.success("Client review URL copied to clipboard!");
                   }}
                   className="py-1.5 px-3 bg-neutral-900 text-white rounded-lg text-[10px] uppercase font-black tracking-wider transition hover:bg-neutral-800"
@@ -4538,7 +4538,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                   Copy
                                 </button>
                                 <a
-                                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/p/${id}`)}&quote=${encodeURIComponent(editGeneratedCaption)}`}
+                                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/#/p/${id}`)}&quote=${encodeURIComponent(editGeneratedCaption)}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="px-4 py-2 bg-[#1877F2] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition flex items-center gap-2"
@@ -4575,7 +4575,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
                         <div className="flex items-center justify-center p-4 bg-white rounded-2xl border border-neutral-100">
                           <QRCodeCanvas 
-                            value={`${window.location.origin}/p/${id}`}
+                            value={`${window.location.origin}/#/p/${id}`}
                             size={120}
                             level="H"
                             includeMargin={true}
@@ -4585,7 +4585,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                           <button
                             type="button"
                             onClick={() => {
-                              navigator.clipboard.writeText(`${window.location.origin}/p/${id}`);
+                              navigator.clipboard.writeText(`${window.location.origin}/#/p/${id}`);
                               toast.success("Marketplace link copied!");
                             }}
                             className="flex-1 py-3 bg-white border border-neutral-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-neutral-50 transition flex items-center justify-center gap-2"
@@ -4594,7 +4594,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             Copy Link
                           </button>
                           <a
-                            href={`/p/${id}`}
+                            href={`/#/p/${id}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex-1 py-3 bg-neutral-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition flex items-center justify-center gap-2"

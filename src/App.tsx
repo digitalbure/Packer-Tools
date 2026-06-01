@@ -49,14 +49,16 @@ import QuickActionsDrawer from './components/QuickActionsDrawer';
 import Onboarding from './components/Onboarding';
 import DukeyAssistant from './components/DukeyAssistant';
 import Footer from './components/Footer';
+import CommunitySelector from './components/CommunitySelector';
 import { AdminSettings, Plan } from './types';
 import { isFeatureEnabled } from './lib/featureUtils';
 
-function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick }: { 
+function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick, selectedCommunity }: { 
   user: UserProfile | null, 
   setUser: (user: UserProfile | null) => void, 
   adminSettings: AdminSettings | null,
-  onMenuClick: () => void 
+  onMenuClick: () => void,
+  selectedCommunity?: string | null
 }) {
   const location = useLocation();
 
@@ -115,7 +117,7 @@ function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick }: {
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <Routes location={location}>
-          <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate adminSettings={adminSettings} /> : (adminSettings?.activeLandingPageType === 'marketplace' ? <Marketplace user={user} adminSettings={adminSettings} /> : <LandingPage user={user} adminSettings={adminSettings} />))} />
+          <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate adminSettings={adminSettings} /> : (selectedCommunity === 'global' ? <LandingPage user={user} adminSettings={adminSettings} /> : <Marketplace user={user} adminSettings={adminSettings} />))} />
           <Route path="/dashboard" element={user ? <Dashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/list/:id" element={<PackingListDetail user={user} adminSettings={adminSettings} />} />
           <Route path="/p/:id" element={<PackingListBioView />} />
@@ -209,6 +211,11 @@ export function getDefaultAdminSettings(): AdminSettings {
   return {
     plans: defaultPlans,
     globalFeatures: {},
+    communities: [
+      { id: 'fiji', name: 'Fiji Community', country: 'Fiji', countryCode: 'FJ', currency: 'FJD', flag: '🇫🇯', companyName: 'Packer Tools Fiji', isActive: true },
+      { id: 'australia', name: 'Australian Community', country: 'Australia', countryCode: 'AU', currency: 'AUD', flag: '🇦🇺', companyName: 'Packer Tools Australia', isActive: true },
+      { id: 'new_zealand', name: 'New Zealand Community', country: 'New Zealand', countryCode: 'NZ', currency: 'NZD', flag: '🇳🇿', companyName: 'Packer Tools New Zealand', isActive: true }
+    ],
     branding: {
       primaryColor: '#F27D26',
       logo: ''
@@ -338,6 +345,11 @@ export default function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [listsCount, setListsCount] = useState(0);
   const [currentHash, setCurrentHash] = useState(window.location.hash);
+  
+  const [selectedCommunity, setSelectedCommunity] = useState<string | null>(() => {
+    return localStorage.getItem("packer_selected_community");
+  });
+  const [isCommunitySelectorOpen, setIsCommunitySelectorOpen] = useState(false);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -640,18 +652,52 @@ export default function App() {
           )}
           
           <div className="flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 font-sans">
-            {!isLayoutHidden && <Navbar user={user} adminSettings={adminSettings} onMenuClick={() => setIsMobileSidebarOpen(true)} />}
+            {!isLayoutHidden && (
+              <Navbar 
+                user={user} 
+                adminSettings={adminSettings} 
+                onMenuClick={() => setIsMobileSidebarOpen(true)} 
+                selectedCommunity={selectedCommunity}
+                onOpenSelector={() => setIsCommunitySelectorOpen(true)}
+              />
+            )}
             <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
               isLayoutHidden 
                 ? 'max-w-none px-0 py-0 sm:px-0 sm:py-0 bg-neutral-900' 
                 : 'max-w-[1700px] mx-auto px-4 sm:px-6 py-6 sm:py-8'
             }`}>
               <div className="flex-1">
-                <AnimatedRoutes user={user} setUser={setUser} adminSettings={adminSettings} onMenuClick={() => setIsMobileSidebarOpen(true)} />
+                <AnimatedRoutes 
+                  user={user} 
+                  setUser={setUser} 
+                  adminSettings={adminSettings} 
+                  onMenuClick={() => setIsMobileSidebarOpen(true)} 
+                  selectedCommunity={selectedCommunity}
+                />
               </div>
-              {!isLayoutHidden && <Footer adminSettings={adminSettings} />}
+              {!isLayoutHidden && (
+                <Footer 
+                  adminSettings={adminSettings} 
+                  selectedCommunity={selectedCommunity}
+                  onOpenSelector={() => setIsCommunitySelectorOpen(true)}
+                />
+              )}
             </main>
           </div>
+
+          {/* Dynamic Geographic Community Router Portal */}
+          <CommunitySelector
+            adminSettings={adminSettings}
+            selectedCommunity={selectedCommunity}
+            isOpen={selectedCommunity === null || isCommunitySelectorOpen}
+            onSelect={(mId) => {
+              localStorage.setItem("packer_selected_community", mId);
+              setSelectedCommunity(mId);
+              setIsCommunitySelectorOpen(false);
+            }}
+            onClose={() => setIsCommunitySelectorOpen(false)}
+            isDismissible={selectedCommunity !== null}
+          />
 
           {user && !user.onboardingCompleted && (
             <Onboarding 

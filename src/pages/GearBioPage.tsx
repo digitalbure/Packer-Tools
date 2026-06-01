@@ -232,7 +232,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
     window.print();
   };
 
-  const qrValue = item ? `${window.location.origin}/gear/${item.id}?owner=${item.ownerId}` : '';
+  const qrValue = item ? `${window.location.origin}/#/gear/${item.id}?owner=${item.ownerId}` : '';
 
   if (loading) {
     return (

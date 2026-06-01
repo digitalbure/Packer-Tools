@@ -6,6 +6,81 @@ import { db } from '../firebase';
 import { UserProfile, Rack, RackItem, Project } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { DndContext, useDraggable, useDroppable, DragEndEvent, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
+
+interface DraggableRackItemProps {
+  item: RackItem;
+  onContextMenu: (e: React.MouseEvent) => void;
+  style?: React.CSSProperties;
+  className?: string;
+  children: React.ReactNode;
+}
+
+function DraggableRackItem({ 
+  item, 
+  onContextMenu, 
+  style: customStyle,
+  className,
+  children
+}: DraggableRackItemProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: item.id,
+  });
+  
+  const style: React.CSSProperties = {
+    ...customStyle,
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    opacity: isDragging ? 0.35 : 1,
+    cursor: 'grab',
+    zIndex: isDragging ? 9999 : undefined,
+    touchAction: 'none',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      onContextMenu={onContextMenu}
+      className={`${className} hover:scale-[1.01] transition-transform duration-75`}
+    >
+      {children}
+    </div>
+  );
+}
+
+interface DroppableRackSlotProps {
+  uPosition: number;
+  side: 'left' | 'right' | 'full';
+  children: React.ReactNode;
+  className?: string;
+}
+
+function DroppableRackSlot({
+  uPosition,
+  side,
+  children,
+  className
+}: DroppableRackSlotProps) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `droppable-${uPosition}-${side}`,
+    data: { uPosition, side }
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${className} transition-all duration-150 ${
+        isOver 
+          ? 'bg-primary/20 border-primary border-2 border-solid ring-4 ring-primary/10 shadow-lg scale-[1.02] z-40 rounded-xl' 
+          : ''
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
 
 export default function RackDetail({ user }: { user: UserProfile | null }) {
   const { id } = useParams<{ id: string }>();
@@ -47,6 +122,85 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [linkedProject, setLinkedProject] = useState<Project | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    const match = overId.match(/^droppable-(\d+)-(.+)$/);
+    if (!match) return;
+
+    const targetUPosition = parseInt(match[1], 10);
+    const targetSide = match[2] as 'left' | 'right' | 'full';
+
+    const draggedItem = items.find(it => it.id === activeId);
+    if (!draggedItem) return;
+
+    const targetHeight = draggedItem.uHeight || 1;
+    const targetWidth = draggedItem.width || 'full';
+    const actualSide = targetWidth === 'full' ? 'left' : (targetSide === 'full' ? 'left' : targetSide);
+
+    if (!rack) return;
+
+    // Bound check
+    if (targetUPosition + targetHeight - 1 > rack.totalUnits) {
+      toast.error("Dropped position exceeds rack boundaries.");
+      return;
+    }
+
+    // Check for collisions
+    const collision = items.find(item => {
+      if (item.id === activeId) return false;
+
+      const itemEnd = item.uPosition + item.uHeight - 1;
+      const dropEnd = targetUPosition + targetHeight - 1;
+
+      const verticalOverlap = (
+        (targetUPosition >= item.uPosition && targetUPosition <= itemEnd) ||
+        (dropEnd >= item.uPosition && dropEnd <= itemEnd) ||
+        (item.uPosition >= targetUPosition && item.uPosition <= dropEnd)
+      );
+
+      if (!verticalOverlap) return false;
+
+      // Check horizontal overlap
+      const w1 = targetWidth;
+      const w2 = item.width || 'full';
+      if (w1 === 'full' || w2 === 'full') return true;
+
+      const o1 = actualSide;
+      const o2 = item.orientation || 'left';
+      return o1 === o2;
+    });
+
+    if (collision) {
+      toast.error(`Collision with item "${collision.name}"`);
+      return;
+    }
+
+    try {
+      const itemRef = doc(db, 'racks', id!, 'items', activeId);
+      await updateDoc(itemRef, {
+        uPosition: targetUPosition,
+        orientation: targetWidth === 'half' ? actualSide : 'left',
+      });
+      toast.success(`Relocated "${draggedItem.name}" to position ${targetUPosition}U`);
+    } catch (error) {
+      console.error("Error updates drag-and-drop position:", error);
+      toast.error("Failed to relocate component.");
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -427,20 +581,21 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
             {/* LEFT SLOT */}
             {leftItem ? (
               isLeftTop && (
-                <div 
+                <DraggableRackItem
+                  item={leftItem}
+                  onContextMenu={(e) => handleContextMenu(e, leftItem)}
                   style={{ height: `${leftItem.uHeight * 3}rem` }}
                   className={`absolute top-0 left-0 p-1 z-10 ${leftItem.width === 'half' ? 'w-1/2 pr-1' : 'w-full'}`}
                 >
                   <div 
-                    onContextMenu={(e) => handleContextMenu(e, leftItem)}
-                    title="Right-click for options"
-                    className="h-full bg-neutral-900 rounded-lg border-2 border-neutral-700 shadow-inner flex items-center px-4 justify-between group/item cursor-context-menu transition duration-200"
+                    title="Relocate by dragging / Right-click for options"
+                    className="h-full bg-neutral-900 rounded-lg border-2 border-neutral-700 shadow-inner flex items-center px-4 justify-between group/item cursor-grab transition duration-250 hover:border-primary"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 bg-neutral-800 rounded flex items-center justify-center text-neutral-500 shrink-0">
+                      <div className="w-8 h-8 bg-neutral-800 rounded flex items-center justify-center text-neutral-500 shrink-0 select-none">
                         <Server size={16} />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 select-none text-left">
                         <h4 className="text-white font-bold text-sm truncate flex items-center gap-1.5">
                           {leftItem.name}
                           {leftItem.width === 'half' && (
@@ -452,14 +607,20 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
                     </div>
                     <div className="flex items-center gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity ml-2 shrink-0">
                       <button 
-                        onClick={() => handleQuickDetach(leftItem)}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleQuickDetach(leftItem);
+                        }}
                         title="Quick Detach (Flag 'Available' & Remove)"
                         className="p-1.5 text-amber-500 hover:text-amber-400 hover:bg-neutral-800 rounded-lg transition"
                       >
                         <Zap size={14} className="fill-amber-500/20" />
                       </button>
                       <button 
-                        onClick={() => {
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setEditingItem({ ...leftItem });
                           setIsEditingItem(true);
                         }}
@@ -469,7 +630,11 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
                         <Settings2 size={14} />
                       </button>
                       <button 
-                        onClick={() => handleDeleteItem(leftItem.id)}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteItem(leftItem.id);
+                        }}
                         title="Remove from Rack"
                         className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-neutral-800 rounded-lg transition"
                       >
@@ -477,10 +642,14 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
                       </button>
                     </div>
                   </div>
-                </div>
+                </DraggableRackItem>
               )
             ) : (
-              <div className="absolute left-0 w-1/2 h-full p-1 border-r border-dashed border-neutral-200/40">
+              <DroppableRackSlot
+                uPosition={i}
+                side="left"
+                className="absolute left-0 w-1/2 h-full p-1 border-r border-dashed border-neutral-200/40"
+              >
                 <button 
                   onClick={() => {
                     setNewItem(prev => ({ ...prev, uPosition: i, width: 'half', orientation: 'left' }));
@@ -491,27 +660,28 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
                   <Plus size={10} />
                   <span className="opacity-0 group-hover:opacity-100 transition-opacity">Mount Left (Half)</span>
                 </button>
-              </div>
+              </DroppableRackSlot>
             )}
 
             {/* RIGHT SLOT */}
             {leftItem && leftItem.width !== 'half' ? null : (
               rightItem ? (
                 isRightTop && (
-                  <div 
+                  <DraggableRackItem
+                    item={rightItem}
+                    onContextMenu={(e) => handleContextMenu(e, rightItem)}
                     style={{ height: `${rightItem.uHeight * 3}rem` }}
                     className="absolute top-0 right-0 w-1/2 p-1 pl-1 z-10"
                   >
                     <div 
-                      onContextMenu={(e) => handleContextMenu(e, rightItem)}
-                      title="Right-click for options"
-                      className="h-full bg-neutral-900 rounded-lg border-2 border-neutral-700 shadow-inner flex items-center px-4 justify-between group/item cursor-context-menu transition duration-200"
+                      title="Relocate by dragging / Right-click for options"
+                      className="h-full bg-neutral-900 rounded-lg border-2 border-neutral-700 shadow-inner flex items-center px-4 justify-between group/item cursor-grab transition duration-250 hover:border-primary"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 bg-neutral-800 rounded flex items-center justify-center text-neutral-500 shrink-0">
+                        <div className="w-8 h-8 bg-neutral-800 rounded flex items-center justify-center text-neutral-500 shrink-0 select-none">
                           <Server size={16} />
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 select-none text-left">
                           <h4 className="text-white font-bold text-sm truncate flex items-center gap-1.5">
                             {rightItem.name}
                             <span className="text-[8px] bg-neutral-800 border border-neutral-700 px-1 py-0.5 rounded text-neutral-300 font-extrabold uppercase">Half</span>
@@ -521,14 +691,20 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
                       </div>
                       <div className="flex items-center gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity ml-2 shrink-0">
                         <button 
-                          onClick={() => handleQuickDetach(rightItem)}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleQuickDetach(rightItem);
+                          }}
                           title="Quick Detach (Flag 'Available' & Remove)"
                           className="p-1.5 text-amber-500 hover:text-amber-400 hover:bg-neutral-800 rounded-lg transition"
                         >
                           <Zap size={14} className="fill-amber-500/20" />
                         </button>
                         <button 
-                          onClick={() => {
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setEditingItem({ ...rightItem });
                             setIsEditingItem(true);
                           }}
@@ -538,7 +714,11 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
                           <Settings2 size={14} />
                         </button>
                         <button 
-                          onClick={() => handleDeleteItem(rightItem.id)}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteItem(rightItem.id);
+                          }}
                           title="Remove from Rack"
                           className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-neutral-800 rounded-lg transition"
                         >
@@ -546,10 +726,14 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
                         </button>
                       </div>
                     </div>
-                  </div>
+                  </DraggableRackItem>
                 )
               ) : (
-                <div className="absolute right-0 w-1/2 h-full p-1">
+                <DroppableRackSlot
+                  uPosition={i}
+                  side="right"
+                  className="absolute right-0 w-1/2 h-full p-1"
+                >
                   <button 
                     onClick={() => {
                       setNewItem(prev => ({ ...prev, uPosition: i, width: 'half', orientation: 'right' }));
@@ -560,7 +744,7 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
                     <Plus size={10} />
                     <span className="opacity-0 group-hover:opacity-100 transition-opacity">Mount Right (Half)</span>
                   </button>
-                </div>
+                </DroppableRackSlot>
               )
             )}
           </div>
@@ -627,9 +811,11 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white rounded-[2.5rem] border-8 border-neutral-200 shadow-2xl overflow-hidden">
             {/* Rack Rails */}
-            <div className="bg-neutral-50 min-h-[600px]">
-              {renderRack()}
-            </div>
+            <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+              <div className="bg-neutral-50 min-h-[600px]">
+                {renderRack()}
+              </div>
+            </DndContext>
           </div>
         </div>
 

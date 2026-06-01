@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import { motion } from 'motion/react';
-import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus } from 'lucide-react';
+import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award } from 'lucide-react';
 import { getUsage } from '../lib/limitUtils';
 import PaymentModal from '../components/PaymentModal';
 
@@ -48,6 +48,17 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
     subject?: string;
   } | null>(null);
   const [showTestHtml, setShowTestHtml] = useState(false);
+
+  // KYC and Store Profile Configuration state
+  const [storeCustomUrl, setStoreCustomUrl] = useState(user.storeCustomUrl || '');
+  const [storeName, setStoreName] = useState(user.storeName || user.displayName || '');
+  const [storeBio, setStoreBio] = useState(user.storeBio || user.bio || '');
+  const [storeLogo, setStoreLogo] = useState(user.storeLogo || user.photoURL || '');
+  const [kycFullIdName, setKycFullIdName] = useState(user.kycFullIdName || user.displayName || '');
+  const [kycIdType, setKycIdType] = useState<'passport' | 'national_id' | 'drivers_license'>(user.kycIdType || 'passport');
+  const [kycIdNumber, setKycIdNumber] = useState(user.kycIdNumber || '');
+  const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
+  const [isSavingStore, setIsSavingStore] = useState(false);
 
   useEffect(() => {
     const fetchUsage = async () => {
