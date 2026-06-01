@@ -23,12 +23,12 @@ try {
     localCache: persistentLocalCache({
       tabManager: persistentSingleTabManager({})
     })
-  }, firebaseConfig.firestoreDatabaseId);
+  }, (firebaseConfig as any).firestoreDatabaseId);
 } catch (e) {
   console.warn("Primary Firestore initialization failed. Falling back to memory cache.", e);
   dbInstance = initializeFirestore(app, {
     localCache: memoryLocalCache()
-  }, firebaseConfig.firestoreDatabaseId);
+  }, (firebaseConfig as any).firestoreDatabaseId);
 }
 
 export const db = dbInstance;
