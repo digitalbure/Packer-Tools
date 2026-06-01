@@ -23,7 +23,10 @@ import {
   Sliders,
   TrendingUp,
   FileText,
-  Bookmark
+  Bookmark,
+  Copy,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,8 +36,35 @@ interface ListingsModuleProps {
 }
 
 export default function ListingsModule({ user, adminSettings }: ListingsModuleProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'console' | 'bookings' | 'settings'>('console');
+  const [activeSubTab, setActiveSubTab] = useState<'console' | 'bookings' | 'gear-bookings' | 'settings'>('console');
   const [lists, setLists] = useState<PackingList[]>([]);
+
+  // Gear Bookings and Reservation State
+  const [gearBookings, setGearBookings] = useState<any[]>([]);
+  const [userGear, setUserGear] = useState<any[]>([]);
+  const [customConditions, setCustomConditions] = useState<string[]>([
+    "Paid Deposit Confirmed", 
+    "Valid ID Verified on Checkout", 
+    "Signed Equipment Indemnity Contract", 
+    "COI (Certificate of Insurance) on file"
+  ]);
+  const [newCondition, setNewCondition] = useState("");
+  const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
+
+  // Manual booking sub-form states
+  const [selectedGearId, setSelectedGearId] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [depositPaid, setDepositPaid] = useState(false);
+  const [selectedBookingConditions, setSelectedBookingConditions] = useState<string[]>([]);
+  const [reservationType, setReservationType] = useState<'free' | 'deposit' | 'custom'>('deposit');
+
+  // Calendar State
+  const [currentYear, setCurrentYear] = useState(2026);
+  const [currentMonth, setCurrentMonth] = useState(5); // 0-indexed, 5 = June
   const [loading, setLoading] = useState(true);
   const [isCreatingListing, setIsCreatingListing] = useState(false);
   const [showEditPriceModal, setShowEditPriceModal] = useState<PackingList | null>(null);
@@ -78,6 +108,154 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
 
     return () => unsubscribe();
   }, [user.uid]);
+
+  // Fetch user's own gear items
+  useEffect(() => {
+    if (!user?.uid) return;
+    const qGear = query(collection(db, 'users', user.uid, 'gearLibrary'));
+    const unsubscribe = onSnapshot(qGear, (snapshot) => {
+      const fetchedGear = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUserGear(fetchedGear);
+    }, (err) => {
+      console.error("Error fetching gear library:", err);
+    });
+    return () => unsubscribe();
+  }, [user.uid]);
+
+  // Fetch reservations (bookings)
+  useEffect(() => {
+    if (!user?.uid) return;
+    const qBookings = query(collection(db, 'gearBookings'), where('ownerId', '==', user.uid));
+    const unsubscribe = onSnapshot(qBookings, (snapshot) => {
+      const fetchedBookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+      // Sort by startDate ascending
+      fetchedBookings.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+      setGearBookings(fetchedBookings);
+    }, (err) => {
+      console.error("Error listening to gear bookings:", err);
+    });
+    return () => unsubscribe();
+  }, [user.uid]);
+
+  // Fetch custom conditions
+  useEffect(() => {
+    if (!user?.uid) return;
+    const qConditions = query(collection(db, 'users', user.uid, 'bookingConditions'));
+    getDocs(qConditions).then(snapshot => {
+      if (!snapshot.empty) {
+        const condList = snapshot.docs.map(doc => doc.data().name as string);
+        setCustomConditions(condList);
+      }
+    }).catch(e => console.error("Error getting custom conditions:", e));
+  }, [user.uid]);
+
+  const handleSaveManualReservation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedGearId || !clientName || !startDate || !endDate) {
+      toast.error("Please fill required fields (Gear item, Client Name, and Dates)");
+      return;
+    }
+
+    const gearItem = userGear.find(g => g.id === selectedGearId);
+    if (!gearItem) return;
+
+    try {
+      const bookingData = {
+        gearId: selectedGearId,
+        gearName: `${gearItem.brand || ''} ${gearItem.model || gearItem.name}`.trim(),
+        brand: gearItem.brand || '',
+        ownerId: user.uid,
+        clientName,
+        clientEmail,
+        clientPhone,
+        startDate,
+        endDate,
+        depositAmount: gearItem.rentalDeposit || 0,
+        paymentStatus: reservationType === 'free' ? 'Free' : (depositPaid ? 'Deposit Paid' : 'Pending Deposit'),
+        reservationType,
+        customConditions: selectedBookingConditions,
+        createdAt: new Date().toISOString()
+      };
+
+      await addDoc(collection(db, 'gearBookings'), bookingData);
+
+      // Reset form
+      setSelectedGearId("");
+      setClientName("");
+      setClientEmail("");
+      setClientPhone("");
+      setStartDate("");
+      setEndDate("");
+      setDepositPaid(false);
+      setSelectedBookingConditions([]);
+      setIsReserveModalOpen(false);
+
+      toast.success("Advance reservation booked and calendar locked!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to register advance reservation");
+    }
+  };
+
+  const handleAddCondition = async () => {
+    if (!newCondition.trim()) return;
+    const trimmed = newCondition.trim();
+    if (customConditions.includes(trimmed)) {
+      toast.error("Condition already exists");
+      return;
+    }
+    const updated = [...customConditions, trimmed];
+    setCustomConditions(updated);
+    setNewCondition("");
+    toast.success("Custom booking condition saved!");
+    
+    try {
+      await addDoc(collection(db, 'users', user.uid, 'bookingConditions'), { name: trimmed });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteCondition = async (index: number) => {
+    const val = customConditions[index];
+    const updated = customConditions.filter((_, idx) => idx !== index);
+    setCustomConditions(updated);
+    toast.info("Booking requirement removed");
+
+    try {
+      const q = query(collection(db, 'users', user.uid, 'bookingConditions'), where('name', '==', val));
+      const snap = await getDocs(q);
+      snap.forEach(async (d) => {
+        await deleteDoc(doc(db, 'users', user.uid, 'bookingConditions', d.id));
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteBooking = async (bookingId: string) => {
+    if (!window.confirm("Are you sure you want to cancel this reservation? This cannot be undone.")) return;
+    try {
+      await deleteDoc(doc(db, 'gearBookings', bookingId));
+      toast.success("Reservation canceled and calendar dates freed.");
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to cancel reservation.");
+    }
+  };
+
+  const handleToggleDepositPayment = async (booking: any) => {
+    try {
+      const nextPaid = booking.paymentStatus === 'Deposit Paid' ? 'Pending Deposit' : 'Deposit Paid';
+      await updateDoc(doc(db, 'gearBookings', booking.id), {
+        paymentStatus: nextPaid
+      });
+      toast.success(`Booking payment status set to: ${nextPaid}`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to update payment status.");
+    }
+  };
 
   // Handle Quick Listing Creation
   const handleCreateQuickListing = async (e: React.FormEvent) => {
@@ -227,6 +405,17 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
         >
           <Calendar size={16} />
           <span>Sales & Rentals ({bookingRentals.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab('gear-bookings')}
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 ${
+            activeSubTab === 'gear-bookings' 
+              ? 'bg-white text-primary shadow-sm' 
+              : 'text-neutral-500 hover:text-neutral-700'
+          }`}
+        >
+          <Calendar size={16} className="text-[#3b82f6]" />
+          <span>Gear Reservations & Links ({gearBookings.length})</span>
         </button>
         <button
           onClick={() => setActiveSubTab('settings')}
@@ -540,6 +729,329 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
             </div>
           )}
 
+          {/* TAB 4: Gear Reservations & Customized Booking links */}
+          {activeSubTab === 'gear-bookings' && (
+            <div className="space-y-8 text-left">
+              
+              {/* Info Header Card */}
+              <div className="bg-gradient-to-r from-neutral-900 to-neutral-800 p-8 rounded-[2.5rem] text-white flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl">
+                <div className="space-y-2">
+                  <span className="text-[10px] uppercase font-black tracking-widest text-[#0066cc]">Gear Booking Desk</span>
+                  <h3 className="text-3xl font-black tracking-tight">Advanced Reserve & Booking Links</h3>
+                  <p className="text-neutral-400 text-xs max-w-xl">
+                    Generate booking links for rentable gear items, handle custom client requests, schedule reserve times, and manage conditions set by you.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsReserveModalOpen(true)}
+                  className="flex items-center justify-center gap-2 px-6 py-3.5 bg-white text-neutral-950 font-black rounded-xl text-xs uppercase tracking-wider hover:bg-neutral-100 transition shadow shrink-0 cursor-pointer"
+                >
+                  <Plus size={16} />
+                  <span>Reserve Gear in Advance</span>
+                </button>
+              </div>
+
+              <div className="grid lg:grid-cols-12 gap-8">
+                
+                {/* LEFT: Calendar Schedules & Reservations Ledger */}
+                <div className="lg:col-span-8 space-y-8">
+                  
+                  {/* Monthly Calendar Tracker */}
+                  <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-extrabold text-neutral-900 flex items-center gap-2">
+                          <Calendar size={18} className="text-[#0066cc]" />
+                          <span>Interactive Booking Calendar</span>
+                        </h4>
+                        <p className="text-[11px] text-neutral-400 mt-0.5">Visual monthly scheduler for gear inventory holds.</p>
+                      </div>
+
+                      {/* Month Switcher */}
+                      <div className="flex items-center gap-2 bg-neutral-100 p-1.5 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (currentMonth === 0) {
+                              setCurrentMonth(11);
+                              setCurrentYear(prev => prev - 1);
+                            } else {
+                              setCurrentMonth(prev => prev - 1);
+                            }
+                          }}
+                          className="p-1 hover:bg-white rounded-lg text-neutral-700 transition cursor-pointer"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <span className="text-xs font-black min-w-[100px] text-center text-neutral-800">
+                          {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][currentMonth]} {currentYear}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (currentMonth === 11) {
+                              setCurrentMonth(0);
+                              setCurrentYear(prev => prev + 1);
+                            } else {
+                              setCurrentMonth(prev => prev + 1);
+                            }
+                          }}
+                          className="p-1 hover:bg-white rounded-lg text-neutral-700 transition cursor-pointer"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Calendar Grid */}
+                    <div>
+                      {/* Week headers */}
+                      <div className="grid grid-cols-7 gap-1 text-center font-bold text-[10px] text-neutral-400 uppercase tracking-widest pb-3 border-b border-neutral-100">
+                        <span>Sun</span>
+                        <span>Mon</span>
+                        <span>Tue</span>
+                        <span>Wed</span>
+                        <span>Thu</span>
+                        <span>Fri</span>
+                        <span>Sat</span>
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-1.5 pt-3">
+                        {/* Empty/blank slots */}
+                        {Array(new Date(currentYear, currentMonth, 1).getDay()).fill(null).map((_, idx) => (
+                          <div key={`blank-${idx}`} className="aspect-video bg-neutral-50/50 rounded-lg" />
+                        ))}
+
+                        {/* Month Days */}
+                        {Array.from({ length: new Date(currentYear, currentMonth + 1, 0).getDate() }, (_, i) => i + 1).map((dayNum) => {
+                          const dayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                          const dayBookings = gearBookings.filter(b => dayStr >= b.startDate && dayStr <= b.endDate);
+                          const isBooked = dayBookings.length > 0;
+
+                          return (
+                            <div 
+                              key={`day-${dayNum}`} 
+                              className={`aspect-video rounded-xl p-1.5 border flex flex-col justify-between align-start relative hover:border-neutral-400 transition ${
+                                isBooked 
+                                  ? 'bg-amber-50/40 border-amber-200 shadow-sm' 
+                                  : 'bg-white border-neutral-100/80'
+                              }`}
+                            >
+                              <span className={`text-[10px] font-black font-mono leading-none ${isBooked ? 'text-amber-800' : 'text-neutral-500'}`}>
+                                {dayNum}
+                              </span>
+
+                              {isBooked && (
+                                <div className="space-y-0.5 overflow-hidden">
+                                  {dayBookings.slice(0, 2).map((b, bIdx) => (
+                                    <div 
+                                      key={bIdx} 
+                                      className="text-[8.5px] leading-tight font-extrabold bg-amber-150 text-amber-950 px-1 py-0.5 rounded truncate"
+                                      title={`${b.clientName} booked: ${b.gearName}`}
+                                    >
+                                      {b.clientName}: {b.gearName}
+                                    </div>
+                                  ))}
+                                  {dayBookings.length > 2 && (
+                                    <div className="text-[7.5px] font-bold text-amber-600 font-mono leading-none">
+                                      + {dayBookings.length - 2} more...
+                                    </div>
+                                  )}
+                                operational conditions</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Booking Ledger (Reservations List) */}
+                  <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6">
+                    <div>
+                      <h4 className="font-extrabold text-neutral-900">Reservations & Lock logs</h4>
+                      <p className="text-xs text-neutral-400 mt-1">Full registry of active manual holds and client gear reservations.</p>
+                    </div>
+
+                    {gearBookings.length === 0 ? (
+                      <div className="border border-dashed border-neutral-200 p-12 text-center rounded-2xl">
+                        <Clock className="stroke-[1.5] text-neutral-350 mx-auto mb-3" size={32} />
+                        <p className="text-xs text-neutral-500 italic">No bookings scheduled on the ledger.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {gearBookings.map((booking) => (
+                          <div 
+                            key={booking.id} 
+                            className="p-5 bg-neutral-50/70 border border-neutral-200/50 rounded-2xl flex flex-col md:flex-row gap-4 justify-between items-start md:items-center text-left"
+                          >
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full ${
+                                  booking.paymentStatus === 'Deposit Paid' ? 'bg-emerald-100 text-emerald-800' : 
+                                  booking.paymentStatus === 'Free' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {booking.paymentStatus}
+                                </span>
+                                <span className="text-[10px] text-neutral-400 font-medium font-mono">
+                                  Reserved: {booking.startDate} to {booking.endDate}
+                                </span>
+                              </div>
+
+                              <div>
+                                <h5 className="font-black text-neutral-900 text-sm">
+                                  {booking.gearName}
+                                </h5>
+                                <p className="text-xs text-neutral-500 mt-0.5">
+                                  Hirer: <strong className="text-neutral-900">{booking.clientName}</strong> {booking.clientEmail ? `• ${booking.clientEmail}` : ''} {booking.clientPhone ? `• ${booking.clientPhone}` : ''}
+                                </p>
+                              </div>
+
+                              {booking.customConditions && booking.customConditions.length > 0 && (
+                                <div className="flex flex-wrap gap-1 pt-1">
+                                  {booking.customConditions.map((cond: string, cIdx: number) => (
+                                    <span key={cIdx} className="text-[8px] font-black uppercase bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-md">
+                                      ✓ {cond}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                              {booking.paymentStatus !== 'Free' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleDepositPayment(booking)}
+                                  className="px-3 py-1.5 bg-white text-neutral-700 border border-neutral-200 rounded-lg text-[10px] font-black uppercase tracking-widest hover:border-neutral-400 transition cursor-pointer"
+                                >
+                                  {booking.paymentStatus === 'Deposit Paid' ? 'Mark Unpaid' : 'Mark Paid'}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteBooking(booking.id)}
+                                className="p-2 text-neutral-400 hover:text-red-600 bg-white border border-neutral-200 hover:border-red-200 rounded-lg transition shadow-sm cursor-pointer"
+                                title="Cancel Hold"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* RIGHT: Booking Links Generator & Custom Requirements */}
+                <div className="lg:col-span-4 space-y-8">
+                  
+                  {/* Booking Links Section */}
+                  <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6 text-left">
+                    <div>
+                      <h4 className="font-extrabold text-neutral-900 flex items-center gap-2">
+                        <Tag size={18} className="text-[#3b82f6]" />
+                        <span>Send Booking Links</span>
+                      </h4>
+                      <p className="text-[11px] text-neutral-400 mt-0.5">Copy shareable reservation checkout links to email or message clients.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {userGear.filter(item => item.secondaryCategories?.includes('Rentable') || item.isAvailableForRent).length === 0 ? (
+                        <div className="text-center py-6 bg-neutral-50 rounded-xl border border-neutral-100">
+                          <p className="text-[10px] text-neutral-400 italic">No Rentable gear found in your library. Enable rentable profile inside Edit Gear form first.</p>
+                        </div>
+                      ) : (
+                        userGear.filter(item => item.secondaryCategories?.includes('Rentable') || item.isAvailableForRent).map((item) => {
+                          const link = `${window.location.origin}/gear/${item.id}?book=true`;
+                          return (
+                            <div key={item.id} className="p-3.5 bg-neutral-50/50 border border-neutral-100 rounded-xl space-y-2.5">
+                              <div>
+                                <h5 className="text-[11px] font-black text-neutral-900 truncate">{item.brand} {item.model || item.name}</h5>
+                                <p className="text-[9px] text-neutral-400 font-mono mt-0.5">
+                                  Price: {item.currency || '$'}{item.rentalPrice || 45}/day • Hourly: {item.currency || '$'}{item.rentalHourlyPrice || 10}/hr
+                                </p>
+                              </div>
+                              <div className="flex gap-1.5">
+                                <input
+                                  type="text"
+                                  readOnly
+                                  value={link}
+                                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                                  className="flex-1 bg-white border border-neutral-200 text-[9px] px-2 py-1 rounded text-neutral-500 font-mono select-all outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(link);
+                                    toast.success("Booking copy link verified!");
+                                  }}
+                                  className="p-1 px-2 bg-[#ff4f3a] text-white rounded text-[10px] font-bold hover:bg-primary transition cursor-pointer flex items-center gap-1 shrink-0"
+                                >
+                                  <Copy size={10} />
+                                  <span>Copy</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Customize Conditions Setup */}
+                  <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6 text-left">
+                    <div>
+                      <h4 className="font-extrabold text-neutral-900">Customized Conditions</h4>
+                      <p className="text-[11px] text-neutral-400 mt-0.5">Set up custom criteria clients must fulfill before reserving kit.</p>
+                    </div>
+
+                    {/* Requirements input and save */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. Valid Driver License"
+                        value={newCondition}
+                        onChange={(e) => setNewCondition(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAddCondition();
+                        }}
+                        className="flex-1 p-2 border border-neutral-250 rounded-xl text-xs font-semibold outline-none focus:ring-1 focus:ring-[#ff4f3a]"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCondition}
+                        className="p-2 px-3 bg-neutral-950 hover:bg-neutral-800 text-white font-black rounded-xl text-xs uppercase cursor-pointer"
+                      >
+                        Add
+                      </button>
+                    </div>
+
+                    {/* Requirement display items */}
+                    <div className="space-y-2 pt-2">
+                      {customConditions.map((cond, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2.5 bg-neutral-50 border border-neutral-150 rounded-xl text-left">
+                          <span className="text-[10px] text-neutral-700 font-bold">✓ {cond}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCondition(idx)}
+                            className="text-neutral-400 hover:text-red-500 transition cursor-pointer"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+          )}
+
           {/* TAB 3: Pricing & Escrow Limits */}
           {activeSubTab === 'settings' && (
             <div className="bg-white p-8 sm:p-10 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-8 text-left">
@@ -824,6 +1336,200 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                   </button>
                 </div>
               </div>
+            </motion.div>
+          </div>
+        )}
+        {/* MODAL 3: Reserve Gear In Advance Manual Form */}
+        {isReserveModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsReserveModalOpen(false)}
+              className="absolute inset-0 bg-neutral-950/70 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2.5rem] border border-neutral-100 shadow-2xl p-6 sm:p-10 w-full max-w-xl relative z-10 space-y-6 text-left max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="text-[#ff4f3a]" size={20} />
+                  <h3 className="text-xl font-black text-neutral-900 tracking-tight uppercase">Reserve Gear in Advance</h3>
+                </div>
+                <button 
+                  onClick={() => setIsReserveModalOpen(false)}
+                  className="p-1.5 text-neutral-400 hover:text-neutral-700 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition duration-150"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveManualReservation} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Select Equipment to Reserve</label>
+                  <select
+                    required
+                    value={selectedGearId}
+                    onChange={(e) => setSelectedGearId(e.target.value)}
+                    className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-bold text-neutral-800 focus:ring-1 focus:ring-primary outline-none"
+                  >
+                    <option value="">-- Choose rentable gear item --</option>
+                    {userGear.filter(g => g.secondaryCategories?.includes('Rentable') || g.isAvailableForRent).map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.brand} {g.model || g.name} ({g.currency || '$'}{g.rentalPrice || 45}/day)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Client / Booker Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. John Doe / Fiji Film Crew"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-bold text-neutral-900 outline-none focus:ring-1 focus:ring-primary transition"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Client Email (Optional)</label>
+                    <input
+                      type="email"
+                      placeholder="client@gmail.com"
+                      value={clientEmail}
+                      onChange={(e) => setClientEmail(e.target.value)}
+                      className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-semibold outline-none text-neutral-800"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Client Phone (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="+679 123456"
+                      value={clientPhone}
+                      onChange={(e) => setClientPhone(e.target.value)}
+                      className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-semibold outline-none text-neutral-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Lock Start Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-bold outline-none text-neutral-800 font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Lock End Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-bold outline-none text-neutral-800 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1 pb-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Terms / Reservation Rule</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { key: 'free', label: 'Free reserve' },
+                      { key: 'deposit', label: 'Deposit request' },
+                      { key: 'custom', label: 'Custom guidelines' }
+                    ].map((mode) => (
+                      <button
+                        key={mode.key}
+                        type="button"
+                        onClick={() => setReservationType(mode.key as any)}
+                        className={`p-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition ${
+                          reservationType === mode.key 
+                            ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
+                            : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300'
+                        }`}
+                      >
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {reservationType === 'deposit' && (
+                  <label className="flex items-center gap-2 bg-emerald-50/50 border border-emerald-100 p-3 rounded-xl cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={depositPaid}
+                      onChange={(e) => setDepositPaid(e.target.checked)}
+                      className="rounded text-emerald-600 focus:ring-0 cursor-pointer h-4 w-4"
+                    />
+                    <div className="text-left">
+                      <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest block">Security Deposit Paid In Advance?</span>
+                      <span className="text-[9px] text-[#0066cc] block">Marks holding fee escrow as paid.</span>
+                    </div>
+                  </label>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Active Checkin Requirements</label>
+                  <div className="grid grid-cols-2 gap-2 bg-neutral-50 p-3 rounded-xl max-h-[140px] overflow-y-auto border border-neutral-150">
+                    {customConditions.map((cond) => {
+                      const isSelected = selectedBookingConditions.includes(cond);
+                      return (
+                        <button
+                          type="button"
+                          key={cond}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedBookingConditions(prev => prev.filter(c => c !== cond));
+                            } else {
+                              setSelectedBookingConditions(prev => [...prev, cond]);
+                            }
+                          }}
+                          className={`flex items-start text-left gap-1.5 p-2 rounded-lg border text-[10px] font-bold uppercase transition ${
+                            isSelected 
+                              ? 'bg-white border-neutral-900 outline outline-1 outline-neutral-900 text-neutral-950'
+                              : 'bg-white border-neutral-200 hover:border-neutral-300 text-neutral-500'
+                          }`}
+                        >
+                          <span className="text-neutral-900 leading-none">{isSelected ? '✓' : '○'}</span>
+                          <span className="truncate">{cond}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsReserveModalOpen(false)}
+                    className="px-5 py-3.5 bg-neutral-150 hover:bg-neutral-200 text-neutral-700 rounded-xl text-xs font-black uppercase tracking-widest transition flex-1 text-center cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-3.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg transition flex-1 text-center cursor-pointer"
+                  >
+                    Create Reservation
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

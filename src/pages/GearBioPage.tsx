@@ -47,6 +47,31 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
   const [submittingReport, setSubmittingReport] = useState(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
 
+  // Online client-side booking states
+  const [bookingClientName, setBookingClientName] = useState('');
+  const [bookingClientEmail, setBookingClientEmail] = useState('');
+  const [bookingClientPhone, setBookingClientPhone] = useState('');
+  const [bookingStartDate, setBookingStartDate] = useState('');
+  const [bookingEndDate, setBookingEndDate] = useState('');
+  const [bookingType, setBookingType] = useState('deposit');
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingConditions, setBookingConditions] = useState<string[]>([]);
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+
+  // Fetch Owner Booking Conditions
+  useEffect(() => {
+    const targetOwnerId = queryOwnerId || user?.uid;
+    if (!targetOwnerId) return;
+    const qConditions = query(collection(db, 'users', targetOwnerId, 'bookingConditions'));
+    getDocs(qConditions).then(snapshot => {
+      if (!snapshot.empty) {
+        const condList = snapshot.docs.map(doc => doc.data().name as string);
+        setBookingConditions(condList);
+      }
+    }).catch(e => console.error("Error getting public conditions template:", e));
+  }, [queryOwnerId, user?.uid]);
+
   useEffect(() => {
     const targetOwnerId = queryOwnerId || user?.uid;
     if (!id || !targetOwnerId) {
@@ -99,6 +124,47 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
       unsubscribeOwner();
     };
   }, [id, user, queryOwnerId, navigate]);
+
+  const handleBookReservation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!item) return;
+    if (!bookingClientName || !bookingStartDate || !bookingEndDate) {
+      toast.error("Please fill in Booker Name, Start Date, and End Date.");
+      return;
+    }
+
+    try {
+      setBookingLoading(true);
+
+      const targetOwnerId = queryOwnerId || item.ownerId || user?.uid;
+      const bookingData = {
+        gearId: item.id || id,
+        gearName: `${item.brand || ''} ${item.model || item.name}`.trim(),
+        brand: item.brand || '',
+        ownerId: targetOwnerId || '',
+        clientName: bookingClientName,
+        clientEmail: bookingClientEmail,
+        clientPhone: bookingClientPhone,
+        startDate: bookingStartDate,
+        endDate: bookingEndDate,
+        depositAmount: item.rentalDeposit || 0,
+        paymentStatus: bookingType === 'free' ? 'Free' : 'Pending Deposit',
+        reservationType: bookingType,
+        customConditions: selectedConditions,
+        createdAt: new Date().toISOString()
+      };
+
+      await addDoc(collection(db, 'gearBookings'), bookingData);
+
+      setBookingSuccess(true);
+      toast.success("Spot reserved! The rental hold has been added to the calendar.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to schedule booking hold.");
+    } finally {
+      setBookingLoading(false);
+    }
+  };
 
   const isOwnerOfItem = !!(user && item && user.uid === item.ownerId);
 
@@ -731,7 +797,11 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                       const updated = e.target.checked 
                         ? [...list, 'Rentable']
                         : list.filter(c => c !== 'Rentable');
-                      setEditForm({ ...editForm, secondaryCategories: updated });
+                      setEditForm({ 
+                        ...editForm, 
+                        secondaryCategories: updated,
+                        isAvailableForRent: e.target.checked
+                      });
                     }}
                     className="h-5 w-5 text-primary focus:ring-primary border-neutral-300 rounded"
                   />
@@ -740,6 +810,16 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                 {(editForm.secondaryCategories?.includes('Rentable')) && (
                   <div className="grid grid-cols-2 gap-4 pt-2">
                     <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Rental Rate / Hour</label>
+                      <input
+                        type="number"
+                        value={editForm.rentalHourlyPrice || 0}
+                        onChange={(e) => setEditForm({ ...editForm, rentalHourlyPrice: parseFloat(e.target.value) || 0 })}
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary transition"
+                        placeholder="e.g. 10"
+                      />
+                    </div>
+                    <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Rental Rate / Day</label>
                       <input
                         type="number"
@@ -747,6 +827,16 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                         onChange={(e) => setEditForm({ ...editForm, rentalPrice: parseFloat(e.target.value) || 0 })}
                         className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary transition"
                         placeholder="e.g. 45"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Special Setup Deposit</label>
+                      <input
+                        type="number"
+                        value={editForm.rentalDeposit || 0}
+                        onChange={(e) => setEditForm({ ...editForm, rentalDeposit: parseFloat(e.target.value) || 0 })}
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary transition"
+                        placeholder="e.g. 150"
                       />
                     </div>
                     <div className="space-y-1">
@@ -907,6 +997,163 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                     </div>
                   </div>
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                </div>
+              )}
+
+              {/* ONLINE RESERVATION & CALENDAR HOLD MODULE */}
+              {item.secondaryCategories?.includes('Rentable') && (
+                <div className="bg-stone-50 border border-neutral-200/60 p-6 sm:p-8 rounded-[2.5rem] space-y-6">
+                  <div>
+                    <h3 className="text-lg font-black text-neutral-900 flex items-center gap-2 uppercase tracking-tight">
+                      <Calendar size={18} className="text-[#ff4f3a]" />
+                      <span>Reserve this Kit Online</span>
+                    </h3>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">Fulfill owner requirements and schedule reservation dates.</p>
+                  </div>
+
+                  {bookingSuccess ? (
+                    <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl text-center space-y-3">
+                      <CheckCircle className="text-emerald-500 mx-auto" size={36} />
+                      <div>
+                        <h4 className="font-black text-emerald-900 text-sm uppercase">Booking Hold Registered!</h4>
+                        <p className="text-xs text-emerald-700 mt-1">Your reservation hold has been placed on the master schedule. Owner will coordinate pick-up and deposit escrow instructions.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBookingSuccess(false);
+                          setBookingClientName('');
+                          setBookingClientEmail('');
+                          setBookingClientPhone('');
+                          setBookingStartDate('');
+                          setBookingEndDate('');
+                          setSelectedConditions([]);
+                        }}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition"
+                      >
+                        Reserve Another Slot
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleBookReservation} className="space-y-4 text-left">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Your Full Name (Booker)</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Liam Naidu / Fiji Production"
+                          value={bookingClientName}
+                          onChange={(e) => setBookingClientName(e.target.value)}
+                          className="w-full p-2.5 bg-white border border-neutral-205 rounded-xl text-xs font-semibold outline-none focus:ring-1 focus:ring-primary transition"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Email Address</label>
+                          <input
+                            type="email"
+                            required
+                            placeholder="liam@gmail.com"
+                            value={bookingClientEmail}
+                            onChange={(e) => setBookingClientEmail(e.target.value)}
+                            className="w-full p-2.5 bg-white border border-neutral-205 rounded-xl text-xs font-semibold outline-none focus:ring-1 focus:ring-primary transition"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Phone Number</label>
+                          <input
+                            type="text"
+                            placeholder="+679 12345"
+                            value={bookingClientPhone}
+                            onChange={(e) => setBookingClientPhone(e.target.value)}
+                            className="w-full p-2.5 bg-white border border-neutral-205 rounded-xl text-xs font-semibold outline-none focus:ring-1 focus:ring-primary transition"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Rental Start Date</label>
+                          <input
+                            type="date"
+                            required
+                            value={bookingStartDate}
+                            onChange={(e) => setBookingStartDate(e.target.value)}
+                            className="w-full p-2.5 bg-white border border-neutral-205 rounded-xl text-xs font-bold outline-none text-neutral-800 font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Rental End Date</label>
+                          <input
+                            type="date"
+                            required
+                            value={bookingEndDate}
+                            onChange={(e) => setBookingEndDate(e.target.value)}
+                            className="w-full p-2.5 bg-white border border-neutral-205 rounded-xl text-xs font-bold outline-none text-neutral-800 font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Customized Checklist */}
+                      {bookingConditions.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Confirm Booking Requirements Set by Owner</label>
+                          <div className="space-y-1.5 bg-neutral-100/50 p-3 rounded-xl border border-neutral-150">
+                            {bookingConditions.map((cond) => {
+                              const isSelected = selectedConditions.includes(cond);
+                              return (
+                                <label 
+                                  key={cond} 
+                                  className="flex items-start gap-2.5 p-1 text-[10px] uppercase font-bold text-neutral-600 cursor-pointer hover:text-neutral-900 transition-colors"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {
+                                      if (isSelected) {
+                                        setSelectedConditions(prev => prev.filter(c => c !== cond));
+                                      } else {
+                                        setSelectedConditions(prev => [...prev, cond]);
+                                      }
+                                    }}
+                                    className="rounded cursor-pointer mt-0.5 h-3.5 w-3.5 text-primary focus:ring-0"
+                                  />
+                                  <span>I agree to: {cond}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Interactive rate overview */}
+                      <div className="p-4 bg-white border border-neutral-200 rounded-xl space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-neutral-500 font-bold uppercase text-[9px] tracking-wider">Equipment Daily Rate:</span>
+                          <span className="font-extrabold text-neutral-900 font-mono">{item.currency || '$'}{item.rentalPrice || 45}/day</span>
+                        </div>
+                        {item.rentalHourlyPrice && item.rentalHourlyPrice > 0 ? (
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-neutral-400 font-bold uppercase text-[9px] tracking-wider">Equipment Hourly Rate:</span>
+                            <span className="font-semibold text-neutral-800 font-mono">{item.currency || '$'}{item.rentalHourlyPrice}/hour</span>
+                          </div>
+                        ) : null}
+                        <div className="flex justify-between items-center text-xs pt-1.5 border-t border-dotted border-neutral-200">
+                          <span className="text-neutral-500 font-bold uppercase text-[9px] tracking-wider">Security Deposit Escrow:</span>
+                          <span className="font-extrabold text-neutral-800 font-mono">{item.currency || '$'}{item.rentalDeposit || 0}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={bookingLoading}
+                        className="w-full py-3.5 bg-neutral-900 hover:bg-black disabled:bg-neutral-400 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-md transition cursor-pointer"
+                      >
+                        {bookingLoading ? 'Securing Hold Calendar...' : 'Confirm Advanced Reservation'}
+                      </button>
+                    </form>
+                  )}
                 </div>
               )}
 

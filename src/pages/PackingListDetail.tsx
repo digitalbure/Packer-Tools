@@ -14,6 +14,7 @@ import { identifyItem, suggestItemMetadata } from '../services/geminiService';
 import { compressImage } from '../lib/imageUtils';
 import QRPrintModal from '../components/QRPrintModal';
 import { checkLimit } from '../lib/limitUtils';
+import ShareModal from '../components/ShareModal';
 
 export default function PackingListDetail({ user, adminSettings }: { user: UserProfile | null, adminSettings: AdminSettings | null }) {
   const { id } = useParams<{ id: string }>();
@@ -4762,198 +4763,15 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       )}
 
       {/* Share Modal */}
-      {showShareModal && (
-        <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl sm:rounded-[3rem] p-5 sm:p-8 w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in duration-300 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-3xl font-black uppercase tracking-tighter">Share Packing List</h2>
-                <p className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold">Generate public view and QR code</p>
-              </div>
-              <button onClick={() => setShowShareModal(false)} className="p-2 hover:bg-neutral-100 rounded-full transition">
-                <Plus className="rotate-45" size={24} />
-              </button>
-            </div>
-
-            {!list.shareToken ? (
-              <div className="text-center py-12 space-y-8 bg-neutral-50 rounded-[2.5rem] border border-neutral-100">
-                <div className="w-24 h-24 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto">
-                  <QrCode size={48} />
-                </div>
-                <div className="space-y-2 max-w-xs mx-auto">
-                  <h3 className="text-2xl font-black uppercase tracking-tighter">Private List</h3>
-                  <p className="text-sm text-neutral-500 font-medium">Generate a share token to enable the public "Link in Bio" view for this list.</p>
-                </div>
-                <button
-                  onClick={generateShareToken}
-                  className="px-12 py-4 bg-primary text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary/90 transition shadow-xl shadow-primary/20"
-                >
-                  Enable Public View
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-6">
-                  <div className="bg-neutral-50 p-8 rounded-[2.5rem] flex flex-col items-center gap-6 border border-neutral-100 shadow-inner">
-                    <QRCodeCanvas 
-                      id="qr-code-canvas"
-                      value={shareUrl} 
-                      size={200}
-                      level="H"
-                      includeMargin={true}
-                      className="rounded-2xl shadow-sm"
-                    />
-                    <div className="flex flex-wrap items-center justify-center gap-2">
-                      <button
-                        onClick={downloadQRCode}
-                        className="flex items-center gap-2 px-6 py-2 bg-white border border-neutral-200 rounded-full text-[10px] font-black uppercase tracking-widest text-neutral-500 hover:text-primary hover:border-primary/50 transition shadow-sm"
-                      >
-                        <Plus className="rotate-0" size={14} />
-                        <span>Download QR Image</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (window.confirm("This will make the list private and disable the current share link. Continue?")) {
-                            updateDoc(doc(db, 'packingLists', id!), { shareToken: null });
-                          }
-                        }}
-                        className="flex items-center gap-2 px-6 py-2 bg-red-50 border border-red-100 rounded-full text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-100 transition shadow-sm"
-                      >
-                        <Trash2 size={14} />
-                        <span>Disable Link</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <label className="text-[10px] uppercase tracking-widest font-black text-neutral-400">Public Share Link</label>
-                    <div className="flex items-center gap-2 p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
-                      <input
-                        readOnly
-                        value={shareUrl}
-                        className="flex-1 bg-transparent border-none outline-none text-xs font-mono text-neutral-500 truncate"
-                      />
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(shareUrl);
-                          toast.success("Link copied!");
-                        }}
-                        className="p-2 text-primary hover:bg-primary/10 rounded-xl transition"
-                        title="Copy Link"
-                      >
-                        <Copy size={18} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (window.confirm("This will invalidate the current share link. Continue?")) {
-                            generateShareToken();
-                          }
-                        }}
-                        className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition"
-                        title="Rotate Link (Generates new token)"
-                      >
-                        <RotateCcw size={18} />
-                      </button>
-                    </div>
-                    <a
-                      href={shareUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 w-full py-4 bg-neutral-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition shadow-lg"
-                    >
-                      <ExternalLink size={18} />
-                      <span>Preview Public View</span>
-                    </a>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] uppercase tracking-widest font-black text-neutral-400">Share Caption</label>
-                      <button
-                        type="button"
-                        onClick={generateShareCaption}
-                        className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline flex items-center gap-1"
-                      >
-                        <Zap size={10} />
-                        Generate Caption
-                      </button>
-                    </div>
-                    
-                    {shareCaption ? (
-                      <div className="space-y-4">
-                        <textarea
-                          readOnly
-                          value={shareCaption}
-                          className="w-full px-5 py-4 bg-neutral-50 border border-neutral-100 rounded-2xl text-xs h-40 resize-none text-neutral-600 font-medium leading-relaxed"
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(shareCaption);
-                              toast.success("Caption copied!");
-                            }}
-                            className="px-4 py-3 bg-neutral-100 text-neutral-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-neutral-200 transition flex items-center justify-center gap-2"
-                          >
-                            <Copy size={14} />
-                            Copy
-                          </button>
-                          <a
-                            href={`https://wa.me/?text=${encodeURIComponent(shareCaption)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-4 py-3 bg-[#25D366] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition flex items-center justify-center gap-2"
-                          >
-                            <Bell size={14} />
-                            WhatsApp
-                          </a>
-                          <a
-                            href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareCaption)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-4 py-3 bg-[#1877F2] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition flex items-center justify-center gap-2"
-                          >
-                            <Share2 size={14} />
-                            Facebook
-                          </a>
-                          <a
-                            href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareCaption)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-4 py-3 bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition flex items-center justify-center gap-2"
-                          >
-                            <Link2 size={14} />
-                            X (Twitter)
-                          </a>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-12 bg-neutral-50 rounded-[2rem] border border-dashed border-neutral-200 text-center flex flex-col items-center gap-4">
-                        <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-300">
-                          <Zap size={24} />
-                        </div>
-                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest max-w-[150px]">Click generate to create a social post for your list</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-6 bg-primary/5 rounded-[2rem] border border-primary/10 space-y-2">
-                    <div className="flex items-center gap-2 text-primary">
-                      <Info size={14} />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Pro Tip</span>
-                    </div>
-                    <p className="text-[10px] text-neutral-600 leading-relaxed font-medium">
-                      You can customize your brand name and logo in the "Brand Profile" settings to make your public list look professional.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showShareModal && list && (
+          <ShareModal
+            type="list"
+            data={list}
+            onClose={() => setShowShareModal(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Revert Confirmation Modal */}
       {showRevertConfirm && (

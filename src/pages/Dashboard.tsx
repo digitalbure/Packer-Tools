@@ -13,6 +13,7 @@ import { checkLimit } from '../lib/limitUtils';
 import { toast } from 'sonner';
 import Marketplace from './Marketplace';
 import DeveloperTab from '../components/DeveloperTab';
+import ShareModal from '../components/ShareModal';
 
 type DashboardTab = 'overview' | 'lists' | 'templates' | 'directories' | 'marketplace' | 'developer';
 type SortField = 'createdAt' | 'name' | 'status';
@@ -1853,55 +1854,11 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
 
       <AnimatePresence>
         {sharingList && (
-          <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl relative space-y-8"
-            >
-              <button
-                onClick={() => setSharingList(null)}
-                className="absolute top-6 right-6 p-2 text-neutral-400 hover:text-neutral-600 transition"
-              >
-                <X size={20} />
-              </button>
-              
-              <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold">Share {sharingList.name}</h2>
-                <p className="text-sm text-neutral-500">Scan to view the public bio view.</p>
-              </div>
-
-              <div className="bg-neutral-50 p-6 rounded-3xl flex justify-center border border-neutral-100">
-                <QRCodeCanvas 
-                  value={`${window.location.origin}/#/p/${sharingList.id}${sharingList.shareToken ? `?token=${sharingList.shareToken}` : ''}`} 
-                  size={200}
-                  level="H"
-                  includeMargin={true}
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    const url = `${window.location.origin}/#/p/${sharingList.id}${sharingList.shareToken ? `?token=${sharingList.shareToken}` : ''}`;
-                    navigator.clipboard.writeText(url);
-                    setSharingList(null);
-                    toast.success('Link copied to clipboard');
-                  }}
-                  className="flex-1 py-3 bg-neutral-100 text-neutral-600 rounded-xl font-bold hover:bg-neutral-200 transition"
-                >
-                  Copy Link
-                </button>
-                <Link
-                  to={`/list/${sharingList.id}`}
-                  className="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition shadow-lg text-center"
-                >
-                  View List
-                </Link>
-              </div>
-            </motion.div>
-          </div>
+          <ShareModal
+            type="list"
+            data={sharingList}
+            onClose={() => setSharingList(null)}
+          />
         )}
       </AnimatePresence>
 

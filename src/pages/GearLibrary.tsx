@@ -38,8 +38,10 @@ import {
   Users,
   Building,
   Sliders,
-  ShieldCheck
+  ShieldCheck,
+  Share2
 } from 'lucide-react';
+import ShareModal from '../components/ShareModal';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -549,6 +551,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [isDashboardVisible, setIsDashboardVisible] = useState(false);
   const [analyticsView, setAnalyticsView] = useState<'roi' | 'utilization' | 'combined'>('combined');
   const [selectedGearItemView, setSelectedGearItemView] = useState<GearItem | null>(null);
+  const [sharingGearItem, setSharingGearItem] = useState<GearItem | null>(null);
+  const [sharingGearType, setSharingGearType] = useState<'gear' | 'kit'>('gear');
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -1424,7 +1428,11 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             price: data.price || 0,
             photoUrls: data.photoUrls || [],
             description: data.description || '',
+            isAvailableForRent: data.isAvailableForRent ?? false,
+            isSale: data.isSale ?? false,
             rentalPrice: data.rentalPrice || 0,
+            rentalHourlyPrice: data.rentalHourlyPrice || 0,
+            rentalDeposit: data.rentalDeposit || 0,
             rentalPeriod: data.rentalPeriod || 'day',
             currency: data.currency || '$',
             secondaryCategories: data.secondaryCategories || [],
@@ -1998,8 +2006,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 setItem({ 
                   ...item, 
                   secondaryCategories: updatedCategories,
-                  isAvailableForRent: e.target.checked ? true : item.isAvailableForRent,
-                  isSale: e.target.checked ? item.isSale : false
+                  isAvailableForRent: e.target.checked,
+                  isSale: e.target.checked ? (item.isSale ?? false) : false
                 });
               }}
               className="sr-only peer"
@@ -2081,9 +2089,23 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             {item.isAvailableForRent !== false && (
               <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200/60 grid sm:grid-cols-2 gap-4 animate-fadeIn">
                 <div className="col-span-2 border-b border-neutral-100 pb-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#0066cc]">Daily Hire Rental Rate</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#0066cc]">Rental Pricing Structures & Security Deposits</span>
                 </div>
                 
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black tracking-widest text-neutral-500">Rental Price / Hour</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-400">{item.currency || '$'}</span>
+                    <input
+                      type="number"
+                      value={item.rentalHourlyPrice || ''}
+                      onChange={(e) => setItem({ ...item, rentalHourlyPrice: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl pl-8 pr-4 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0066cc]"
+                      placeholder="e.g. 10"
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-[9px] uppercase font-black tracking-widest text-neutral-500">Rental Price / Day</label>
                   <div className="relative">
@@ -2094,6 +2116,20 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       onChange={(e) => setItem({ ...item, rentalPrice: parseFloat(e.target.value) || 0 })}
                       className="w-full bg-white border border-neutral-200 rounded-xl pl-8 pr-4 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0066cc]"
                       placeholder="e.g. 45"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black tracking-widest text-neutral-500">Booking Security Deposit</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-400">{item.currency || '$'}</span>
+                    <input
+                      type="number"
+                      value={item.rentalDeposit || ''}
+                      onChange={(e) => setItem({ ...item, rentalDeposit: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl pl-8 pr-4 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0066cc]"
+                      placeholder="e.g. 150"
                     />
                   </div>
                 </div>
@@ -2539,6 +2575,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             <span className="font-bold">{item.usageCount || 0}</span>
           </div>
           <div className="flex-1"></div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSharingGearItem(item);
+              setSharingGearType(item.isKit ? 'kit' : 'gear');
+            }}
+            className="px-2 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 hover:text-neutral-900 transition rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0"
+            title="Share with Customer"
+          >
+            <Share2 size={10} />
+            <span>Share</span>
+          </button>
           <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${
             getHealthScore(item) > 70 ? 'bg-green-500' :
             getHealthScore(item) > 40 ? 'bg-amber-500' : 'bg-red-500'
@@ -2592,6 +2641,17 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
         />
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <button 
+            type="button"
+            onClick={() => {
+              setSharingGearItem(item);
+              setSharingGearType(item.isKit ? 'kit' : 'gear');
+            }}
+            className="p-1.5 bg-white rounded-lg text-neutral-900 hover:text-primary transition"
+            title="Share"
+          >
+            <Share2 size={14} />
+          </button>
           <button 
             type="button"
             onClick={() => setEditingItem(item)}
@@ -2707,6 +2767,18 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       </td>
       <td className="px-8 py-4">
         <div className="flex items-center gap-2">
+          <button 
+            type="button" 
+            onClick={(e) => {
+              e.stopPropagation();
+              setSharingGearItem(item);
+              setSharingGearType(item.isKit ? 'kit' : 'gear');
+            }} 
+            className="p-2 text-neutral-400 hover:text-primary transition"
+            title="Share with Customer"
+          >
+            <Share2 size={16} />
+          </button>
           <button type="button" onClick={() => setEditingItem(item)} className="p-2 text-neutral-400 hover:text-primary transition"><Edit2 size={16} /></button>
           <button type="button" onClick={() => handleDelete(item.id)} className="p-2 text-neutral-400 hover:text-accent transition"><Trash2 size={16} /></button>
         </div>
@@ -2774,6 +2846,17 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         </div>
       </div>
       <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+        <button 
+          type="button" 
+          onClick={() => {
+            setSharingGearItem(item);
+            setSharingGearType(item.isKit ? 'kit' : 'gear');
+          }} 
+          className="p-2 bg-neutral-50 rounded-lg text-neutral-400 hover:text-primary hover:bg-neutral-100 transition"
+          title="Share"
+        >
+          <Share2 size={16} />
+        </button>
         <button type="button" onClick={() => setEditingItem(item)} className="p-2 bg-neutral-50 rounded-lg text-neutral-400"><Edit2 size={16} /></button>
       </div>
     </div>
@@ -3321,6 +3404,18 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       Retire
                     </button>
                   </div>
+
+                  <button 
+                    onClick={() => { 
+                      setSharingGearItem(selectedGearItemView); 
+                      setSharingGearType(selectedGearItemView.isKit ? 'kit' : 'gear');
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-primary text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-primary/95 transition shadow-xl shadow-primary/20"
+                  >
+                    <Share2 size={18} />
+                    Share with Customers (Book)
+                  </button>
+
                   <button 
                     onClick={() => { setSelectedGearItemView(null); navigate(`/gear/${selectedGearItemView.id}`); }}
                     className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-700 transition shadow-xl"
@@ -6806,6 +6901,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {sharingGearItem && (
+          <ShareModal 
+            type={sharingGearType} 
+            data={sharingGearItem} 
+            onClose={() => setSharingGearItem(null)} 
+          />
         )}
       </AnimatePresence>
     </div>

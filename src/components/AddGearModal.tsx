@@ -857,7 +857,11 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                       const updated = e.target.checked 
                         ? [...list, 'Rentable']
                         : list.filter(c => c !== 'Rentable');
-                      setForm({ ...form, secondaryCategories: updated });
+                      setForm({ 
+                        ...form, 
+                        secondaryCategories: updated,
+                        isAvailableForRent: e.target.checked
+                      });
                     }}
                     className="h-5 w-5 text-primary border-neutral-700 rounded bg-neutral-800 focus:ring-transparent cursor-pointer"
                   />
@@ -866,9 +870,23 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                 {form.secondaryCategories?.includes('Rentable') ? (
                   <div className="grid sm:grid-cols-2 gap-4 pt-2">
                     <div className="space-y-1">
-                      <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400 text-neutral-400">Rental Price / Day</label>
+                      <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Rental Price / Hour</label>
                       <div className="relative">
-                        <span className="absolute left-3.5 top-2 text-xs font-bold text-neutral-300">$</span>
+                        <span className="absolute left-3.5 top-2 text-xs font-bold text-neutral-300">{form.currency || '$'}</span>
+                        <input
+                          type="number"
+                          value={form.rentalHourlyPrice || ''}
+                          onChange={(e) => setForm({ ...form, rentalHourlyPrice: parseFloat(e.target.value) || 0 })}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-xl pl-8 pr-4 py-2 text-xs outline-none focus:ring-2 focus:ring-primary transition text-white"
+                          placeholder="e.g. 10"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Rental Price / Day</label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-2 text-xs font-bold text-neutral-300">{form.currency || '$'}</span>
                         <input
                           type="number"
                           value={form.rentalPrice || ''}
@@ -880,7 +898,21 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400 text-neutral-400">Currency Unit</label>
+                      <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Booking Security Deposit</label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-2 text-xs font-bold text-neutral-300">{form.currency || '$'}</span>
+                        <input
+                          type="number"
+                          value={form.rentalDeposit || ''}
+                          onChange={(e) => setForm({ ...form, rentalDeposit: parseFloat(e.target.value) || 0 })}
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-xl pl-8 pr-4 py-2 text-xs outline-none focus:ring-2 focus:ring-primary transition text-white"
+                          placeholder="e.g. 150"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Currency Unit</label>
                       <select
                         value={form.currency || '$'}
                         onChange={(e) => setForm({ ...form, currency: e.target.value })}
