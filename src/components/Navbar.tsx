@@ -14,8 +14,17 @@ export default function Navbar({ user, adminSettings, onMenuClick }: { user: Use
   return (
     <nav className="bg-paper/80 backdrop-blur-xl border-b border-primary/5 sticky top-0 z-50">
       <div className="w-full max-w-[1700px] mx-auto px-6 h-20 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-1 group">
-          <PackerLogo variant="full" size={36} light={true} />
+        <Link to="/" className="flex items-center gap-2 group">
+          {adminSettings?.branding?.logo ? (
+            <div className="flex items-center gap-2">
+              <img src={adminSettings.branding.logo} className="h-9 w-auto max-w-[140px] object-contain shrink-0 rounded-md" alt="Logo" referrerPolicy="no-referrer" />
+              <span className="font-extrabold text-sm text-neutral-800 tracking-tight group-hover:text-primary transition-colors">
+                {adminSettings?.branding?.companyName || 'Packer Tools'}
+              </span>
+            </div>
+          ) : (
+            <PackerLogo variant="full" size={36} light={true} />
+          )}
         </Link>
 
         {/* Desktop Navigation */}

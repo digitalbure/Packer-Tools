@@ -2,8 +2,9 @@ import React from 'react';
 import { ShieldAlert, ArrowRight, Lock } from 'lucide-react';
 import { signInWithGoogle } from '../firebase';
 import PackerLogo from './PackerLogo';
+import { AdminSettings } from '../types';
 
-export default function AuthGate() {
+export default function AuthGate({ adminSettings }: { adminSettings?: AdminSettings | null }) {
   return (
     <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4 md:p-8 select-none font-sans">
       <div className="max-w-md w-full bg-white p-8 md:p-12 rounded-[2.5rem] border border-neutral-100 shadow-xl shadow-neutral-100/50 space-y-8 text-center animate-fadeIn">
@@ -11,7 +12,16 @@ export default function AuthGate() {
         {/* Visual Brand Header & Badge */}
         <div className="space-y-4">
           <div className="flex justify-center">
-            <PackerLogo variant="full" size={56} />
+            {adminSettings?.branding?.logo ? (
+              <div className="flex flex-col items-center gap-2">
+                <img src={adminSettings.branding.logo} className="h-14 w-auto object-contain rounded-xl" alt="Logo" referrerPolicy="no-referrer" />
+                <span className="font-black uppercase text-sm tracking-widest text-[#FF5500]">
+                  {adminSettings?.branding?.companyName || 'Packer Tools'}
+                </span>
+              </div>
+            ) : (
+              <PackerLogo variant="full" size={56} />
+            )}
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-100 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest mx-auto">
             <Lock size={12} className="animate-pulse" />

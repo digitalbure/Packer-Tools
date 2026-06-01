@@ -19,7 +19,16 @@ export default function Footer({ adminSettings }: FooterProps) {
         {/* Branding Column */}
         <div className="md:col-span-2 space-y-4">
           <Link to="/" className="inline-flex items-center gap-1 group">
-            <PackerLogo variant="full" size={32} light={true} />
+            {adminSettings?.branding?.logo ? (
+              <div className="flex items-center gap-2">
+                <img src={adminSettings.branding.logo} className="h-8 w-auto max-w-[120px] object-contain shrink-0 rounded-md" alt="Logo" referrerPolicy="no-referrer" />
+                <span className="font-extrabold text-sm text-neutral-800 tracking-tight group-hover:text-primary transition-colors">
+                  {companyName}
+                </span>
+              </div>
+            ) : (
+              <PackerLogo variant="full" size={32} light={true} />
+            )}
           </Link>
           <p className="text-xs text-neutral-500 font-semibold leading-relaxed max-w-sm">
             Professional-grade AV logistics, rack assembly planning, and gear lifecycle orchestration. Built for high-stakes on-set execution.

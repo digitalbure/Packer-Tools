@@ -115,7 +115,7 @@ function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick }: {
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <Routes location={location}>
-          <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate /> : (adminSettings?.activeLandingPageType === 'marketplace' ? <Marketplace user={user} adminSettings={adminSettings} /> : <LandingPage user={user} adminSettings={adminSettings} />))} />
+          <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate adminSettings={adminSettings} /> : (adminSettings?.activeLandingPageType === 'marketplace' ? <Marketplace user={user} adminSettings={adminSettings} /> : <LandingPage user={user} adminSettings={adminSettings} />))} />
           <Route path="/dashboard" element={user ? <Dashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/list/:id" element={<PackingListDetail user={user} adminSettings={adminSettings} />} />
           <Route path="/p/:id" element={<PackingListBioView />} />

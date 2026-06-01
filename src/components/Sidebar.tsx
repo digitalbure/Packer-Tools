@@ -185,11 +185,24 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
       >
         {/* Header / Logo */}
         <div className="h-20 flex items-center px-6 border-b border-neutral-100 shrink-0 justify-between">
-          <Link to="/" className="flex items-center" onClick={() => setIsMobileOpen(false)}>
+          <Link to="/" className="flex items-center gap-2 overflow-hidden" onClick={() => setIsMobileOpen(false)}>
             {isCollapsed ? (
-              <PackerLogo variant="symbol-only" size={32} light={true} />
+              adminSettings?.branding?.logo ? (
+                <img src={adminSettings.branding.logo} className="h-8 w-8 object-contain shrink-0 rounded-md" alt="Logo" referrerPolicy="no-referrer" />
+              ) : (
+                <PackerLogo variant="symbol-only" size={32} light={true} />
+              )
             ) : (
-              <PackerLogo variant="full" size={32} light={true} />
+              adminSettings?.branding?.logo ? (
+                <div className="flex items-center gap-2.5 overflow-hidden">
+                  <img src={adminSettings.branding.logo} className="h-8 w-auto max-w-[120px] object-contain shrink-0 rounded-md" alt="Logo" referrerPolicy="no-referrer" />
+                  <span className="font-black uppercase tracking-tight text-neutral-800 text-xs truncate max-w-[100px]">
+                    {adminSettings?.branding?.companyName || 'Packer Tools'}
+                  </span>
+                </div>
+              ) : (
+                <PackerLogo variant="full" size={32} light={true} />
+              )
             )}
           </Link>
           <button onClick={() => setIsMobileOpen(false)} className="lg:hidden p-2 text-neutral-400">

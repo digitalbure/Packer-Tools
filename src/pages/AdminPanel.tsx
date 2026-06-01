@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Coins, ShoppingBag, Eye, EyeOff, Database } from 'lucide-react';
+import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Coins, ShoppingBag, Eye, EyeOff, Database, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project } from '../types';
@@ -4030,6 +4030,68 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), companyName: e.target.value } } : null)}
                     className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition font-bold text-neutral-800"
                   />
+                </div>
+
+                <div className="space-y-3 p-4 bg-neutral-50 rounded-2xl border border-neutral-200/55">
+                  <label className="text-xs font-black uppercase text-neutral-500 tracking-wider block">Platform Logo Icon</label>
+                  <div className="flex flex-col sm:flex-row gap-4 items-center font-sans">
+                    <div className="w-16 h-16 rounded-xl bg-white border border-neutral-200/80 flex items-center justify-center overflow-hidden shrink-0 group relative">
+                      {settings?.branding?.logo ? (
+                        <>
+                          <img src={settings.branding.logo} className="w-full h-full object-contain p-1" alt="Logo preview" referrerPolicy="no-referrer" />
+                          <button
+                            type="button"
+                            onClick={() => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), logo: '' } } : null)}
+                            className="absolute inset-0 bg-red-900/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white text-[10px] font-black uppercase tracking-widest"
+                          >
+                            Remove
+                          </button>
+                        </>
+                      ) : (
+                        <PackerLogo variant="symbol-only" size={32} />
+                      )}
+                    </div>
+                    <div className="flex-1 w-full space-y-3">
+                      <div>
+                        <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1 font-mono">Direct Logo Link</span>
+                        <input 
+                          type="url"
+                          placeholder="Paste logo image URL (e.g. cloud asset, corporate url)..."
+                          value={settings?.branding?.logo || ''}
+                          onChange={(e) => {
+                            const val = e.target.value.trim();
+                            setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), logo: val } } : null);
+                          }}
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 placeholder-neutral-400"
+                        />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <label 
+                          className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary cursor-pointer hover:underline"
+                        >
+                          <Upload size={12} />
+                          <span>Upload Logo File</span>
+                          <input 
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                const base64 = reader.result as string;
+                                setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), logo: base64 } } : null);
+                                toast.success("Draft logo image loaded");
+                              };
+                              reader.readAsDataURL(file);
+                            }}
+                          />
+                        </label>
+                        <span className="text-[9px] text-neutral-400 font-bold">• Inline optimization enabled</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Support Email</label>
