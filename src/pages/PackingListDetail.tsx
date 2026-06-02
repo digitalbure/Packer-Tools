@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, query, onSnapshot, deleteDoc, updateDoc, addDoc, getDocs, writeBatch, where, orderBy, arrayUnion } from 'firebase/firestore';
-import { Plus, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw } from 'lucide-react';
+import { Plus, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Reorder, AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -13,6 +13,7 @@ import BulkScanModal from '../components/BulkScanModal';
 import { identifyItem, suggestItemMetadata } from '../services/geminiService';
 import { compressImage } from '../lib/imageUtils';
 import QRPrintModal from '../components/QRPrintModal';
+import ManualCheckoutModal from '../components/ManualCheckoutModal';
 import { checkLimit } from '../lib/limitUtils';
 import ShareModal from '../components/ShareModal';
 
@@ -137,6 +138,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     tags?: string[];
   } | null>(null);
   const [linkedProject, setLinkedProject] = useState<Project | null>(null);
+  const [showManualCheckout, setShowManualCheckout] = useState(false);
   const [projectLists, setProjectLists] = useState<PackingList[]>([]);
   const [newProjectListName, setNewProjectListName] = useState('');
   const [isCreatingNewListInProject, setIsCreatingNewListInProject] = useState(false);
@@ -2147,6 +2149,20 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
             )}
 
             <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full md:w-auto">
+              {list && (
+                <button
+                  onClick={() => setShowManualCheckout(true)}
+                  className={`col-span-2 sm:col-span-1 md:flex-none flex items-center justify-center gap-2 px-3 py-3 rounded-xl font-bold transition shadow-sm text-xs ${
+                    list.status === 'Active'
+                      ? 'bg-rose-100 border border-rose-200 text-rose-700 hover:bg-rose-200'
+                      : 'bg-primary text-white hover:brightness-105'
+                  }`}
+                >
+                  <ArrowRightLeft size={16} />
+                  <span>{list.status === 'Active' ? 'Check In / Return' : 'Check Out List'}</span>
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   if (!isListValid) {
@@ -4769,6 +4785,18 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
             type="list"
             data={list}
             onClose={() => setShowShareModal(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Manual Checkout Modal */}
+      <AnimatePresence>
+        {showManualCheckout && list && (
+          <ManualCheckoutModal
+            type="list"
+            data={list}
+            user={user}
+            onClose={() => setShowManualCheckout(false)}
           />
         )}
       </AnimatePresence>

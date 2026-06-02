@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, collectionGroup } from 'firebase/firestore';
-import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity, Users, Building2, Globe, Mail, MapPin, Building, Download } from 'lucide-react';
+import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity, Users, Building2, Globe, Mail, MapPin, Building, Download, ArrowRightLeft } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import Marketplace from './Marketplace';
 import DeveloperTab from '../components/DeveloperTab';
 import ShareModal from '../components/ShareModal';
+import ManualCheckoutModal from '../components/ManualCheckoutModal';
 
 type DashboardTab = 'overview' | 'lists' | 'templates' | 'directories' | 'marketplace' | 'developer';
 type SortField = 'createdAt' | 'name' | 'status';
@@ -27,6 +28,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [sharingList, setSharingList] = useState<PackingList | null>(null);
+  const [checkoutList, setCheckoutList] = useState<PackingList | null>(null);
   const [gear, setGear] = useState<GearItem[]>([]);
   const [newListName, setNewListName] = useState('');
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
@@ -1573,7 +1575,18 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                         to={`/list/${list.id}`}
                         className="group block bg-white p-5 rounded-2xl border border-neutral-100 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden h-full"
                       >
-                        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-25 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setCheckoutList(list);
+                            }}
+                            className={`p-1.5 transition rounded-lg ${list.status === 'Active' ? 'text-rose-600 hover:bg-rose-50' : 'text-primary hover:bg-primary/5'}`}
+                            title={list.status === 'Active' ? "Check In / Return" : "Check Out"}
+                          >
+                            <ArrowRightLeft size={14} />
+                          </button>
                           <button
                             onClick={(e) => {
                               e.preventDefault();
@@ -1689,6 +1702,13 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => setCheckoutList(list)}
+                                className={`p-2 rounded-lg transition ${list.status === 'Active' ? 'text-rose-600 hover:bg-rose-50' : 'text-primary hover:bg-primary/5'}`}
+                                title={list.status === 'Active' ? "Check In / Return" : "Check Out"}
+                              >
+                                <ArrowRightLeft size={16} />
+                              </button>
                               <button
                                 onClick={() => setSharingList(list)}
                                 className="p-2 text-neutral-400 hover:text-primary transition"
@@ -1908,6 +1928,17 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
               </form>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {checkoutList && (
+          <ManualCheckoutModal
+            type="list"
+            data={checkoutList}
+            user={user}
+            onClose={() => setCheckoutList(null)}
+          />
         )}
       </AnimatePresence>
     </div>

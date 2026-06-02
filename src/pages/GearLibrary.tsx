@@ -39,9 +39,11 @@ import {
   Building,
   Sliders,
   ShieldCheck,
-  Share2
+  Share2,
+  ArrowRightLeft
 } from 'lucide-react';
 import ShareModal from '../components/ShareModal';
+import ManualCheckoutModal from '../components/ManualCheckoutModal';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -553,6 +555,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [selectedGearItemView, setSelectedGearItemView] = useState<GearItem | null>(null);
   const [sharingGearItem, setSharingGearItem] = useState<GearItem | null>(null);
   const [sharingGearType, setSharingGearType] = useState<'gear' | 'kit'>('gear');
+  const [manualCheckoutGearItem, setManualCheckoutGearItem] = useState<GearItem | null>(null);
+  const [manualCheckoutGearType, setManualCheckoutGearType] = useState<'gear' | 'kit'>('gear');
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -2579,6 +2583,23 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              setManualCheckoutGearItem(item);
+              setManualCheckoutGearType(item.isKit ? 'kit' : 'gear');
+            }}
+            className={`px-2 py-1 transition rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0 ${
+              item.status === 'in_use'
+                ? 'bg-rose-100 hover:bg-rose-200 text-rose-700'
+                : 'bg-primary/10 hover:bg-primary/20 text-primary'
+            }`}
+            title={item.status === 'in_use' ? "Check In Asset" : "Check Out Asset"}
+          >
+            <ArrowRightLeft size={10} />
+            <span>{item.status === 'in_use' ? 'In' : 'Out'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
               setSharingGearItem(item);
               setSharingGearType(item.isKit ? 'kit' : 'gear');
             }}
@@ -2651,6 +2672,17 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             title="Share"
           >
             <Share2 size={14} />
+          </button>
+          <button 
+            type="button"
+            onClick={() => {
+              setManualCheckoutGearItem(item);
+              setManualCheckoutGearType(item.isKit ? 'kit' : 'gear');
+            }}
+            className="p-1.5 bg-white rounded-lg text-neutral-900 hover:text-primary transition"
+            title={item.status === 'in_use' ? "Check In" : "Check Out"}
+          >
+            <ArrowRightLeft size={14} />
           </button>
           <button 
             type="button"
@@ -2767,6 +2799,18 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       </td>
       <td className="px-8 py-4">
         <div className="flex items-center gap-2">
+          <button 
+            type="button" 
+            onClick={(e) => {
+              e.stopPropagation();
+              setManualCheckoutGearItem(item);
+              setManualCheckoutGearType(item.isKit ? 'kit' : 'gear');
+            }} 
+            className={`p-2 transition rounded-lg ${item.status === 'in_use' ? 'text-rose-600 hover:bg-rose-50' : 'text-primary hover:bg-primary/5'}`}
+            title={item.status === 'in_use' ? "Check In Asset" : "Check Out Asset"}
+          >
+            <ArrowRightLeft size={16} />
+          </button>
           <button 
             type="button" 
             onClick={(e) => {
@@ -6911,6 +6955,17 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             data={sharingGearItem} 
             onClose={() => setSharingGearItem(null)} 
             user={user}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {manualCheckoutGearItem && (
+          <ManualCheckoutModal
+            type={manualCheckoutGearType}
+            data={manualCheckoutGearItem}
+            user={user}
+            onClose={() => setManualCheckoutGearItem(null)}
           />
         )}
       </AnimatePresence>

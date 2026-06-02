@@ -7,6 +7,14 @@
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#000000" />
     <link rel="apple-touch-icon" href="https://api.dicebear.com/7.x/shapes/svg?seed=packer&backgroundColor=000000" />
+    <script>
+      (function() {
+        var path = window.location.pathname;
+        if (!window.location.hash && (path.startsWith('/gear/') || path.startsWith('/p/') || path.startsWith('/marketplace/') || path.startsWith('/list/'))) {
+          window.location.replace(window.location.origin + '/#' + path + window.location.search);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
