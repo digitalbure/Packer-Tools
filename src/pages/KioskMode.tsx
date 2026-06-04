@@ -149,6 +149,48 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   const [kioskMode, setKioskMode] = useState<'both' | 'checkout' | 'checkin'>('both');
   const [gear, setGear] = useState<GearItem[]>([]);
 
+  // Mobile layout, security PIN rotation states and checks
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+  const [pinExpirySec, setPinExpirySec] = useState<number>(60);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isOrgMember = !!(initialUser?.orgId || pairedUser?.orgId);
+
+  // Rotate Pairing PIN every minute (60s) when the device is not activated (on step 'activate')
+  useEffect(() => {
+    if (isActivated || !terminalId || step !== 'activate') return;
+
+    const timer = setInterval(() => {
+      setPinExpirySec((prev) => {
+        if (prev <= 1) {
+          const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+          updateDoc(doc(db, 'terminals', terminalId), {
+            pairingCode: newCode,
+            lastActive: new Date().toISOString()
+          })
+            .then(() => {
+              setPairingCode(newCode);
+              toast.success("Pairing PIN auto-rotated for enhanced security!");
+            })
+            .catch((err) => console.error("Error auto-rotating Kiosk PIN:", err));
+          return 60;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isActivated, terminalId, step]);
+
+  useEffect(() => {
+    setPinExpirySec(60);
+  }, [pairingCode]);
+
   const sigCanvas = useRef<SignatureCanvas>(null);
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
@@ -482,28 +524,67 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   };
 
   useEffect(() => {
-    if (step === 'scan') {
-      const scanner = new Html5QrcodeScanner(
-        "kiosk-scanner",
-        { fps: 10, qrbox: { width: 300, height: 300 } },
-        /* verbose= */ false
-      );
-      
-      scanner.render((decodedText) => {
-        handleScanSuccess(decodedText);
-        scanner.clear();
-      }, (err) => {
-        // console.warn(err);
-      });
+    const isScanStep = step === 'scan';
+    const isPackStep = step === 'case_pack';
 
-      scannerRef.current = scanner;
+    if (isScanStep || isPackStep) {
+      if (isScanStep && !isOrgMember) {
+        return;
+      }
+
+      let isSubscribed = true;
+      let scannerImg: any = null;
+      let retryCount = 0;
+
+      const initScanner = () => {
+        const el = document.getElementById("kiosk-scanner");
+        if (!el) {
+          if (isSubscribed && retryCount < 20) {
+            retryCount++;
+            setTimeout(initScanner, 50);
+          }
+          return;
+        }
+
+        try {
+          const scanner = new Html5QrcodeScanner(
+            "kiosk-scanner",
+            { fps: 10, qrbox: { width: 300, height: 300 } },
+            /* verbose= */ false
+          );
+          
+          scanner.render((decodedText) => {
+            handleScanSuccess(decodedText);
+            try {
+              scanner.clear();
+            } catch (err) {
+              // ignore
+            }
+          }, (err) => {
+            // console.warn(err);
+          });
+
+          scannerRef.current = scanner;
+        } catch (e) {
+          console.error("Failed to initialize scanner", e);
+        }
+      };
+
+      initScanner();
+
       return () => {
+        isSubscribed = false;
         if (scannerRef.current) {
-          scannerRef.current.clear();
+          try {
+            scannerRef.current.clear();
+          } catch (e) {
+            // ignore
+          }
+          scannerRef.current = null;
         }
       };
     }
-  }, [step]);
+  }, [step, isOrgMember]);
 
   const handleCreateCase = async () => {
     const targetUid = pairedUid || initialUser?.uid;
@@ -1036,7 +1117,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   };
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-white flex flex-col font-sans select-none overflow-hidden touch-none relative">
+    <div className="min-h-screen bg-neutral-900 text-white flex flex-col font-sans select-none md:overflow-hidden overflow-y-auto md:touch-none touch-auto relative">
       {/* Secret Escape Area */}
       <div 
         onClick={handleEscapeTap}
@@ -1080,7 +1161,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       </header>
 
       {/* Main Kiosk Viewport */}
-      <main className="flex-1 relative flex items-center justify-center p-4 md:p-8 overflow-hidden">
+      <main className="flex-1 relative flex items-center justify-center p-4 md:p-8 md:overflow-hidden overflow-visible">
         <AnimatePresence mode="wait">
           {pairedUid && pairedUser && !isFeatureEnabled('kioskMode', pairedUser, adminSettings) ? (
             <motion.div 
@@ -1340,17 +1421,24 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                   <ShieldCheck size={48} />
                 </div>
                 <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">Activate Terminal</h2>
-                <p className="text-neutral-400 font-medium">To use this device as a digital Gear Terminal, enter this activation code in your organization settings.</p>
+                <p className="text-neutral-400 font-medium font-bold">To use this device as a digital Gear Terminal, enter this activation code in your organization settings.</p>
               </div>
 
               <div className="flex flex-col items-center justify-center gap-6 bg-black/40 py-8 px-4 rounded-[2rem] border border-white/5">
                 <div className="text-4xl md:text-7xl font-mono font-black tracking-[0.2em] text-white">
                   {pairingCode}
                 </div>
+                
+                {/* Security Rotation Visual Countdown */}
+                <div className="flex items-center gap-2 justify-center bg-black/45 px-4 py-2 rounded-full border border-white/5 w-fit">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span className="text-xs text-neutral-400 font-medium">Rotating security PIN in <strong className="font-mono text-emerald-400 font-bold">{pinExpirySec}s</strong></span>
+                </div>
+
                 {pairingCode && (
                   <div className="bg-white p-4 rounded-2xl inline-block shadow-lg hover:scale-105 transition duration-300">
                     <QRCodeCanvas 
-                      value={`${window.location.origin}/organization?pair=${pairingCode}`}
+                       value={`${window.location.origin}/organization?pair=${pairingCode}`}
                       size={140}
                       level="H"
                     />
@@ -1602,18 +1690,33 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
               key="scan"
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex flex-col items-center space-y-12 w-full max-w-4xl"
+              className="flex flex-col items-center space-y-6 md:space-y-12 w-full max-w-4xl"
             >
               <div className="text-center space-y-2 md:space-y-4">
                 <h2 className="text-3xl md:text-7xl font-black uppercase tracking-tighter">Scan Asset</h2>
                 <p className="text-sm md:text-2xl text-neutral-500 uppercase tracking-widest font-bold">Position QR code or barcode within camera</p>
               </div>
 
-              <div className="relative w-full aspect-square max-w-lg bg-black rounded-[3rem] overflow-hidden border-4 border-white/10 shadow-2xl">
-                <div id="kiosk-scanner" className="w-full h-full" />
-                <div className="absolute inset-0 border-2 border-white/20 pointer-events-none" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-4 border-white border-dashed opacity-50 animate-pulse pointer-events-none rounded-2xl" />
-              </div>
+              {!isOrgMember ? (
+                <div className="bg-red-500/10 border-2 border-red-500/20 max-w-lg p-6 md:p-10 rounded-[2.5rem] text-center space-y-6 shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1.5 bg-red-500" />
+                  <div className="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto">
+                    <ShieldCheck size={32} className="rotate-180" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl md:text-2xl font-black uppercase text-red-400">Membership Required</h3>
+                    <p className="text-xs md:text-sm text-neutral-40a leading-relaxed text-neutral-350">
+                      You must belong to an organization to scan or pair assets via the mobile kiosk. Please complete the organization onboarding process or request your administrator to invite you first.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative w-full aspect-square max-w-lg bg-black rounded-[3rem] overflow-hidden border-4 border-white/10 shadow-2xl">
+                  <div id="kiosk-scanner" className="w-full h-full" />
+                  <div className="absolute inset-0 border-2 border-white/20 pointer-events-none" />
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-4 border-white border-dashed opacity-50 animate-pulse pointer-events-none rounded-2xl" />
+                </div>
+              )}
 
               <button 
                 onClick={resetKiosk}

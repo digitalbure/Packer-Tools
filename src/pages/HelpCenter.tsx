@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 
 const categories = [
   { id: 'getting-started', name: 'Getting Started', icon: <Book size={18} /> },
+  { id: 'packer-tools-academy', name: 'Packer Academy', icon: <Award size={18} /> },
   { id: 'packing-lists', name: 'Manifests', icon: <ListChecks size={18} /> },
   { id: 'gear-library', name: 'Gear Library', icon: <Camera size={18} /> },
   { id: 'ai-wizard', name: 'AI Wizard', icon: <Zap size={18} /> },
@@ -23,16 +24,40 @@ const categories = [
 
 const articles = [
   {
+    id: 'packer-academy-intro',
+    title: "Introduction to Packer Tools Academy",
+    description: "Our certified training ground for expedition coordinators, cinema focus pullers, and heavy logistics safety handlers.",
+    category: 'packer-tools-academy',
+    steps: [
+      { title: "Enroll in a Stream", description: "Select your dedicated stream (Wilderness Survival & Outdoors, Pro Cinematography, Heavy Safety Cargo) inside the Academy Dashboard." },
+      { title: "Master Payload Calculus", description: "Complete interactive micro-lessons on tare weight calibration, center-of-gravity calculations, and moisture lock auditing." },
+      { title: "Earn Field Badge Credits", description: "Submit automated checklist audits with verified camera scanner photos to pass the telemetry validation benchmarks." }
+    ],
+    tips: ["Verified students of Packer Tools Academy receive up to a 20% discount on marketplace integrations and organization subscriptions!"]
+  },
+  {
+    id: 'outdoors-expedition-guide',
+    title: "Logistics for Outdoors & Adventure Expeditions",
+    description: "Safety rules, payload balance limits, and checklist strategies for extreme alpine hiking, fly fishing, Scuba diving, and survival trips.",
+    category: 'packer-tools-academy',
+    steps: [
+      { title: "Calibrate Dry Pack Weight", description: "Ensure survival gear, tents, and sub-zero rations do not exceed 25% of active operator bodyweight using key payload tools." },
+      { title: "Moisture & Submergence Audits", description: "Group diving regulators, oxygen kits, and marine electronics under insulated dry-box categories. Tag diving equipment with automated service interval reminder alarms." },
+      { title: "Telemetry Tracker Dispatch", description: "Pair emergency beacons, satellite dispatch routers, and fly fishing line presets into custom Locker Rack slots for immediate group checkout." }
+    ],
+    tips: ["Enable thermal lithium isolation flags on power bank cells inside sub-zero or deep underwater conditions to prevent rapid energy drain."]
+  },
+  {
     id: 'setup-profile',
-    title: "How to set up your Profile",
-    description: "Your profile is your digital ID across all manifests and projects. Here is how to get it ready.",
+    title: "How to set up your Profile & Theme",
+    description: "Your profile is your digital ID and control hub. Customize bio, marketplace, and visual environments.",
     category: 'getting-started',
     steps: [
-      { title: "Navigate to Profile", description: "Select the 'Profile' option from the bottom of your primary sidebar." },
-      { title: "Update Core Data", description: "Enter your full name, professional title, and company name. This data appears on all shared packing lists." },
-      { title: "Audit Permissions", description: "Review your current plan limits (tokens, projects, lists) at the bottom of the profile page." }
+      { title: "Navigate to Profile", description: "Select the 'Profile' & settings option from your main sidebar panel." },
+      { title: "Configure Theme Preferences", description: "In the right-hand sidebar section, toggle between Light Mode and pitch-black Dark Mode to set your global workspace vibe." },
+      { title: "Update Core Data", description: "Enter your display name, company, and location. This details auto-fill on all shared manifests." }
     ],
-    tips: ["A clear company name helps clients identify your manifests instantly."]
+    tips: ["A clear company name helps clients identify your manifests instantly, and choosing dark mode helps preserve power on industrial checking tablets."]
   },
   {
     id: 'mobile-audits',

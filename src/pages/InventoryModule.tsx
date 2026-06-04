@@ -101,6 +101,7 @@ export interface InventoryItem {
   deptId?: string;
   teamId?: string;
   assignedTo?: string;
+  visibility?: 'public' | 'private' | 'team' | 'dept' | 'org';
   createdAt: string;
   updatedAt: string;
 }
@@ -443,6 +444,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     condition: 'new' | 'good' | 'fair' | 'poor';
     status: 'available' | 'in_use' | 'maintenance' | 'retired' | 'missing';
     photoUrl?: string;
+    visibility?: 'public' | 'private' | 'team' | 'dept' | 'org';
   }>({
     name: '',
     description: '',
@@ -455,7 +457,8 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     quantity: 1,
     condition: 'good',
     status: 'available',
-    photoUrl: ''
+    photoUrl: '',
+    visibility: 'public'
   });
 
   // Spreadsheet Importer and url-loader states
@@ -961,7 +964,8 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       quantity: item.quantity || 1,
       condition: item.condition || 'good',
       status: item.status || 'available',
-      photoUrl: item.photoUrls?.[0] || ''
+      photoUrl: item.photoUrls?.[0] || '',
+      visibility: item.visibility || 'public'
     });
     setIsAddingItemManually(true);
   };
@@ -1768,6 +1772,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                   <div className="space-y-0.5">
                                     <div className="flex items-center gap-2">
                                       <p className="font-bold text-sm text-neutral-900 leading-tight">{item.name}</p>
+                                      {item.visibility && item.visibility !== 'public' && (
+                                        <span className={`text-[8px] font-extrabold uppercase tracking-widest px-1 py-0.5 rounded text-white ${
+                                          item.visibility === 'private' ? 'bg-red-500' :
+                                          item.visibility === 'team' ? 'bg-blue-500' :
+                                          item.visibility === 'dept' ? 'bg-indigo-500' :
+                                          'bg-amber-600'
+                                        }`}>
+                                          {item.visibility.toUpperCase()}
+                                        </span>
+                                      )}
                                       {isCheckedOut && (
                                         <span className="text-[8px] font-black uppercase text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded">Checked Out</span>
                                       )}
@@ -1967,6 +1981,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                 <div className="flex items-center justify-between">
                                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0066cc] flex items-center gap-1.5">
                                     {item.primaryCategory}
+                                    {item.visibility && item.visibility !== 'public' && (
+                                      <span className={`font-extrabold text-[8px] tracking-normal px-1 py-0.5 rounded text-white ${
+                                        item.visibility === 'private' ? 'bg-red-500' :
+                                        item.visibility === 'team' ? 'bg-blue-500' :
+                                        item.visibility === 'dept' ? 'bg-indigo-500' :
+                                        'bg-amber-600'
+                                      }`}>
+                                        {item.visibility.toUpperCase()}
+                                      </span>
+                                    )}
                                   </p>
                                   <p className="text-[9px] font-mono text-neutral-400 tracking-wider font-bold">#{item.assetTag?.slice(-4)}</p>
                                 </div>
@@ -3195,6 +3219,22 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Privacy View Layers Selector */}
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-primary block ml-1 font-bold">Privacy View Layers & Access Mode</label>
+                  <select 
+                    value={itemForm.visibility || 'public'}
+                    onChange={(e) => setItemForm({ ...itemForm, visibility: e.target.value as any })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs outline-none focus:ring-1 focus:ring-black h-11 font-semibold text-neutral-700"
+                  >
+                    <option value="private">🔒 Private View Layer (User level - Only me)</option>
+                    <option value="team">👥 Team View Layer (Visible only in My Team)</option>
+                    <option value="dept">🏢 Department View Layer (Visible only in My Dept)</option>
+                    <option value="org">🏛️ Organization View Layer (Visible only in My Org)</option>
+                    <option value="public">🌐 Public Access Layer (Visible to everyone)</option>
+                  </select>
                 </div>
 
                 <div className="space-y-1">

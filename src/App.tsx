@@ -44,6 +44,8 @@ import ListingsModule from './pages/ListingsModule';
 import GearBioPage from './pages/GearBioPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import AddGearModal from './components/AddGearModal';
+import { IndustryProvider } from './context/IndustryContext';
+import { ThemeProvider } from './context/ThemeContext';
 import AuthGate from './components/AuthGate';
 import QuickActionsDrawer from './components/QuickActionsDrawer';
 import Onboarding from './components/Onboarding';
@@ -637,80 +639,84 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Toaster position="bottom-right" richColors />
-      <Router>
-        <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans flex overflow-hidden">
-          {user && !isLayoutHidden && (
-            <Sidebar 
-              user={user} 
-              adminSettings={adminSettings} 
-              isCollapsed={isSidebarCollapsed} 
-              setIsCollapsed={setIsSidebarCollapsed} 
-              isMobileOpen={isMobileSidebarOpen}
-              setIsMobileOpen={setIsMobileSidebarOpen}
-              listsCount={listsCount}
-            />
-          )}
-          
-          <div className="flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 font-sans">
-            {!isLayoutHidden && (
-              <Navbar 
+      <ThemeProvider>
+        <IndustryProvider user={user} adminSettings={adminSettings}>
+          <Router>
+          <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans flex overflow-hidden">
+            {user && !isLayoutHidden && (
+              <Sidebar 
                 user={user} 
                 adminSettings={adminSettings} 
-                onMenuClick={() => setIsMobileSidebarOpen(true)} 
-                selectedCommunity={selectedCommunity}
-                onOpenSelector={() => setIsCommunitySelectorOpen(true)}
+                isCollapsed={isSidebarCollapsed} 
+                setIsCollapsed={setIsSidebarCollapsed} 
+                isMobileOpen={isMobileSidebarOpen}
+                setIsMobileOpen={setIsMobileSidebarOpen}
+                listsCount={listsCount}
               />
             )}
-            <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
-              isLayoutHidden 
-                ? `max-w-none px-0 py-0 sm:px-0 sm:py-0 ${(currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/')) ? 'bg-neutral-50' : 'bg-neutral-900'}` 
-                : 'max-w-[1700px] mx-auto px-4 sm:px-6 py-6 sm:py-8'
-            }`}>
-              <div className="flex-1">
-                <AnimatedRoutes 
+            
+            <div className="flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 font-sans">
+              {!isLayoutHidden && (
+                <Navbar 
                   user={user} 
-                  setUser={setUser} 
                   adminSettings={adminSettings} 
                   onMenuClick={() => setIsMobileSidebarOpen(true)} 
-                  selectedCommunity={selectedCommunity}
-                />
-              </div>
-              {!isLayoutHidden && (
-                <Footer 
-                  adminSettings={adminSettings} 
                   selectedCommunity={selectedCommunity}
                   onOpenSelector={() => setIsCommunitySelectorOpen(true)}
                 />
               )}
-            </main>
-          </div>
+              <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
+                isLayoutHidden 
+                  ? `max-w-none px-0 py-0 sm:px-0 sm:py-0 ${(currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/')) ? 'bg-neutral-50' : 'bg-neutral-900'}` 
+                  : 'max-w-[1700px] mx-auto px-4 sm:px-6 py-6 sm:py-8'
+              }`}>
+                <div className="flex-1">
+                  <AnimatedRoutes 
+                    user={user} 
+                    setUser={setUser} 
+                    adminSettings={adminSettings} 
+                    onMenuClick={() => setIsMobileSidebarOpen(true)} 
+                    selectedCommunity={selectedCommunity}
+                  />
+                </div>
+                {!isLayoutHidden && (
+                  <Footer 
+                    adminSettings={adminSettings} 
+                    selectedCommunity={selectedCommunity}
+                    onOpenSelector={() => setIsCommunitySelectorOpen(true)}
+                  />
+                )}
+              </main>
+            </div>
 
-          {/* Dynamic Geographic Community Router Portal */}
-          <CommunitySelector
-            adminSettings={adminSettings}
-            selectedCommunity={selectedCommunity}
-            isOpen={selectedCommunity === null || isCommunitySelectorOpen}
-            onSelect={(mId) => {
-              localStorage.setItem("packer_selected_community", mId);
-              setSelectedCommunity(mId);
-              setIsCommunitySelectorOpen(false);
-            }}
-            onClose={() => setIsCommunitySelectorOpen(false)}
-            isDismissible={selectedCommunity !== null}
-          />
-
-          {user && !user.onboardingCompleted && (
-            <Onboarding 
-              user={user} 
-              onComplete={() => setUser({ ...user, onboardingCompleted: true })} 
+            {/* Dynamic Geographic Community Router Portal */}
+            <CommunitySelector
+              adminSettings={adminSettings}
+              selectedCommunity={selectedCommunity}
+              isOpen={selectedCommunity === null || isCommunitySelectorOpen}
+              onSelect={(mId) => {
+                localStorage.setItem("packer_selected_community", mId);
+                setSelectedCommunity(mId);
+                setIsCommunitySelectorOpen(false);
+              }}
+              onClose={() => setIsCommunitySelectorOpen(false)}
+              isDismissible={selectedCommunity !== null}
             />
-          )}
 
-          {user && <DukeyAssistant user={user} />}
-          {user && <AddGearModal user={user} adminSettings={adminSettings} />}
-          {user && <QuickActionsDrawer user={user} />}
-        </div>
-      </Router>
-    </ErrorBoundary>
+            {user && !user.onboardingCompleted && (
+              <Onboarding 
+                user={user} 
+                onComplete={() => setUser({ ...user, onboardingCompleted: true })} 
+              />
+            )}
+
+            {user && <DukeyAssistant user={user} />}
+            {user && <AddGearModal user={user} adminSettings={adminSettings} />}
+            {user && <QuickActionsDrawer user={user} />}
+          </div>
+        </Router>
+      </IndustryProvider>
+    </ThemeProvider>
+  </ErrorBoundary>
   );
 }

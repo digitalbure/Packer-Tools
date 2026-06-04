@@ -474,6 +474,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [privacyLayerFilter, setPrivacyLayerFilter] = useState<'all' | 'private' | 'team' | 'dept' | 'org' | 'public'>('all');
   const [selectedCondition, setSelectedCondition] = useState<string>('all');
   const [categoryFilterMode, setCategoryFilterMode] = useState<'primary' | 'all'>('primary');
   const [isAIAutoRegistering, setIsAIAutoRegistering] = useState(false);
@@ -1312,6 +1313,14 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           : (getPrimaryCategory(item) === selectedCategory || getSecondaryCategories(item).includes(selectedCategory))
         );
     const matchesCondition = selectedCondition === 'all' || item.condition === selectedCondition;
+
+    // Privacy View Layer filter check
+    if (privacyLayerFilter !== 'all') {
+      const itemVis = item.visibility || 'public';
+      if (privacyLayerFilter !== itemVis) {
+        return false;
+      }
+    }
 
     // Audit Mode filters
     if (isAuditMode && showOnlyAttentionNeeded) {
@@ -2561,7 +2570,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-primary flex items-center gap-1.5">
               {item.isKit && <Layers size={10} />}
               {item.category}
-              {item.visibility === 'private' && <span className="text-red-500 font-extrabold text-[8px] tracking-normal bg-red-100/60 px-1 py-0.5 rounded">PRIVATE</span>}
+              {item.visibility && item.visibility !== 'public' && (
+                <span className={`font-extrabold text-[8px] tracking-normal px-1 py-0.5 rounded text-white ${
+                  item.visibility === 'private' ? 'bg-red-500' :
+                  item.visibility === 'team' ? 'bg-blue-500' :
+                  item.visibility === 'dept' ? 'bg-indigo-500' :
+                  'bg-amber-600'
+                }`}>
+                  {item.visibility.toUpperCase()}
+                </span>
+              )}
             </p>
             <p className="text-[9px] md:text-[10px] font-mono text-neutral-300 tracking-wider">#{item.assetTag.slice(-4)}</p>
           </div>
@@ -3633,6 +3651,46 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               {cat}
             </button>
           ))}
+        </div>
+
+        {/* Dynamic Privacy View Layers Switcher */}
+        <div className="bg-neutral-50 border border-neutral-200 rounded-2xl md:rounded-[2rem] p-4 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mt-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <Layers size={16} />
+            </div>
+            <div>
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-800">Privacy View Layers</h4>
+              <p className="text-[10px] text-neutral-450 mt-0.5 uppercase tracking-wider">Display inventory assets by their access boundaries</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5 w-full lg:w-auto">
+            {[
+              { id: 'all', label: 'All Access Layers', icon: Layers },
+              { id: 'private', label: 'User Layer (Private)', icon: ShieldCheck },
+              { id: 'team', label: 'Team Layer', icon: Briefcase },
+              { id: 'dept', label: 'Dept Layer', icon: Box },
+              { id: 'org', label: 'Org Layer', icon: Luggage },
+              { id: 'public', label: 'Public Layer', icon: Share2 }
+            ].map(layer => {
+              const Icon = layer.icon;
+              const isSelected = privacyLayerFilter === layer.id;
+              return (
+                <button
+                  key={layer.id}
+                  onClick={() => setPrivacyLayerFilter(layer.id as any)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition duration-150 border ${
+                    isSelected 
+                      ? 'bg-primary text-white border-primary shadow-sm' 
+                      : 'bg-white text-neutral-500 border-neutral-200 hover:border-neutral-450 hover:text-neutral-850'
+                  }`}
+                >
+                  <Icon size={12} />
+                  <span>{layer.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -4788,6 +4846,26 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                             {users.map(u => <option key={u.uid} value={u.uid}>{u.displayName}</option>)}
                           </select>
                         </div>
+
+                        {/* Privacy View Layers Selector */}
+                        <div className="space-y-2 col-span-full border-t border-dashed border-neutral-200 pt-4 mt-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-primary font-bold">Privacy View Layers & Access Mode</label>
+                          <select 
+                            value={newItem.visibility || 'public'}
+                            onChange={(e) => {
+                              setNewItem({ ...newItem, visibility: e.target.value as any });
+                              setIsDirty(true);
+                            }}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition text-xs font-semibold text-neutral-700"
+                          >
+                            <option value="private">🔒 Private View Layer (User level - Only me)</option>
+                            <option value="team">👥 Team View Layer (Visible only in My Team)</option>
+                            <option value="dept">🏢 Department View Layer (Visible only in My Dept)</option>
+                            <option value="org">🏛️ Organization View Layer (Visible only in My Org)</option>
+                            <option value="public">🌐 Public Access Layer (Visible to everyone)</option>
+                          </select>
+                          <p className="text-[9px] text-neutral-450 italic uppercase tracking-wider">Defines the access visibility boundary for this item across kits, lists, and search queries.</p>
+                        </div>
                       </div>
                     </div>
 
@@ -5330,6 +5408,23 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                         <option value="">None (Float)</option>
                         {users.map(u => <option key={u.uid} value={u.uid}>{u.displayName}</option>)}
                       </select>
+                    </div>
+
+                    {/* Privacy View Layers Selector */}
+                    <div className="space-y-2 col-span-full border-t border-dashed border-neutral-200 pt-4 mt-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-primary font-bold">Privacy View Layers & Access Mode</label>
+                      <select 
+                        value={editingItem.visibility || 'public'}
+                        onChange={(e) => setEditingItem({ ...editingItem, visibility: e.target.value as any })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition text-xs font-semibold text-neutral-700"
+                      >
+                        <option value="private">🔒 Private View Layer (User level - Only me)</option>
+                        <option value="team">👥 Team View Layer (Visible only in My Team)</option>
+                        <option value="dept">🏢 Department View Layer (Visible only in My Dept)</option>
+                        <option value="org">🏛️ Organization View Layer (Visible only in My Org)</option>
+                        <option value="public">🌐 Public Access Layer (Visible to everyone)</option>
+                      </select>
+                      <p className="text-[9px] text-neutral-450 italic uppercase tracking-wider">Defines the access visibility boundary for this item across kits, lists, and search queries.</p>
                     </div>
                   </div>
                 </div>

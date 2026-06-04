@@ -1,11 +1,64 @@
-# 🚀 Release Information & Beta Build Guild
+# 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v1.0.0-beta.1`
-**Status:** Active Beta Testing / User Feedback Loop  
+## Current Application Version: `v4.2.0`
+**Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
 
 This document provides complete instructions on how to build, run, and tag this repository for production deployment or continuous integration. 
+
+---
+
+## 📦 Stable Release Log: v4.2.0 (Theme Preferences & Dark/Light Mode Edition)
+
+### Key Production Enhancements Added:
+1. **Global Theme Preferences Engine:**
+   - Implemented a secure, lightweight React Theme Context supporting responsive Dark and Light Mode preferences.
+   - Built a high-precision toggle switcher directly inside the User's Profile & Settings column.
+   - Saves users' visual settings inside client-side LocalStorage to preserve their selection consistently across sessions.
+
+2. **Tailwind-Engine Layer Overrides:**
+   - Designed elegant, high-contrast pitch-dark aesthetic specifications for all cards, checklists, locker slots, table headers, and custom action items.
+   - Fully optimized text-contrast levels and custom input/textarea placeholder color shades to retain pristine readability under extreme lighting conditions.
+
+---
+
+## 📦 Stable Release Log: v4.1.0 (Outdoors & Academy Edition)
+
+### Key Production Enhancements Added:
+1. **Responsive Logo Fitting & Scaled Layouts:**
+   - Unified defensive scaling constraints inside sidebar and navbar to resolve mobile viewport overflow issues.
+   - Dynamic mobile viewport fallback swapping full branding layouts for a elegant styled text wordmark or centered symbols.
+
+2. **Wilderness Outdoors & Adventure Industry Integration:**
+   - Fully loaded dedicated workspace presets for general Hiking, Fishing, Scuba diving, Wilderness S&R, and Extreme Sports.
+   - Custom translation hooks switching nomenclature to Expedition Lists, Survival Load Configurators, and Locker Rack Rooms.
+
+3. **Packer Tools Academy Knowledge Base:**
+   - Initialized and deployed a specialized education portal covering dry weight payload laws, sub-zero battery logistics, moisture audit procedures, and student verification benefits.
+
+4. **Synchronized GPT/Dukey Assistant Core:**
+   - Upgraded Dukey Assistant's system classification prompt matrices with Wilderness Adventure advice and v4.1.0 core specifications.
+
+---
+
+## 📦 Stable Release Log: v4.0.0
+
+### Key Production Enhancements Added:
+1. **Multi-Layer Privacy View Modes:**
+   - Unified User, Team, Dept, and Organization Privacy Layers implemented across the system.
+   - Fully integrated into item creation in the Gear Library and custom sheet checklist modules in the Inventory Module.
+   - Interactive, highly visible color-coded tags indicating visibility configurations (🔒 Private, 👥 Team, 🏢 Dept, 🏛️ Org, 🌐 Public).
+
+2. **Advanced Kiosk Mode layout & Scanner capabilities:**
+   - Fully optimized, scrolling Kiosk Mode responsive viewport for mobile iPhone & tablet setups.
+   - Built-in camera scanner for reading assets and gear package QR codes.
+   - Implemented 60-second automatic paired credentials rotation, updating secure paired PINs directly via synchronized Firestore sockets.
+   - Added rigorous organizational membership warning overlays blocking external un-associated client QR interactions.
+
+3. **Logistics & Marketplace Industry Swapping:**
+   - Multi-industry filter layout dynamically switching search results and assets presets for Wilderness Search & Rescue, Movie Production, and Corporate IT Systems.
+   - Interactive Rapid Action top status ribbons and localized navigation footer elements.
 
 ---
 

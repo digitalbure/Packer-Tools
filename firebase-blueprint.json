@@ -309,9 +309,32 @@
         "date": { "type": "string", "format": "date-time" }
       },
       "required": ["projectId", "ownerId", "amount", "status"]
+    },
+    "BugReport": {
+      "title": "Bug Report",
+      "description": "A bug report filed by a beta tester or platform user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "module": { "type": "string" },
+        "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "status": { "type": "string", "enum": ["open", "in_review", "resolved"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "adminNotes": { "type": "string" }
+      },
+      "required": ["userId", "title", "description", "status"]
     }
   },
   "firestore": {
+    "/bugs/{bugId}": {
+      "schema": "BugReport",
+      "description": "Collection of user-reported bugs and issues."
+    },
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles"

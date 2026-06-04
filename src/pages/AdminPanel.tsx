@@ -1,16 +1,81 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin } from 'lucide-react';
+import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin, Bug, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
-import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project } from '../types';
+import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project, INDUSTRIES, BugReport } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import PagesManager from './PagesManager';
 import PackerLogo from '../components/PackerLogo';
 import AdminDocsTab from '../components/AdminDocsTab';
 import FirebaseMigrator from '../components/FirebaseMigrator';
 import { AreaChart, Area, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cell, CartesianGrid } from 'recharts';
+
+export const MODULE_METADATA: {
+  [key: string]: {
+    name: string;
+    description: string;
+    icon: string;
+    version: string;
+    category: 'Core' | 'Logistics' | 'Operations' | 'Kiosk' | 'Integrations' | 'Advanced';
+  }
+} = {
+  aiWizard: { name: 'AI Wizard Helper', description: 'Smart packing lists assistance and predictive items layout.', icon: 'Cpu', version: 'v1.4.2', category: 'Core' },
+  gearLibrary: { name: 'Gear Library Registry', description: 'Master catalog for organizational and personal assets tracking.', icon: 'Layers', version: 'v2.1.0', category: 'Core' },
+  reminders: { name: 'Alerts & Reminders', description: 'Configurable notifications and checklist deadline tracking.', icon: 'Calendar', version: 'v1.2.0', category: 'Core' },
+  versionHistory: { name: 'Version History logging', description: 'Version control and rollback logging for list states.', icon: 'GitBranch', version: 'v1.3.1', category: 'Core' },
+  branding: { name: 'White-Label Branding', description: 'Corporate custom branding, logos, and custom accent colors.', icon: 'Zap', version: 'v1.5.0', category: 'Advanced' },
+  qrSharing: { name: 'QR Code Sharing', description: 'Dynamic barcode/QR tags scanning and mobile discovery.', icon: 'QrCode', version: 'v2.0.4', category: 'Operations' },
+  toolingLists: { name: 'Specialist Tooling Lists', description: 'Define structural checklists for technical and heavy tooling industries.', icon: 'Wrench', version: 'v1.1.2', category: 'Operations' },
+  organizer: { name: 'Rack & Case Organizer', description: 'Virtual drag-and-drop hardware staging and casing templates.', icon: 'Package', version: 'v2.2.5', category: 'Operations' },
+  travelCases: { name: 'Travel case logistics', description: 'Transit case manifesting, cargo dimensions, and weighting checklists.', icon: 'Truck', version: 'v1.1.0', category: 'Logistics' },
+  logisticsDashboard: { name: 'Logistics Dispatcher', description: 'Real-time dispatch board and transit routes overview.', icon: 'Globe', version: 'v1.4.0', category: 'Logistics' },
+  movingDashboard: { name: 'Moving Coordinator', description: 'Workflow staging for residential and office moves.', icon: 'Package', version: 'v1.1.5', category: 'Logistics' },
+  rackingDashboard: { name: 'Racking Console', description: 'Visual mapping for network switches and server hardware layouts.', icon: 'Layers', version: 'v1.3.2', category: 'Operations' },
+  marketplace: { name: 'Rental Marketplace', description: 'List, rent, and process escrow bookings between organizations.', icon: 'ShoppingBag', version: 'v2.0.1', category: 'Operations' },
+  kioskMode: { name: 'Kiosk Terminal Mode', description: 'Enables safe self-service check-outs via restricted kiosk profiles.', icon: 'QrCode', version: 'v2.1.0', category: 'Kiosk' },
+  orgManagement: { name: 'Org Multi-Tenancy', description: 'Provides multiple divisions, corporate entities, and custom permissions.', icon: 'Building2', version: 'v1.8.0', category: 'Advanced' },
+  departments: { name: 'Departmental Isolation', description: 'Segregates assets and users to independent corporate divisions.', icon: 'Layers', version: 'v1.6.0', category: 'Core' },
+  teams: { name: 'Sub-Team Assignment', description: 'Create and map sub-teams for bulk equipment hand-overs.', icon: 'Users', version: 'v1.4.5', category: 'Core' },
+  inventoryManagement: { name: 'Inventory Sheets Tracker', description: 'Custom inventory sheets, stock alerts, and threshold auditing.', icon: 'Package', version: 'v2.3.0', category: 'Core' },
+  projectCost: { name: 'Project Budget Costing', description: 'Financial cost modeling, project alarm thresholds, and PO trackers.', icon: 'Coins', version: 'v1.5.2', category: 'Advanced' },
+  supplierManagement: { name: 'Qualified Supplier Registry', description: 'Partner rating, preferment toggling, and preferred PO templates.', icon: 'Wrench', version: 'v1.2.6', category: 'Advanced' },
+  bomManagement: { name: 'BOM Spec Sheets builder', description: 'Bill-of-Materials visual markup, depreciation sheets, and spec exports.', icon: 'FileText', version: 'v2.0.1', category: 'Advanced' },
+  customBarcodes: { name: 'Custom Barcode Generator', description: 'Encode assets into custom localized formats (UPC, Code128).', icon: 'QrCode', version: 'v1.5.0', category: 'Operations' },
+  automaticDepreciation: { name: 'Asset Depreciation Engine', description: 'Financial depreciation curves tracking based on standard intervals.', icon: 'TrendingUp', version: 'v1.3.0', category: 'Advanced' },
+  digitalSignatures: { name: 'Digital Signatures Escrow', description: 'Draw and sign checkout proofs with full secure non-repudiation.', icon: 'ShieldCheck', version: 'v1.4.1', category: 'Kiosk' },
+  clientPortal: { name: 'Client Approval Portals', description: 'Share dynamic and secure manifest approvals directly with external clients.', icon: 'Globe', version: 'v1.7.2', category: 'Operations' },
+  apiIntegrations: { name: 'Developer Webhooks & API', description: 'Provides custom developer tokens and real-time webhook push updates.', icon: 'Cpu', version: 'v2.0.0', category: 'Integrations' },
+  weightAnalytics: { name: 'Gross Weight Calculators', description: 'Real-time total list weight calculators to keep transit vehicles safe.', icon: 'TrendingUp', version: 'v1.2.3', category: 'Logistics' },
+  kioskOrderMode: { name: 'Kiosk Order Basket Mode', description: 'Allow renters to bundle item baskets to submit order checkouts.', icon: 'Package', version: 'v2.1.2', category: 'Kiosk' },
+  kioskDirectCheckout: { name: 'Kiosk Direct Auto-Checkout', description: 'Automates scanning to instant self check-out without confirmation.', icon: 'Check', version: 'v2.1.1', category: 'Kiosk' }
+};
+
+export const renderModuleIcon = (iconName: string) => {
+  const props = { className: "text-neutral-500 shrink-0", size: 22 };
+  switch (iconName) {
+    case 'Cpu': return <Cpu {...props} />;
+    case 'Layers': return <Layers {...props} />;
+    case 'Calendar': return <Calendar {...props} />;
+    case 'GitBranch': return <GitBranch {...props} />;
+    case 'QrCode': return <QrCode {...props} />;
+    case 'Wrench': return <Wrench {...props} />;
+    case 'Package': return <Package {...props} />;
+    case 'Truck': return <Truck {...props} />;
+    case 'Globe': return <Globe {...props} />;
+    case 'ShoppingBag': return <ShoppingBag {...props} />;
+    case 'Building2': return <Building2 {...props} />;
+    case 'Users': return <Users {...props} />;
+    case 'Coins': return <Coins {...props} />;
+    case 'FileText': return <FileText {...props} />;
+    case 'TrendingUp': return <TrendingUp {...props} />;
+    case 'ShieldCheck': return <ShieldCheck {...props} />;
+    case 'Check': return <Check {...props} />;
+    case 'Zap': return <Zap {...props} />;
+    default: return <Settings {...props} />;
+  }
+};
 
 export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, onMenuClick?: () => void }) {
   if (!user?.isSuperAdmin) {
@@ -44,6 +109,21 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const [listingFilter, setListingFilter] = useState<'all' | 'featured' | 'sponsored' | 'suspended'>('all');
   const [editingUserForListings, setEditingUserForListings] = useState<UserProfile | null>(null);
   const [isUserListingsModalOpen, setIsUserListingsModalOpen] = useState(false);
+
+  // Bug Report system states
+  const [bugReports, setBugReports] = useState<BugReport[]>([]);
+  const [bugSearchQuery, setBugSearchQuery] = useState('');
+  const [bugStatusFilter, setBugStatusFilter] = useState<'all' | 'open' | 'in_review' | 'resolved'>('all');
+  const [bugSeverityFilter, setBugSeverityFilter] = useState<'all' | 'low' | 'medium' | 'high' | 'critical'>('all');
+  const [editingBugReport, setEditingBugReport] = useState<BugReport | null>(null);
+  const [bugAdminNotes, setBugAdminNotes] = useState('');
+  const [bugStatusUpdate, setBugStatusUpdate] = useState<'open' | 'in_review' | 'resolved'>('open');
+
+  // Search/filter state for features
+  const [featureSearchQuery, setFeatureSearchQuery] = useState('');
+  const [featureCategoryFilter, setFeatureCategoryFilter] = useState<string>('all');
+  const [featureStatusFilter, setFeatureStatusFilter] = useState<'all' | 'active' | 'inactive' | 'beta'>('all');
+
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = (searchParams.get('tab') as any) || 'analytics';
   
@@ -184,14 +264,47 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
     const multiplier = simulatedLoadMultiplier || 1.0;
     const months = ['Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'];
-    const baseScale = [0.65, 0.72, 0.81, 0.88, 0.94, 1.0];
+    const monthDef: { [key: string]: { year: number; month: number; scale: number } } = {
+      'Dec': { year: 2025, month: 11, scale: 0.65 },
+      'Jan': { year: 2026, month: 0, scale: 0.72 },
+      'Feb': { year: 2026, month: 1, scale: 0.81 },
+      'Mar': { year: 2026, month: 2, scale: 0.88 },
+      'Apr': { year: 2026, month: 3, scale: 0.94 },
+      'May': { year: 2026, month: 4, scale: 1.00 },
+    };
 
-    return months.map((month, idx) => {
-      const scale = baseScale[idx] * multiplier;
+    return months.map((month) => {
+      const def = monthDef[month];
       
-      const uCount = Math.max(1, Math.round(users.length * scale));
-      const lCount = Math.max(1, Math.round(lists.length * scale));
-      const cCount = Math.max(1, Math.round(checkoutLogs.length * scale));
+      const trueUsers = users.length; // baseline users
+
+      const trueLists = lists.filter(l => {
+        if (!l.createdAt) return true;
+        try {
+          const d = new Date(l.createdAt);
+          if (d.getFullYear() < def.year) return true;
+          if (d.getFullYear() === def.year && d.getMonth() <= def.month) return true;
+        } catch {
+          return true;
+        }
+        return false;
+      }).length;
+
+      const trueLogs = checkoutLogs.filter(cl => {
+        if (!cl.checkOutTime) return true;
+        try {
+          const t = cl.checkOutTime.toDate ? cl.checkOutTime.toDate() : new Date(cl.checkOutTime);
+          if (t.getFullYear() < def.year) return true;
+          if (t.getFullYear() === def.year && t.getMonth() <= def.month) return true;
+        } catch {
+          return true;
+        }
+        return false;
+      }).length;
+
+      const uCount = Math.max(1, Math.round(trueUsers * def.scale * multiplier));
+      const lCount = Math.max(1, Math.round(trueLists * def.scale * multiplier));
+      const cCount = Math.max(1, Math.round(trueLogs * def.scale * multiplier));
 
       const estimatedCpuSec = (uCount * 150 + lCount * 60);
       const estimatedRamSec = (uCount * 300 + lCount * 120);
@@ -203,8 +316,8 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       const firestoreStorageGb = (uCount * 0.002 + lCount * 0.005);
 
       const actualRunCost = (estimatedCpuSec * rates.cloudRun.cpuSecond) + 
-                             (estimatedRamSec * rates.cloudRun.memoryGbSecond) + 
-                             (estimatedRequests * rates.cloudRun.request);
+                            (estimatedRamSec * rates.cloudRun.memoryGbSecond) + 
+                            (estimatedRequests * rates.cloudRun.request);
       
       const actualFsCost = (firestoreReads * rates.firestore.read) +
                             (firestoreWrites * rates.firestore.write) +
@@ -212,13 +325,13 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                             (firestoreStorageGb * rates.firestore.storageGbMonth);
 
       const actualTotal = Number((actualRunCost + actualFsCost).toFixed(2));
-      const simTotal = Number(((lCount * 0.03 + uCount * 0.15 + (lCount * 6000 * 0.13/1000000))).toFixed(2));
+      const simTotal = Number(((lCount * 0.03 + uCount * 0.15 + (lCount * 6000 * (telemetryModel === 'gemini-1.5-pro' ? 2.19/1000000 : 0.13/1000000)))).toFixed(2));
 
       return {
         month,
         "Actual GCP Cost ($)": actualTotal,
         "Simulated Metric ($)": simTotal,
-        Scale: (scale * 100).toFixed(0) + '%'
+        Scale: (def.scale * multiplier * 100).toFixed(0) + '%'
       };
     });
   };
@@ -486,6 +599,12 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       console.warn("AdminPanel: Error catching teams:", error);
     });
 
+    const unsubscribeBugs = onSnapshot(collection(db, 'bugs'), (snapshot) => {
+      setBugReports(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as BugReport)));
+    }, (error) => {
+      console.warn("AdminPanel: Error catching bugs:", error);
+    });
+
     setLoading(false);
     return () => {
       unsubscribeUsers();
@@ -496,6 +615,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       unsubscribeOrgs();
       unsubscribeDepts();
       unsubscribeTeams();
+      unsubscribeBugs();
     };
   }, []);
 
@@ -525,6 +645,16 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     } catch (error) {
       console.error("Error updating role:", error);
       toast.error("Failed to update user role");
+    }
+  };
+
+  const handleToggleBetaTester = async (userId: string, currentStatus: boolean) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), { isBetaTester: !currentStatus });
+      toast.success(`User beta status updated to ${!currentStatus ? 'Active' : 'Inactive'}`);
+    } catch (error) {
+      console.error("Error toggling beta tester status:", error);
+      toast.error("Failed to update beta user status");
     }
   };
 
@@ -594,6 +724,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     { id: 'projects', icon: <Briefcase size={18} />, label: 'All Projects', description: 'Global project oversight' },
     { id: 'plans', icon: <CreditCard size={18} />, label: 'Plans', description: 'Subscription tiers' },
     { id: 'features', icon: <Zap size={18} />, label: 'Features', description: 'Global module toggles' },
+    { id: 'bugs', icon: <Bug size={18} />, label: 'Bug Reports', description: 'User-submitted beta issues' },
     { id: 'integrations', icon: <Globe size={18} />, label: 'Integrations', description: 'API & 3rd party sync' },
     { id: 'checkouts', icon: <Package size={18} />, label: 'Log Logs', description: 'Equipment checkout logs' },
     { id: 'listings', icon: <ShoppingBag size={18} />, label: 'Marketplace Listings', description: 'Moderate listings, ads & featured items' },
@@ -612,19 +743,33 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const baseGemini = ((lists.length * 4500 * (telemetryModel === 'gemini-1.5-pro' ? 1.25/1000000 : 0.075/1000000) + lists.length * 1500 * (telemetryModel === 'gemini-1.5-pro' ? 5.00/1000000 : 0.30/1000000)) * simulatedLoadMultiplier);
 
   const monthsList = [
-    { name: 'Dec 25', scale: 0.45 },
-    { name: 'Jan 26', scale: 0.60 },
-    { name: 'Feb 26', scale: 0.72 },
-    { name: 'Mar 26', scale: 0.85 },
-    { name: 'Apr 26', scale: 0.94 },
-    { name: 'May 26', scale: 1.00 },
+    { name: 'Dec 25', year: 2025, month: 11, scale: 0.45 },
+    { name: 'Jan 26', year: 2026, month: 0, scale: 0.60 },
+    { name: 'Feb 26', year: 2026, month: 1, scale: 0.72 },
+    { name: 'Mar 26', year: 2026, month: 2, scale: 0.85 },
+    { name: 'Apr 26', year: 2026, month: 3, scale: 0.94 },
+    { name: 'May 26', year: 2026, month: 4, scale: 1.00 },
   ];
 
   const telemetryMonthlyCostTrend = monthsList.map(m => {
-    const runCost = Number((baseRun * m.scale).toFixed(2));
-    const fireCost = Number((baseFire * m.scale).toFixed(2));
-    const storageCost = Number((baseStorage * m.scale).toFixed(2));
-    const geminiCost = Number((baseGemini * m.scale).toFixed(2));
+    const trueListsCount = lists.filter(l => {
+      if (!l.createdAt) return true;
+      try {
+        const d = new Date(l.createdAt);
+        if (d.getFullYear() < m.year) return true;
+        if (d.getFullYear() === m.year && d.getMonth() <= m.month) return true;
+      } catch {
+        return true;
+      }
+      return false;
+    }).length;
+
+    const scaleListsCount = Math.max(1, Math.round(trueListsCount * m.scale));
+
+    const runCost = Number(((0.45 + scaleListsCount * 0.008) * simulatedLoadMultiplier).toFixed(2));
+    const fireCost = Number((((users.length * 45 + scaleListsCount * 15 + checkoutLogs.length * 20) * 0.06 / 100000 + 0.12) * simulatedLoadMultiplier).toFixed(2));
+    const storageCost = Number(((0.02 + scaleListsCount * 0.0002) * simulatedLoadMultiplier).toFixed(2));
+    const geminiCost = Number((((scaleListsCount * 4500 * (telemetryModel === 'gemini-1.5-pro' ? 1.25/1000000 : 0.075/1000000) + scaleListsCount * 1500 * (telemetryModel === 'gemini-1.5-pro' ? 5.00/1000000 : 0.30/1000000))) * simulatedLoadMultiplier).toFixed(2));
     const total = Number((runCost + fireCost + storageCost + geminiCost).toFixed(2));
 
     return {
@@ -882,7 +1027,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest block">Max Packing Lists</label>
                     <input
@@ -904,6 +1049,19 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                       onChange={(e) => {
                         const newPlans = [...(settings.plans || [])];
                         newPlans[planIdx] = { ...plan, maxGearItems: parseInt(e.target.value) };
+                        setSettings({ ...settings, plans: newPlans });
+                      }}
+                      className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-mono font-bold outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest block">Max Workspaces</label>
+                    <input
+                      type="number"
+                      value={plan.maxWorkspaces || 1}
+                      onChange={(e) => {
+                        const newPlans = [...(settings.plans || [])];
+                        newPlans[planIdx] = { ...plan, maxWorkspaces: parseInt(e.target.value) };
                         setSettings({ ...settings, plans: newPlans });
                       }}
                       className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-mono font-bold outline-none"
@@ -1220,58 +1378,467 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       )}
 
       {activeTab === 'features' && (
-        <div className="space-y-8">
-          <div className="flex items-center justify-between">
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
-              <h2 className="text-3xl font-black">Global Feature Toggles</h2>
-              <p className="text-neutral-500">Enable or disable modules platform-wide. This overrides plan-based settings.</p>
+              <h2 className="text-3xl font-black uppercase tracking-tighter">Modules & Feature Releases</h2>
+              <p className="font-medium text-neutral-500 italic">Activate functional modules, configure Beta testing restrictions, and publish updates live.</p>
             </div>
-            <Link 
-              to="/kiosk" 
-              target="_blank"
-              className="flex items-center gap-2 px-6 py-3 bg-neutral-900 text-white rounded-xl font-bold hover:bg-black transition shadow-lg"
-            >
-              <MousePointer2 size={18} />
-              <span>Launch Terminal</span>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link 
+                to="/kiosk" 
+                target="_blank"
+                className="flex items-center gap-2 px-6 py-3 bg-neutral-900 text-white rounded-xl font-bold hover:bg-black transition shadow-lg"
+              >
+                <MousePointer2 size={18} />
+                <span>Launch Terminal</span>
+              </Link>
+            </div>
           </div>
 
+          {/* Filters & Control Station */}
+          <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-200/60 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
+            <div className="relative w-full md:w-80">
+              <Search className="absolute left-4 top-3.5 text-neutral-400" size={18} />
+              <input
+                type="text"
+                placeholder="Search modules..."
+                value={featureSearchQuery}
+                onChange={(e) => setFeatureSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition text-xs font-medium"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              <select
+                value={featureCategoryFilter}
+                onChange={(e) => setFeatureCategoryFilter(e.target.value)}
+                className="px-4 py-3 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold"
+              >
+                <option value="all">All Categories</option>
+                <option value="Core">Core Modules</option>
+                <option value="Logistics">Logistics Modules</option>
+                <option value="Operations">Operations Modules</option>
+                <option value="Kiosk">Kiosk Modules</option>
+                <option value="Integrations">Integrations</option>
+                <option value="Advanced">Advanced Config</option>
+              </select>
+
+              <select
+                value={featureStatusFilter}
+                onChange={(e) => setFeatureStatusFilter(e.target.value as any)}
+                className="px-4 py-3 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold"
+              >
+                <option value="all">All Availability States</option>
+                <option value="active">Activated Only</option>
+                <option value="inactive">Deactivated Only</option>
+                <option value="beta">Currently in Beta Mode</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Modules Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'branding', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'kioskMode', 'orgManagement', 'departments', 'teams', 'inventoryManagement', 'projectCost', 'supplierManagement', 'bomManagement', 'customBarcodes', 'automaticDepreciation', 'digitalSignatures', 'clientPortal', 'apiIntegrations', 'weightAnalytics', 'kioskOrderMode', 'kioskDirectCheckout'] as const).map(feature => (
-              <div key={feature} className="bg-white p-8 rounded-3xl border border-neutral-100 shadow-sm flex items-center justify-between">
-                <div className="space-y-1">
-                  <h3 className="font-bold text-lg capitalize">{feature.replace(/([A-Z])/g, ' $1')}</h3>
-                  <p className="text-xs text-neutral-400">Global status</p>
-                </div>
-                <button 
-                  onClick={() => {
-                    const newGlobalFeatures = { ...(settings?.globalFeatures || {}) };
-                    newGlobalFeatures[feature] = !newGlobalFeatures[feature];
-                    setSettings(s => s ? { ...s, globalFeatures: newGlobalFeatures } : null);
-                  }}
-                  className={`w-14 h-7 rounded-full relative transition-colors ${settings?.globalFeatures?.[feature] !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+            {Object.keys(MODULE_METADATA).filter(key => {
+              const meta = MODULE_METADATA[key];
+              const matchesSearch = meta.name.toLowerCase().includes(featureSearchQuery.toLowerCase()) || 
+                                    meta.description.toLowerCase().includes(featureSearchQuery.toLowerCase()) ||
+                                    key.toLowerCase().includes(featureSearchQuery.toLowerCase());
+              const matchesCategory = featureCategoryFilter === 'all' || meta.category === featureCategoryFilter;
+              
+              const isActive = settings?.globalFeatures?.[key] !== false;
+              const isBeta = settings?.betaFeatures?.[key] === true;
+              let matchesStatus = true;
+              if (featureStatusFilter === 'active') matchesStatus = isActive;
+              else if (featureStatusFilter === 'inactive') matchesStatus = !isActive;
+              else if (featureStatusFilter === 'beta') matchesStatus = isActive && isBeta;
+
+              return matchesSearch && matchesCategory && matchesStatus;
+            }).map(feature => {
+              const meta = MODULE_METADATA[feature];
+              const isActive = settings?.globalFeatures?.[feature] !== false;
+              const isBeta = settings?.betaFeatures?.[feature] === true;
+
+              return (
+                <div 
+                  key={feature} 
+                  className={`bg-white rounded-3xl border transition-all flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md ${
+                    isActive 
+                      ? isBeta 
+                        ? 'border-purple-200 ring-2 ring-purple-100/30' 
+                        : 'border-neutral-100' 
+                      : 'border-neutral-200 border-dashed opacity-80 bg-neutral-50/50'
+                  }`}
                 >
-                  <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${settings?.globalFeatures?.[feature] !== false ? 'right-1' : 'left-1'}`}></div>
-                </button>
-              </div>
-            ))}
+                  <div className="p-6 md:p-8 space-y-6">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isActive ? 'bg-neutral-100 text-neutral-800' : 'bg-neutral-200/50 text-neutral-400'}`}>
+                          {renderModuleIcon(meta.icon)}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-neutral-900 text-base leading-snug">{meta.name}</h3>
+                          <span className="text-[10px] uppercase font-black tracking-wider text-neutral-400 block pt-0.5">{meta.category}</span>
+                        </div>
+                      </div>
+                      <span className="px-2 py-1 bg-neutral-100 text-neutral-600 rounded-md font-mono text-[10px] font-bold">
+                        {meta.version}
+                      </span>
+                    </div>
+
+                    {/* Desc */}
+                    <p className={`text-xs ${isActive ? 'text-neutral-500 font-medium' : 'text-neutral-400 italic'}`}>
+                      {meta.description}
+                    </p>
+
+                    {/* Quick States */}
+                    <div className="flex items-center gap-2 pt-1">
+                      {isActive ? (
+                        isBeta ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-purple-50 text-purple-700 border border-purple-100 animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>
+                            🧪 Beta Tester Mode Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-green-50 text-green-700 border border-green-100">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-600"></span>
+                            🟢 Published Globally
+                          </span>
+                        )
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-neutral-100 text-neutral-500 border border-neutral-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-neutral-400"></span>
+                          Offline / Deactivated
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions & Control Row */}
+                  <div className="px-6 md:px-8 py-5 bg-neutral-50/85 border-t border-neutral-100 flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Module Activated</span>
+                      <button 
+                        onClick={() => {
+                          const newGlobalFeatures = { ...(settings?.globalFeatures || {}) };
+                          newGlobalFeatures[feature] = !newGlobalFeatures[feature];
+                          
+                          // If activating for first time, enable Beta mode restriction automatically as a safe staging step
+                          const newBetaFeatures = { ...(settings?.betaFeatures || {}) };
+                          if (newGlobalFeatures[feature] !== false && newBetaFeatures[feature] === undefined) {
+                            newBetaFeatures[feature] = true;
+                          }
+
+                          setSettings(s => s ? { ...s, globalFeatures: newGlobalFeatures, betaFeatures: newBetaFeatures } : null);
+                        }}
+                        className={`w-12 h-6 rounded-full relative transition-colors ${isActive ? 'bg-primary' : 'bg-neutral-200'}`}
+                        title="Activate or Deactivate this functional module"
+                      >
+                        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all shadow-sm ${isActive ? 'right-0.5' : 'left-0.5'}`}></div>
+                      </button>
+                    </div>
+
+                    {/* Beta restriction controller (Only shown if module is active) */}
+                    {isActive && (
+                      <div className="space-y-3 pt-2 border-t border-neutral-200/50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Restrict to Beta Testers</span>
+                          <button 
+                            onClick={() => {
+                              const newBetaFeatures = { ...(settings?.betaFeatures || {}) };
+                              newBetaFeatures[feature] = !newBetaFeatures[feature];
+                              setSettings(s => s ? { ...s, betaFeatures: newBetaFeatures } : null);
+                            }}
+                            className={`w-12 h-6 rounded-full relative transition-colors ${isBeta ? 'bg-purple-600' : 'bg-neutral-200'}`}
+                            title="Toggle Beta isolation mode"
+                          >
+                            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all shadow-sm ${isBeta ? 'right-0.5' : 'left-0.5'}`}></div>
+                          </button>
+                        </div>
+
+                        {/* Publish live button */}
+                        {isBeta && (
+                          <button
+                            onClick={() => {
+                              const newBetaFeatures = { ...(settings?.betaFeatures || {}) };
+                              newBetaFeatures[feature] = false; // Turn off beta restrict -> Publish public
+                              setSettings(s => s ? { ...s, betaFeatures: newBetaFeatures } : null);
+                              toast.success(`Success! "${meta.name}" is now live and published to all users globally.`);
+                            }}
+                            className="w-full mt-2 py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                          >
+                            <Sparkles size={12} />
+                            <span>Publish Module Publicly</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-4">
             <button 
               onClick={async () => {
                 if (settings) {
                   await updateDoc(doc(db, 'adminSettings', 'global'), settings as any);
-                  toast.success("Feature toggles saved!");
+                  toast.success("Successfully persisted modules state, beta settings and published modules layout!");
                 }
               }}
-              className="px-12 py-4 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-neutral-800 transition shadow-lg"
+              className="px-12 py-4 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-neutral-800 transition shadow-lg text-sm select-none cursor-pointer"
             >
-              Save Global Toggles
+              Save Modules & Releases Setup
             </button>
           </div>
         </div>
       )}
+
+      {activeTab === 'bugs' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h2 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-2">
+                <Bug className="text-purple-600" size={30} />
+                <span>Beta Bug Reports Finder</span>
+              </h2>
+              <p className="font-medium text-neutral-500 italic">Review issues found by beta testers, assign states, and post resolutions directly back to their dashboard.</p>
+            </div>
+            <div className="bg-purple-100 text-purple-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border border-purple-200">
+              <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse"></span>
+              <span>Logged Bugs Tracked: {bugReports.length}</span>
+            </div>
+          </div>
+
+          {/* Filtering Bar */}
+          <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+            <div className="relative md:col-span-2">
+              <Search className="absolute left-4 top-3.5 text-neutral-400" size={18} />
+              <input
+                type="text"
+                placeholder="Search reporter, email, title, description or module..."
+                value={bugSearchQuery}
+                onChange={(e) => setBugSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition text-xs font-medium"
+              />
+            </div>
+
+            <div className="w-full">
+              <select
+                value={bugStatusFilter}
+                onChange={(e) => setBugStatusFilter(e.target.value as any)}
+                className="w-full px-4 py-3 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold"
+              >
+                <option value="all">All Statuses</option>
+                <option value="open">🔴 Open Bugs</option>
+                <option value="in_review">🟡 In Review</option>
+                <option value="resolved">🟢 Resolved Issues</option>
+              </select>
+            </div>
+
+            <div className="w-full">
+              <select
+                value={bugSeverityFilter}
+                onChange={(e) => setBugSeverityFilter(e.target.value as any)}
+                className="w-full px-4 py-3 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold"
+              >
+                <option value="all">All Severities</option>
+                <option value="critical">🚨 Critical</option>
+                <option value="high">🟠 High</option>
+                <option value="medium">🟡 Medium</option>
+                <option value="low">🔵 Low</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Bugs Listings */}
+          <div className="space-y-6">
+            {bugReports.filter(b => {
+              const matchedSearch = !bugSearchQuery ? true : (
+                (b.title || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                (b.description || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                (b.userName || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                (b.userEmail || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                (b.module || '').toLowerCase().includes(bugSearchQuery.toLowerCase())
+              );
+              const matchedStatus = bugStatusFilter === 'all' || b.status === bugStatusFilter;
+              const matchedSeverity = bugSeverityFilter === 'all' || b.severity === bugSeverityFilter;
+
+              return matchedSearch && matchedStatus && matchedSeverity;
+            }).length === 0 ? (
+              <div className="bg-white p-16 rounded-3xl border border-neutral-100 text-center space-y-4">
+                <div className="w-16 h-16 bg-neutral-100 text-neutral-400 rounded-full flex items-center justify-center mx-auto">
+                  <CheckCircle2 size={32} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-neutral-800 text-lg">No Matching Bug Reports</h3>
+                  <p className="text-xs text-neutral-400 max-w-sm mx-auto mt-1">Excellent job! No active bugs matched your current filter criteria.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-6">
+                {bugReports.filter(b => {
+                  const matchedSearch = !bugSearchQuery ? true : (
+                    (b.title || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                    (b.description || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                    (b.userName || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                    (b.userEmail || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                    (b.module || '').toLowerCase().includes(bugSearchQuery.toLowerCase())
+                  );
+                  const matchedStatus = bugStatusFilter === 'all' || b.status === bugStatusFilter;
+                  const matchedSeverity = bugSeverityFilter === 'all' || b.severity === bugSeverityFilter;
+
+                  return matchedSearch && matchedStatus && matchedSeverity;
+                }).map(bug => {
+                  const severityConfig = {
+                    critical: { bg: 'bg-red-100 text-red-800 border-red-200', text: '🚨 Critical Severity' },
+                    high: { bg: 'bg-orange-100 text-orange-800 border-orange-200', text: '🟠 High Severity' },
+                    medium: { bg: 'bg-yellow-100 text-yellow-800 border-yellow-200', text: '🟡 Medium Severity' },
+                    low: { bg: 'bg-blue-100 text-blue-800 border-blue-200', text: '🔵 Low Severity' }
+                  }[bug.severity || 'low'];
+
+                  const statusConfig = {
+                    open: { bg: 'bg-red-50 text-red-700 border-red-100', text: 'Open / Pending' },
+                    in_review: { bg: 'bg-amber-50 text-amber-700 border-amber-100', text: 'Staged / In Review' },
+                    resolved: { bg: 'bg-green-50 text-green-700 border-green-100', text: 'Fully Resolved' }
+                  }[bug.status || 'open'];
+
+                  return (
+                    <div 
+                      key={bug.id}
+                      className={`bg-white rounded-3xl border shadow-sm overflow-hidden flex flex-col md:flex-row transition hover:shadow-md ${
+                        bug.status === 'resolved' 
+                          ? 'border-neutral-100' 
+                          : bug.severity === 'critical'
+                            ? 'border-red-200 ring-4 ring-red-50/50'
+                            : 'border-neutral-200'
+                      }`}
+                    >
+                      {/* Left: Bug Info */}
+                      <div className="p-6 md:p-8 flex-1 space-y-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase border ${severityConfig.bg}`}>
+                            {severityConfig.text}
+                          </span>
+                          <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase border ${statusConfig.bg}`}>
+                            {statusConfig.text}
+                          </span>
+                          <span className="text-[10px] font-mono text-neutral-400 uppercase font-black tracking-wider bg-neutral-100 px-2 py-1 rounded">
+                            Module: {bug.module || 'General UI'}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <h4 className="text-lg font-bold text-neutral-900 leading-snug">{bug.title}</h4>
+                          <p className="text-xs text-neutral-500 font-medium">
+                            Reported by <span className="font-bold text-neutral-800">{bug.userName}</span> ({bug.userEmail}) on {bug.createdAt ? new Date(bug.createdAt).toLocaleDateString() : 'Unknown Date'}
+                          </p>
+                        </div>
+
+                        <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-100 text-xs text-neutral-600 font-medium whitespace-pre-wrap leading-relaxed">
+                          {bug.description}
+                        </div>
+
+                        {/* Admin comments */}
+                        {bug.adminNotes && (
+                          <div className="p-4 bg-green-50/50 rounded-2xl border border-green-100 text-xs text-green-800 space-y-1">
+                            <p className="font-bold text-[10px] uppercase tracking-wider text-green-600">Admin Resolution Response Note:</p>
+                            <p className="font-medium leading-relaxed">{bug.adminNotes}</p>
+                            {bug.adminNotesUpdatedAt && (
+                              <p className="text-[9px] text-green-500 font-mono">Last adjusted: {new Date(bug.adminNotesUpdatedAt).toLocaleString()}</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right: Quick resolution tool */}
+                      <div className="p-6 md:p-8 bg-neutral-50/50 md:border-l border-neutral-100 w-full md:w-80 shrink-0 flex flex-col justify-between gap-4">
+                        <div className="space-y-4">
+                          <h5 className="text-xs font-black uppercase tracking-widest text-neutral-500">Bug Resolution Actions</h5>
+                          
+                          {/* Quick Status Select */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Set Progress state</label>
+                            <select
+                              value={editingBugReport?.id === bug.id ? bugStatusUpdate : bug.status}
+                              onChange={(e) => {
+                                setEditingBugReport(bug);
+                                setBugStatusUpdate(e.target.value as any);
+                                if (editingBugReport?.id !== bug.id) {
+                                  setBugAdminNotes(bug.adminNotes || '');
+                                }
+                              }}
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold"
+                            >
+                              <option value="open">🔴 Open / Pending</option>
+                              <option value="in_review">🟡 Staged / In Review</option>
+                              <option value="resolved">🟢 Fully Resolved</option>
+                            </select>
+                          </div>
+
+                          {/* Response text arena */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Resolution Comment / notes</label>
+                            <textarea
+                              placeholder="Write steps taken or resolve notes here..."
+                              rows={3}
+                              value={editingBugReport?.id === bug.id ? bugAdminNotes : (bug.adminNotes || '')}
+                              onFocus={() => {
+                                if (editingBugReport?.id !== bug.id) {
+                                  setEditingBugReport(bug);
+                                  setBugAdminNotes(bug.adminNotes || '');
+                                  setBugStatusUpdate(bug.status);
+                                }
+                              }}
+                              onChange={(e) => {
+                                setBugAdminNotes(e.target.value);
+                              }}
+                              className="w-full p-3 bg-white border border-neutral-200 rounded-xl text-xs font-medium resize-none focus:ring-2 focus:ring-purple-500 outline-none transition"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Save Action trigger */}
+                        <button
+                          onClick={async () => {
+                            const bId = bug.id;
+                            const notes = editingBugReport?.id === bId ? bugAdminNotes : (bug.adminNotes || '');
+                            const stat = editingBugReport?.id === bId ? bugStatusUpdate : bug.status;
+
+                            try {
+                              await updateDoc(doc(db, 'bugs', bId), {
+                                status: stat,
+                                adminNotes: notes,
+                                adminNotesUpdatedAt: new Date().toISOString()
+                              });
+                              setEditingBugReport(null);
+                              toast.success("Bug report successfully updated!");
+                            } catch (e) {
+                              console.error(e);
+                              toast.error("Failed to update bug report.");
+                            }
+                          }}
+                          className={`w-full py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer ${
+                            editingBugReport?.id === bug.id
+                              ? 'bg-neutral-900 text-white hover:bg-black'
+                              : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100 hover:text-neutral-950'
+                          }`}
+                        >
+                          <Save size={12} />
+                          <span>{editingBugReport?.id === bug.id ? 'Save Progress Notes' : 'Modify Resolves'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'kiosk' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex items-center justify-between">
@@ -2709,6 +3276,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   <th className="px-8 py-4">Projects</th>
                   <th className="px-8 py-4">Role</th>
                   <th className="px-8 py-4">Plan</th>
+                  <th className="px-8 py-4">Beta Tester</th>
                   <th className="px-8 py-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -2798,6 +3366,21 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                           )}
                         </select>
                       </div>
+                    </td>
+
+                    <td className="px-8 py-6">
+                      <button
+                        onClick={() => handleToggleBetaTester(u.uid, !!u.isBetaTester)}
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 border shadow-sm cursor-pointer select-none ${
+                          u.isBetaTester 
+                            ? 'bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200' 
+                            : 'bg-neutral-50 text-neutral-500 border-neutral-200 hover:bg-neutral-100'
+                        }`}
+                        title="Toggle Beta program access"
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${u.isBetaTester ? 'bg-purple-600 animate-pulse' : 'bg-neutral-400'}`}></span>
+                        <span>{u.isBetaTester ? 'Beta Tester' : 'Regular User'}</span>
+                      </button>
                     </td>
 
                     <td className="px-8 py-6 text-right">
@@ -2890,6 +3473,21 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                       )}
                     </select>
                   </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Beta testing Program</label>
+                  <button
+                    onClick={() => handleToggleBetaTester(u.uid, !!u.isBetaTester)}
+                    className={`w-full px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border cursor-pointer ${
+                      u.isBetaTester 
+                        ? 'bg-purple-100 text-purple-700 border-purple-200' 
+                        : 'bg-neutral-50 text-neutral-500 border-neutral-200'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${u.isBetaTester ? 'bg-purple-600 animate-pulse' : 'bg-neutral-400'}`}></span>
+                    <span>{u.isBetaTester ? 'Beta Tester Status: Active' : 'Enable Beta Access'}</span>
+                  </button>
                 </div>
 
                 <div className="space-y-1.5">
@@ -4413,11 +5011,392 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     <p className="text-xs text-neutral-400">Allow users to upgrade to Pro plans.</p>
                   </div>
                   <button 
+                    type="button"
                     onClick={() => setSettings(s => s ? { ...s, billingEnabled: !s.billingEnabled } : null)}
                     className={`w-12 h-6 rounded-full relative transition-colors ${settings?.billingEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
                   >
                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.billingEnabled ? 'right-1' : 'left-1'}`}></div>
                   </button>
+                </div>
+
+                {/* FOOTER & NAVIGATION SETTINGS */}
+                <div className="space-y-4 p-5 bg-neutral-50 border border-neutral-150 rounded-3xl mt-4">
+                  <div className="space-y-1">
+                    <p className="font-black text-xs uppercase tracking-wider text-neutral-800 flex items-center gap-2">
+                      <Settings size={16} className="text-primary shrink-0" />
+                      <span>Footer Navigation &amp; Centering Control</span>
+                    </p>
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase">Configure bottom navigation shortcuts and responsive aesthetics.</p>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200">
+                    <div>
+                      <p className="text-xs font-black text-neutral-800 uppercase">Enable Navigation Footer</p>
+                      <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider">Show main hub shortcuts above footer meta info</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSettings(s => {
+                        if (!s) return null;
+                        const existing = s.footerNavConfig || { enabled: true, alignMobileCentred: true, links: [] };
+                        return {
+                          ...s,
+                          footerNavConfig: {
+                            ...existing,
+                            enabled: !existing.enabled
+                          }
+                        };
+                      })}
+                      className={`w-10 h-5 rounded-full relative transition-colors shrink-0 ${settings?.footerNavConfig?.enabled ?? true ? 'bg-primary' : 'bg-neutral-200'}`}
+                    >
+                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.footerNavConfig?.enabled ?? true ? 'right-0.5' : 'left-0.5'}`}></div>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200">
+                    <div>
+                      <p className="text-xs font-black text-neutral-800 uppercase">Center on Mobile Devices</p>
+                      <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider">Center-align text and branding on screens &lt; sm</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSettings(s => {
+                        if (!s) return null;
+                        const existing = s.footerNavConfig || { enabled: true, alignMobileCentred: true, links: [] };
+                        return {
+                          ...s,
+                          footerNavConfig: {
+                            ...existing,
+                            alignMobileCentred: !existing.alignMobileCentred
+                          }
+                        };
+                      })}
+                      className={`w-10 h-5 rounded-full relative transition-colors shrink-0 ${settings?.footerNavConfig?.alignMobileCentred ?? true ? 'bg-primary' : 'bg-neutral-200'}`}
+                    >
+                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.footerNavConfig?.alignMobileCentred ?? true ? 'right-0.5' : 'left-0.5'}`}></div>
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Footer Nav Links Override</span>
+                      <button
+                        type="button"
+                        onClick={() => setSettings(s => {
+                          if (!s) return null;
+                          const existing = s.footerNavConfig || { enabled: true, alignMobileCentred: true, links: [] };
+                          const currentLinks = existing.links || [
+                            { label: 'Workspaces', href: '/dashboard' },
+                            { label: 'Gear Library', href: '/library' },
+                            { label: 'Kiosk Terminal', href: '/kiosk' },
+                            { label: 'Client Booking', href: '/marketplace' },
+                            { label: 'Technical Help', href: '/help' }
+                          ];
+                          return {
+                            ...s,
+                            footerNavConfig: {
+                              ...existing,
+                              links: [...currentLinks, { label: 'New Link', href: '/dashboard' }]
+                            }
+                          };
+                        })}
+                        className="text-[9px] font-black uppercase tracking-wider text-primary hover:underline flex items-center gap-1 bg-white px-2 py-1 rounded-md border border-neutral-200"
+                      >
+                        <Plus size={10} />
+                        <span>Add Link</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                      {((settings?.footerNavConfig?.links) || [
+                        { label: 'Workspaces', href: '/dashboard' },
+                        { label: 'Gear Library', href: '/library' },
+                        { label: 'Kiosk Terminal', href: '/kiosk' },
+                        { label: 'Client Booking', href: '/marketplace' },
+                        { label: 'Technical Help', href: '/help' }
+                      ]).map((link, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded-xl border border-neutral-100">
+                          <input
+                            type="text"
+                            value={link.label}
+                            placeholder="Label"
+                            onChange={(e) => setSettings(s => {
+                              if (!s) return null;
+                              const existing = s.footerNavConfig || { enabled: true, alignMobileCentred: true, links: [] };
+                              const newLinks = [...(existing.links || [
+                                { label: 'Workspaces', href: '/dashboard' },
+                                { label: 'Gear Library', href: '/library' },
+                                { label: 'Kiosk Terminal', href: '/kiosk' },
+                                { label: 'Client Booking', href: '/marketplace' },
+                                { label: 'Technical Help', href: '/help' }
+                              ])];
+                              if (newLinks[idx]) {
+                                newLinks[idx].label = e.target.value;
+                              } else {
+                                newLinks[idx] = { label: e.target.value, href: '' };
+                              }
+                              return { ...s, footerNavConfig: { ...existing, links: newLinks } };
+                            })}
+                            className="w-1/3 bg-neutral-50 px-2 py-1 text-xs border border-neutral-200 rounded font-bold"
+                          />
+                          <input
+                            type="text"
+                            value={link.href}
+                            placeholder="Relative or absolute URL"
+                            onChange={(e) => setSettings(s => {
+                              if (!s) return null;
+                              const existing = s.footerNavConfig || { enabled: true, alignMobileCentred: true, links: [] };
+                              const newLinks = [...(existing.links || [
+                                { label: 'Workspaces', href: '/dashboard' },
+                                { label: 'Gear Library', href: '/library' },
+                                { label: 'Kiosk Terminal', href: '/kiosk' },
+                                { label: 'Client Booking', href: '/marketplace' },
+                                { label: 'Technical Help', href: '/help' }
+                              ])];
+                              if (newLinks[idx]) {
+                                newLinks[idx].href = e.target.value;
+                              } else {
+                                newLinks[idx] = { label: '', href: e.target.value };
+                              }
+                              return { ...s, footerNavConfig: { ...existing, links: newLinks } };
+                            })}
+                            className="flex-1 bg-neutral-50 px-2 py-1 text-xs border border-neutral-200 rounded"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setSettings(s => {
+                              if (!s) return null;
+                              const existing = s.footerNavConfig || { enabled: true, alignMobileCentred: true, links: [] };
+                              const newLinks = (existing.links || [
+                                { label: 'Workspaces', href: '/dashboard' },
+                                { label: 'Gear Library', href: '/library' },
+                                { label: 'Kiosk Terminal', href: '/kiosk' },
+                                { label: 'Client Booking', href: '/marketplace' },
+                                { label: 'Technical Help', href: '/help' }
+                              ]).filter((_, i) => i !== idx);
+                              return { ...s, footerNavConfig: { ...existing, links: newLinks } };
+                            })}
+                            className="p-1 px-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 transition rounded-md text-sm font-black"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* GLOBAL MULTI-INDUSTRY CONFIGURATION PANEL */}
+                <div className="space-y-6 pt-6 border-t border-neutral-150">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800 flex items-center gap-2">
+                      <Layers size={16} className="text-primary shrink-0" />
+                      <span>Enterprise Multi-Industry Settings &amp; Custom Terms</span>
+                    </h4>
+                    <p className="text-xs text-neutral-500 font-medium leading-relaxed">
+                      Configure customizable industry sandboxes, active-state categorizations, and specify localized labels of asset-terms dynamically across the platform.
+                    </p>
+                  </div>
+
+                  {/* Enable Switch for Industries */}
+                  <div className="space-y-4 bg-neutral-50 p-4 border border-neutral-200 rounded-2xl">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Enabled Sandbox Categories</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {INDUSTRIES.map((ind) => {
+                        const isEnabled = settings?.multiIndustryConfig?.enabledIndustries?.includes(ind.id) ?? true;
+                        return (
+                          <div key={ind.id} className="flex items-center justify-between p-3 bg-white border border-neutral-200 rounded-xl">
+                            <div className="min-w-0 pr-2">
+                              <p className="text-xs font-black text-neutral-800 truncate">{ind.name}</p>
+                              <p className="text-[9px] text-neutral-400 capitalize truncate font-medium">{ind.gearLabelPlural} &amp; {ind.listLabelPlural}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSettings((s: any) => {
+                                  if (!s) return null;
+                                  const currentEnabled = s.multiIndustryConfig?.enabledIndustries || INDUSTRIES.map(i => i.id);
+                                  const updatedEnabled = currentEnabled.includes(ind.id)
+                                    ? currentEnabled.filter((i: any) => i !== ind.id)
+                                    : [...currentEnabled, ind.id];
+                                  return {
+                                    ...s,
+                                    multiIndustryConfig: {
+                                      ...(s.multiIndustryConfig || {}),
+                                      enabledIndustries: updatedEnabled
+                                    }
+                                  };
+                                });
+                              }}
+                              className={`w-10 h-5 rounded-full relative transition-colors shrink-0 ${isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+                            >
+                              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${isEnabled ? 'right-0.5' : 'left-0.5'}`} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Custom Terms Edit Interface */}
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 font-sans">Customize Industry Specific Terms</p>
+                    <div className="space-y-4">
+                      {INDUSTRIES.map((ind) => {
+                        const currentTerm = settings?.multiIndustryConfig?.customTerms?.[ind.id] || {
+                          gearLabelSingular: ind.gearLabelSingular,
+                          gearLabelPlural: ind.gearLabelPlural,
+                          listLabelSingular: ind.listLabelSingular,
+                          listLabelPlural: ind.listLabelPlural,
+                          description: ind.description
+                        };
+                        return (
+                          <div key={ind.id} className="p-4 bg-white border border-neutral-200 rounded-2xl space-y-3 shadow-sm">
+                            <div className="flex items-center gap-2 border-b border-neutral-100 pb-2">
+                              <span className="text-xs font-black uppercase text-neutral-900 font-sans font-black">{ind.name} Settings</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wider block">Single Item Label</label>
+                                <input
+                                  type="text"
+                                  value={currentTerm.gearLabelSingular}
+                                  onChange={(e) => {
+                                    setSettings((s: any) => {
+                                      if (!s) return null;
+                                      const oldTerms = s.multiIndustryConfig?.customTerms || {};
+                                      return {
+                                        ...s,
+                                        multiIndustryConfig: {
+                                          ...(s.multiIndustryConfig || {}),
+                                          customTerms: {
+                                            ...oldTerms,
+                                            [ind.id]: {
+                                              ...currentTerm,
+                                              gearLabelSingular: e.target.value
+                                            }
+                                          }
+                                        }
+                                      };
+                                    });
+                                  }}
+                                  className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-primary outline-none transition"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wider block">Plural Item Label</label>
+                                <input
+                                  type="text"
+                                  value={currentTerm.gearLabelPlural}
+                                  onChange={(e) => {
+                                    setSettings((s: any) => {
+                                      if (!s) return null;
+                                      const oldTerms = s.multiIndustryConfig?.customTerms || {};
+                                      return {
+                                        ...s,
+                                        multiIndustryConfig: {
+                                          ...(s.multiIndustryConfig || {}),
+                                          customTerms: {
+                                            ...oldTerms,
+                                            [ind.id]: {
+                                              ...currentTerm,
+                                              gearLabelPlural: e.target.value
+                                            }
+                                          }
+                                        }
+                                      };
+                                    });
+                                  }}
+                                  className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-primary outline-none transition"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wider block">Single List Label</label>
+                                <input
+                                  type="text"
+                                  value={currentTerm.listLabelSingular}
+                                  onChange={(e) => {
+                                    setSettings((s: any) => {
+                                      if (!s) return null;
+                                      const oldTerms = s.multiIndustryConfig?.customTerms || {};
+                                      return {
+                                        ...s,
+                                        multiIndustryConfig: {
+                                          ...(s.multiIndustryConfig || {}),
+                                          customTerms: {
+                                            ...oldTerms,
+                                            [ind.id]: {
+                                              ...currentTerm,
+                                              listLabelSingular: e.target.value
+                                            }
+                                          }
+                                        }
+                                      };
+                                    });
+                                  }}
+                                  className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-primary outline-none transition"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wider block">Plural List Label</label>
+                                <input
+                                  type="text"
+                                  value={currentTerm.listLabelPlural}
+                                  onChange={(e) => {
+                                    setSettings((s: any) => {
+                                      if (!s) return null;
+                                      const oldTerms = s.multiIndustryConfig?.customTerms || {};
+                                      return {
+                                        ...s,
+                                        multiIndustryConfig: {
+                                          ...(s.multiIndustryConfig || {}),
+                                          customTerms: {
+                                            ...oldTerms,
+                                            [ind.id]: {
+                                              ...currentTerm,
+                                              listLabelPlural: e.target.value
+                                            }
+                                          }
+                                        }
+                                      };
+                                    });
+                                  }}
+                                  className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-primary outline-none transition"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1 pt-1">
+                              <label className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wider block">Landing Description</label>
+                              <input
+                                type="text"
+                                value={currentTerm.description}
+                                onChange={(e) => {
+                                  setSettings((s: any) => {
+                                    if (!s) return null;
+                                    const oldTerms = s.multiIndustryConfig?.customTerms || {};
+                                    return {
+                                        ...s,
+                                        multiIndustryConfig: {
+                                          ...(s.multiIndustryConfig || {}),
+                                          customTerms: {
+                                            ...oldTerms,
+                                            [ind.id]: {
+                                              ...currentTerm,
+                                              description: e.target.value
+                                            }
+                                          }
+                                        }
+                                      };
+                                    });
+                                  }}
+                                  className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-primary outline-none transition"
+                                />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2 pt-4 border-t border-neutral-100">

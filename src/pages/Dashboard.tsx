@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useIndustry } from '../context/IndustryContext';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, collectionGroup } from 'firebase/firestore';
 import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity, Users, Building2, Globe, Mail, MapPin, Building, Download, ArrowRightLeft } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { UserProfile, PackingList, Reminder, AdminSettings, FeatureKey, GearItem, Organization } from '../types';
+import { UserProfile, PackingList, Reminder, AdminSettings, FeatureKey, GearItem, Organization, Workspace, INDUSTRIES } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { updateDoc, getDoc } from 'firebase/firestore';
 import { isFeatureEnabled } from '../lib/featureUtils';
@@ -16,7 +17,7 @@ import DeveloperTab from '../components/DeveloperTab';
 import ShareModal from '../components/ShareModal';
 import ManualCheckoutModal from '../components/ManualCheckoutModal';
 
-type DashboardTab = 'overview' | 'lists' | 'templates' | 'directories' | 'marketplace' | 'developer';
+type DashboardTab = 'overview' | 'lists' | 'templates' | 'directories' | 'marketplace' | 'developer' | 'beta_bugs';
 type SortField = 'createdAt' | 'name' | 'status';
 type SortOrder = 'asc' | 'desc';
 type ViewMode = 'grid' | 'list';
@@ -33,6 +34,15 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const [newListName, setNewListName] = useState('');
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [allItems, setAllItems] = useState<any[]>([]);
+  
+  // User's submitted Bug Reports state
+  const [userBugs, setUserBugs] = useState<any[]>([]);
+  // Form input fields for Bug filing
+  const [newBugTitle, setNewBugTitle] = useState('');
+  const [newBugDesc, setNewBugDesc] = useState('');
+  const [newBugModule, setNewBugModule] = useState('General UI');
+  const [newBugSeverity, setNewBugSeverity] = useState<'low' | 'medium' | 'high' | 'critical'>('low');
+  const [isBugSubmitting, setIsBugSubmitting] = useState(false);
   
   // Custom public directories & sub-group list states
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -52,6 +62,93 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const navigate = useNavigate();
   const location = useLocation();
   const hasShownMaintenanceToast = React.useRef(false);
+
+  // Multi-Workspace Industry states and custom terms calculations
+  const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = useState(false);
+  const [newWorkspaceName, setNewWorkspaceName] = useState('');
+  const [newWorkspaceIndustry, setNewWorkspaceIndustry] = useState('production');
+  const [isWorkspaceDropdownOpen, setIsWorkspaceDropdownOpen] = useState(false);
+
+  // Specialized safety & fleet simulations
+  const [constructionLogs, setConstructionLogs] = useState<any[]>([
+    { id: 1, type: 'critical', text: 'OSHA Alert: Grinder safety shield missing (ID: CTR-082) - Action Required', date: 'Just now' },
+    { id: 2, type: 'success', text: 'Drop Test: 12 Rigging chains certified & stamped', date: '2 hours ago' },
+    { id: 3, type: 'info', text: 'Routine Check: Site Generator GSE-9 fuel & fluid scan passed', date: 'Yesterday' }
+  ]);
+  const [fleetVehicles, setFleetVehicles] = useState<any[]>([
+    { id: 1, name: 'Ford Transit Cargo Van #3', plate: 'CTR-492', status: 'In Use', holder: 'Steve Rogers', mileage: 48500, fuel: 82 },
+    { id: 2, name: 'Toyota Hilux Crew Cab #1', plate: 'WLD-091', status: 'Available', holder: '', mileage: 12400, fuel: 100 },
+    { id: 3, name: 'Tesla Model Y Delivery #6', plate: 'FLE-205', status: 'In Repair', holder: 'Garage Slot 3', mileage: 84000, fuel: 35 }
+  ]);
+
+  const { activeIndustry, customTerms, currentWorkspace, isConstruction, isAutomotive, getAdjustedLabel } = useIndustry();
+
+  const currentWorkspaceId = currentWorkspace?.id || null;
+
+  // Filter lists & gear of standard user fetches by currently active industry workspace sandbox
+  const workspaceFilteredLists = React.useMemo(() => {
+    if (!currentWorkspaceId) return lists;
+    return lists.filter(list => !list.workspaceId || list.workspaceId === currentWorkspaceId);
+  }, [lists, currentWorkspaceId]);
+
+  const workspaceFilteredGear = React.useMemo(() => {
+    if (!currentWorkspaceId) return gear;
+    return gear.filter(item => !item.workspaceId || item.workspaceId === currentWorkspaceId);
+  }, [gear, currentWorkspaceId]);
+
+  const handleCreateWorkspace = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newWorkspaceName.trim()) return;
+
+    const currentWorkspaces = user.workspaces || [];
+    const maxWorkspacesLimit = activePlan?.maxWorkspaces || 1;
+
+    if (currentWorkspaces.length >= maxWorkspacesLimit) {
+      toast.error(
+        `Workspace Limit Reached. Your active plan integrates max ${maxWorkspacesLimit} workspace(s). Upgrade to add more industries!`
+      );
+      return;
+    }
+
+    try {
+      const newWsId = `ws_${Math.random().toString(36).substring(2, 11)}`;
+      const newWsObj = {
+        id: newWsId,
+        name: newWorkspaceName.trim(),
+        industry: newWorkspaceIndustry,
+        createdAt: new Date().toISOString()
+      };
+
+      const updatedWorkspaces = [...currentWorkspaces, newWsObj];
+      await updateDoc(doc(db, 'users', user.uid), {
+        workspaces: updatedWorkspaces,
+        activeWorkspaceId: newWsId,
+        selectedIndustry: newWorkspaceIndustry
+      });
+
+      toast.success(`Launched "${newWorkspaceName}" workspace sandbox!`);
+      setNewWorkspaceName('');
+      setIsWorkspaceModalOpen(false);
+    } catch (err) {
+      console.error("Error creating workspace:", err);
+      toast.error("Failed to create workspace sandbox.");
+    }
+  };
+
+  const handleSwitchWorkspace = async (wsId: string) => {
+    try {
+      const targetWs = user.workspaces?.find(w => w.id === wsId);
+      await updateDoc(doc(db, 'users', user.uid), {
+        activeWorkspaceId: wsId,
+        selectedIndustry: targetWs?.industry || 'general'
+      });
+      toast.success(`Switched active environment to ${targetWs?.name}`);
+      setIsWorkspaceDropdownOpen(false);
+    } catch (err) {
+      console.error("Error toggling workspace active tab:", err);
+      toast.error("Failed to switch workspace environment.");
+    }
+  };
 
   // Filter gear items that have reached their maintenanceIntervalDays cycle thresholds
   const maintenanceAlerts = React.useMemo(() => {
@@ -268,6 +365,13 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       console.error("Error fetching directories organizations:", error);
     });
 
+    const qBugs = query(collection(db, 'bugs'), where('userId', '==', user.uid));
+    const unsubscribeBugs = onSnapshot(qBugs, (snapshot) => {
+      setUserBugs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Error fetching user's reported bugs:", error);
+    });
+
     return () => {
       unsubscribeLists();
       unsubscribeReminders();
@@ -275,6 +379,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       unsubscribeAllItems();
       unsubscribeUsers();
       unsubscribeOrgs();
+      unsubscribeBugs();
     };
   }, [user.uid]);
 
@@ -303,6 +408,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         name: newListName,
         description: '',
         isTemplate: activeTab === 'templates',
+        workspaceId: currentWorkspaceId,
         shareToken: Math.random().toString(36).substring(2, 15), // Generate token by default
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -327,7 +433,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
     }
   };
 
-  const filteredLists = lists.filter(list => {
+  const filteredLists = workspaceFilteredLists.filter(list => {
     const matchesSearch = list.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === 'all' || list.status === filterStatus;
     
@@ -373,32 +479,32 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
     return sortOrder === 'desc' ? comparison : -comparison;
   });
 
-  const recentLists = lists.slice(0, 4);
+  const recentLists = workspaceFilteredLists.slice(0, 4);
 
   const gearStats = {
     categoryData: Object.entries(
-      gear.reduce((acc: Record<string, number>, item) => {
+      workspaceFilteredGear.reduce((acc: Record<string, number>, item) => {
         acc[item.category || 'Other'] = (acc[item.category || 'Other'] || 0) + 1;
         return acc;
       }, {})
     ).map(([name, value]) => ({ name, value })),
     conditionData: [
-      { name: 'New', value: gear.filter(i => i.condition === 'new').length, color: '#22c55e' },
-      { name: 'Good', value: gear.filter(i => i.condition === 'good').length, color: '#3b82f6' },
-      { name: 'Fair', value: gear.filter(i => i.condition === 'fair').length, color: '#f59e0b' },
-      { name: 'Poor', value: gear.filter(i => i.condition === 'poor').length, color: '#ef4444' },
+      { name: 'New', value: workspaceFilteredGear.filter(i => i.condition === 'new').length, color: '#22c55e' },
+      { name: 'Good', value: workspaceFilteredGear.filter(i => i.condition === 'good').length, color: '#3b82f6' },
+      { name: 'Fair', value: workspaceFilteredGear.filter(i => i.condition === 'fair').length, color: '#f59e0b' },
+      { name: 'Poor', value: workspaceFilteredGear.filter(i => i.condition === 'poor').length, color: '#ef4444' },
     ].filter(d => d.value > 0),
-    topUsed: [...gear]
+    topUsed: [...workspaceFilteredGear]
       .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))
       .slice(0, 5),
-    totalValue: gear.reduce((acc, item) => acc + (Number(item.price) || 0), 0),
-    totalWeight: gear.reduce((acc, item) => acc + (Number(item.weight) || 0), 0),
-    auditScore: gear.length > 0 ? (gear.filter(i => i.photoUrls && i.photoUrls.length > 0).length / gear.length) * 100 : 0,
-    usageIntensity: gear.length > 0 ? gear.reduce((acc, i) => acc + (i.usageCount || 0), 0) / gear.length : 0
+    totalValue: workspaceFilteredGear.reduce((acc, item) => acc + (Number(item.price) || 0), 0),
+    totalWeight: workspaceFilteredGear.reduce((acc, item) => acc + (Number(item.weight) || 0), 0),
+    auditScore: workspaceFilteredGear.length > 0 ? (workspaceFilteredGear.filter(i => i.photoUrls && i.photoUrls.length > 0).length / workspaceFilteredGear.length) * 100 : 0,
+    usageIntensity: workspaceFilteredGear.length > 0 ? workspaceFilteredGear.reduce((acc, i) => acc + (i.usageCount || 0), 0) / workspaceFilteredGear.length : 0
   };
 
   const distributionData = React.useMemo(() => {
-    return lists.map(list => {
+    return workspaceFilteredLists.map(list => {
       const listItems = allItems.filter(item => item.listId === list.id);
       
       const totalWeight = listItems.reduce((acc, item) => {
@@ -438,34 +544,100 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
 
   return (
     <div className="space-y-12">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <h1 className="text-4xl font-black tracking-tight">Gear Lifecycle Dashboard</h1>
-          <p className="text-neutral-500">Visual inventory management, asset tracking, and marketplace listings.</p>
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-neutral-100 pb-6">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-4xl font-black tracking-tight text-neutral-900">
+              {customTerms.gearLabelPlural} Environment
+            </h1>
+            
+            {/* Active Workspace Switcher */}
+            {user.workspaces && user.workspaces.length > 0 && (
+              <div className="relative inline-block text-left">
+                <button
+                  type="button"
+                  onClick={() => setIsWorkspaceDropdownOpen(!isWorkspaceDropdownOpen)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 border border-neutral-250 rounded-full text-xs font-black text-neutral-800 transition shadow-sm cursor-pointer"
+                >
+                  <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                  <span className="uppercase tracking-wide">{currentWorkspace?.name || 'My Sandbox'}</span>
+                  <span className="px-1.5 py-0.5 bg-neutral-200 text-neutral-600 rounded text-[8px] uppercase font-mono font-black shrink-0">
+                    {customTerms.name}
+                  </span>
+                </button>
+
+                {isWorkspaceDropdownOpen && (
+                  <div className="absolute left-0 mt-2 w-72 bg-white border border-neutral-200 rounded-2xl shadow-2xl z-50 p-2 space-y-1">
+                    <p className="px-3 py-1.5 text-[8px] font-black uppercase text-neutral-400 tracking-widest border-b border-neutral-50 font-sans">
+                      Select Workspace Sandbox
+                    </p>
+                    <div className="max-h-[180px] overflow-y-auto space-y-0.5">
+                      {user.workspaces.map((ws: any) => {
+                        const wsInd = INDUSTRIES.find(i => i.id === ws.industry) || INDUSTRIES[0];
+                        const isActive = ws.id === currentWorkspace?.id;
+                        return (
+                          <button
+                            key={ws.id}
+                            type="button"
+                            onClick={() => handleSwitchWorkspace(ws.id)}
+                            className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between ${
+                              isActive ? 'bg-primary/5 text-primary' : 'hover:bg-neutral-50 text-neutral-700'
+                            }`}
+                          >
+                            <div className="min-w-0 pr-2">
+                              <p className="truncate font-black">{ws.name}</p>
+                              <p className="text-[9px] font-bold text-neutral-400 capitalize">{wsInd.name}</p>
+                            </div>
+                            {isActive && <CheckCircle2 size={12} className="text-primary shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="pt-2 border-t border-neutral-100 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsWorkspaceModalOpen(true);
+                          setIsWorkspaceDropdownOpen(false);
+                        }}
+                        className="w-full text-center px-3 py-2 bg-neutral-900 hover:bg-black text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow"
+                      >
+                        <Plus size={12} />
+                        <span>Add Workspace Sandbox</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <p className="text-neutral-500 text-sm leading-relaxed max-w-2xl">
+            {customTerms.description} Dynamic custom settings for **{customTerms.gearLabelPlural}** &amp; **{customTerms.listLabelPlural}** enabled.
+          </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 shrink-0">
           <button
             onClick={() => setIsCreating(true)}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition shadow-lg w-full sm:w-auto"
+            className="flex items-center justify-center gap-2 px-6 py-3.5 bg-primary text-white rounded-xl font-bold hover:bg-primary/95 transition shadow-lg w-full sm:w-auto text-xs uppercase tracking-wider font-bold"
           >
-            <Plus size={20} />
-            <span>New List</span>
+            <Plus size={16} />
+            <span>New {customTerms.listLabelSingular}</span>
           </button>
           <button
             onClick={() => navigate('/library?addGear=true')}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-neutral-900 text-white rounded-xl font-bold hover:bg-neutral-800 transition shadow-lg w-full sm:w-auto"
+            className="flex items-center justify-center gap-2 px-6 py-3.5 bg-neutral-900 text-white rounded-xl font-bold hover:bg-neutral-800 transition shadow-lg w-full sm:w-auto text-xs uppercase tracking-wider font-bold"
           >
-            <Plus size={20} />
-            <span>Add Gear</span>
+            <Plus size={16} />
+            <span>Add {customTerms.gearLabelSingular}</span>
           </button>
         </div>
       </header>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-2xl w-fit">
+      <div className="flex items-center gap-1 bg-neutral-100 p-1.5 rounded-2xl w-full sm:w-fit max-w-full overflow-x-auto whitespace-nowrap scrollbar-thin mb-8">
         <button
           onClick={() => handleTabChange('overview')}
-          className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all text-xs uppercase tracking-wider shrink-0 ${
             activeTab === 'overview' 
               ? 'bg-white text-primary shadow-sm' 
               : 'text-neutral-500 hover:text-neutral-700'
@@ -475,27 +647,27 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         </button>
         <button
           onClick={() => handleTabChange('lists')}
-          className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all text-xs uppercase tracking-wider shrink-0 ${
             activeTab === 'lists' 
               ? 'bg-white text-primary shadow-sm' 
               : 'text-neutral-500 hover:text-neutral-700'
           }`}
         >
-          Packing Lists ({lists.filter(l => !l.isTemplate).length})
+          {customTerms.listLabelPlural} ({workspaceFilteredLists.filter(l => !l.isTemplate).length})
         </button>
         <button
           onClick={() => handleTabChange('templates')}
-          className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all text-xs uppercase tracking-wider shrink-0 ${
             activeTab === 'templates' 
               ? 'bg-white text-primary shadow-sm' 
               : 'text-neutral-500 hover:text-neutral-700'
           }`}
         >
-          Templates ({lists.filter(l => l.isTemplate).length})
+          Templates ({workspaceFilteredLists.filter(l => l.isTemplate).length})
         </button>
         <button
           onClick={() => handleTabChange('directories')}
-          className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all shrink-0 ${
             activeTab === 'directories' 
               ? 'bg-white text-primary shadow-sm' 
               : 'text-neutral-500 hover:text-neutral-700'
@@ -505,7 +677,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         </button>
         <button
           onClick={() => handleTabChange('marketplace')}
-          className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all shrink-0 ${
             activeTab === 'marketplace' 
               ? 'bg-white text-primary shadow-sm' 
               : 'text-neutral-500 hover:text-neutral-700'
@@ -515,7 +687,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         </button>
         <button
           onClick={() => handleTabChange('developer')}
-          className={`px-6 py-2.5 rounded-xl font-bold transition-all ${
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all shrink-0 ${
             activeTab === 'developer' 
               ? 'bg-white text-primary shadow-sm' 
               : 'text-neutral-500 hover:text-neutral-700'
@@ -523,11 +695,300 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         >
           Developer API & Embeds
         </button>
+        {user?.isBetaTester && (
+          <button
+            onClick={() => handleTabChange('beta_bugs')}
+            className={`px-6 py-2.5 rounded-xl font-bold transition-all text-xs uppercase tracking-wider flex items-center gap-1.5 shrink-0 ${
+              activeTab === 'beta_bugs' 
+                ? 'bg-purple-600 text-white shadow-sm' 
+                : 'text-purple-600 bg-purple-50 hover:bg-purple-100'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-ping"></span>
+            <span>🧪 Beta Bug Finder</span>
+          </button>
+        )}
       </div>
 
       {activeTab === 'overview' ? (
-        (user.dashboardMode || 'minimal') === 'minimal' ? (
-          <div className="space-y-12 animate-in fade-in duration-300">
+        <div className="space-y-12 animate-in fade-in duration-300 font-sans">
+          {/* Construction Panel */}
+          {isConstruction && (
+            <div className="bg-neutral-900 text-white rounded-[2rem] p-6 lg:p-8 border border-neutral-800 shadow-xl space-y-6 text-left relative overflow-hidden">
+              {/* Background Accent */}
+              <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+                <div className="space-y-1.5 font-sans">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      👷 Construction Worksite Sandbox
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-green-500/10 text-green-400">
+                      OSHA Compliant
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black uppercase tracking-tight text-neutral-100 flex items-center gap-2">
+                    Safety & OSHA Audit Console
+                  </h3>
+                  <p className="text-xs text-neutral-400 font-semibold leading-relaxed">
+                    Active compliance rating, load-bearing drop test logs, and equipment hazard flags.
+                  </p>
+                </div>
+
+                <div className="bg-neutral-800 p-4 rounded-2xl flex items-center gap-4 border border-neutral-700 w-fit shrink-0">
+                  <div className="text-center">
+                    <div className="text-2xl font-black text-amber-400">98.4%</div>
+                    <div className="text-[9px] uppercase font-black text-neutral-400 tracking-wider">Site Health</div>
+                  </div>
+                  <div className="h-8 w-px bg-neutral-700" />
+                  <div className="text-center">
+                    <div className="text-2xl font-black text-green-400">42 / 42</div>
+                    <div className="text-[9px] uppercase font-black text-neutral-400 tracking-wider font-sans">Checked OK</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Simulation Quick Add */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <div className="lg:col-span-5 bg-neutral-850 p-5 rounded-2xl border border-neutral-850 space-y-4">
+                  <h4 className="text-xs font-black uppercase text-amber-400 tracking-widest font-mono">
+                    Log Tool Safety Clearance
+                  </h4>
+                  <p className="text-[11px] text-neutral-400 leading-normal font-semibold font-sans">
+                    Simulate logging an drop-weight & insulation clearance stamp for equipment.
+                  </p>
+                  
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    const form = e.currentTarget;
+                    const toolNameInput = form.elements.namedItem('toolName') as HTMLInputElement;
+                    const checkTypeInput = form.elements.namedItem('checkType') as HTMLSelectElement;
+                    if (!toolNameInput.value.trim()) return;
+
+                    const isPassed = checkTypeInput.value === 'PASSED';
+                    const newLog = {
+                      id: Date.now(),
+                      type: isPassed ? 'success' : 'critical',
+                      text: isPassed 
+                        ? `Inspection Cleared: ${toolNameInput.value}`
+                        : `Hazard Checked: ${toolNameInput.value} has cracked casing - Action Required`,
+                      date: 'Just now'
+                    };
+                    setConstructionLogs([newLog, ...constructionLogs]);
+                    toast.success(`Logged safety event: ${toolNameInput.value}`);
+                    toolNameInput.value = '';
+                  }} className="space-y-3">
+                    <input
+                      name="toolName"
+                      type="text"
+                      placeholder="e.g. Makita Core Rig (ID: CTR-09)"
+                      className="w-full bg-neutral-950 max-w-none px-3.5 py-2.5 rounded-xl border border-neutral-700 text-xs focus:ring-1 focus:ring-amber-400 focus:border-amber-400 outline-none text-white font-medium"
+                    />
+                    <div className="flex gap-2">
+                      <select 
+                        name="checkType" 
+                        className="flex-1 bg-neutral-950 px-3 py-2.5 rounded-xl border border-neutral-700 text-xs text-white focus:ring-1 focus:ring-amber-400 outline-none font-semibold cursor-pointer"
+                      >
+                        <option value="PASSED">Passed Drop Weight & Insulation Test</option>
+                        <option value="FAILED">Flag Cracked / Failed Defect Alert</option>
+                      </select>
+                      <button
+                        type="submit"
+                        className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black uppercase text-[10px] tracking-wide px-4 py-2 rounded-xl transition shrink-0"
+                      >
+                        Add Event
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                <div className="lg:col-span-7 bg-neutral-850 p-5 rounded-2xl border border-neutral-850 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black uppercase text-neutral-400 tracking-widest font-mono">
+                      Worksite Safety Compliance Logs
+                    </h4>
+                    <button
+                      onClick={() => {
+                        const alerts = [
+                          "Simulated OSHA drop audit review completed cleanly.",
+                          "Safety DRILL executed: All 12 workers reported hazard zones within 90 seconds.",
+                          "Tooling Locker check completed: Ground cable replacements verified."
+                        ];
+                        const randomAlert = alerts[Math.floor(Math.random() * alerts.length)];
+                        setConstructionLogs([
+                          { id: Date.now(), type: 'info', text: randomAlert, date: 'Just now' },
+                          ...constructionLogs
+                        ]);
+                        toast.success("Site inspection sweep simulated.");
+                      }}
+                      className="text-[10px] text-amber-450 hover:text-amber-300 font-bold uppercase tracking-wider"
+                    >
+                      Trigger Sweep
+                    </button>
+                  </div>
+
+                  <div className="space-y-2.5 max-h-[140px] overflow-y-auto pr-1">
+                    {constructionLogs.map((log) => (
+                      <div 
+                        key={log.id} 
+                        className={`p-3 rounded-xl border flex items-start gap-2.5 text-xs ${
+                          log.type === 'critical' 
+                            ? 'bg-red-500/10 border-red-500/20 text-red-300' 
+                            : log.type === 'success'
+                            ? 'bg-green-500/10 border-green-500/20 text-green-300'
+                            : 'bg-neutral-900 border-neutral-800 text-neutral-300'
+                        }`}
+                      >
+                        <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                        <div className="flex-1 space-y-0.5">
+                          <p className="font-semibold leading-relaxed">{log.text}</p>
+                          <span className="text-[9px] text-neutral-450 uppercase tracking-wider font-mono block">{log.date}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Automotive Panel */}
+          {isAutomotive && (
+            <div className="bg-indigo-950 text-white rounded-[2rem] p-6 lg:p-8 border border-indigo-900 shadow-xl space-y-6 text-left relative overflow-hidden">
+              {/* Background Accent */}
+              <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-indigo-900">
+                <div className="space-y-1.5 font-sans">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      🚗 Automotive & Fleet Sandbox
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-600 text-indigo-100 font-mono font-sans">
+                      76.2% Utilization
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black uppercase tracking-tight text-neutral-100 flex items-center gap-2">
+                    Fleet Dispatch & Intake Tracker
+                  </h3>
+                  <p className="text-xs text-indigo-200 font-semibold leading-relaxed">
+                    Live fleet vehicle checks, dispatcher trip route assignments, and mileage logs.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      const flagged = fleetVehicles.filter(v => v.mileage > 50000);
+                      if (flagged.length > 0) {
+                        toast.warning(`Service required: ${flagged.length} fleet vehicles have exceeded 50,000 miles service benchmark!`);
+                      } else {
+                        toast.success("Fleet audit complete. All vehicle milestones within normal operation limits.");
+                      }
+                    }}
+                    className="px-4 py-2.5 bg-indigo-800 hover:bg-indigo-700 text-indigo-100 text-[10px] font-black uppercase tracking-widest rounded-xl transition border border-indigo-700"
+                  >
+                    Mileage Audit
+                  </button>
+                </div>
+              </div>
+
+              {/* Interactive Fleet Dispatch / Return */}
+              <div className="bg-indigo-900/50 p-5 rounded-2xl border border-indigo-805">
+                <h4 className="text-xs font-black uppercase text-indigo-300 tracking-widest font-mono mb-4 font-sans">
+                  Live Dispatch Inventory Deck
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {fleetVehicles.map((vehicle) => (
+                    <div 
+                      key={vehicle.id}
+                      className="bg-neutral-950 p-4 rounded-xl border border-neutral-900 space-y-4 text-xs font-sans"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-0.5">
+                          <p className="font-extrabold text-neutral-100">{vehicle.name}</p>
+                          <span className="text-[10px] font-mono text-neutral-400 bg-neutral-900 px-1.5 py-0.5 rounded uppercase">{vehicle.plate}</span>
+                        </div>
+
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                          vehicle.status === 'Available'
+                            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                            : vehicle.status === 'In Use'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                        }`}>
+                          {vehicle.status}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-[10px] text-neutral-400 font-mono">
+                        <div>
+                          <span className="block text-neutral-500 text-[9px] uppercase font-bold">Odometer</span>
+                          <span className="font-bold text-neutral-200">{vehicle.mileage.toLocaleString()} mi</span>
+                        </div>
+                        <div>
+                          <span className="block text-neutral-500 text-[9px] uppercase font-bold">Fuel Level</span>
+                          <span className="font-bold text-neutral-200">{vehicle.fuel}%</span>
+                        </div>
+                      </div>
+
+                      {vehicle.status === 'In Use' ? (
+                        <button
+                          onClick={() => {
+                            const updated = fleetVehicles.map(v => 
+                              v.id === vehicle.id 
+                                ? { ...v, status: 'Available', holder: '', mileage: v.mileage + Math.floor(Math.random() * 150) + 20, fuel: 100 }
+                                : v
+                            );
+                            setFleetVehicles(updated);
+                            toast.success(`Completed intake checkout for ${vehicle.name}. Vehicle returned with fuel topped off!`);
+                          }}
+                          className="w-full py-2 bg-indigo-500 text-neutral-950 hover:bg-indigo-400 text-[10px] font-black uppercase tracking-wider rounded-lg transition font-sans"
+                        >
+                          Verify Intake & Refuel
+                        </button>
+                      ) : vehicle.status === 'Available' ? (
+                        <button
+                          onClick={() => {
+                            const updated = fleetVehicles.map(v => 
+                              v.id === vehicle.id 
+                                ? { ...v, status: 'In Use', holder: 'Shift Dispatch Driver' }
+                                : v
+                            );
+                            setFleetVehicles(updated);
+                            toast.success(`Dispatched ${vehicle.name} under temporary rental agreement checkout.`);
+                          }}
+                          className="w-full py-2 bg-neutral-900 text-indigo-450 hover:bg-neutral-850 text-[10px] font-black uppercase tracking-wider rounded-lg transition border border-indigo-950 font-sans"
+                        >
+                          Dispatch Vehicle
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            const updated = fleetVehicles.map(v => 
+                              v.id === vehicle.id 
+                                ? { ...v, status: 'Available' }
+                                : v
+                            );
+                            setFleetVehicles(updated);
+                            toast.success(`${vehicle.name} repairs approved and returned to active service fleet.`);
+                          }}
+                          className="w-full py-2 bg-neutral-900 text-red-400 hover:bg-neutral-850 text-[10px] font-black uppercase tracking-wider rounded-lg transition border border-red-950 font-sans"
+                        >
+                          Approve Repairs
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(user.dashboardMode || 'minimal') === 'minimal' ? (
+            <div className="space-y-12">
             {/* Quick Action Grid */}
             <div className="bg-neutral-50/50 p-8 sm:p-10 rounded-[2.5rem] border border-neutral-100/80 shadow-sm space-y-8">
               <div className="space-y-2 text-left">
@@ -887,8 +1348,8 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
               )}
             </div>
           </div>
-        ) : (
-          <div className="space-y-12">
+          ) : (
+            <div className="space-y-12">
             {/* Stats Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
               {[
@@ -1469,7 +1930,8 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
               </section>
             )}
           </div>
-        )
+          )}
+        </div>
       ) : (activeTab === 'lists' || activeTab === 'templates') ? (
           <section className="space-y-8">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
@@ -1872,6 +2334,200 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
           </div>
         )}
 
+        {activeTab === 'beta_bugs' && (
+          <div className="space-y-8 animate-fadeIn">
+            {/* Split layout: File a Report and list history */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+              {/* Form panel: 2 cols */}
+              <div className="lg:col-span-2 bg-white p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6">
+                <div className="space-y-1">
+                  <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center">
+                    <Wrench size={24} />
+                  </div>
+                  <h3 className="text-xl font-bold text-neutral-900 pt-2">File a Beta Bug Report</h3>
+                  <p className="text-xs text-neutral-400">Describe the issue clearly. Platform admins will investigate and update you here.</p>
+                </div>
+
+                <form 
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!newBugTitle.trim() || !newBugDesc.trim()) {
+                      toast.error("Please fill out both the title and details description.");
+                      return;
+                    }
+                    setIsBugSubmitting(true);
+                    try {
+                      await addDoc(collection(db, 'bugs'), {
+                        userId: user.uid,
+                        userName: user.displayName || 'Anonymous Beta Tester',
+                        userEmail: user.email,
+                        title: newBugTitle.trim(),
+                        description: newBugDesc.trim(),
+                        module: newBugModule,
+                        severity: newBugSeverity,
+                        status: 'open',
+                        createdAt: new Date().toISOString()
+                      });
+                      toast.success("Bug report successfully filed! Admins have been notified.");
+                      setNewBugTitle('');
+                      setNewBugDesc('');
+                      setNewBugModule('General UI');
+                      setNewBugSeverity('low');
+                    } catch (error: any) {
+                      console.error("Error creating bug report:", error);
+                      toast.error("Failed to submit bug report. Try again.");
+                    } finally {
+                      setIsBugSubmitting(false);
+                    }
+                  }}
+                  className="space-y-4"
+                >
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Short Issue Summary</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g., Kiosk terminal scan error on Android"
+                      value={newBugTitle}
+                      onChange={(e) => setNewBugTitle(e.target.value)}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5 text-left">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Related Module</label>
+                      <select
+                        value={newBugModule}
+                        onChange={(e) => setNewBugModule(e.target.value)}
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl outline-none text-xs font-semibold"
+                      >
+                        <option value="General UI">General UI / Design</option>
+                        <option value="AI Packing Wizard">AI Packing Wizard</option>
+                        <option value="Gear Library">Gear Library</option>
+                        <option value="Reminders & Scheduler">Reminders & Alerts</option>
+                        <option value="QR Code Sharing">QR Sharing</option>
+                        <option value="Client Portal">Client Portal</option>
+                        <option value="Kiosk & Terminal">Kiosk Terminal</option>
+                        <option value="Asset Inventory">Asset Inventory</option>
+                        <option value="Supplier/BOM">Supplier & BOM</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5 text-left">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block font-black">Estimated Severity</label>
+                      <select
+                        value={newBugSeverity}
+                        onChange={(e) => setNewBugSeverity(e.target.value as any)}
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl outline-none text-xs font-semibold"
+                      >
+                        <option value="low">🔵 Low (Design quirk)</option>
+                        <option value="medium">🟡 Medium (Workaround exists)</option>
+                        <option value="high">🟠 High (Blocks module)</option>
+                        <option value="critical">🚨 Critical (Crashes/Major issue)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Full Reproduction Details</label>
+                    <textarea
+                      required
+                      placeholder="Write reproduction steps, user context environment, and what happened vs what was expected..."
+                      rows={5}
+                      value={newBugDesc}
+                      onChange={(e) => setNewBugDesc(e.target.value)}
+                      className="w-full p-4 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none transition text-xs font-medium resize-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isBugSubmitting}
+                    className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white font-bold rounded-xl text-xs uppercase tracking-widest transition shadow-md hover:shadow-lg active:scale-[0.98]"
+                  >
+                    {isBugSubmitting ? 'Filing Issue Statement...' : 'Submit Issue to Administrators'}
+                  </button>
+                </form>
+              </div>
+
+              {/* History list: 3 cols */}
+              <div className="lg:col-span-3 bg-white p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-bold text-neutral-900">Your Submitted Bugs ({userBugs.length})</h3>
+                    <p className="text-xs text-neutral-400">Live progress feedback loop for reports filed by your account.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                  {userBugs.length === 0 ? (
+                    <div className="text-center py-16 space-y-3">
+                      <div className="w-12 h-12 bg-neutral-50 text-neutral-400 rounded-full flex items-center justify-center mx-auto">
+                        <CheckCircle2 size={24} />
+                      </div>
+                      <h4 className="font-bold text-neutral-800 text-sm">No bugs reported yet</h4>
+                      <p className="text-xs text-neutral-400 max-w-xs mx-auto">Use the sidebar form to document any platform issues you come across during your testing.</p>
+                    </div>
+                  ) : (
+                    userBugs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()).map(bug => {
+                      const severityColor = {
+                        critical: 'bg-red-100 text-red-700 border-red-200',
+                        high: 'bg-orange-100 text-orange-700 border-orange-200',
+                        medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+                        low: 'bg-blue-100 text-blue-700 border-blue-200'
+                      }[bug.severity as string || 'low'];
+
+                      const statusBadge = {
+                        open: { bg: 'bg-red-50 text-red-600 border-red-100', text: '🔴 Staged/Open' },
+                        in_review: { bg: 'bg-amber-50 text-amber-600 border-amber-100', text: '🟡 Staged for fix' },
+                        resolved: { bg: 'bg-green-50 text-green-600 border-green-150', text: '🟢 Solved & Resolved' }
+                      }[bug.status as string || 'open'];
+
+                      return (
+                        <div key={bug.id} className="p-5 rounded-2xl border border-neutral-100 hover:bg-neutral-50/50 transition flex flex-col gap-3 text-left">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border font-mono ${severityColor}`}>
+                                {bug.severity}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border ${statusBadge.bg}`}>
+                                {statusBadge.text}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-neutral-400 font-mono">
+                              {bug.createdAt ? new Date(bug.createdAt).toLocaleDateString() : 'Just now'}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1">
+                            <h4 className="font-bold text-neutral-900 text-sm leading-snug">{bug.title}</h4>
+                            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Module: {bug.module || 'General UI'}</p>
+                          </div>
+
+                          <p className="text-xs text-neutral-500 font-medium line-clamp-3 bg-neutral-50 p-2.5 rounded-lg border border-neutral-100/60 font-mono">
+                            {bug.description}
+                          </p>
+
+                          {/* Admin comment display */}
+                          {bug.adminNotes ? (
+                            <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100/50 text-xs text-purple-800 space-y-1 mt-1 font-sans">
+                              <p className="font-extrabold text-[9px] uppercase tracking-wider text-purple-600">Admin Response Note:</p>
+                              <p className="font-medium">{bug.adminNotes}</p>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-neutral-400 italic">No admin comments yet. Waiting for review.</div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       <AnimatePresence>
         {sharingList && (
           <ShareModal
@@ -1923,6 +2579,85 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                     className="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition shadow-lg flex items-center justify-center text-center"
                   >
                     Create
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Workspace Sandbox creation modal layout */}
+      <AnimatePresence>
+        {isWorkspaceModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2.5rem] p-8 max-w-lg w-full border border-neutral-150 shadow-2xl space-y-6 relative text-left"
+            >
+              <button
+                type="button"
+                onClick={() => setIsWorkspaceModalOpen(false)}
+                className="absolute top-6 right-6 p-2 text-neutral-400 hover:text-neutral-600 transition"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-neutral-900 uppercase tracking-tight">Create Workspace Sandbox</h3>
+                <p className="text-xs text-neutral-500 font-semibold leading-relaxed font-sans">
+                  Setup a customizable industry channel inside your account. Manage independent assets and list workflows cleanly without blending fields.
+                </p>
+              </div>
+
+              <form onSubmit={handleCreateWorkspace} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400">Workspace Hub Name</label>
+                  <input
+                    type="text"
+                    value={newWorkspaceName}
+                    onChange={(e) => setNewWorkspaceName(e.target.value)}
+                    placeholder="e.g. Workshop Fleet, Showroom Stock..."
+                    required
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400 font-sans">Focus Industry Category</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1">
+                    {INDUSTRIES.map((ind) => (
+                      <button
+                        key={ind.id}
+                        type="button"
+                        onClick={() => setNewWorkspaceIndustry(ind.id)}
+                        className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2 ${
+                          newWorkspaceIndustry === ind.id
+                            ? 'border-primary bg-primary/[0.02] ring-2 ring-primary/25'
+                            : 'border-neutral-200 hover:bg-neutral-50'
+                        }`}
+                      >
+                        <span className="text-xs font-black text-neutral-800 shrink-0">{ind.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsWorkspaceModalOpen(false)}
+                    className="flex-1 py-3 border border-neutral-200 rounded-xl text-neutral-700 font-bold hover:bg-neutral-50 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 bg-primary hover:bg-primary/95 text-white rounded-xl font-bold transition shadow-lg flex items-center justify-center text-center font-bold"
+                  >
+                    Launch Sandbox
                   </button>
                 </div>
               </form>

@@ -4,9 +4,10 @@ import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import { motion } from 'motion/react';
-import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award } from 'lucide-react';
+import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award, Sun, Moon } from 'lucide-react';
 import { getUsage } from '../lib/limitUtils';
 import PaymentModal from '../components/PaymentModal';
+import { useTheme } from '../context/ThemeContext';
 
 interface ProfilePageProps {
   user: UserProfile;
@@ -15,6 +16,7 @@ interface ProfilePageProps {
 }
 
 export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePageProps) {
+  const { theme, setTheme } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -534,7 +536,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
           {/* Active Beta Notifications Desk */}
           <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8 animate-fade-in">
             <header className="space-y-1">
-              <span className="micro-label bg-amber-50 text-amber-500 border border-amber-200 px-2 py-0.5 rounded-full inline-block font-black">Beta Sandbox v1.0.0-beta.2</span>
+              <span className="micro-label bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded-full inline-block font-black">Release Build v4.0.0</span>
               <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
                 <Mail className="text-primary shrink-0" />
                 <span>Notification Testing Desk</span>
@@ -735,6 +737,43 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
         </div>
 
         <div className="space-y-6 sm:space-y-8 col-span-1">
+          {/* Theme Preferences Card */}
+          <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8 animate-fade-in">
+            <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
+              <Sun className="text-primary" size={20} />
+              <span>Theme Preferences</span>
+            </h3>
+            <p className="text-sm text-neutral-500 leading-relaxed font-semibold">
+              Select your preferred workspace lighting setup. This theme operates across all project tables, locker rooms, checklists, and scanners.
+            </p>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setTheme('light')}
+                className={`p-4 rounded-2xl border text-center transition flex flex-col items-center justify-center gap-2 font-bold ${
+                  theme === 'light' 
+                    ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg' 
+                    : 'bg-neutral-50 text-neutral-700 border-neutral-200/60 hover:bg-neutral-100'
+                }`}
+              >
+                <Sun size={20} className={theme === 'light' ? 'text-accent' : 'text-neutral-400'} />
+                <span className="text-xs uppercase tracking-wider">Light Mode</span>
+              </button>
+              
+              <button
+                onClick={() => setTheme('dark')}
+                className={`p-4 rounded-2xl border text-center transition flex flex-col items-center justify-center gap-2 font-bold ${
+                  theme === 'dark' 
+                    ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg' 
+                    : 'bg-neutral-50 text-neutral-700 border-neutral-200/60 hover:bg-neutral-100'
+                }`}
+              >
+                <Moon size={20} className={theme === 'dark' ? 'text-yellow-400' : 'text-neutral-400'} />
+                <span className="text-xs uppercase tracking-wider">Dark Mode</span>
+              </button>
+            </div>
+          </section>
+
           <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8">
             <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
               <BarChart3 className="text-primary shrink-0" />

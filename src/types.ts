@@ -71,6 +71,7 @@ export interface Plan {
   customWhiteLabeling?: boolean;
   premiumSupportAccess?: boolean;
   historicalAuditLogs?: boolean;
+  maxWorkspaces?: number;
 }
 
 export interface UserProfile {
@@ -79,6 +80,7 @@ export interface UserProfile {
   displayName: string;
   photoURL: string;
   isSuperAdmin?: boolean; // Platform Super Admin
+  isBetaTester?: boolean; // Can test beta modules
   orgId?: string;
   deptId?: string;
   teamId?: string;
@@ -117,6 +119,16 @@ export interface UserProfile {
   storeBio?: string;
   storeLogo?: string;
   storeCustomUrl?: string;
+  activeWorkspaceId?: string;
+  workspaces?: Workspace[];
+  selectedIndustry?: string;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  industry: string; // e.g., 'production' | 'construction' | 'costume' | 'car_rental' | 'it' | 'event' | 'general'
+  createdAt: string;
 }
 
 export interface Contact {
@@ -167,6 +179,7 @@ export interface PackingList {
   adHeadline?: string;
   moderationStatus?: 'approved' | 'pending' | 'suspended';
   category?: string;
+  workspaceId?: string;
   itemsCount?: number;
   customFields?: { [key: string]: string };
   receivedAt?: string;
@@ -204,7 +217,7 @@ export interface GearItem {
   aiLabel?: string;
   category?: string;
   isKit?: boolean;
-  visibility?: 'public' | 'private'; // Public or private visibility for kits/gear
+  visibility?: 'public' | 'private' | 'team' | 'dept' | 'org'; // Privacy view layers (User/private, Team, Department, Organization, Public)
   childItemIds?: string[]; // IDs of items inside this kit
   status?: 'available' | 'in_use' | 'maintenance' | 'retired' | 'missing';
   recoveryEnabled?: boolean;
@@ -246,6 +259,7 @@ export interface GearItem {
   rentalDeposit?: number;
   rentalPeriod?: 'day' | 'week' | 'month';
   currentHolder?: string;
+  workspaceId?: string;
   createdAt?: string;
   updatedAt?: string;
   isSale?: boolean;
@@ -709,6 +723,7 @@ export interface AdminSettings {
   contactAddress?: string;
   plans: Plan[];
   globalFeatures: FeatureToggles;
+  betaFeatures?: { [key: string]: boolean }; // Toggles for modules in beta mode
   aiConfig: AIConfig;
   aiRecognitionConfig?: AIRecognitionConfig;
   kioskConfig?: {
@@ -728,6 +743,18 @@ export interface AdminSettings {
     categoryOverrides?: { [category: string]: { percentage: number; amount: number; strategy: 'percentage' | 'amount' | 'both' } };
     listOverrides?: { [listId: string]: { percentage: number; amount: number; strategy: 'percentage' | 'amount' | 'both' } };
     itemOverrides?: { [itemId: string]: { percentage: number; amount: number; strategy: 'percentage' | 'amount' | 'both' } };
+  };
+  multiIndustryConfig?: {
+    enabledIndustries: string[];
+    customTerms?: {
+      [industryId: string]: {
+        gearLabelSingular: string;
+        gearLabelPlural: string;
+        listLabelSingular: string;
+        listLabelPlural: string;
+        description: string;
+      }
+    }
   };
   moduleWidgetConfigs?: {
     projectCost?: {
@@ -791,6 +818,15 @@ export interface AdminSettings {
     partnerLogosText?: string;
     partnerLogosList?: string[];
   };
+  footerNavConfig?: {
+    enabled: boolean;
+    alignMobileCentred: boolean;
+    links: Array<{
+      label: string;
+      href: string;
+      isExternal?: boolean;
+    }>;
+  };
 }
 
 export interface PaymentGatewayMethod {
@@ -808,3 +844,31 @@ export interface OnboardedCurrency {
   isActive: boolean;
   paymentMethods: PaymentGatewayMethod[];
 }
+
+export const INDUSTRIES = [
+  { id: 'production', name: 'Video Production & Pro AV', icon: 'Camera', gearLabelSingular: 'Camera/Device', gearLabelPlural: 'Cameras & Media Gear', listLabelSingular: 'Shoot List', listLabelPlural: 'Shoot Packing Lists', description: 'Log cameras, lenses, filters, sound devices, and staging kits. Auto-compile media metadata.' },
+  { id: 'construction', name: 'Construction & Contracting', icon: 'Wrench', gearLabelSingular: 'Tool/Machine', gearLabelPlural: 'Tools & Equipment', listLabelSingular: 'Site Manifest', listLabelPlural: 'Job Site Manifests', description: 'Track commercial hammers, rigging materials, fleet tools, safety gear, and scaffolding.' },
+  { id: 'outdoors', name: 'Outdoors & Adventure (Hiking, Fishing, Diving)', icon: 'Compass', gearLabelSingular: 'Adventure Gear/Item', gearLabelPlural: 'Adventure & Outdoors Gear', listLabelSingular: 'Expedition List', listLabelPlural: 'Expedition Packing Lists', description: 'Catalog hiking gear, camping tents, fishing rods, diving regulators, scuba tanks, and outdoors adventure kits. Auto-calculate payload weight.' },
+  { id: 'costume', name: 'Wardrobe & Costume Houses', icon: 'Shirt', gearLabelSingular: 'Garment/Dress', gearLabelPlural: 'Costumes & Dresses', listLabelSingular: 'Dressing Rack', listLabelPlural: 'Dressing Rack Specs', description: 'Catalog couture dresses, hangers, period garments, shoes, and sizing checklists.' },
+  { id: 'car_rental', name: 'Car Rentals & Fleets', icon: 'Car', gearLabelSingular: 'Vehicle/Fleet', gearLabelPlural: 'Vehicles & Cars', listLabelSingular: 'Fleet Booking', listLabelPlural: 'Vehicle Bookings', description: 'Manage car reservations, trucks, vans, driver assignments, and checklist logs.' },
+  { id: 'it', name: 'IT & Cloud Infrastructure', icon: 'Cpu', gearLabelSingular: 'Hardware/Server', gearLabelPlural: 'Hardware & Servers', listLabelSingular: 'Rack Manifest', listLabelPlural: 'Server Rack Manifests', description: 'Manage server racks, networking switches, fiber arrays, and desk allocations.' },
+  { id: 'event', name: 'Event & Banquet Planning', icon: 'Cake', gearLabelSingular: 'Event Item', gearLabelPlural: 'Chairs, Tables & Cables', listLabelSingular: 'Event Checklist', listLabelPlural: 'Event Checklists', description: 'Track table layouts, banquet chairs, audio/visual inputs, stage decors, and caterings.' },
+  { id: 'general', name: 'General Equipment', icon: 'Package', gearLabelSingular: 'Asset', gearLabelPlural: 'Inventory Assets', listLabelSingular: 'Packing List', listLabelPlural: 'Packing Lists', description: 'Universal tracking for multi-disciplinary gear libraries and general utilities.' }
+];
+
+export interface BugReport {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  title: string;
+  description: string;
+  module: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'open' | 'in_review' | 'resolved';
+  createdAt: string;
+  adminNotes?: string;
+  adminNotesUpdatedAt?: string;
+}
+
+

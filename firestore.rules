@@ -147,6 +147,14 @@ service cloud.firestore {
              data.status is string && data.status.size() > 0 && data.status.size() < 100;
     }
 
+    function isValidBugReport(data) {
+      return data.keys().hasAll(['userId', 'title', 'description', 'status']) &&
+             data.userId is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 5000 &&
+             data.status in ['open', 'in_review', 'resolved'];
+    }
+
     // Rules
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
@@ -336,6 +344,14 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update: if isAuthenticated();
       allow delete: if isAuthenticated() && (resource.data.authorEmail == request.auth.token.email || isAdmin());
+    }
+
+    // Rules for bugs collection
+    match /bugs/{bugId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidBugReport(request.resource.data);
+      allow update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid && isValidBugReport(request.resource.data));
+      allow delete: if isAdmin();
     }
 
   }

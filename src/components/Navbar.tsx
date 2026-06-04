@@ -44,7 +44,14 @@ export default function Navbar({
                 </span>
               </div>
             ) : (
-              <PackerLogo variant="full" size={36} light={true} />
+              <div className="flex items-center">
+                <span className="block sm:hidden">
+                  <PackerLogo variant="text-only" light={true} />
+                </span>
+                <span className="hidden sm:block">
+                  <PackerLogo variant="full" size={32} light={true} />
+                </span>
+              </div>
             )}
           </Link>
 

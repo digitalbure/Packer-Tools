@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useIndustry } from '../context/IndustryContext';
 import { 
   Home, 
   LayoutDashboard, 
@@ -90,33 +91,35 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
   const [isProjectStartersOpen, setIsProjectStartersOpen] = useState(false);
   const [openSubItems, setOpenSubItems] = useState<string[]>([]);
 
+  const { getAdjustedLabel, getAdjustedNav } = useIndustry();
+
   if (!user) return null;
 
-  const navItems = [
+  const navItems = getAdjustedNav([
     { to: '/organization', label: 'Organization', icon: <Building2 size={20} /> },
     { to: '/projects', label: 'Projects', icon: <Briefcase size={20} /> },
     { to: '/kiosk', label: 'Gear Kiosk', icon: <QrCode size={20} />, feature: 'kioskMode' as FeatureKey },
-    { to: '/library', label: 'Gear Library', icon: <Package size={20} /> },
-    { to: '/systems-builder', label: 'Systems Builder', icon: <Hammer size={20} /> },
+    { to: '/library', label: getAdjustedLabel('library'), icon: <Package size={20} /> },
+    { to: '/systems-builder', label: getAdjustedLabel('systems-builder'), icon: <Hammer size={20} /> },
     { to: '/marketplace', label: 'Marketplace', icon: <ShoppingBag size={20} /> },
     { to: '/listings', label: 'Listings', icon: <ListChecks size={20} /> },
     { 
       to: '/lists', 
-      label: 'Lists', 
+      label: getAdjustedLabel('lists'), 
       icon: <Layers size={20} />,
       subItems: [
-        { to: '/dashboard?tab=lists', label: 'Packing Lists', icon: <FileText size={16} /> },
-        { to: '/dashboard?tab=templates', label: 'Templates', icon: <FileText size={16} /> },
+        { to: '/dashboard?tab=lists', label: getAdjustedLabel('packing-lists'), icon: <FileText size={16} /> },
+        { to: '/dashboard?tab=templates', label: getAdjustedLabel('templates'), icon: <FileText size={16} /> },
         { to: '/inventory', label: 'Inventories', icon: <LayoutGrid size={16} /> },
         { to: '/library?type=kit', label: 'Kits', icon: <Zap size={16} /> },
         { to: '/organizer', label: 'Groups & Shelves', icon: <Layout size={16} /> },
       ]
     },
-    { to: '/racks', label: 'Rack Management', icon: <Server size={20} /> },
-    { to: '/logistics', label: 'Logistics', icon: <Truck size={20} /> },
+    { to: '/racks', label: getAdjustedLabel('racks'), icon: <Server size={20} /> },
+    { to: '/logistics', label: getAdjustedLabel('logistics'), icon: <Truck size={20} /> },
     { 
       to: '/inventory', 
-      label: 'Asset Inventory', 
+      label: getAdjustedLabel('inventory'), 
       icon: <LayoutGrid size={20} />,
       feature: 'inventoryManagement' as FeatureKey 
     },
@@ -130,7 +133,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
   ].filter(item => {
     if (item.feature === 'kioskMode') return true;
     return !item.feature || isFeatureEnabled(item.feature, user, adminSettings);
-  });
+  }));
 
   const adminNavItems = [
     { to: '/admin?tab=analytics', label: 'Platform Analytics', icon: <BarChart3 size={20} /> },
@@ -201,7 +204,14 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                   </span>
                 </div>
               ) : (
-                <PackerLogo variant="full" size={32} light={true} />
+                <div className="flex items-center">
+                  <span className="block sm:hidden">
+                    <PackerLogo variant="text-only" light={true} />
+                  </span>
+                  <span className="hidden sm:block">
+                    <PackerLogo variant="full" size={26} light={true} className="scale-95 origin-left" />
+                  </span>
+                </div>
               )
             )}
           </Link>
@@ -697,11 +707,11 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v1.0.0-β.2' : 'Version 1.0.0-beta.2'}
+            {isCollapsed ? 'v4.2.0' : 'Version 4.2.0'}
           </span>
           {!isCollapsed && (
-            <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest mt-1 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">
-              Active Beta Test
+            <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">
+              Stable Production
             </span>
           )}
         </div>

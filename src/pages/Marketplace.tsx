@@ -30,7 +30,14 @@ import {
   Camera,
   Map,
   Filter,
-  Globe
+  Globe,
+  Hammer,
+  Wrench,
+  Package,
+  LayoutGrid,
+  List,
+  ArrowUpDown,
+  Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -59,6 +66,11 @@ interface ProductItem {
   shippingDays?: number;
   isShipped?: boolean;
   isSale?: boolean;
+  industry?: string;
+  sponsored?: boolean;
+  featured?: boolean;
+  featuredPriority?: number;
+  isUserListing?: boolean;
   addOns?: Array<{
     itemId?: string;
     name: string;
@@ -128,6 +140,66 @@ const STAFF_PICKS: ProductItem[] = [
   { id: 'pick-2', name: 'Sony FX3 + FX3 Rig + Sigma Art 24-70 2.8 package', brand: 'Sony', model: 'FX3 Rig Combo', category: 'cinema-cameras', price: 138, rating: 5.0, reviews: 82, image: 'https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=400', ownerName: 'Bogdan Rental', instantBook: true },
   { id: 'pick-3', name: 'Aputure Nova P300c RGBWW LED Panel / Color LED Panel', brand: 'Aputure', model: 'Nova P300c', category: 'lighting-electric', price: 50, rating: 4.9, reviews: 31, image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&q=80&w=400', ownerName: 'Sum of Parts LLC', instantBook: true },
   { id: 'pick-4', name: 'Sony Alpha a7 IV Camera w/Sigma 24-70mm f2.8 lens & Rode VideoMic Pro', brand: 'Sony', model: 'a7 IV Kit', category: 'still-hybrid', price: 70, rating: 4.7, reviews: 19, image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400', ownerName: 'Bogdan Rental', instantBook: true },
+];
+
+const INDUSTRIES_MARKET = [
+  { id: 'all', name: 'View All Industries', description: 'Explore items globally' },
+  { id: 'production', name: 'Pro AV & Cinema', description: 'Cameras, Sound, and G&E Kits' },
+  { id: 'construction', name: 'Heavy Construction', description: 'Excavators, Drills, and Hoists' },
+  { id: 'automotive', name: 'Automotive & Garage', description: 'Lift Jacks, diagnostics, wrenches' },
+  { id: 'medical', name: 'Medical Devices', description: 'ECG Monitors, Ultrasounds, and Lab kits' },
+  { id: 'general_logistics', name: 'Warehouse Logistics', description: 'Forklifts, Hand Trucks, and Flight trunks' }
+];
+
+const EXTRA_CATEGORIES: CategoryItem[] = [
+  // Construction
+  { id: 'heavy-machinery', name: 'Heavy Machinery & Cranes', count: 320, image: 'https://images.unsplash.com/photo-1579684389781-71fa80d34154?auto=format&fit=crop&q=80&w=400' },
+  { id: 'power-tools', name: 'Industrial Power Tools', count: 4501, image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=400' },
+  { id: 'site-scaffolding', name: 'Hoists & Scaffold Systems', count: 1450, image: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=400' },
+  { id: 'welding-assemblies', name: 'Welding & Arc Outfits', count: 890, image: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&q=80&w=400' },
+
+  // Automotive
+  { id: 'diagnostics', name: 'Garages & Calibration Diagnostics', count: 1205, image: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=400' },
+  { id: 'lifting-jacks', name: 'Pneumatic Lifting Jacks & Ramps', count: 850, image: 'https://images.unsplash.com/photo-1530047625168-4b18df2df4f6?auto=format&fit=crop&q=80&w=400' },
+  { id: 'power-air-tools', name: 'Air Compressors & Impact Tools', count: 2310, image: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&q=80&w=400' },
+  { id: 'mechanical-handtools', name: 'Heavy Wrench & Storage Cabinets', count: 4920, image: 'https://images.unsplash.com/photo-1534224039826-c7a0eda0e6b3?auto=format&fit=crop&q=80&w=400' },
+
+  // Medical
+  { id: 'imaging', name: 'Medical Ultrasound & Scopes', count: 412, image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&q=80&w=400' },
+  { id: 'patient-monitors', name: 'Care Vitals & ECG Monitors', count: 980, image: 'https://images.unsplash.com/photo-1551076805-e1869033e561?auto=format&fit=crop&q=80&w=400' },
+  { id: 'clinical-pipettes', name: 'Lab Clinical Micropipettes', count: 1540, image: 'https://images.unsplash.com/photo-1579154204601-01588f351167?auto=format&fit=crop&q=80&w=400' },
+  { id: 'surgical-support', name: 'Minor Surgical Light & Otoscopes', count: 620, image: 'https://images.unsplash.com/photo-1584515901307-a5418eb66a8a?auto=format&fit=crop&q=80&w=400' },
+
+  // General logistics
+  { id: 'warehouse-logistics', name: 'Propane Forklifts & Shifters', count: 2430, image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=400' },
+  { id: 'platform-carts', name: 'High Capacity Flatbed Dollies', count: 1105, image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=400' },
+  { id: 'flight-cases', name: 'Flight Cases & G&E Pack Trunks', count: 3108, image: 'https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=400' }
+];
+
+const MULTI_INDUSTRY_PRODUCTS: ProductItem[] = [
+  // Construction
+  { id: 'const-1', name: 'Caterpillar 302.7 CR Mini Excavator - 2.7 Tons', brand: 'Caterpillar', model: '302.7 CR', category: 'heavy-machinery', price: 250, rating: 4.9, reviews: 34, image: 'https://images.unsplash.com/photo-1579684389781-71fa80d34154?auto=format&fit=crop&q=80&w=400', ownerName: 'Atlas Fleet Rentals', instantBook: true, industry: 'construction' },
+  { id: 'const-2', name: 'Hilti TE 70-ATC SDS Max Rotary Hammer Drill Kit', brand: 'Hilti', model: 'TE 70-ATC', category: 'power-tools', price: 45, rating: 4.8, reviews: 112, image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=400', ownerName: 'Pacific Tool Shed', instantBook: true, industry: 'construction' },
+  { id: 'const-3', name: 'Genie GS-1930 Electric Self-Propelled Scissor Lift', brand: 'Genie', model: 'GS-1930', category: 'site-scaffolding', price: 120, rating: 4.7, reviews: 29, image: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=400', ownerName: 'Ascent Hoist & Rig', instantBook: false, industry: 'construction' },
+  { id: 'const-4', name: 'Miller Bobcat 250 Engine Welder-Generator', brand: 'Miller', model: 'Bobcat 250', category: 'welding-assemblies', price: 75, rating: 4.9, reviews: 14, image: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&q=80&w=400', ownerName: 'MetalCraft Inc', instantBook: true, industry: 'construction' },
+  { id: 'const-5', name: 'DeWalt 20V Cordless Max Combo 6-Tool Drill Kit', brand: 'DeWalt', model: 'DCK620D2', category: 'power-tools', price: 110, rating: 4.6, reviews: 220, image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=400', ownerName: 'DeWalt Central', isSale: true, industry: 'construction' },
+
+  // Automotive
+  { id: 'auto-1', name: 'Snap-on ZEUS+ Intelligent Diagnostic Scanner Tool', brand: 'Snap-on', model: 'EEMS348', category: 'diagnostics', price: 95, rating: 5.0, reviews: 18, image: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=400', ownerName: 'Apex Diagnostic Station', instantBook: true, industry: 'automotive' },
+  { id: 'auto-2', name: 'BendPak HD-9 Four-Post Car Parking Lift System', brand: 'BendPak', model: 'HD-9', category: 'lifting-jacks', price: 150, rating: 4.9, reviews: 41, image: 'https://images.unsplash.com/photo-1530047625168-4b18df2df4f6?auto=format&fit=crop&q=80&w=400', ownerName: 'Veloce R&D Garage', instantBook: false, industry: 'automotive' },
+  { id: 'auto-3', name: 'Ingersoll Rand Air Impact 1/2" Heavy Duty Gun', brand: 'Ingersoll Rand', model: '2235TiMAX', category: 'power-air-tools', price: 30, rating: 4.8, reviews: 76, image: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&q=80&w=400', ownerName: 'Pneumatic Outlet', instantBook: true, industry: 'automotive' },
+  { id: 'auto-4', name: 'Mac Tools Professional Socket Wrench Master Chest', brand: 'Mac Tools', model: 'MB1300', category: 'mechanical-handtools', price: 1850, rating: 4.9, reviews: 15, image: 'https://images.unsplash.com/photo-1534224039826-c7a0eda0e6b3?auto=format&fit=crop&q=80&w=400', ownerName: 'Canyon Mechanics', isSale: true, industry: 'automotive' },
+
+  // Medical
+  { id: 'med-1', name: 'GE Vscan Air Handheld Wireless Ultrasound Scanner', brand: 'GE Healthcare', model: 'Vscan Air', category: 'imaging', price: 180, rating: 5.0, reviews: 9, image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&q=80&w=400', ownerName: 'Horizon Clinical Tech', instantBook: true, industry: 'medical' },
+  { id: 'med-2', name: 'Philips Goldway G40 Multiparameter Vital Patient Monitor', brand: 'Philips', model: 'Goldway G40', category: 'patient-monitors', price: 65, rating: 4.7, reviews: 14, image: 'https://images.unsplash.com/photo-1551076805-e1869033e561?auto=format&fit=crop&q=80&w=400', ownerName: 'CarePlus Logistics', instantBook: true, industry: 'medical' },
+  { id: 'med-3', name: 'Eppendorf Research Plus Master Adjustable Micropipette Set', brand: 'Eppendorf', model: 'Research Plus', category: 'clinical-pipettes', price: 35, rating: 4.9, reviews: 43, image: 'https://images.unsplash.com/photo-1579154204601-01588f351167?auto=format&fit=crop&q=80&w=400', ownerName: 'BioLab Research Group', instantBook: true, industry: 'medical' },
+  { id: 'med-4', name: 'Welch Allyn Diagnostic MacroView LED Otoscope Kit', brand: 'Welch Allyn', model: 'MacroView LED', category: 'surgical-support', price: 450, rating: 4.8, reviews: 29, image: 'https://images.unsplash.com/photo-1584515901307-a5418eb66a8a?auto=format&fit=crop&q=80&w=400', ownerName: 'MedDirect Supplies', isSale: true, industry: 'medical' },
+
+  // Logistics
+  { id: 'log-1', name: 'Toyota 8FGU25 5000lb Cushion Tire Propane Forklift', brand: 'Toyota Heavy', model: '8FGU25', category: 'warehouse-logistics', price: 190, rating: 4.9, reviews: 52, image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=400', ownerName: 'Omni Logistic Fleet', instantBook: false, industry: 'general_logistics' },
+  { id: 'log-2', name: 'Uline Heavy Duty Industrial Platform Hand Truck', brand: 'Uline', model: 'Platform Truck', category: 'platform-carts', price: 15, rating: 4.6, reviews: 108, image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=400', ownerName: 'Summit Packing Depot', instantBook: true, industry: 'general_logistics' },
+  { id: 'log-3', name: 'Pelican Storm iM2875 Custom Transport Flight Trunk', brand: 'Pelican', model: 'iM2875', category: 'flight-cases', price: 180, originalPrice: 220, rating: 4.9, reviews: 215, image: 'https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=400', ownerName: 'CaseMasters LLC', isSale: true, industry: 'general_logistics' }
 ];
 
 interface MarketplaceProps {
@@ -341,6 +413,9 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   
   // Filtering & Modal parameters
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('default');
+  const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
   const [favoriteItems, setFavoriteItems] = useState<Set<string>>(new Set());
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
   const [selectedCrew, setSelectedCrew] = useState<CrewItem | null>(null);
@@ -397,17 +472,47 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     setSelectedCrew(null);
   };
 
-  // Filtering lists based on global searches and chips
+  // Dynamic categories and industry filter logic
+  const activeIndustryFilter = (item: any) => {
+    if (selectedIndustry === 'all') return true;
+    const itemInd = item.industry || 'production';
+    return itemInd === selectedIndustry;
+  };
+
   const allRentals = [
     ...userListings.filter(l => !l.isSale),
-    ...mappedPopularProducts,
-    ...mappedShippedProducts,
-    ...mappedStaffPicks
-  ];
+    ...mappedPopularProducts.map(p => ({ ...p, industry: 'production' })),
+    ...mappedShippedProducts.map(p => ({ ...p, industry: 'production' })),
+    ...mappedStaffPicks.map(p => ({ ...p, industry: 'production' })),
+    ...MULTI_INDUSTRY_PRODUCTS.filter(p => !p.isSale)
+  ].filter(activeIndustryFilter);
+
   const allSales = [
     ...userListings.filter(l => l.isSale),
-    ...mappedSalesProducts
-  ];
+    ...mappedSalesProducts.map(p => ({ ...p, industry: 'production' })),
+    ...MULTI_INDUSTRY_PRODUCTS.filter(p => p.isSale)
+  ].filter(activeIndustryFilter);
+
+  const getCategoriesList = () => {
+    if (selectedIndustry === 'all') {
+      return [...CATEGORIES, ...EXTRA_CATEGORIES];
+    } else if (selectedIndustry === 'production') {
+      return CATEGORIES;
+    } else {
+      if (selectedIndustry === 'construction') {
+        return EXTRA_CATEGORIES.slice(0, 4);
+      } else if (selectedIndustry === 'automotive') {
+        return EXTRA_CATEGORIES.slice(4, 8);
+      } else if (selectedIndustry === 'medical') {
+        return EXTRA_CATEGORIES.slice(8, 12);
+      } else if (selectedIndustry === 'general_logistics') {
+        return EXTRA_CATEGORIES.slice(12, 15);
+      }
+      return EXTRA_CATEGORIES;
+    }
+  };
+
+  const activeCategories = getCategoriesList();
 
   const filteredProducts = (currentMode === 'rent' ? allRentals : allSales)
     .filter(item => {
@@ -418,6 +523,16 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       return matchesSearch && matchesCategory;
     })
     .sort((a: any, b: any) => {
+      if (sortBy === 'price-asc') {
+        return a.price - b.price;
+      } else if (sortBy === 'price-desc') {
+        return b.price - a.price;
+      } else if (sortBy === 'rating') {
+        return (b.rating || 0) - (a.rating || 0);
+      } else if (sortBy === 'reviews') {
+        return (b.reviews || 0) - (a.reviews || 0);
+      }
+      
       // Prioritize Sponsored Ads first, then Featured items, then custom priority sorting
       if (a.sponsored && !b.sponsored) return -1;
       if (!a.sponsored && b.sponsored) return 1;
@@ -902,6 +1017,86 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       )}
 
 
+      {/* Dynamic Industry Filter & Layout Selector Header */}
+      <div className="max-w-7xl mx-auto px-6 md:px-12 py-6 border-b border-neutral-150 bg-neutral-50/20 mb-4 rounded-3xl">
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-black uppercase text-[#ff4f3a] tracking-widest">Industry focus switcher</p>
+              <h3 className="text-sm font-extrabold text-neutral-800 uppercase tracking-tight mt-0.5">Select Sector Ecosystem</h3>
+            </div>
+            
+            {/* View Grid/List & Sorting selector */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              
+              {/* SortingDropdown */}
+              <div className="flex items-center gap-1.5 bg-white border border-neutral-200 rounded-xl px-3 py-1.5 shadow-xs">
+                <ArrowUpDown size={11} className="text-neutral-400" />
+                <span className="text-[9px] font-black uppercase text-neutral-400 tracking-wider">Sort:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => {
+                    setSortBy(e.target.value);
+                    toast.success(`Sorting updated: ${e.target.value}`);
+                  }}
+                  className="bg-transparent text-[10px] font-bold text-neutral-700 outline-none cursor-pointer uppercase pr-1"
+                >
+                  <option value="default">Default Priority</option>
+                  <option value="price-asc">Price: Low to High</option>
+                  <option value="price-desc">Price: High to Low</option>
+                  <option value="rating">Rating (Highest first)</option>
+                  <option value="reviews">Reviews count</option>
+                </select>
+              </div>
+
+              {/* View Layout Toggle */}
+              <div className="flex bg-neutral-100 p-0.5 rounded-xl border border-neutral-200">
+                <button
+                  onClick={() => setViewType('grid')}
+                  className={`p-1.5 rounded-lg ${viewType === 'grid' ? 'bg-white text-primary shadow-xs' : 'text-neutral-400 hover:text-neutral-600'}`}
+                  title="Grid Layout View"
+                >
+                  <LayoutGrid size={13} />
+                </button>
+                <button
+                  onClick={() => setViewType('list')}
+                  className={`p-1.5 rounded-lg ${viewType === 'list' ? 'bg-white text-primary shadow-xs' : 'text-neutral-400 hover:text-neutral-600'}`}
+                  title="List Layout View"
+                >
+                  <List size={13} />
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Industry Buttons Swiper with scrollbar-none */}
+          <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none snap-x whitespace-nowrap scroll-smooth">
+            {INDUSTRIES_MARKET.map((ind) => {
+              const isSelected = selectedIndustry === ind.id;
+              return (
+                <button
+                  key={ind.id}
+                  onClick={() => {
+                    setSelectedIndustry(ind.id);
+                    setSelectedCategory(null);
+                    toast.success(`Active industry changed to: ${ind.name}`);
+                  }}
+                  className={`px-4 py-2 rounded-2xl border text-[10px] font-extrabold uppercase transition duration-200 tracking-wider shrink-0 snap-align-start ${
+                    isSelected 
+                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-md' 
+                      : 'bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50'
+                  }`}
+                >
+                  {ind.name}
+                </button>
+              );
+            })}
+          </div>
+
+        </div>
+      </div>
+
       {/* 4. DESIGN BROWSE CATEGORIES CAROUSEL (MATCHING SCREENSHOT 3) */}
       {showCategories && (
         <div id="marketplace-categories-section" className="max-w-7xl mx-auto px-6 md:px-12 py-10 space-y-6">
@@ -940,7 +1135,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
           {/* Categories grid horizontal layout */}
           <div className="flex overflow-x-auto gap-4 py-2 pr-4 scrollbar-hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {CATEGORIES.map((cat) => {
+            {activeCategories.map((cat) => {
               const isSelected = selectedCategory === cat.id;
               return (
                 <div 
@@ -1036,7 +1231,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                 Reset Searches
               </button>
             </div>
-          ) : (
+          ) : viewType === 'grid' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
               {filteredProducts.map((product) => {
                 const isFav = favoriteItems.has(product.id);
@@ -1156,6 +1351,128 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                           )}
                         </div>
                       </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Premium List View Row Layout */
+            <div className="flex flex-col gap-4">
+              {filteredProducts.map((product) => {
+                const isFav = favoriteItems.has(product.id);
+                return (
+                  <div 
+                    key={product.id}
+                    onClick={() => {
+                      if (product.isUserListing) {
+                        navigate('/marketplace/' + product.id);
+                      } else {
+                        setSelectedProduct(product);
+                        setIsBookingModalOpen(true);
+                      }
+                    }}
+                    className={`group cursor-pointer bg-white rounded-2xl overflow-hidden hover:shadow-xl transition duration-300 border p-4 flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center ${
+                      product.sponsored ? 'border-indigo-600/30 bg-indigo-55/10 bg-indigo-50/5' :
+                      product.featured ? 'border-amber-500/30' : 'border-neutral-100'
+                    }`}
+                  >
+                    {/* List Left: Visual image frame */}
+                    <div className="h-32 w-full sm:w-44 bg-neutral-50 relative overflow-hidden rounded-xl shrink-0">
+                      <img 
+                        src={product.image} 
+                        alt={product.name} 
+                        className="w-full h-full object-cover object-center transform group-hover:scale-105 transition duration-500"
+                        referrerPolicy="no-referrer"
+                      />
+                      
+                      <div className="absolute top-2 left-2 flex flex-col gap-1">
+                        {product.sponsored ? (
+                          <span className="bg-indigo-600 text-white text-[6.5px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide font-mono">
+                            Sponsored
+                          </span>
+                        ) : product.featured ? (
+                          <span className="bg-amber-500 text-white text-[6.5px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide font-mono">
+                            ★ Staff Pick
+                          </span>
+                        ) : product.isSale ? (
+                          <span className="bg-[#ff4f3a] text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide font-mono">
+                            For Sale
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <button
+                        onClick={(e) => toggleFavorite(product.id, e)}
+                        className="absolute bottom-2 right-2 w-6 h-6 bg-white/90 rounded-full flex items-center justify-center text-neutral-500 hover:text-[#ff4f3a] transition shadow"
+                      >
+                        <Heart size={12} className={isFav ? 'fill-red-500 text-red-500' : ''} />
+                      </button>
+                    </div>
+
+                    {/* List Middle: Descriptive items */}
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[8.5px] font-mono font-bold text-neutral-400 uppercase tracking-widest">{product.brand}</span>
+                        {product.industry && (
+                          <span className="text-[7.5px] bg-neutral-100 text-neutral-500 font-extrabold uppercase px-1.5 py-0.2 rounded tracking-wide font-mono">
+                            {product.industry}
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-xs sm:text-sm font-black uppercase text-neutral-800 line-clamp-1 leading-snug group-hover:text-black">
+                        {product.name}
+                      </h4>
+                      
+                      {/* Rating details & Owner details in list format */}
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-1">
+                          <Star size={10} className="fill-amber-400 text-amber-400 shrink-0" />
+                          <span className="text-[9.5px] font-black text-neutral-700">{product.rating}</span>
+                          <span className="text-[8.5px] text-neutral-400 font-bold uppercase">({product.reviews} reviews)</span>
+                        </div>
+                        {product.ownerName && (
+                          <div className="hidden sm:block text-[8.5px] text-neutral-400 font-bold uppercase tracking-wider">
+                            <span>Owner: </span>
+                            <span className="text-neutral-600">{product.ownerName}</span>
+                          </div>
+                        )}
+                        {product.isShipped && (
+                          <span className="text-[7.5px] bg-indigo-50 text-indigo-750 text-indigo-650 font-black uppercase px-2 py-0.5 rounded">
+                            🚚 Priority Shipping Available
+                          </span>
+                        )}
+                      </div>
+
+                      {product.sponsored && product.adHeadline && (
+                        <p className="text-[9px] font-semibold text-indigo-600">📢 {product.adHeadline}</p>
+                      )}
+                    </div>
+
+                    {/* List Right: Dynamic pricing and book button */}
+                    <div className="flex sm:flex-col justify-between sm:justify-center items-center sm:items-end gap-3 shrink-1 sm:shrink-0 w-full sm:w-auto border-t sm:border-t-0 border-neutral-150 pt-3 sm:pt-0">
+                      <div className="text-right">
+                        <p className="text-[8.5px] text-neutral-400 font-bold uppercase">Estimated rate</p>
+                        <div className="flex items-baseline justify-end">
+                          <span className="text-base font-black text-neutral-900 leading-none">
+                            {currencySymbol}{product.price ? product.price.toLocaleString() : 'Call'}
+                          </span>
+                          <span className="text-[8.5px] text-neutral-400 font-bold uppercase ml-0.5">
+                            {product.isSale ? '' : '/day'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        className="bg-neutral-900 text-white rounded-xl py-1.5 px-4 text-[9px] font-black tracking-widest uppercase hover:bg-[#ff4f3a] transition duration-200"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedProduct(product);
+                          setIsBookingModalOpen(true);
+                        }}
+                      >
+                        {product.isSale ? 'Inquire' : 'Rent Now'}
+                      </button>
                     </div>
                   </div>
                 );

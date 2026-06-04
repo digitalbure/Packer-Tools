@@ -12,6 +12,17 @@ export function isFeatureEnabled(
     return false;
   }
 
+  // 2. Check Beta Mode Restriction
+  const isBetaOnly = adminSettings.betaFeatures?.[feature] === true;
+  if (isBetaOnly) {
+    // Only super admins and registered beta testers can run this feature/module
+    const isUserSuperAdmin = user?.isSuperAdmin === true;
+    const isUserBetaTester = user?.isBetaTester === true;
+    if (!isUserSuperAdmin && !isUserBetaTester) {
+      return false;
+    }
+  }
+
   if (!user) return false;
 
   // Super admins have access to all features bypass

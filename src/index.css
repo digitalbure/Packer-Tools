@@ -77,3 +77,150 @@
     @apply text-[10px] font-bold uppercase tracking-[0.15em] text-neutral-400;
   }
 }
+
+/* --- High-Density Dark Mode Overrides (v4.1.0) --- */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body,
+html.dark .min-h-screen,
+html.dark #root {
+  background-color: #0c0c0c !important;
+  color: #f5f5f4 !important;
+}
+
+/* Base text elements transition */
+html.dark p,
+html.dark span,
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6,
+html.dark label,
+html.dark strong {
+  transition: color 0.15s ease-in-out;
+}
+
+/* Background overrides */
+html.dark .bg-white {
+  background-color: #141413 !important;
+}
+
+html.dark .bg-neutral-50,
+html.dark .bg-slate-50,
+html.dark .bg-stone-50,
+html.dark .bg-gray-50,
+html.dark .bg-stone-100/50,
+html.dark .bg-neutral-100/50 {
+  background-color: #191918 !important;
+}
+
+html.dark .bg-neutral-100,
+html.dark .bg-slate-100,
+html.dark .bg-gray-100,
+html.dark .bg-stone-100 {
+  background-color: #20201f !important;
+}
+
+/* Border overrides */
+html.dark .border-neutral-100,
+html.dark .border-neutral-200,
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-stone-100,
+html.dark .border-stone-200,
+html.dark .border-gray-200,
+html.dark .border-primary\/5 {
+  border-color: #272726 !important;
+}
+
+/* Sidebar and navigation containers */
+html.dark .border-neutral-100\/50,
+html.dark .border-neutral-200\/60 {
+  border-color: #222221 !important;
+}
+
+/* Primary text & titles override */
+html.dark .text-neutral-900,
+html.dark .text-neutral-800,
+html.dark .text-neutral-855,
+html.dark .text-neutral-850,
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-gray-900,
+html.dark .text-stone-900 {
+  color: #f5f5f4 !important;
+}
+
+/* Sub-headings and muted texts */
+html.dark .text-neutral-500,
+html.dark .text-neutral-600,
+html.dark .text-slate-500,
+html.dark .text-slate-600,
+html.dark .text-gray-500,
+html.dark .text-gray-600,
+html.dark .text-stone-500,
+html.dark .text-stone-600 {
+  color: #a1a1aa !important;
+}
+
+/* Light text references */
+html.dark .text-neutral-400,
+html.dark .text-slate-400 {
+  color: #71717a !important;
+}
+
+/* Shadow configurations to retain depth in darkness */
+html.dark .card-shadow,
+html.dark .shadow-sm,
+html.dark .shadow-md,
+html.dark .shadow-lg,
+html.dark .shadow-2xl {
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Input Fields & Actions */
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: #191918 !important;
+  color: #f5f5f4 !important;
+  border-color: #272726 !important;
+}
+
+html.dark input:focus,
+html.dark textarea:focus {
+  border-color: #ff6321 !important;
+}
+
+/* Override active white elements to contrast against dark cards */
+html.dark .bg-neutral-50\/40 {
+  background-color: rgba(25, 25, 24, 0.4) !important;
+}
+
+/* Special button contrast adjustments */
+html.dark button.bg-primary,
+html.dark a.bg-primary {
+  background-color: #ffffff !important;
+  color: #141413 !important;
+}
+
+html.dark button.bg-primary:hover,
+html.dark a.bg-primary:hover {
+  background-color: #f5f5f4 !important;
+}
+
+html.dark button.text-primary,
+html.dark a.text-primary {
+  color: #f5f5f4 !important;
+}
+
+/* Dialog and popovers */
+html.dark .glass {
+  background-color: rgba(20, 20, 19, 0.82) !important;
+  backdrop-filter: blur(20px) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
