@@ -187,6 +187,11 @@ service cloud.firestore {
         allow create, update: if isOwner(userId) && isValidContainer(request.resource.data);
         allow delete: if isOwner(userId);
       }
+
+      match /bookingConditions/{conditionId} {
+        allow read: if true;
+        allow create, update, delete: if isOwner(userId) || isAdmin();
+      }
     }
 
     // Collection Group for Gear
@@ -352,6 +357,13 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidBugReport(request.resource.data);
       allow update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid && isValidBugReport(request.resource.data));
       allow delete: if isAdmin();
+    }
+
+    // Rules for gearBookings collection
+    match /gearBookings/{bookingId} {
+      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if true;
+      allow update, delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
   }

@@ -328,6 +328,37 @@
         "adminNotes": { "type": "string" }
       },
       "required": ["userId", "title", "description", "status"]
+    },
+    "BookingCondition": {
+      "title": "Booking Condition",
+      "description": "Custom rental or booking conditions defined by a user.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "GearBooking": {
+      "title": "Gear Booking",
+      "description": "Renting or reserving a gear item.",
+      "type": "object",
+      "properties": {
+        "gearId": { "type": "string" },
+        "gearName": { "type": "string" },
+        "brand": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "clientEmail": { "type": "string" },
+        "clientPhone": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "depositAmount": { "type": "number" },
+        "paymentStatus": { "type": "string" },
+        "reservationType": { "type": "string" },
+        "customConditions": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["gearId", "ownerId", "clientName", "startDate", "endDate"]
     }
   },
   "firestore": {
@@ -426,6 +457,14 @@
     "/projectCosts/{costId}": {
       "schema": "ProjectCost",
       "description": "Financial cost listings for a project"
+    },
+    "/users/{userId}/bookingConditions/{conditionId}": {
+      "schema": "BookingCondition",
+      "description": "Booking conditions for a user's gear"
+    },
+    "/gearBookings/{bookingId}": {
+      "schema": "GearBooking",
+      "description": "Bookings for user-offered gear items"
     }
   }
 }
