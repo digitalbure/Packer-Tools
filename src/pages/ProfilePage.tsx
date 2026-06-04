@@ -8,6 +8,7 @@ import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save
 import { getUsage } from '../lib/limitUtils';
 import PaymentModal from '../components/PaymentModal';
 import UpgradeNowModal from '../components/UpgradeNowModal';
+import AITokenUsageChart from '../components/AITokenUsageChart';
 import { useTheme } from '../context/ThemeContext';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
@@ -740,6 +741,15 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
 
             </div>
           </section>
+
+          <AITokenUsageChart 
+            user={user}
+            adminSettings={adminSettings}
+            onUpgradeClick={() => {
+              setRestrictedFeature('Generative AI Tokens Boost');
+              setIsUpgradeNowModalOpen(true);
+            }}
+          />
         </div>
 
         <div className="space-y-6 sm:space-y-8 col-span-1">
