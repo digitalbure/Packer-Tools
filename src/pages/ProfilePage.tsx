@@ -4,10 +4,11 @@ import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import { motion } from 'motion/react';
-import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award, Sun, Moon } from 'lucide-react';
+import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award, Sun, Moon, Smartphone, Download } from 'lucide-react';
 import { getUsage } from '../lib/limitUtils';
 import PaymentModal from '../components/PaymentModal';
 import { useTheme } from '../context/ThemeContext';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 interface ProfilePageProps {
   user: UserProfile;
@@ -17,6 +18,7 @@ interface ProfilePageProps {
 
 export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePageProps) {
   const { theme, setTheme } = useTheme();
+  const { isReadyToInstall, isInstalled, triggerInstall } = usePWAInstall();
   const [isEditing, setIsEditing] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -737,6 +739,54 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
         </div>
 
         <div className="space-y-6 sm:space-y-8 col-span-1">
+          {/* Mobile App PWA Install Card */}
+          <section className="bg-gradient-to-br from-neutral-900 to-neutral-950 text-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-neutral-800 shadow-xl space-y-6 sm:space-y-8 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 blur-3xl rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700" />
+            
+            <div className="space-y-2 relative">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-primary/20 text-primary border border-primary/30 font-black px-2.5 py-1 rounded-xl uppercase tracking-widest animate-pulse">
+                  App PWA v4.0
+                </span>
+                {isInstalled && (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black px-2.5 py-1 rounded-xl uppercase tracking-widest">
+                    Installed
+                  </span>
+                )}
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter flex items-center gap-3 text-white">
+                <Smartphone className="text-primary shrink-0 animate-bounce" size={24} />
+                <span>Packer Mobile</span>
+              </h3>
+              <p className="text-xs text-neutral-400 leading-relaxed font-semibold">
+                Install Packer Tools directly to your mobile homescreen. Enjoy full offline synchronization, instant barcode scanning, and optimized screen density.
+              </p>
+            </div>
+
+            <div className="pt-2 relative">
+              {isInstalled ? (
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-center text-xs text-neutral-300 font-semibold leading-relaxed">
+                  <CheckCircle2 className="text-emerald-400 mx-auto mb-2" size={24} />
+                  <span className="font-bold text-white uppercase tracking-wide block mb-1">Active Standalone Mode</span>
+                  This application is running on your device in Native Standalone format. Full offline capabilities are operational.
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={triggerInstall}
+                  className="w-full py-4 bg-primary hover:bg-primary/95 text-white rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition shadow-lg flex items-center justify-center gap-3 cursor-pointer"
+                >
+                  <Download size={18} />
+                  Install App
+                </button>
+              )}
+            </div>
+            
+            <div className="text-[9px] text-neutral-400 font-bold uppercase tracking-wide text-center pt-2 border-t border-white/5 relative">
+              Compatible with Safari, Chrome, Samsung, & Edge
+            </div>
+          </section>
+
           {/* Theme Preferences Card */}
           <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8 animate-fade-in">
             <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">

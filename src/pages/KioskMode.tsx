@@ -537,9 +537,10 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       let retryCount = 0;
 
       const initScanner = () => {
+        if (!isSubscribed) return;
         const el = document.getElementById("kiosk-scanner");
         if (!el) {
-          if (isSubscribed && retryCount < 20) {
+          if (isSubscribed && retryCount < 40) {
             retryCount++;
             setTimeout(initScanner, 50);
           }
@@ -547,6 +548,14 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
         }
 
         try {
+          if (!isSubscribed || !document.body.contains(el)) {
+            if (isSubscribed && retryCount < 40) {
+              retryCount++;
+              setTimeout(initScanner, 50);
+            }
+            return;
+          }
+
           const scanner = new Html5QrcodeScanner(
             "kiosk-scanner",
             { fps: 10, qrbox: { width: 300, height: 300 } },

@@ -48,6 +48,7 @@ import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, GearItem, GearItemVersion, GearIncident, AdminSettings, Container, Organization, Department, Team } from '../types';
+import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
@@ -470,6 +471,18 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   };
 
   const [gear, setGear] = useState<GearItem[]>([]);
+  const [offlineQueue, setOfflineQueue] = useState<OfflineOperation[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = offlineSync.subscribe((queue, online, syncing) => {
+      setOfflineQueue(queue);
+      setIsOnline(online);
+      setIsSyncing(syncing);
+    });
+    return () => unsubscribe();
+  }, []);
   const [settings, setSettings] = useState<AdminSettings | null>(propAdminSettings);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -1282,9 +1295,48 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
   const smartPackerName = settings?.aiConfig?.smartPackerName || 'Smart Packer';
 
+  // Merge database snapshot with pending offline gear changes for instant local rendering
+  const effectiveGear = useMemo(() => {
+    let items = [...gear];
+
+    // Filter operations related to user's gearLibrary subcollection:
+    // collectionPath: ['users', userId, 'gearLibrary', docId]
+    const relevantOps = offlineQueue.filter(op => {
+      return op.collectionPath[0] === 'users' && 
+             op.collectionPath[2] === 'gearLibrary';
+    });
+
+    relevantOps.forEach(op => {
+      if (op.type === 'delete') {
+        items = items.filter(it => it.id !== op.docId);
+      } else if (op.type === 'update') {
+        const idx = items.findIndex(it => it.id === op.docId);
+        if (idx !== -1) {
+          items[idx] = { 
+            ...items[idx], 
+            ...op.data, 
+            isOfflinePending: true,
+            offlineOpId: op.id 
+          };
+        }
+      } else if (op.type === 'set') {
+        if (!items.some(it => it.id === op.docId)) {
+          items.push({
+            id: op.docId,
+            ...op.data,
+            isOfflinePending: true,
+            offlineOpId: op.id
+          });
+        }
+      }
+    });
+
+    return items;
+  }, [gear, offlineQueue]);
+
   const categories = useMemo(() => {
     const cats = new Set<string>();
-    gear.forEach(item => {
+    effectiveGear.forEach(item => {
       const p = getPrimaryCategory(item);
       if (p && p !== 'Kit' && p !== 'Kits' && p !== 'All') {
         cats.add(p);
@@ -1298,9 +1350,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       }
     });
     return ['All', 'Kits', ...Array.from(cats)];
-  }, [gear, categoryFilterMode]);
+  }, [effectiveGear, categoryFilterMode]);
 
-  const filteredGear = gear.filter(item => {
+  const filteredGear = effectiveGear.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          item.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -1362,6 +1414,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       onConfirm: async () => {
         const path = `users/${user.uid}/gearLibrary/${id}`;
         try {
+          if (!isOnline) {
+            const targetItem = effectiveGear.find(it => it.id === id);
+            await offlineSync.queueOperation({
+              type: 'delete',
+              collectionPath: ['users', user.uid, 'gearLibrary', id],
+              docId: id,
+              label: `Delete gear: ${targetItem?.name || 'Item'}`
+            });
+            toast.success('Flagged item for removal offline.');
+            setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            return;
+          }
+
           await deleteDoc(doc(db, 'users', user.uid, 'gearLibrary', id));
           toast.success('Item removed from library');
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
@@ -1410,6 +1475,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         releaseYear: data.releaseYear || '',
         updatedAt: updatedAt
       });
+
+      if (!isOnline) {
+        await offlineSync.queueOperation({
+          type: 'update',
+          collectionPath: ['users', user.uid, 'gearLibrary', id],
+          docId: id,
+          data: updatePayload,
+          label: `Update gear: ${data.name || 'Item'}`
+        });
+        setEditingItem(null);
+        toast.success('Updated gear details offline.');
+        return;
+      }
 
       // Log version before updating
       await addDoc(collection(db, 'users', user.uid, 'gearLibrary', id, 'versions'), cleanUndefinedFields({
@@ -1763,7 +1841,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     try {
       const path = `users/${user.uid}/gearLibrary`;
       const pCat = newItem.primaryCategory || newItem.category || 'Other';
-      await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), cleanUndefinedFields({
+      
+      const colRef = collection(db, 'users', user.uid, 'gearLibrary');
+      const preGeneratedId = doc(colRef).id;
+      const newGearPayload = cleanUndefinedFields({
         ...newItem,
         category: pCat,
         primaryCategory: pCat,
@@ -1778,7 +1859,44 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         quantity: newItem.quantity || 1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      }));
+      });
+
+      if (!isOnline) {
+        await offlineSync.queueOperation({
+          type: 'set',
+          collectionPath: ['users', user.uid, 'gearLibrary', preGeneratedId],
+          docId: preGeneratedId,
+          data: {
+            ...newGearPayload,
+            id: preGeneratedId
+          },
+          label: `Add gear: ${newItem.name || 'Item'}`
+        });
+        setIsAddModalOpen(false);
+        setNewItem({
+          name: '',
+          category: 'Other',
+          primaryCategory: 'Other',
+          secondaryCategories: [],
+          model: '',
+          modelNumber: '',
+          serialNumber: '',
+          releaseYear: '',
+          condition: 'good',
+          weight: 0,
+          price: 0,
+          brand: '',
+          description: '',
+          tags: [],
+          organizationTip: '',
+          quantity: 1,
+          photoUrls: ['https://picsum.photos/seed/gear/400/400']
+        });
+        toast.success('Added gear item offline.');
+        return;
+      }
+
+      await addDoc(colRef, newGearPayload);
       setIsAddModalOpen(false);
       setNewItem({
         name: '',
@@ -2583,7 +2701,14 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             </p>
             <p className="text-[9px] md:text-[10px] font-mono text-neutral-300 tracking-wider">#{item.assetTag.slice(-4)}</p>
           </div>
-          <h3 className="font-black text-lg md:text-xl leading-tight group-hover:text-primary transition line-clamp-2 uppercase tracking-tight">{item.name}</h3>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-black text-lg md:text-xl leading-tight group-hover:text-primary transition line-clamp-2 uppercase tracking-tight flex-1">{item.name}</h3>
+            {item.isOfflinePending && (
+              <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 border border-amber-600 text-white animate-pulse flex items-center gap-1 shrink-0">
+                Sync Pending
+              </span>
+            )}
+          </div>
           {item.brand && <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-neutral-400">{item.brand}</p>}
         </div>
 
@@ -2729,7 +2854,12 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             )}
           </div>
         )}
-        <h3 className="font-bold text-xs leading-tight line-clamp-1 group-hover:text-primary transition">{item.name}</h3>
+        <div className="flex items-center gap-1 min-w-0">
+          {item.isOfflinePending && (
+            <RefreshCw size={8} className="animate-spin text-amber-500 shrink-0" />
+          )}
+          <h3 className="font-bold text-xs leading-tight line-clamp-1 group-hover:text-primary transition flex-1">{item.name}</h3>
+        </div>
         <div className="flex items-center justify-between">
           <p className="text-[8px] font-black uppercase tracking-widest text-neutral-400 flex items-center gap-1">
             {item.isKit && <Layers size={8} />}
@@ -2775,8 +2905,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             )}
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <p className="font-bold">{item.name}</p>
+              {item.isOfflinePending && (
+                <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 border border-amber-600 text-white animate-pulse flex items-center gap-1 shrink-0">
+                  <RefreshCw size={8} className="animate-spin" /> Sync Pending
+                </span>
+              )}
               {item.status === 'in_use' && (
                 <span className="text-[8px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded">Checked Out</span>
               )}
@@ -2879,6 +3014,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 truncate">
+            {item.isOfflinePending && (
+              <RefreshCw size={8} className="animate-spin text-amber-500 shrink-0" />
+            )}
             <h3 className="font-bold text-sm truncate">{item.name}</h3>
             {item.status === 'in_use' && (
               <span className="text-[7px] font-bold text-rose-600 bg-rose-50 px-1 rounded uppercase">Out</span>

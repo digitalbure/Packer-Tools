@@ -49,6 +49,7 @@ import { logout, db } from '../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import PackerLogo from './PackerLogo';
 import { toast } from 'sonner';
+import OfflineSyncWidget from './OfflineSyncWidget';
 
 interface SidebarProps {
   user: UserProfile | null;
@@ -683,6 +684,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
 
       {/* Footer Actions */}
       <div className="p-4 border-t border-neutral-100 space-y-2">
+        <OfflineSyncWidget isCollapsed={isCollapsed} />
         <Link
           to="/help"
           onClick={() => setIsMobileOpen(false)}

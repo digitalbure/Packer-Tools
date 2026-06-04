@@ -15,8 +15,11 @@ export default defineConfig(({mode}) => {
       react(), 
       tailwindcss(),
       VitePWA({
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
         registerType: 'autoUpdate',
-        workbox: {
+        injectManifest: {
           maximumFileSizeToCacheInBytes: 10000000,
         },
         manifest: {

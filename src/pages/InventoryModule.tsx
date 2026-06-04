@@ -33,7 +33,8 @@ import {
   Upload,
   Download,
   Edit2,
-  FileText
+  FileText,
+  RefreshCw
 } from 'lucide-react';
 import { 
   collection, 
@@ -53,6 +54,7 @@ import {
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, GearItem, Organization, Department, Team, AdminSettings } from '../types';
 import { toast } from 'sonner';
+import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import * as PAPA from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -104,6 +106,8 @@ export interface InventoryItem {
   visibility?: 'public' | 'private' | 'team' | 'dept' | 'org';
   createdAt: string;
   updatedAt: string;
+  isOfflinePending?: boolean;
+  offlineOpId?: string;
 }
 
 export default function InventoryModule({ user, adminSettings }: InventoryModuleProps) {
@@ -196,6 +200,18 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   };
 
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [offlineQueue, setOfflineQueue] = useState<OfflineOperation[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = offlineSync.subscribe((queue, online, syncing) => {
+      setOfflineQueue(queue);
+      setIsOnline(online);
+      setIsSyncing(syncing);
+    });
+    return () => unsubscribe();
+  }, []);
   const [loadingInventoryItems, setLoadingInventoryItems] = useState(false);
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryFilterCondition, setInventoryFilterCondition] = useState<string>('all');
@@ -924,23 +940,49 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
       if (editingItem) {
         const itemDocRef = doc(parentColRef, editingItem.id);
-        await updateDoc(itemDocRef, {
+        const updatePayload = {
           ...formRest,
           photoUrls,
           updatedAt: new Date().toISOString()
-        });
-        toast.success("Asset details updated successfully.");
+        };
+
+        if (!isOnline) {
+          await offlineSync.queueOperation({
+            type: 'update',
+            collectionPath: ['inventories', selectedInventory.id, 'items', editingItem.id],
+            docId: editingItem.id,
+            data: updatePayload,
+            label: `Update asset: ${formRest.name}`
+          });
+          toast.success("Saved copy offline. Asset queued for background synchronization!");
+        } else {
+          await updateDoc(itemDocRef, updatePayload);
+          toast.success("Asset details updated successfully.");
+        }
       } else {
         const itemDocRef = doc(parentColRef);
-        await setDoc(itemDocRef, {
+        const newAssetData = {
           ...formRest,
           photoUrls,
           id: itemDocRef.id,
           assetTag: `ASSET-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
-        });
-        toast.success("Asset added to selected inventory list.");
+        };
+
+        if (!isOnline) {
+          await offlineSync.queueOperation({
+            type: 'set',
+            collectionPath: ['inventories', selectedInventory.id, 'items', itemDocRef.id],
+            docId: itemDocRef.id,
+            data: newAssetData,
+            label: `Add asset: ${formRest.name}`
+          });
+          toast.success("Added asset offline. Queue updated for synchronization!");
+        } else {
+          await setDoc(itemDocRef, newAssetData);
+          toast.success("Asset added to selected inventory list.");
+        }
       }
       setIsAddingItemManually(false);
       setEditingItem(null);
@@ -974,23 +1016,75 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     if (!selectedInventory) return;
     if (!window.confirm("Perform final deletion of this asset item?")) return;
     try {
-      await deleteDoc(doc(db, 'inventories', selectedInventory.id, 'items', itemId));
-      toast.success("Asset removed from sheet lists.");
+      if (!isOnline) {
+        const targetItem = effectiveInventoryItems.find(it => it.id === itemId);
+        await offlineSync.queueOperation({
+          type: 'delete',
+          collectionPath: ['inventories', selectedInventory.id, 'items', itemId],
+          docId: itemId,
+          label: `Delete asset: ${targetItem?.name || 'Asset'}`
+        });
+        toast.success("Asset flagged for offline deletion. Queue updated.");
+      } else {
+        await deleteDoc(doc(db, 'inventories', selectedInventory.id, 'items', itemId));
+        toast.success("Asset removed from sheet lists.");
+      }
     } catch (err) {
       console.error(err);
       toast.error("Deletion failed.");
     }
   };
 
+  // Merge database snapshot with pending offline changes for snappy local rendering
+  const effectiveInventoryItems = useMemo(() => {
+    if (!selectedInventory) return [];
+    
+    let items = [...inventoryItems];
+
+    // Filter operations related to this specific inventory sheet's subcollection
+    const relevantOps = offlineQueue.filter(op => {
+      return op.collectionPath[0] === 'inventories' && 
+             op.collectionPath[1] === selectedInventory.id &&
+             op.collectionPath[2] === 'items';
+    });
+
+    relevantOps.forEach(op => {
+      if (op.type === 'delete') {
+        items = items.filter(it => it.id !== op.docId);
+      } else if (op.type === 'update') {
+        const idx = items.findIndex(it => it.id === op.docId);
+        if (idx !== -1) {
+          items[idx] = { 
+            ...items[idx], 
+            ...op.data, 
+            isOfflinePending: true,
+            offlineOpId: op.id 
+          };
+        }
+      } else if (op.type === 'set') {
+        if (!items.some(it => it.id === op.docId)) {
+          items.push({
+            id: op.docId,
+            ...op.data,
+            isOfflinePending: true,
+            offlineOpId: op.id
+          });
+        }
+      }
+    });
+
+    return items;
+  }, [inventoryItems, offlineQueue, selectedInventory]);
+
   // Dynamic unique category list in selected inventory
   const inventoryCategories = useMemo(() => {
-    const cats = new Set(inventoryItems.map(i => i.primaryCategory || 'Other'));
+    const cats = new Set(effectiveInventoryItems.map(i => i.primaryCategory || 'Other'));
     return ['All', ...Array.from(cats)].filter(Boolean);
-  }, [inventoryItems]);
+  }, [effectiveInventoryItems]);
 
   // Tab 1 UI List filters logic
   const filteredInventoryItems = useMemo(() => {
-    return inventoryItems.filter(item => {
+    return effectiveInventoryItems.filter(item => {
       const matchesSearch = item.name.toLowerCase().includes(inventorySearch.toLowerCase()) || 
                            item.assetTag?.toLowerCase().includes(inventorySearch.toLowerCase()) ||
                            item.brand?.toLowerCase().includes(inventorySearch.toLowerCase()) ||
@@ -1008,7 +1102,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
       return matchesSearch && matchesCondition && matchesStatus && matchesCategory;
     });
-  }, [inventoryItems, inventorySearch, inventoryFilterCondition, inventoryFilterStatus, selectedInventoryCategory, isAuditMode, showOnlyAttentionNeeded]);
+  }, [effectiveInventoryItems, inventorySearch, inventoryFilterCondition, inventoryFilterStatus, selectedInventoryCategory, isAuditMode, showOnlyAttentionNeeded]);
 
   // Tab 1 Valuation stats derived
   const inventoryValueSum = useMemo(() => {
@@ -1770,8 +1864,13 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                 )}
                                 <td className="p-4">
                                   <div className="space-y-0.5">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                       <p className="font-bold text-sm text-neutral-900 leading-tight">{item.name}</p>
+                                      {item.isOfflinePending && (
+                                        <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 border border-amber-600 text-white animate-pulse flex items-center gap-1 shrink-0">
+                                          <RefreshCw size={8} className="animate-spin" /> Pending Sync
+                                        </span>
+                                      )}
                                       {item.visibility && item.visibility !== 'public' && (
                                         <span className={`text-[8px] font-extrabold uppercase tracking-widest px-1 py-0.5 rounded text-white ${
                                           item.visibility === 'private' ? 'bg-red-500' :
@@ -1994,7 +2093,14 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                   </p>
                                   <p className="text-[9px] font-mono text-neutral-400 tracking-wider font-bold">#{item.assetTag?.slice(-4)}</p>
                                 </div>
-                                <h3 className="font-black text-sm leading-tight text-neutral-900 uppercase tracking-tight line-clamp-1">{item.name}</h3>
+                                <div className="flex items-center justify-between gap-2">
+                                  <h3 className="font-black text-sm leading-tight text-neutral-900 uppercase tracking-tight line-clamp-1 flex-1">{item.name}</h3>
+                                  {item.isOfflinePending && (
+                                    <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 border border-amber-600 text-white animate-pulse flex items-center gap-1 shrink-0">
+                                      <RefreshCw size={8} className="animate-spin" /> Pending Sync
+                                    </span>
+                                  )}
+                                </div>
                                 {item.brand && <p className="text-[9px] font-black uppercase tracking-widest text-[#a1a1aa]">{item.brand}</p>}
                                 <p className="text-[11px] text-neutral-400 line-clamp-2 italic leading-relaxed">{item.description || 'No custom description defined.'}</p>
                               </div>
@@ -2092,7 +2198,12 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                     )}
                                   </div>
                                 )}
-                                <h4 className="font-bold text-[11px] truncate uppercase leading-tight text-neutral-900">{item.name}</h4>
+                                <div className="flex items-center gap-1 min-w-0">
+                                  {item.isOfflinePending && (
+                                    <RefreshCw size={8} className="animate-spin text-amber-500 shrink-0" />
+                                  )}
+                                  <h4 className="font-bold text-[11px] truncate uppercase leading-tight text-neutral-900 flex-1">{item.name}</h4>
+                                </div>
                               </div>
                               <div className="flex items-center justify-between mt-1 pt-2 border-t border-neutral-50">
                                 <span className="text-[9px] font-mono font-bold text-neutral-400">Qty: {item.quantity || 1}</span>

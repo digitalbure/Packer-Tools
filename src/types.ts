@@ -253,6 +253,8 @@ export interface GearItem {
   specs?: any;
   assetTag?: string;
   quantity?: number;
+  isOfflinePending?: boolean;
+  offlineOpId?: string;
   isAvailableForRent?: boolean;
   rentalPrice?: number;
   rentalHourlyPrice?: number;
