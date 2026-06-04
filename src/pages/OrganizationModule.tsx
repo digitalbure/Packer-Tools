@@ -49,6 +49,7 @@ import { db } from '../firebase';
 import { UserProfile, Organization, Department, Team, UserRole, Terminal, AdminSettings } from '../types';
 import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
+import UpgradeNowModal from '../components/UpgradeNowModal';
 import PackerLogo from '../components/PackerLogo';
 
 interface OrganizationModuleProps {
@@ -94,6 +95,9 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
     name: string;
     logoUrl?: string;
   } | null>(null);
+
+  const [isUpgradeNowModalOpen, setIsUpgradeNowModalOpen] = useState(false);
+  const [restrictedFeature, setRestrictedFeature] = useState('Custom Organizational White-Label Branding');
 
   // Sticker Designer States
   const [stickerShape, setStickerShape] = useState<'square' | 'rectangle' | 'rounded-square' | 'rounded-rectangle' | 'circle'>('rounded-rectangle');
@@ -1576,6 +1580,11 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                         placeholder="Paste logo image URL (e.g. Unsplash, company asset)..."
                         value={org?.settings?.branding?.logo || ''}
                         onChange={async (e) => {
+                          if (user?.subscriptionStatus === 'trialing') {
+                            setRestrictedFeature('Custom Corporate White-Label Branding');
+                            setIsUpgradeNowModalOpen(true);
+                            return;
+                          }
                           const val = e.target.value.trim();
                           await updateDoc(doc(db, 'organizations', org.id), { 'settings.branding.logo': val });
                         }}
@@ -1585,6 +1594,13 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                     <div className="flex items-center gap-3">
                       <label 
                         className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary cursor-pointer hover:underline"
+                        onClick={(e) => {
+                          if (user?.subscriptionStatus === 'trialing') {
+                            e.preventDefault();
+                            setRestrictedFeature('Custom Corporate White-Label Branding');
+                            setIsUpgradeNowModalOpen(true);
+                          }
+                        }}
                       >
                         <Upload size={12} />
                         <span>Upload Logo File</span>
@@ -1592,6 +1608,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                           type="file"
                           accept="image/*"
                           className="hidden"
+                          disabled={user?.subscriptionStatus === 'trialing'}
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
@@ -2754,6 +2771,15 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
           </motion.div>
         )}
       </AnimatePresence>
+
+      <UpgradeNowModal
+        isOpen={isUpgradeNowModalOpen}
+        onClose={() => setIsUpgradeNowModalOpen(false)}
+        user={user!}
+        adminSettings={adminSettings}
+        restrictedFeatureName={restrictedFeature}
+        onSuccess={() => {}}
+      />
     </div>
   );
 };

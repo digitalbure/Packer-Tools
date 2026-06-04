@@ -7,6 +7,7 @@ import { motion } from 'motion/react';
 import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award, Sun, Moon, Smartphone, Download } from 'lucide-react';
 import { getUsage } from '../lib/limitUtils';
 import PaymentModal from '../components/PaymentModal';
+import UpgradeNowModal from '../components/UpgradeNowModal';
 import { useTheme } from '../context/ThemeContext';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
@@ -22,6 +23,8 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
   const [profileBillingCycle, setProfileBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [isEditing, setIsEditing] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isUpgradeNowModalOpen, setIsUpgradeNowModalOpen] = useState(false);
+  const [restrictedFeature, setRestrictedFeature] = useState('Developer API Settings');
   const [loading, setLoading] = useState(false);
   const [usage, setUsage] = useState<any>(null);
   const [formData, setFormData] = useState<Partial<UserProfile>>({
@@ -864,6 +867,114 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                 )}
               </div>
 
+              {/* Trial Status Section */}
+              <div className="p-5 sm:p-6 bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl sm:rounded-[2rem] border border-orange-200/50 space-y-4 shadow-xs relative overflow-hidden group text-left">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-3xl rounded-full pointer-events-none" />
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-orange-100 rounded-xl text-orange-600">
+                      <Zap size={16} className="fill-orange-500 text-orange-500" />
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-orange-700/80 tracking-wider font-mono">Premium Access Tracker</span>
+                      <h4 className="text-sm font-black uppercase tracking-tight text-orange-950">Free Trial Status</h4>
+                    </div>
+                  </div>
+                  {user.subscriptionStatus === 'trialing' ? (
+                    <span className="text-[9px] bg-orange-200 text-orange-800 border border-orange-300/40 font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse font-mono">
+                      Active Trial
+                    </span>
+                  ) : (
+                    <span className="text-[9px] bg-neutral-200 text-neutral-700 border border-neutral-300/40 font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                      No Active Trial
+                    </span>
+                  )}
+                </div>
+
+                {user.subscriptionStatus === 'trialing' ? (
+                  <div className="space-y-4 pt-1">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-white p-3.5 rounded-2xl border border-orange-150 shadow-2xs">
+                        <div className="text-[9px] font-black text-orange-600/70 uppercase tracking-widest font-mono">Days Remaining</div>
+                        <div className="text-xl sm:text-2xl font-black text-orange-950 font-mono mt-0.5">
+                          {Math.max(0, Math.ceil((new Date(user.trialEndDate || '').getTime() - Date.now()) / (24 * 60 * 60 * 1000)))} Days
+                        </div>
+                      </div>
+                      <div className="bg-white p-3.5 rounded-2xl border border-orange-150 shadow-2xs">
+                        <div className="text-[9px] font-black text-orange-600/70 uppercase tracking-widest font-mono">Trial Plan</div>
+                        <div className="text-xl sm:text-2xl font-black text-orange-950 uppercase tracking-tight mt-0.5">
+                          {adminSettings?.plans?.find(p => p.id === user.plan || p.name.toLowerCase() === user.plan?.toLowerCase())?.name || user.plan}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Progress track */}
+                    {user.trialStartDate && user.trialEndDate && (
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-[9px] font-black uppercase tracking-wider text-orange-850 font-mono">
+                          <span>Trial Usage Timeline</span>
+                          <span>
+                            {(() => {
+                              const start = new Date(user.trialStartDate).getTime();
+                              const end = new Date(user.trialEndDate).getTime();
+                              const total = Math.max(1, end - start);
+                              const elapsed = Math.max(0, Date.now() - start);
+                              const usagePercent = Math.min(100, Math.round((elapsed / total) * 100));
+                              return `${usagePercent}% elapsed`;
+                            })()}
+                          </span>
+                        </div>
+                        <div className="w-full h-3.5 bg-orange-100/60 rounded-full overflow-hidden p-0.5 border border-orange-200/20">
+                          <div 
+                            className="h-full bg-gradient-to-r from-orange-400 to-amber-500 rounded-full transition-all duration-500"
+                            style={{ 
+                              width: `${(() => {
+                                const start = new Date(user.trialStartDate).getTime();
+                                const end = new Date(user.trialEndDate).getTime();
+                                const total = Math.max(1, end - start);
+                                const elapsed = Math.max(0, Date.now() - start);
+                                return Math.min(100, Math.round((elapsed / total) * 100));
+                              })()}%` 
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-[11px] text-orange-900/80 font-medium leading-relaxed bg-white/55 p-3 rounded-2xl border border-orange-100/40">
+                      Take full advantage of enterprise features, custom team layouts, PWA triggers, and unrestricted API syncing. You can upgrade to a continuous, non-expiring subscription plan anytime to ensure uninterrupted access.
+                    </div>
+
+                    {adminSettings?.billingEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => setIsPaymentModalOpen(true)}
+                        className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-orange-500/10 border-none"
+                      >
+                        <Award size={14} className="fill-white" />
+                        <span>Upgrade to Full Subscription</span>
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4 pt-1">
+                    <p className="text-[11.5px] text-neutral-600 leading-relaxed font-semibold bg-white/50 p-4 rounded-2xl border border-orange-100">
+                      You are currently on the Free plan, which has limited seats and active records. Activate a 14-day try-out of all Pro/Enterprise feature bundles seamlessly to experience the full power of real-time mobile tracking and team syncs.
+                    </p>
+                    {adminSettings?.billingEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => setIsPaymentModalOpen(true)}
+                        className="w-full py-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center justify-center gap-2 cursor-pointer border-none"
+                      >
+                        <Zap size={14} className="fill-white" />
+                        <span>Unlock Pro & Start 14-Day Free Trial</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Seats & Team Licenses Indicator */}
               {user.plan !== 'free' && (
                 <div className="p-6 bg-neutral-50 rounded-[2rem] border border-neutral-200/60 space-y-4">
@@ -1035,6 +1146,15 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                 onSuccess={(newPlan) => onUpdate({ ...user, plan: newPlan })}
               />
 
+              <UpgradeNowModal
+                isOpen={isUpgradeNowModalOpen}
+                onClose={() => setIsUpgradeNowModalOpen(false)}
+                user={user}
+                adminSettings={adminSettings}
+                restrictedFeatureName={restrictedFeature}
+                onSuccess={(newPlan) => onUpdate({ ...user, plan: newPlan })}
+              />
+
               {usage && (
                 <div className="space-y-4">
                   {[
@@ -1159,6 +1279,19 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
           {user.plan === 'free' && (
             <span className="self-start sm:self-auto px-3 py-1 bg-neutral-100 text-neutral-400 rounded-full text-[10px] font-black uppercase tracking-widest">Pro Feature</span>
           )}
+          {user.subscriptionStatus === 'trialing' && (
+            <button
+              type="button"
+              onClick={() => {
+                setRestrictedFeature('Developer API Integrations & Webhooks');
+                setIsUpgradeNowModalOpen(true);
+              }}
+              className="self-start sm:self-auto px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 border-none rounded-full text-[10px] font-black uppercase tracking-widest font-mono flex items-center gap-1 cursor-pointer"
+            >
+              <Lock size={10} />
+              <span>Convert Trial to Unlock API Access</span>
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
@@ -1184,6 +1317,11 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                   onClick={async () => {
                     if (user.plan === 'free') {
                       toast.error('API access requires a Pro plan');
+                      return;
+                    }
+                    if (user.subscriptionStatus === 'trialing') {
+                      setRestrictedFeature('Developer API Integrations & Webhooks');
+                      setIsUpgradeNowModalOpen(true);
                       return;
                     }
                     const newKey = `pk_${Math.random().toString(36).substring(2)}${Math.random().toString(36).substring(2)}`;
