@@ -383,6 +383,90 @@ export default function App() {
     }
   }, [user]);
 
+  // Dynamic Web Manifest & Theme/Splash Customizer Effect
+  useEffect(() => {
+    if (!adminSettings) return;
+
+    const brand = adminSettings.branding || {};
+    const name = brand.pwaName || brand.companyName || "Packer Tools";
+    const shortName = brand.pwaShortName || brand.companyName || "Packer Tools";
+    const bgColor = brand.pwaBgColor || "#0a0a0c";
+    const themeColor = brand.pwaThemeColor || "#0a0a0c";
+    const icon192 = brand.pwaIcon192Url || "/icon-192.png";
+    const icon512 = brand.pwaIcon512Url || "/icon-512.png";
+
+    // 1. Update <meta name="theme-color">
+    let themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (!themeMeta) {
+      themeMeta = document.createElement('meta');
+      themeMeta.setAttribute('name', 'theme-color');
+      document.head.appendChild(themeMeta);
+    }
+    themeMeta.setAttribute('content', themeColor);
+
+    // 2. Update <link rel="apple-touch-icon">
+    let appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+    if (!appleIcon) {
+      appleIcon = document.createElement('link');
+      appleIcon.setAttribute('rel', 'apple-touch-icon');
+      document.head.appendChild(appleIcon);
+    }
+    appleIcon.setAttribute('href', icon192);
+
+    // 3. Update PWA Manifest dynamically via a Data URI
+    try {
+      const manifestObj = {
+        name: name,
+        short_name: shortName,
+        description: "The professional visual inventory & gear lifecycle platform.",
+        start_url: "/#/kiosk", // Ensures we default to the gorgeous Kiosk dashboard on install
+        display: "standalone",
+        orientation: "portrait",
+        background_color: bgColor,
+        theme_color: themeColor,
+        icons: [
+          {
+            src: icon192,
+            sizes: "192x192",
+            type: icon192.startsWith("data:image/") ? icon192.split(";")[0].split(":")[1] : "image/png",
+            purpose: "any"
+          },
+          {
+            src: icon512,
+            sizes: "512x512",
+            type: icon512.startsWith("data:image/") ? icon512.split(";")[0].split(":")[1] : "image/png",
+            purpose: "any"
+          },
+          {
+            src: icon192,
+            sizes: "192x192",
+            type: icon192.startsWith("data:image/") ? icon192.split(";")[0].split(":")[1] : "image/png",
+            purpose: "maskable"
+          },
+          {
+            src: icon512,
+            sizes: "512x512",
+            type: icon512.startsWith("data:image/") ? icon512.split(";")[0].split(":")[1] : "image/png",
+            purpose: "maskable"
+          }
+        ]
+      };
+
+      const manifestString = JSON.stringify(manifestObj);
+      const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(manifestString);
+
+      let linkElement = document.querySelector('link[rel="manifest"]');
+      if (!linkElement) {
+        linkElement = document.createElement('link');
+        linkElement.setAttribute('rel', 'manifest');
+        document.head.appendChild(linkElement);
+      }
+      linkElement.setAttribute('href', dataUri);
+    } catch (manifestError) {
+      console.warn("Dynamic PWA customizer failure:", manifestError);
+    }
+  }, [adminSettings]);
+
   useEffect(() => {
     // Initialize global settings and plans if they don't exist
     const initializeDefaults = async () => {
@@ -405,7 +489,9 @@ export default function App() {
               maxOrganizations: 1,
               maxDepartments: 1,
               maxTeams: 1,
-              maxInventoryItems: 10
+              maxInventoryItems: 10,
+              trialDays: 0,
+              trialEnabled: false
             },
             { 
               id: 'pro',
@@ -421,7 +507,9 @@ export default function App() {
               maxOrganizations: 5,
               maxDepartments: 20,
               maxTeams: 50,
-              maxInventoryItems: 1000
+              maxInventoryItems: 1000,
+              trialDays: 14,
+              trialEnabled: true
             },
             { 
               id: 'enterprise',
@@ -437,7 +525,9 @@ export default function App() {
               maxOrganizations: 50,
               maxDepartments: 500,
               maxTeams: 1000,
-              maxInventoryItems: 100000
+              maxInventoryItems: 100000,
+              trialDays: 14,
+              trialEnabled: true
             }
           ];
           const defaultSettings: AdminSettings = {
@@ -445,7 +535,14 @@ export default function App() {
             globalFeatures: {},
             branding: {
               primaryColor: '#F27D26',
-              logo: ''
+              logo: '',
+              companyName: 'Packer Tools',
+              pwaName: 'Packer Tools',
+              pwaShortName: 'Packer',
+              pwaBgColor: '#0a0a0c',
+              pwaThemeColor: '#0a0a0c',
+              pwaIcon192Url: '/icon-192.png',
+              pwaIcon512Url: '/icon-512.png'
             },
             frontPageCopy: 'Professional Gear Management for the Modern Pro.',
             landingPage: {

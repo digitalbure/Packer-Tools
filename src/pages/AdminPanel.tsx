@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin, Bug, Sparkles } from 'lucide-react';
+import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Smartphone, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin, Bug, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project, INDUSTRIES, BugReport } from '../types';
@@ -924,42 +924,44 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     className="text-2xl font-bold bg-transparent border-none outline-none focus:ring-2 focus:ring-primary rounded-lg px-2 w-full"
                   />
                   <div className="flex flex-col gap-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-100 pb-2 sm:pb-0 sm:border-none">
-                      <div className="flex items-center gap-2">
-                        <span className="text-neutral-400 font-bold">$</span>
-                        <input
-                          type="number"
-                          value={plan.price}
-                          onChange={(e) => {
-                            const newPlans = [...(settings.plans || [])];
-                            newPlans[planIdx] = { ...plan, price: parseFloat(e.target.value) };
-                            setSettings({ ...settings, plans: newPlans });
-                          }}
-                          className="text-3xl sm:text-4xl font-black bg-transparent border-none outline-none focus:ring-2 focus:ring-primary rounded-lg px-2 w-20 sm:w-24"
-                        />
-                        <span className="text-neutral-400 font-bold">/mo</span>
-                      </div>
-                      {plan.isDefault ? (
-                        <div className="self-start sm:self-auto px-3 py-1 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-full border border-primary/20">
-                          Default
+                    <div className={`p-3 rounded-2xl border transition-all ${billingCycle === 'monthly' ? 'bg-primary/5 border-primary/20 ring-2 ring-primary/5' : 'bg-transparent border-transparent pb-0 sm:pb-0'}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-neutral-400 font-bold">$</span>
+                          <input
+                            type="number"
+                            value={plan.price}
+                            onChange={(e) => {
+                              const newPlans = [...(settings.plans || [])];
+                              newPlans[planIdx] = { ...plan, price: parseFloat(e.target.value) };
+                              setSettings({ ...settings, plans: newPlans });
+                            }}
+                            className="text-3xl sm:text-4xl font-black bg-transparent border-none outline-none focus:ring-2 focus:ring-primary rounded-lg px-2 w-20 sm:w-24"
+                          />
+                          <span className="text-neutral-400 font-bold">/mo</span>
                         </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            const newPlans = settings.plans.map((p, idx) => ({
-                              ...p,
-                              isDefault: idx === planIdx
-                            }));
-                            setSettings({ ...settings, plans: newPlans });
-                          }}
-                          className="self-start sm:self-auto px-3 py-1 bg-neutral-100 text-neutral-400 text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-neutral-200 hover:text-neutral-600 transition"
-                        >
-                          Set Default
-                        </button>
-                      )}
+                        {plan.isDefault ? (
+                          <div className="self-start sm:self-auto px-3 py-1 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-full border border-primary/20">
+                            Default
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              const newPlans = settings.plans.map((p, idx) => ({
+                                ...p,
+                                isDefault: idx === planIdx
+                              }));
+                              setSettings({ ...settings, plans: newPlans });
+                            }}
+                            className="self-start sm:self-auto px-3 py-1 bg-neutral-100 text-neutral-400 text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-neutral-200 hover:text-neutral-600 transition"
+                          >
+                            Set Default
+                          </button>
+                        )}
+                      </div>
                     </div>
                     
-                    <div className="flex items-center gap-2 p-3 bg-neutral-50 rounded-2xl border border-neutral-100">
+                    <div className={`flex items-center gap-2 p-3 rounded-2xl border transition-all ${billingCycle === 'annual' ? 'bg-primary/5 border-primary/20 ring-2 ring-primary/5' : 'bg-neutral-50 border-neutral-100'}`}>
                       <div className="flex items-center gap-2 flex-1">
                         <span className="text-neutral-400 font-bold text-xs">$</span>
                         <input
@@ -1025,6 +1027,57 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                       className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-mono font-bold outline-none"
                     />
                   </div>
+                </div>
+
+                {/* Trial Mode Settings Block */}
+                <div className="p-4 bg-orange-50/60 rounded-2xl border border-orange-100/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-orange-950 uppercase tracking-wider block">Trial Mode</span>
+                      <p className="text-[10px] text-orange-600/85 font-semibold leading-tight mt-0.5">Enable free trial access for subscribers</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={plan.trialEnabled || false}
+                      onChange={(e) => {
+                        const newPlans = [...(settings.plans || [])];
+                        newPlans[planIdx] = { ...plan, trialEnabled: e.target.checked };
+                        setSettings({ ...settings, plans: newPlans });
+                      }}
+                      className="w-4 h-4 text-primary bg-white border-neutral-300 rounded focus:ring-primary focus:ring-2 cursor-pointer"
+                    />
+                  </div>
+                  {plan.trialEnabled && (
+                    <div className="space-y-2 pt-2 border-t border-orange-100/60 animate-fadeIn">
+                      <div className="flex justify-between items-center text-xs font-semibold text-orange-900">
+                        <span>Trial Duration:</span>
+                        <span className="font-mono font-bold text-orange-800 bg-orange-100/80 px-2 py-0.5 rounded-md">{plan.trialDays || 14} Days</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="90"
+                        value={plan.trialDays || 14}
+                        onChange={(e) => {
+                          const newPlans = [...(settings.plans || [])];
+                          newPlans[planIdx] = { ...plan, trialDays: parseInt(e.target.value) || 14 };
+                          setSettings({ ...settings, plans: newPlans });
+                        }}
+                        className="w-full h-1 bg-orange-100 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        value={plan.trialDays || 14}
+                        onChange={(e) => {
+                          const newPlans = [...(settings.plans || [])];
+                          newPlans[planIdx] = { ...plan, trialDays: parseInt(e.target.value) || 0 };
+                          setSettings({ ...settings, plans: newPlans });
+                        }}
+                        className="w-full px-3 py-1.5 bg-white border border-orange-200 rounded-xl text-xs font-mono font-bold text-orange-950 outline-none"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
@@ -6254,6 +6307,144 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
                 <div className="p-4 bg-[#FF5500]/5 border border-[#FF5500]/20 rounded-2xl text-[11px] text-neutral-300 leading-normal font-sans font-medium">
                   <strong>Branding Directive:</strong> Change &quot;Platform Name&quot; in the form on the left to live-update the corporate footer metadata across all active client seats instantly.
+                </div>
+
+                {/* Progressive Web App (PWA) & Splash Settings */}
+                <div className="pt-6 border-t border-neutral-800/40 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <Smartphone className="text-primary shrink-0" size={18} />
+                    <h4 className="text-xs font-black uppercase tracking-wider text-white">Dynamic PWA &amp; Splash Settings</h4>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest block font-mono">PWA App Title</label>
+                      <input
+                        type="text"
+                        value={settings?.branding?.pwaName || ''}
+                        onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaName: e.target.value } } : null)}
+                        placeholder={settings?.branding?.companyName || 'Packer Tools'}
+                        className="w-full px-4 py-2 bg-[#060708] border border-neutral-800 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition text-white placeholder-neutral-500"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest block font-mono">PWA Short Name</label>
+                      <input
+                        type="text"
+                        value={settings?.branding?.pwaShortName || ''}
+                        onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaShortName: e.target.value } } : null)}
+                        placeholder={settings?.branding?.companyName ? settings.branding.companyName.substring(0, 12) : 'Packer'}
+                        className="w-full px-4 py-2 bg-[#060708] border border-neutral-800 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition text-white placeholder-neutral-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest block font-mono">Splash Background</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="color"
+                            value={settings?.branding?.pwaBgColor || '#0a0a0c'}
+                            onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaBgColor: e.target.value } } : null)}
+                            className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 outline-none overflow-hidden"
+                          />
+                          <input
+                            type="text"
+                            value={settings?.branding?.pwaBgColor || '#0a0a0c'}
+                            onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaBgColor: e.target.value } } : null)}
+                            className="flex-1 px-2.5 py-1.5 bg-[#060708] border border-neutral-800 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest block font-mono">Theme Color</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="color"
+                            value={settings?.branding?.pwaThemeColor || '#0a0a0c'}
+                            onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaThemeColor: e.target.value } } : null)}
+                            className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 outline-none overflow-hidden"
+                          />
+                          <input
+                            type="text"
+                            value={settings?.branding?.pwaThemeColor || '#0a0a0c'}
+                            onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaThemeColor: e.target.value } } : null)}
+                            className="flex-1 px-2.5 py-1.5 bg-[#060708] border border-neutral-800 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider text-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 p-4 bg-[#060708] rounded-2xl border border-neutral-800/40">
+                      <label className="text-[9px] font-black uppercase text-[#94A3B8] tracking-wider block font-mono">Custom PWA Brand Icons</label>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1 text-center bg-black/30 p-3 rounded-lg border border-neutral-800/50">
+                          <div className="w-12 h-12 bg-[#0D0E10] border border-neutral-800 rounded-lg mx-auto flex items-center justify-center overflow-hidden mb-1.5">
+                            <img 
+                              src={settings?.branding?.pwaIcon192Url || '/icon-192.png'} 
+                              className="w-full h-full object-contain p-1" 
+                              alt="PWA 192 icon" 
+                              referrerPolicy="no-referrer" 
+                            />
+                          </div>
+                          <span className="text-[8px] font-mono uppercase tracking-wider text-neutral-500 block mb-1">Web Icon (192px)</span>
+                          <label className="text-[8px] font-black uppercase tracking-wider text-primary cursor-pointer hover:underline block">
+                            <span>Upload PNG</span>
+                            <input 
+                              type="file" 
+                              accept="image/png" 
+                              className="hidden" 
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  const base64 = reader.result as string;
+                                  setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaIcon192Url: base64 } } : null);
+                                  toast.success("Loaded 192px icon successfully");
+                                };
+                                reader.readAsDataURL(file);
+                              }}
+                            />
+                          </label>
+                        </div>
+
+                        <div className="space-y-1 text-center bg-black/30 p-3 rounded-lg border border-neutral-800/50">
+                          <div className="w-12 h-12 bg-[#0D0E10] border border-[#ff5500]/20 rounded-lg mx-auto flex items-center justify-center overflow-hidden mb-1.5">
+                            <img 
+                              src={settings?.branding?.pwaIcon512Url || '/icon-512.png'} 
+                              className="w-full h-full object-contain p-1" 
+                              alt="PWA 512 icon" 
+                              referrerPolicy="no-referrer" 
+                            />
+                          </div>
+                          <span className="text-[8px] font-mono uppercase tracking-wider text-neutral-500 block mb-1">Web Icon (512px)</span>
+                          <label className="text-[8px] font-black uppercase tracking-wider text-primary cursor-pointer hover:underline block">
+                            <span>Upload PNG</span>
+                            <input 
+                              type="file" 
+                              accept="image/png" 
+                              className="hidden" 
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  const base64 = reader.result as string;
+                                  setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaIcon512Url: base64 } } : null);
+                                  toast.success("Loaded 512px icon successfully");
+                                };
+                                reader.readAsDataURL(file);
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

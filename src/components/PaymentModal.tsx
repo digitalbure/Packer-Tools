@@ -79,9 +79,16 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
     setIsProcessing(true);
     try {
       const userRef = doc(db, 'users', user.uid);
+      const isTrial = selectedPlan?.trialEnabled && selectedPlan?.trialDays;
       await updateDoc(userRef, {
         plan: selectedPlan?.id,
         extraSeats: extraSeatsCount,
+        subscriptionStatus: isTrial ? 'trialing' : 'active',
+        trialStartDate: isTrial ? new Date().toISOString() : null,
+        trialEndDate: isTrial 
+          ? new Date(Date.now() + ((selectedPlan?.trialDays || 14) * 24 * 60 * 60 * 1000)).toISOString()
+          : null,
+        trialActive: isTrial ? true : false,
         manualPaymentPending: true,
         manualPaymentReference: manualReferenceId,
         updatedAt: new Date().toISOString()
@@ -105,6 +112,8 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
       await updateDoc(userRef, {
         plan: 'free',
         extraSeats: 0,
+        subscriptionStatus: 'active',
+        trialActive: false,
         manualPaymentPending: false,
         updatedAt: new Date().toISOString()
       });
@@ -114,6 +123,36 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
     } catch (e) {
       console.error(e);
       toast.error("Free activation failed. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleTrialActivation = async () => {
+    setIsProcessing(true);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const trialDays = selectedPlan?.trialDays || 14;
+      const trialStartDate = new Date().toISOString();
+      const trialEndDate = new Date(Date.now() + (trialDays * 24 * 60 * 60 * 1000)).toISOString();
+
+      await updateDoc(userRef, {
+        plan: selectedPlan?.id,
+        subscriptionStatus: 'trialing',
+        trialStartDate,
+        trialEndDate,
+        trialActive: true,
+        extraSeats: extraSeatsCount,
+        manualPaymentPending: false,
+        updatedAt: new Date().toISOString()
+      });
+
+      toast.success(`Successfully activated your ${trialDays}-day free trial for ${selectedPlan?.name}!`);
+      onSuccess(selectedPlan!.id);
+      onClose();
+    } catch (e) {
+      console.error(e);
+      toast.error("Trial activation failed. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -154,6 +193,8 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
         await updateDoc(userRef, {
           plan: selectedPlan?.id,
           extraSeats: extraSeatsCount,
+          subscriptionStatus: 'active',
+          trialActive: false,
           updatedAt: new Date().toISOString()
         });
 
@@ -274,10 +315,15 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                             {plan.id === 'pro' ? <Zap size={18} /> : plan.id === 'enterprise' ? <Crown size={18} /> : <Shield size={18} />}
                           </div>
                           <div>
-                            <div className="font-black uppercase tracking-tight text-neutral-805 text-sm flex items-center gap-1.5">
+                            <div className="font-black uppercase tracking-tight text-neutral-805 text-sm flex items-center gap-1.5 flex-wrap">
                               <span>{plan.name}</span>
                               {plan.id === 'pro' && (
                                 <span className="bg-accent/10 text-accent text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase">POPULAR</span>
+                              )}
+                              {plan.trialEnabled && plan.trialDays && (
+                                <span className="bg-orange-100 text-orange-700 text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase">
+                                  {plan.trialDays}-DAY TRIAL
+                                </span>
                               )}
                             </div>
                             <div className="text-[9.5px] text-neutral-400 font-bold uppercase tracking-wider mt-0.5">
@@ -398,9 +444,14 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                   <div className="absolute top-0 right-0 w-[100px] h-[100px] bg-primary/20 blur-[55px] pointer-events-none" />
                   <p className="text-[9px] font-black uppercase tracking-widest text-neutral-450">Total Due Today</p>
                   <div className="text-4xl md:text-5xl font-black tracking-tighter text-white">
-                    {currentCurrency?.symbol || '$'}{getActivePrice(selectedPlan)}
+                    {selectedPlan.trialEnabled ? "$0" : `${currentCurrency?.symbol || '$'}${getActivePrice(selectedPlan)}`}
                   </div>
-                  {billingCycle === 'annual' && selectedPlan.annualPrice && (
+                  {selectedPlan.trialEnabled && selectedPlan.trialDays ? (
+                    <div className="inline-flex bg-orange-500 text-white text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full items-center gap-1 mx-auto mt-2 animate-pulse">
+                      <Zap size={9} className="fill-white text-white" />
+                      <span>{selectedPlan.trialDays}-Day Free Trial Active</span>
+                    </div>
+                  ) : billingCycle === 'annual' && selectedPlan.annualPrice && (
                     <div className="inline-flex bg-white/10 text-emerald-400 text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full items-center gap-1 mx-auto mt-2">
                       <Zap size={9} className="fill-emerald-400 text-emerald-400" />
                       <span>Annual Cost Savings Applied</span>
@@ -408,121 +459,152 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                   )}
                 </div>
 
-                {/* Currency & Gateway selection */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                  {/* Currency Selector */}
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black uppercase text-neutral-400 tracking-wider block font-mono">Billing Currency</label>
-                    <select
-                      value={selectedCurrencyCode}
-                      onChange={(e) => {
-                        setSelectedCurrencyCode(e.target.value);
-                        setSelectedGatewayIdx(0);
-                      }}
-                      className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl outline-none font-bold text-xs text-neutral-800 transition focus:ring-2 focus:ring-primary appearance-none cursor-pointer"
+                {selectedPlan.trialEnabled && selectedPlan.trialDays ? (
+                  <div className="p-6 bg-orange-50 border border-orange-200/60 rounded-[2rem] space-y-4 text-left relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-orange-500/10 blur-xl rounded-full" />
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-orange-600 bg-orange-100 px-2.5 py-0.5 rounded-full">Trial Offer</span>
+                      <h4 className="text-sm font-black uppercase text-orange-950 mt-1">Start Your {selectedPlan.trialDays}-Day Trial Instantly</h4>
+                      <p className="text-[11px] text-orange-850 font-semibold mt-1 leading-normal">
+                        No credit card or payment is required today. You will receive full access to all features of the {selectedPlan.name} plan for {selectedPlan.trialDays} days. At the end of the trial, you can choose to subscribe or downgrade.
+                      </p>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={handleTrialActivation}
+                      disabled={isProcessing}
+                      className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50 border-none"
                     >
-                      {activeCurrencies.map((c) => (
-                        <option key={c.code} value={c.code}>{c.code} ({c.symbol}) — {c.name}</option>
-                      ))}
-                    </select>
+                      {isProcessing ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>Activating your {selectedPlan.trialDays}-day trial...</span>
+                        </>
+                      ) : (
+                        <span>Activate {selectedPlan.trialDays}-Day Free Trial</span>
+                      )}
+                    </button>
                   </div>
-
-                  {/* Gateway Selector */}
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black uppercase text-neutral-400 tracking-wider block font-mono">Gateway Method</label>
-                    {enabledGateways.length === 0 ? (
-                      <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-semibold">
-                        No active gateways.
-                      </div>
-                    ) : (
-                      <select
-                        value={selectedGatewayIdx}
-                        onChange={(e) => setSelectedGatewayIdx(Number(e.target.value))}
-                        className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl outline-none font-bold text-xs text-neutral-800 transition focus:ring-2 focus:ring-primary cursor-pointer"
-                      >
-                        {enabledGateways.map((gw, idx) => (
-                          <option key={idx} value={idx}>{gw.name}</option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                </div>
-
-                {/* Active Gateway content interface */}
-                {selectedGateway && (
-                  <div className="p-1.5 border border-neutral-100 rounded-[2rem] overflow-hidden bg-white shadow-sm relative text-left">
-                    {isProcessing && (
-                      <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center rounded-[2rem] gap-2">
-                        <Loader2 size={24} className="text-primary animate-spin" />
-                        <div className="text-[9px] font-bold uppercase tracking-widest text-neutral-655">Syncing Settlement...</div>
-                      </div>
-                    )}
-
-                    {selectedGateway.gateway === 'paypal' ? (
-                      <div className="p-3">
-                        <PayPalScriptProvider options={{ clientId: selectedGateway.paypalClientId || paypalClientId }}>
-                          <PayPalButtons
-                            style={{ layout: "vertical", shape: "pill", label: "pay" }}
-                            createOrder={async () => {
-                              const amount = getActivePrice(selectedPlan);
-                              const response = await fetch('/api/paypal/create-order', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ planId: selectedPlan.id, amount, billingCycle })
-                              });
-                              const order = await response.json();
-                              return order.id;
-                            }}
-                            onApprove={async (data) => {
-                              await handleApprove(data.orderID);
-                            }}
-                          />
-                        </PayPalScriptProvider>
-                      </div>
-                    ) : (
-                      <div className="p-4 space-y-4">
-                        <div className="text-[8.5px] font-black text-neutral-450 uppercase tracking-widest border-b border-neutral-100 pb-1 flex items-center gap-1.5">
-                          <Check size={10} className="text-emerald-500 stroke-[3]" />
-                          <span>Direct Settlement instructions</span>
-                        </div>
-                        <p className="text-[10px] text-neutral-600 leading-relaxed font-semibold whitespace-pre-line bg-neutral-50 p-3 rounded-xl border border-neutral-100 select-all font-mono">
-                          {selectedGateway.instructions || "Contact account manager for bank routing details."}
-                        </p>
-                        
-                        <div className="space-y-1">
-                          <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400 block font-mono">Transaction Reference ID</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. BSP-WIRE-90342-FIJI"
-                            value={manualReferenceId}
-                            onChange={(e) => setManualReferenceId(e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-mono focus:ring-2 focus:ring-primary transition"
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={handleManualSubmit}
-                          disabled={isProcessing}
-                          className="w-full py-2.5 bg-neutral-900 hover:bg-black rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition flex items-center justify-center gap-2 cursor-pointer border-none"
+                ) : (
+                  <>
+                    {/* Currency & Gateway selection */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                      {/* Currency Selector */}
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-neutral-400 tracking-wider block font-mono">Billing Currency</label>
+                        <select
+                          value={selectedCurrencyCode}
+                          onChange={(e) => {
+                            setSelectedCurrencyCode(e.target.value);
+                            setSelectedGatewayIdx(0);
+                          }}
+                          className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl outline-none font-bold text-xs text-neutral-800 transition focus:ring-2 focus:ring-primary appearance-none cursor-pointer"
                         >
-                          {isProcessing ? (
-                            <>
-                              <Loader2 size={12} className="animate-spin" />
-                              <span>Queuing Request...</span>
-                            </>
-                          ) : (
-                            <span>Submit Offline Verification</span>
-                          )}
-                        </button>
+                          {activeCurrencies.map((c) => (
+                            <option key={c.code} value={c.code}>{c.code} ({c.symbol}) — {c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Gateway Selector */}
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-neutral-400 tracking-wider block font-mono">Gateway Method</label>
+                        {enabledGateways.length === 0 ? (
+                          <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-semibold">
+                            No active gateways.
+                          </div>
+                        ) : (
+                          <select
+                            value={selectedGatewayIdx}
+                            onChange={(e) => setSelectedGatewayIdx(Number(e.target.value))}
+                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl outline-none font-bold text-xs text-neutral-800 transition focus:ring-2 focus:ring-primary cursor-pointer"
+                          >
+                            {enabledGateways.map((gw, idx) => (
+                              <option key={idx} value={idx}>{gw.name}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Active Gateway content interface */}
+                    {selectedGateway && (
+                      <div className="p-1.5 border border-neutral-100 rounded-[2rem] overflow-hidden bg-white shadow-sm relative text-left">
+                        {isProcessing && (
+                          <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center rounded-[2rem] gap-2">
+                            <Loader2 size={24} className="text-primary animate-spin" />
+                            <div className="text-[9px] font-bold uppercase tracking-widest text-neutral-655">Syncing Settlement...</div>
+                          </div>
+                        )}
+
+                        {selectedGateway.gateway === 'paypal' ? (
+                          <div className="p-3">
+                            <PayPalScriptProvider options={{ clientId: selectedGateway.paypalClientId || paypalClientId }}>
+                              <PayPalButtons
+                                style={{ layout: "vertical", shape: "pill", label: "pay" }}
+                                createOrder={async () => {
+                                  const amount = getActivePrice(selectedPlan);
+                                  const response = await fetch('/api/paypal/create-order', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ planId: selectedPlan.id, amount, billingCycle })
+                                  });
+                                  const order = await response.json();
+                                  return order.id;
+                                }}
+                                onApprove={async (data) => {
+                                  await handleApprove(data.orderID);
+                                }}
+                              />
+                            </PayPalScriptProvider>
+                          </div>
+                        ) : (
+                          <div className="p-4 space-y-4">
+                            <div className="text-[8.5px] font-black text-neutral-450 uppercase tracking-widest border-b border-neutral-100 pb-1 flex items-center gap-1.5">
+                              <Check size={10} className="text-emerald-500 stroke-[3]" />
+                              <span>Direct Settlement instructions</span>
+                            </div>
+                            <p className="text-[10px] text-neutral-600 leading-relaxed font-semibold whitespace-pre-line bg-neutral-50 p-3 rounded-xl border border-neutral-100 select-all font-mono">
+                              {selectedGateway.instructions || "Contact account manager for bank routing details."}
+                            </p>
+                            
+                            <div className="space-y-1">
+                              <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400 block font-mono">Transaction Reference ID</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. BSP-WIRE-90342-FIJI"
+                                value={manualReferenceId}
+                                onChange={(e) => setManualReferenceId(e.target.value)}
+                                className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-mono focus:ring-2 focus:ring-primary transition"
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={handleManualSubmit}
+                              disabled={isProcessing}
+                              className="w-full py-2.5 bg-neutral-900 hover:bg-black rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition flex items-center justify-center gap-2 cursor-pointer border-none"
+                            >
+                              {isProcessing ? (
+                                <>
+                                  <Loader2 size={12} className="animate-spin" />
+                                  <span>Queuing Request...</span>
+                                </>
+                              ) : (
+                                <span>Submit Offline Verification</span>
+                              )}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
 
-                <p className="text-[9px] text-neutral-400 font-bold uppercase text-center tracking-wide leading-relaxed">
-                  Verification of manual receipts/wire deposits can take up to 24 hours to clear organization accounts.
-                </p>
+                    <p className="text-[9px] text-neutral-400 font-bold uppercase text-center tracking-wide leading-relaxed">
+                      Verification of manual receipts/wire deposits can take up to 24 hours to clear organization accounts.
+                    </p>
+                  </>
+                )}
               </div>
             )}
             

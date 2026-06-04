@@ -5,6 +5,7 @@ import { UserProfile, AdminSettings, LandingPageFeature } from '../types';
 import { signInWithGoogle } from '../firebase';
 import PackerLogo from '../components/PackerLogo';
 import { motion, AnimatePresence } from 'motion/react';
+import Marketplace from './Marketplace';
 
 const iconMap: { [key: string]: React.ReactNode } = {
   Camera: <Camera size={24} />,
@@ -275,11 +276,67 @@ const AIRecognitionDisplay = ({ config }: { config?: AdminSettings['aiRecognitio
 };
 
 export default function LandingPage({ user, adminSettings }: { user: UserProfile | null, adminSettings: AdminSettings | null }) {
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [landingView, setLandingView] = useState<string>('saas');
   const plans = adminSettings?.plans || [];
   const activeLander = adminSettings?.landers?.find(l => l.id === adminSettings.activeLanderId);
   
   // Use new structure if available, otherwise fallback to old one
   const lp = activeLander?.content || adminSettings?.landingPage;
+  const isMarketplaceActive = landingView === 'marketplace';
+
+  if (isMarketplaceActive) {
+    return (
+      <div className="min-h-screen bg-paper text-primary selection:bg-accent selection:text-white bg-grid overflow-x-hidden pt-20">
+        {/* Header */}
+        <header className="fixed top-0 left-0 right-0 z-50 border-b border-primary/5 bg-paper/85 backdrop-blur-md">
+          <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
+            <Link to="/" onClick={() => setLandingView('saas')} className="flex items-center gap-1 group">
+              <PackerLogo variant="full" size={32} light={true} />
+            </Link>
+            
+            {/* SaaS vs Marketplace Toggle */}
+            <div className="flex bg-neutral-100 dark:bg-white/5 border border-neutral-200/50 dark:border-white/10 p-1 rounded-full text-xs font-bold gap-1 shadow-sm">
+              <button 
+                type="button"
+                onClick={() => setLandingView('saas')}
+                className={`px-3.5 py-1.5 rounded-full uppercase tracking-wider text-[9px] font-black transition-all ${
+                  !isMarketplaceActive 
+                    ? 'bg-neutral-900 text-white shadow-xs' 
+                    : 'text-neutral-500 hover:text-neutral-800'
+                }`}
+              >
+                Platform
+              </button>
+              <button 
+                type="button"
+                onClick={() => setLandingView('marketplace')}
+                className={`px-3.5 py-1.5 rounded-full uppercase tracking-wider text-[9px] font-black transition-all ${
+                  isMarketplaceActive 
+                    ? 'bg-neutral-900 text-white shadow-xs' 
+                    : 'text-neutral-500 hover:text-neutral-800'
+                }`}
+              >
+                Marketplace
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              {user ? (
+                <Link to="/dashboard" className="px-6 py-2 bg-primary text-white rounded-full font-bold text-sm">Dashboard</Link>
+              ) : (
+                <button onClick={signInWithGoogle} className="px-6 py-2 bg-primary text-white rounded-full font-bold text-sm">Sign In</button>
+              )}
+            </div>
+          </div>
+        </header>
+
+        <div className="animate-fadeIn">
+          <Marketplace user={user} adminSettings={adminSettings} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-paper text-primary selection:bg-accent selection:text-white bg-grid overflow-x-hidden">
@@ -290,6 +347,32 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
             <PackerLogo variant="full" size={32} light={true} />
           </Link>
           
+          {/* SaaS vs Marketplace Toggle */}
+          <div className="flex bg-neutral-100 dark:bg-white/5 border border-neutral-200/50 dark:border-white/10 p-1 rounded-full text-xs font-bold gap-1 shadow-sm">
+            <button 
+              type="button"
+              onClick={() => setLandingView('saas')}
+              className={`px-3.5 py-1.5 rounded-full uppercase tracking-wider text-[9px] font-black transition-all ${
+                !isMarketplaceActive 
+                  ? 'bg-neutral-950 text-white shadow-xs animate-fadeIn' 
+                  : 'text-neutral-500 hover:text-neutral-800'
+              }`}
+            >
+              Platform
+            </button>
+            <button 
+              type="button"
+              onClick={() => setLandingView('marketplace')}
+              className={`px-3.5 py-1.5 rounded-full uppercase tracking-wider text-[9px] font-black transition-all ${
+                isMarketplaceActive 
+                  ? 'bg-neutral-950 text-white shadow-xs' 
+                  : 'text-neutral-500 hover:text-neutral-800'
+              }`}
+            >
+              Marketplace
+            </button>
+          </div>
+
           <nav className="hidden md:flex items-center gap-8">
             {(Array.isArray(lp?.header?.links) ? lp.header.links : []).map((link, i) => (
               <a key={i} href={link.href} className="text-xs font-bold uppercase tracking-widest hover:text-accent transition-colors">
@@ -415,6 +498,15 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
             >
               {lp?.hero?.secondaryButtonText || 'Explore Use Cases'}
             </a>
+            
+            <button
+              type="button"
+              onClick={() => setLandingView('marketplace')}
+              className="px-8 py-4 bg-accent/10 text-accent hover:bg-accent/20 border border-accent/20 rounded-full font-bold transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <ShoppingBag size={18} />
+              Browse Marketplace
+            </button>
           </motion.div>
 
           {(lp?.stats?.isEnabled !== false) && (
@@ -608,31 +700,85 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
               <p className="text-xl text-white/60 leading-relaxed max-w-md">
                 {lp?.cta?.description || "Professional tools shouldn't have complex pricing. Choose the tier that matches your scale."}
               </p>
+              
+              <div className="flex bg-white/5 border border-white/10 p-1 rounded-2xl max-w-xs ring-1 ring-white/10">
+                <button 
+                  type="button"
+                  onClick={() => setBillingCycle('monthly')}
+                  className={`flex-1 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${billingCycle === 'monthly' ? 'bg-white text-primary shadow-lg' : 'text-white/60 hover:text-white'}`}
+                >
+                  Monthly
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setBillingCycle('annual')}
+                  className={`flex-1 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${billingCycle === 'annual' ? 'bg-white text-primary shadow-lg' : 'text-white/60 hover:text-white'}`}
+                >
+                  Annual
+                </button>
+              </div>
             </div>
 
             <div className="grid gap-6">
               {plans.length > 0 ? (
-                plans.map((plan) => (
-                  <div 
-                    key={plan.id} 
-                    className={`p-8 rounded-3xl flex items-center justify-between transition-all ${
-                      plan.price > 0 ? 'bg-white text-primary shadow-2xl scale-105' : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <div>
-                      <h3 className="text-xl font-bold uppercase tracking-tight">{plan.name}</h3>
-                      <p className={`${plan.price > 0 ? 'text-primary/40' : 'text-white/40'} text-xs font-medium`}>
-                        {Array.isArray(plan.features) ? plan.features.slice(0, 3).map(f => f.replace(/([A-Z])/g, ' $1')).join(', ') : ''}...
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-black tracking-tighter">${plan.price}</div>
-                      <div className={`micro-label ${plan.price > 0 ? 'text-primary/40' : 'text-white/40'}`}>
-                        {plan.price === 0 ? 'Forever' : 'Per Month'}
+                plans.map((plan) => {
+                  const isPaid = plan.price > 0;
+                  const trialInfo = plan.trialEnabled && plan.trialDays ? `${plan.trialDays}-Day Free Trial` : null;
+                  
+                  let calculatedPrice = plan.price;
+                  let periodLabel = 'Per Month';
+                  let equivalentText = null;
+                  let savingPct = 0;
+
+                  if (billingCycle === 'annual' && isPaid) {
+                    calculatedPrice = plan.annualPrice || (plan.price * 12);
+                    periodLabel = 'Per Year';
+                    equivalentText = `equivalent to $${Math.round(calculatedPrice / 12)}/mo`;
+                    
+                    if (plan.annualPrice && plan.price) {
+                      savingPct = Math.round((1 - (plan.annualPrice / (plan.price * 12))) * 100);
+                    }
+                  }
+
+                  return (
+                    <div 
+                      key={plan.id} 
+                      className={`p-8 rounded-3xl flex items-center justify-between transition-all relative overflow-hidden ${
+                        isPaid ? 'bg-white text-primary shadow-2xl scale-105' : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {savingPct > 0 && (
+                        <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                          Save {savingPct}%
+                        </div>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xl font-bold uppercase tracking-tight">{plan.name}</h3>
+                          {trialInfo && (
+                            <span className="text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md bg-accent/15 text-accent">
+                              {trialInfo}
+                            </span>
+                          )}
+                        </div>
+                        <p className={`${isPaid ? 'text-primary/40' : 'text-white/40'} text-xs font-medium mt-1`}>
+                          {Array.isArray(plan.features) ? plan.features.slice(0, 3).map(f => f.replace(/([A-Z])/g, ' $1')).join(', ') : ''}...
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-black tracking-tighter">${calculatedPrice}</div>
+                        <div className={`micro-label ${isPaid ? 'text-primary/40' : 'text-white/40'}`}>
+                          {isPaid ? periodLabel : 'Forever'}
+                        </div>
+                        {equivalentText && (
+                          <div className={`text-[9px] font-bold uppercase tracking-wider ${isPaid ? 'text-primary/30' : 'text-white/30'} mt-0.5`}>
+                            {equivalentText}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="p-8 bg-white/5 border border-white/10 rounded-3xl text-center">
                   <p className="text-white/40">Loading plans...</p>

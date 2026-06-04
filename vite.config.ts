@@ -32,27 +32,27 @@ export default defineConfig(({mode}) => {
           background_color: '#0a0a0c',
           icons: [
             {
-              src: '/icon.svg',
+              src: '/icon-192.png',
               sizes: '192x192',
-              type: 'image/svg+xml',
+              type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icon.svg',
+              src: '/icon-512.png',
               sizes: '512x512',
-              type: 'image/svg+xml',
+              type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icon.svg',
+              src: '/icon-192.png',
               sizes: '192x192',
-              type: 'image/svg+xml',
+              type: 'image/png',
               purpose: 'maskable'
             },
             {
-              src: '/icon.svg',
+              src: '/icon-512.png',
               sizes: '512x512',
-              type: 'image/svg+xml',
+              type: 'image/png',
               purpose: 'maskable'
             }
           ]

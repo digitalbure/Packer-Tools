@@ -72,6 +72,8 @@ export interface Plan {
   premiumSupportAccess?: boolean;
   historicalAuditLogs?: boolean;
   maxWorkspaces?: number;
+  trialDays?: number;
+  trialEnabled?: boolean;
 }
 
 export interface UserProfile {
@@ -108,6 +110,10 @@ export interface UserProfile {
   defaultSecurityDeposit?: number; // User custom default fixed security deposit
   country?: string; // User selected marketplace country
   dashboardMode?: 'minimal' | 'all';
+  subscriptionStatus?: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid';
+  trialStartDate?: string;
+  trialEndDate?: string;
+  trialActive?: boolean;
   // KYC & Verified Seller Store Fields
   kycStatus?: 'not_started' | 'pending' | 'verified' | 'rejected';
   kycSubmittedAt?: string;
@@ -717,6 +723,12 @@ export interface AdminSettings {
     logo?: string;
     primaryColor?: string;
     companyName?: string;
+    pwaName?: string;
+    pwaShortName?: string;
+    pwaBgColor?: string;
+    pwaThemeColor?: string;
+    pwaIcon192Url?: string;
+    pwaIcon512Url?: string;
   };
   limits?: {
     maxCheckoutDurationHours?: number;

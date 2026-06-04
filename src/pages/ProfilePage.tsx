@@ -19,6 +19,7 @@ interface ProfilePageProps {
 export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePageProps) {
   const { theme, setTheme } = useTheme();
   const { isReadyToInstall, isInstalled, triggerInstall } = usePWAInstall();
+  const [profileBillingCycle, setProfileBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [isEditing, setIsEditing] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -835,9 +836,19 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                 <div className="absolute top-0 right-0 w-24 h-24 bg-accent/20 blur-3xl rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700" />
                 <div className="relative space-y-1">
                   <div className="micro-label text-white/40">Current Active Plan</div>
-                  <div className="text-3xl font-black uppercase tracking-tighter shrink-0">
-                    {adminSettings?.plans?.find(p => p.id === user.plan || p.name.toLowerCase() === user.plan?.toLowerCase())?.name || user.plan}
+                  <div className="text-3xl font-black uppercase tracking-tighter shrink-0 flex items-center flex-wrap gap-2">
+                    <span>{adminSettings?.plans?.find(p => p.id === user.plan || p.name.toLowerCase() === user.plan?.toLowerCase())?.name || user.plan}</span>
+                    {user.subscriptionStatus === 'trialing' && (
+                      <span className="bg-orange-500 text-white text-[8px] font-black tracking-widest px-2.5 py-0.5 rounded-full uppercase">
+                        Trial
+                      </span>
+                    )}
                   </div>
+                  {user.subscriptionStatus === 'trialing' && user.trialEndDate && (
+                    <p className="text-[10px] text-white/70 font-semibold uppercase tracking-wider mt-1 block">
+                      Trial ends {new Date(user.trialEndDate).toLocaleDateString()} ({Math.max(0, Math.ceil((new Date(user.trialEndDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))} days left)
+                    </p>
+                  )}
                 </div>
                 {adminSettings?.billingEnabled ? (
                   <button 
@@ -900,15 +911,48 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
 
               {/* Quick Plan Switcher / Info */}
               <div className="space-y-4 pt-4">
-                <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Select Available Tier</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Select Available Tier</div>
+                  <div className="flex bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/30">
+                    <button 
+                      type="button"
+                      onClick={() => setProfileBillingCycle('monthly')}
+                      className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition ${profileBillingCycle === 'monthly' ? 'bg-white shadow-xs text-neutral-950' : 'text-neutral-400'}`}
+                    >
+                      Monthly
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setProfileBillingCycle('annual')}
+                      className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition ${profileBillingCycle === 'annual' ? 'bg-white shadow-xs text-neutral-950' : 'text-neutral-400'}`}
+                    >
+                      Annual
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 gap-3">
                   <button
+                    type="button"
                     onClick={() => {
                         if (user.plan === 'free') return;
                         if (window.confirm("Switch to Free plan? Your limits will be reduced.")) {
                             const userRef = doc(db, 'users', user.uid);
-                            updateDoc(userRef, { plan: 'free' });
-                            onUpdate({ ...user, plan: 'free' });
+                            updateDoc(userRef, { 
+                                plan: 'free',
+                                subscriptionStatus: 'active',
+                                trialActive: false,
+                                trialStartDate: null,
+                                trialEndDate: null
+                            });
+                            onUpdate({ 
+                                ...user, 
+                                plan: 'free',
+                                subscriptionStatus: 'active',
+                                trialActive: false,
+                                trialStartDate: undefined,
+                                trialEndDate: undefined
+                            });
                             toast.success("Switched to Free plan");
                         }
                     }}
@@ -928,26 +972,58 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                     {user.plan === 'free' && <Check size={16} className="text-primary" />}
                   </button>
 
-                  {adminSettings?.plans?.filter(p => p.id !== 'free').map(plan => (
-                    <button
-                      key={plan.id}
-                      onClick={() => setIsPaymentModalOpen(true)}
-                      className={`p-4 rounded-2xl border-2 transition-all text-left flex items-center justify-between group ${
-                        user.plan === plan.id ? 'border-primary bg-neutral-50 ring-4 ring-primary/5' : 'border-neutral-100 hover:border-neutral-200'
-                      }`}
-                    >
+                  {adminSettings?.plans?.filter(p => p.id !== 'free').map(plan => {
+                    const isAnnual = profileBillingCycle === 'annual';
+                    const displayVal = isAnnual ? (plan.annualPrice || (plan.price * 12)) : plan.price;
+                    const displayUnit = isAnnual ? 'yr' : 'mo';
+                    
+                    const savingPct = (isAnnual && plan.annualPrice && plan.price)
+                      ? Math.round((1 - (plan.annualPrice / (plan.price * 12))) * 100)
+                      : 0;
+                    
+                    const trialInfo = plan.trialEnabled && plan.trialDays ? `${plan.trialDays}-day Trial` : null;
+
+                    return (
+                      <button
+                        key={plan.id}
+                        type="button"
+                        onClick={() => setIsPaymentModalOpen(true)}
+                        className={`p-4 rounded-2xl border-2 transition-all text-left flex items-center justify-between group ${
+                          user.plan === plan.id ? 'border-primary bg-neutral-50 ring-4 ring-primary/5' : 'border-neutral-100 hover:border-neutral-200'
+                        }`}
+                      >
                         <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${plan.id === 'pro' ? 'bg-accent text-white shadow-glow-sm' : 'bg-primary text-white'}`}>
                                 <Zap size={18} />
                             </div>
                             <div>
-                                <div className="text-xs font-black uppercase tracking-tighter">{plan.name}</div>
-                                <div className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest italic">${plan.price}/mo</div>
+                                <div className="flex items-center gap-2">
+                                  <div className="text-xs font-black uppercase tracking-tighter">{plan.name}</div>
+                                  {trialInfo && (
+                                    <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
+                                      {trialInfo}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[9px] font-bold text-neutral-700 font-mono">${displayVal}/{displayUnit}</span>
+                                  {savingPct > 0 && (
+                                    <span className="text-[8px] font-extrabold text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded">
+                                      Save {savingPct}%
+                                    </span>
+                                  )}
+                                  {isAnnual && (
+                                    <span className="text-[8px] font-medium text-neutral-400 italic">
+                                      (eq. ${Math.round(displayVal / 12)}/mo)
+                                    </span>
+                                  )}
+                                </div>
                             </div>
                         </div>
                         {user.plan === plan.id ? <Check size={16} className="text-primary" /> : <ChevronRight size={16} className="text-neutral-300 group-hover:translate-x-1 transition-transform" />}
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
