@@ -23,23 +23,37 @@ export default defineConfig(({mode}) => {
           maximumFileSizeToCacheInBytes: 10000000,
         },
         manifest: {
-          name: 'GearFlow',
-          short_name: 'GearFlow',
-          description: 'Smart Gear Management & Packing List App',
-          theme_color: '#000000',
+          name: 'Packer Tools',
+          short_name: 'Packer Tools',
+          description: 'The professional visual inventory & gear lifecycle platform.',
+          theme_color: '#0a0a0c',
           display: 'standalone',
           orientation: 'portrait',
-          background_color: '#ffffff',
+          background_color: '#0a0a0c',
           icons: [
             {
-              src: 'https://picsum.photos/seed/gearflow/192/192',
+              src: '/icon.svg',
               sizes: '192x192',
-              type: 'image/png'
+              type: 'image/svg+xml',
+              purpose: 'any'
             },
             {
-              src: 'https://picsum.photos/seed/gearflow/512/512',
+              src: '/icon.svg',
               sizes: '512x512',
-              type: 'image/png'
+              type: 'image/svg+xml',
+              purpose: 'any'
+            },
+            {
+              src: '/icon.svg',
+              sizes: '192x192',
+              type: 'image/svg+xml',
+              purpose: 'maskable'
+            },
+            {
+              src: '/icon.svg',
+              sizes: '512x512',
+              type: 'image/svg+xml',
+              purpose: 'maskable'
             }
           ]
         }

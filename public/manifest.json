@@ -4,16 +4,16 @@
   "description": "Inventory and Gear management Kiosk",
   "start_url": "/kiosk",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#0a0a0c",
+  "theme_color": "#0a0a0c",
   "icons": [
     {
-      "src": "https://api.dicebear.com/7.x/shapes/svg?seed=packer&backgroundColor=000000",
+      "src": "/icon.svg",
       "sizes": "192x192",
       "type": "image/svg+xml"
     },
     {
-      "src": "https://api.dicebear.com/7.x/shapes/svg?seed=packer&backgroundColor=000000",
+      "src": "/icon.svg",
       "sizes": "512x512",
       "type": "image/svg+xml"
     }

@@ -10,32 +10,39 @@ import {
   Shield, 
   UserPlus, 
   Trash2, 
-  Search,
-  MoreVertical,
-  Briefcase,
-  Layers,
-  ChevronLeft,
-  ChevronRight,
-  CheckCircle2,
-  X,
-  Code2,
-  Copy,
-  Zap,
-  LayoutGrid,
-  Clock,
-  ShieldAlert,
-  ArrowRight,
-  ExternalLink,
-  ChevronDown,
-  Palette,
-  LayoutDashboard,
-  ShieldCheck,
-  QrCode,
-  Edit2,
-  Printer,
-  Sliders,
-  Info,
-  Upload
+  Search, 
+  MoreVertical, 
+  Briefcase, 
+  Layers, 
+  ChevronLeft, 
+  ChevronRight, 
+  CheckCircle2, 
+  X, 
+  Code2, 
+  Copy, 
+  Zap, 
+  LayoutGrid, 
+  Clock, 
+  ShieldAlert, 
+  ArrowRight, 
+  ExternalLink, 
+  ChevronDown, 
+  Palette, 
+  LayoutDashboard, 
+  ShieldCheck, 
+  QrCode, 
+  Edit2, 
+  Printer, 
+  Sliders, 
+  Info, 
+  Upload,
+  Lock,
+  Unlock,
+  Check,
+  Eye,
+  FileText,
+  FileDown,
+  Activity
 } from 'lucide-react';
 import { collection, query, where, onSnapshot, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, writeBatch, collectionGroup } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -57,7 +64,8 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [gear, setGear] = useState<any[]>([]);
   const [terminals, setTerminals] = useState<Terminal[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'structure' | 'members' | 'api' | 'terminals' | 'stickers' | 'settings'>('structure');
+  const [activeTab, setActiveTab] = useState<'overview' | 'structure' | 'members' | 'permissions' | 'api' | 'terminals' | 'stickers' | 'settings'>('structure');
+  const [inventories, setInventories] = useState<any[]>([]);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
   const [isLoading, setIsLoading] = useState(true);
   const [showSelector, setShowSelector] = useState(false);
@@ -214,6 +222,15 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
       setTerminals(snap.docs.map(d => ({ id: d.id, ...d.data() } as Terminal)));
     });
 
+    const unsubInventories = onSnapshot(collection(db, 'inventories'), (snap) => {
+      const allInvs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const orgInvs = allInvs.filter((inv: any) => 
+        inv.ownerId === user.uid || 
+        (inv.visibility?.orgIds && inv.visibility.orgIds.includes(user.orgId))
+      );
+      setInventories(orgInvs);
+    });
+
     setIsLoading(false);
 
     return () => {
@@ -223,6 +240,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
       unsubMembers();
       unsubGear();
       unsubTerminals();
+      unsubInventories();
     };
   }, [user?.orgId]);
 
@@ -661,6 +679,85 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
     }
   };
 
+  const handleUpdatePermission = async (memberUid: string, type: 'location' | 'packingList', key: string, value: any) => {
+    try {
+      const member = members.find(m => m.uid === memberUid);
+      if (!member) return;
+      
+      const existingPermissions = member.permissions || {};
+      const updatedPermissions = { ...existingPermissions };
+      
+      if (type === 'location') {
+        const updatedLocations = { ...(existingPermissions.locations || {}) };
+        if (value === 'none') {
+          delete updatedLocations[key];
+        } else {
+          updatedLocations[key] = value;
+        }
+        updatedPermissions.locations = updatedLocations;
+      } else if (type === 'packingList') {
+        const updatedPacking = { ...(existingPermissions.packingLists || {}) };
+        updatedPacking[key] = value;
+        updatedPermissions.packingLists = updatedPacking;
+      }
+      
+      await updateDoc(doc(db, 'users', memberUid), { permissions: updatedPermissions });
+      toast.success(`Updated matrix permissions for ${member.displayName || 'member'}`);
+    } catch (error) {
+      console.error('[PermissionsMatrix] Error updating permission:', error);
+      toast.error("Failed to update member permission");
+    }
+  };
+
+  const applyPermissionPreset = async (memberUid: string, presetType: 'admin' | 'auditor' | 'field_staff' | 'minimal') => {
+    try {
+      const member = members.find(m => m.uid === memberUid);
+      if (!member) return;
+
+      let permissionsObj: any = {};
+
+      if (presetType === 'admin') {
+        const locationsObj: any = {};
+        inventories.forEach(inv => {
+          locationsObj[inv.id] = 'editor';
+        });
+        permissionsObj = {
+          locations: locationsObj,
+          packingLists: { view: true, edit: true, export: true, audit: true }
+        };
+      } else if (presetType === 'auditor') {
+        const locationsObj: any = {};
+        inventories.forEach(inv => {
+          locationsObj[inv.id] = 'auditor';
+        });
+        permissionsObj = {
+          locations: locationsObj,
+          packingLists: { view: true, edit: false, export: true, audit: true }
+        };
+      } else if (presetType === 'field_staff') {
+        const locationsObj: any = {};
+        inventories.forEach(inv => {
+          locationsObj[inv.id] = 'reader';
+        });
+        permissionsObj = {
+          locations: locationsObj,
+          packingLists: { view: true, edit: false, export: false, audit: false }
+        };
+      } else {
+        permissionsObj = {
+          locations: {},
+          packingLists: { view: true, edit: false, export: false, audit: false }
+        };
+      }
+
+      await updateDoc(doc(db, 'users', memberUid), { permissions: permissionsObj });
+      toast.success(`Applied ${presetType.toUpperCase().replace('_', ' ')} preset for ${member.displayName}`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to apply permission preset");
+    }
+  };
+
   if (!canManageOrgs) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center space-y-6">
@@ -935,7 +1032,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
         </div>
 
         <div className="flex items-center gap-2 p-1 bg-neutral-100 rounded-2xl md:rounded-3xl overflow-x-auto scrollbar-hide shrink-0 max-w-full">
-          {(['overview', 'structure', 'members', 'terminals', 'api', 'settings'] as const).map(tab => (
+          {(['overview', 'structure', 'members', 'permissions', 'terminals', 'api', 'settings'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -945,7 +1042,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                   : 'text-neutral-400 hover:text-neutral-600'
               }`}
             >
-              {tab === 'api' ? 'API & Embed' : tab}
+              {tab === 'api' ? 'API & Embed' : tab === 'permissions' ? 'Permissions Matrix' : tab}
             </button>
           ))}
         </div>
@@ -2405,6 +2502,254 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                   ))}
                 </tbody>
               </table>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'permissions' && (
+          <motion.div 
+            key="permissions"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-8"
+          >
+            {/* Header / Info box */}
+            <div className="bg-neutral-900 rounded-[2.5rem] p-6 sm:p-10 text-white relative overflow-hidden shadow-xl border border-neutral-800">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#2563eb]/20 blur-3xl rounded-full -mr-20 -mt-20" />
+              <div className="relative space-y-4 max-w-4xl">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] bg-[#2563eb]/20 text-blue-400 border border-[#2563eb]/30 font-black px-2.5 py-1 rounded-xl uppercase tracking-widest">
+                    Security Module
+                  </span>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black px-2.5 py-1 rounded-xl uppercase tracking-widest">
+                    Role-Based Access (RBAC) Active
+                  </span>
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-tighter">Organization Permissions Matrix</h2>
+                <p className="text-neutral-400 text-xs sm:text-sm leading-relaxed">
+                  Map granular roles (<span className="text-white font-bold">Reader, Editor, Auditor</span>) to your operational team members across multiple active inventory locations, and regulate their permissions for packing list workflows.
+                </p>
+                <div className="grid md:grid-cols-3 gap-4 pt-4 text-[11px] font-semibold text-neutral-300">
+                  <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-1">
+                    <span className="font-bold text-white uppercase tracking-wider block text-emerald-400">📖 Reader Role</span>
+                    Can view live assets, scan barcodes, and confirm list status without modifying stock level or configuration parameters.
+                  </div>
+                  <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-1">
+                    <span className="font-bold text-white uppercase tracking-wider block text-blue-400">📝 Editor Role</span>
+                    Full permissions to modify stock levels, item dimensions, transfer gear, and edit Packing List specifications.
+                  </div>
+                  <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-1">
+                    <span className="font-bold text-white uppercase tracking-wider block text-amber-400">🔍 Auditor Role</span>
+                    Specialized checkout permissions, triggers maintenance intervals, evaluates item conditions, and exports reports.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Matrix Board */}
+            <div className="bg-white rounded-[3rem] border border-neutral-100 shadow-sm overflow-hidden">
+              <div className="p-6 sm:p-8 border-b border-neutral-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-black uppercase tracking-tight">Access Control Ledger</h3>
+                  <p className="text-neutral-400 text-xs font-medium italic mt-1">Changes are asynchronously saved to databases and propagated instantly to active devices.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-neutral-100 text-neutral-500 rounded-full">
+                    {inventories.length} Locations Monitored
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-neutral-100 text-neutral-500 rounded-full">
+                    {members.length} Members Listed
+                  </span>
+                </div>
+              </div>
+
+              {inventories.length === 0 ? (
+                <div className="p-16 text-center space-y-4">
+                  <div className="w-16 h-16 bg-neutral-50 border border-neutral-100 text-neutral-300 rounded-3xl flex items-center justify-center mx-auto">
+                    <Layers size={32} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-lg">No Inventory Locations Detected</h4>
+                    <p className="text-neutral-400 text-xs leading-relaxed max-w-sm mx-auto mt-1">
+                      Create custom sheets first in the <Link to="/inventory" className="text-primary font-bold hover:underline">Inventory Module</Link> to associate granular access keys for your team roster!
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-[#FAF9F6] text-[9px] font-black uppercase tracking-[0.2em] text-neutral-400 border-b border-neutral-100">
+                      <tr>
+                        <th className="px-8 py-6 min-w-[240px] sticky left-0 bg-[#FAF9F6] z-10">TEAM MEMBER</th>
+                        <th className="px-6 py-6 text-center border-l border-neutral-100 bg-neutral-50/50" colSpan={inventories.length}>INVENTORY LOCATIONS ACCESS</th>
+                        <th className="px-6 py-6 text-center border-l border-neutral-100" colSpan={4}>PACKING LIST PERMISSIONS</th>
+                        <th className="px-6 py-6 text-right">PRESETS</th>
+                      </tr>
+                      <tr className="border-b border-neutral-100">
+                        <th className="px-8 py-4 sticky left-0 bg-[#FAF9F6] z-10 font-bold text-neutral-500 lowercase italic">Name & global role</th>
+                        
+                        {/* Dynamic Inventory columns */}
+                        {inventories.map((inv) => (
+                          <th key={inv.id} className="px-4 py-4 text-center border-l border-neutral-100 min-w-[140px] font-bold text-neutral-700 bg-[#FAF9F6]">
+                            <div className="text-[10px] font-black uppercase tracking-tight truncate max-w-[140px] mx-auto" title={inv.name}>
+                              {inv.name}
+                            </div>
+                          </th>
+                        ))}
+
+                        {/* Packing list toggle features */}
+                        <th className="px-4 py-4 text-center border-l border-neutral-100 min-w-[70px] text-[8px] font-black text-neutral-500 uppercase tracking-widest bg-white">View</th>
+                        <th className="px-4 py-4 text-center min-w-[70px] text-[8px] font-black text-neutral-500 uppercase tracking-widest bg-white">Edit</th>
+                        <th className="px-4 py-4 text-center min-w-[70px] text-[8px] font-black text-neutral-500 uppercase tracking-widest bg-white">Export</th>
+                        <th className="px-4 py-4 text-center min-w-[70px] text-[8px] font-black text-neutral-500 uppercase tracking-widest bg-white">Audit</th>
+                        
+                        <th className="px-6 py-4 text-right bg-[#FAF9F6]">Rapid Setup</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-50">
+                      {members.map((member) => {
+                        const mLocs = member.permissions?.locations || {};
+                        const mPacking = member.permissions?.packingLists || {};
+
+                        return (
+                          <tr key={member.uid} className="hover:bg-neutral-50/50 transition-colors">
+                            {/* Member basic details */}
+                            <td className="px-8 py-5 sticky left-0 bg-white z-10 shadow-[2px_0_5px_rgba(0,0,0,0.01)] border-r border-neutral-50">
+                              <div className="flex items-center gap-3">
+                                <img src={member.photoURL} className="w-9 h-9 rounded-full border border-neutral-100 shadow-sm" />
+                                <div>
+                                  <div className="font-bold text-neutral-900 text-xs sm:text-sm">{member.displayName}</div>
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                    <span className="text-[8px] text-neutral-400 font-bold uppercase tracking-widest truncate max-w-[120px]">{member.email}</span>
+                                    <span className="text-[8px] px-1.5 py-0.2 bg-neutral-100 border border-neutral-200 text-neutral-600 font-black rounded uppercase italic">{member.role}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Location Role Selector cells */}
+                            {inventories.map((inv) => {
+                              const currentLocRole = mLocs[inv.id] || 'none';
+                              return (
+                                <td key={inv.id} className="px-4 py-5 text-center border-l border-neutral-100 bg-neutral-50/10">
+                                  <select
+                                    value={currentLocRole}
+                                    onChange={(e) => handleUpdatePermission(member.uid, 'location', inv.id, e.target.value)}
+                                    className={`text-[9px] font-black uppercase tracking-wider rounded-xl px-2 py-1 outline-none outline-0 border cursor-pointer text-center mx-auto transition-all ${
+                                      currentLocRole === 'editor' 
+                                        ? 'bg-blue-50 text-blue-600 border-blue-200' 
+                                        : currentLocRole === 'reader' 
+                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
+                                        : currentLocRole === 'auditor' 
+                                        ? 'bg-amber-50 text-amber-600 border-amber-200' 
+                                        : 'bg-neutral-50 text-neutral-400 border-neutral-200'
+                                    }`}
+                                  >
+                                    <option value="none">🚫 No Access</option>
+                                    <option value="reader">📖 Reader</option>
+                                    <option value="editor">📝 Editor</option>
+                                    <option value="auditor">🔍 Auditor</option>
+                                  </select>
+                                </td>
+                              );
+                            })}
+
+                            {/* Packing list view feature */}
+                            <td className="px-4 py-5 text-center border-l border-neutral-100 bg-emerald-50/5">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePermission(member.uid, 'packingList', 'view', !mPacking.view)}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all border ${
+                                  mPacking.view !== false 
+                                    ? 'bg-emerald-100 text-emerald-600 border-emerald-200 hover:bg-emerald-200' 
+                                    : 'bg-neutral-100 text-neutral-400 border-neutral-200 hover:bg-neutral-200'
+                                }`}
+                              >
+                                {mPacking.view !== false ? <CheckCircle2 size={16} /> : <X size={14} />}
+                              </button>
+                            </td>
+
+                            {/* Packing list edit feature */}
+                            <td className="px-4 py-5 text-center bg-blue-50/5">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePermission(member.uid, 'packingList', 'edit', !mPacking.edit)}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all border ${
+                                  mPacking.edit 
+                                    ? 'bg-blue-100 text-blue-600 border-blue-200 hover:bg-blue-200' 
+                                    : 'bg-neutral-100 text-neutral-400 border-neutral-200 hover:bg-neutral-200'
+                                }`}
+                              >
+                                {mPacking.edit ? <CheckCircle2 size={16} /> : <X size={14} />}
+                              </button>
+                            </td>
+
+                            {/* Packing list export feature */}
+                            <td className="px-4 py-5 text-center bg-purple-50/5">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePermission(member.uid, 'packingList', 'export', !mPacking.export)}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all border ${
+                                  mPacking.export 
+                                    ? 'bg-purple-100 text-purple-600 border-purple-200 hover:bg-purple-200' 
+                                    : 'bg-neutral-100 text-neutral-400 border-neutral-200 hover:bg-neutral-200'
+                                }`}
+                              >
+                                {mPacking.export ? <CheckCircle2 size={16} /> : <X size={14} />}
+                              </button>
+                            </td>
+
+                            {/* Packing list audit feature */}
+                            <td className="px-4 py-5 text-center bg-amber-50/5">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePermission(member.uid, 'packingList', 'audit', !mPacking.audit)}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto transition-all border ${
+                                  mPacking.audit 
+                                    ? 'bg-amber-100 text-amber-600 border-amber-200 hover:bg-amber-200' 
+                                    : 'bg-neutral-100 text-neutral-400 border-neutral-200 hover:bg-neutral-200'
+                                }`}
+                              >
+                                {mPacking.audit ? <CheckCircle2 size={16} /> : <X size={14} />}
+                              </button>
+                            </td>
+
+                            {/* Preset Buttons column */}
+                            <td className="px-6 py-5 text-right whitespace-nowrap min-w-[200px]">
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => applyPermissionPreset(member.uid, 'admin')}
+                                  className="px-2.5 py-1.5 hover:bg-neutral-100 rounded-lg text-[9px] font-black uppercase text-neutral-800 transition border border-neutral-200"
+                                  title="Assign Editor to all locations + all checklist permissions"
+                                >
+                                  🔑 Admin
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => applyPermissionPreset(member.uid, 'auditor')}
+                                  className="px-2.5 py-1.5 hover:bg-neutral-100 rounded-lg text-[9px] font-black uppercase text-neutral-800 transition border border-neutral-200"
+                                  title="Assign Auditor to all locations + view & check permissions"
+                                >
+                                  🔍 Auditor
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => applyPermissionPreset(member.uid, 'field_staff')}
+                                  className="px-2.5 py-1.5 hover:bg-neutral-100 rounded-lg text-[9px] font-black uppercase text-neutral-800 transition border border-neutral-200"
+                                  title="Assign Reader to all locations + basic view permissions"
+                                >
+                                  📋 Staff
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

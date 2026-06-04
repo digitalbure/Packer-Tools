@@ -53,7 +53,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { compressImage } from '../lib/imageUtils';
-import { Camera, Sparkles, Wand2, Lightbulb, Check, Layers, Luggage, Box, Briefcase, QrCode, Loader2, RefreshCw } from 'lucide-react';
+import { Camera, Sparkles, Wand2, Lightbulb, Check, Layers, Luggage, Box, Briefcase, QrCode, Loader2, RefreshCw, Server, HelpCircle } from 'lucide-react';
 import QRPrintModal from '../components/QRPrintModal';
 import { suggestItemMetadata, identifyItem } from '../services/geminiService';
 import { checkLimit, canUseAI, trackAIUsage } from '../lib/limitUtils';
@@ -510,6 +510,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   
+  // Batch Move to Rack & Change Status states
+  const [racks, setRacks] = useState<any[]>([]);
+  const [isMoveToRackModalOpen, setIsMoveToRackModalOpen] = useState(false);
+  const [selectedRackId, setSelectedRackId] = useState('');
+  const [isChangeStatusModalOpen, setIsChangeStatusModalOpen] = useState(false);
+  const [selectedBatchStatus, setSelectedBatchStatus] = useState<'available' | 'in_use' | 'maintenance' | 'retired' | 'missing'>('available');
+
   // Batch organizational assignment states
   const [isBatchAssignModalOpen, setIsBatchAssignModalOpen] = useState(false);
   const [batchOrgId, setBatchOrgId] = useState('');
@@ -1235,6 +1242,103 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     } catch (error) {
       console.error("Packing error:", error);
       toast.error("Failed to pack items", { id: toastId });
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'racks'), where('ownerId', '==', user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setRacks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => {
+      console.warn("Error fetching racks in GearLibrary:", err);
+    });
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  const handleBatchMoveToRack = async () => {
+    if (selectedItems.size === 0) {
+      toast.error("No items selected");
+      return;
+    }
+    if (!selectedRackId) {
+      toast.error("Please select a target rack");
+      return;
+    }
+
+    const targetRack = racks.find(r => r.id === selectedRackId);
+    if (!targetRack) {
+      toast.error("Target rack not found");
+      return;
+    }
+
+    const toastId = toast.loading(`Moving ${selectedItems.size} items to ${targetRack.name}...`);
+    try {
+      const batch = writeBatch(db);
+      const updatedAt = new Date().toISOString();
+
+      for (const itemId of Array.from(selectedItems)) {
+        const item = gear.find(i => i.id === itemId);
+        if (item) {
+          const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
+          batch.update(itemRef, { 
+            rackId: selectedRackId,
+            updatedAt
+          });
+
+          const rackItemRef = doc(collection(db, 'racks', selectedRackId, 'items'));
+          batch.set(rackItemRef, {
+            name: item.name || 'Unnamed Asset',
+            uPosition: 1,
+            uHeight: 1,
+            assetTag: item.assetTag || '',
+            serialNumber: item.serialNumber || '',
+            purchaseDate: item.purchaseDate || '',
+            rackId: selectedRackId,
+            gearItemId: item.id,
+            status: 'installed',
+            photoUrls: item.photoUrls || [],
+            createdAt: updatedAt
+          });
+        }
+      }
+
+      await batch.commit();
+      setSelectedItems(new Set());
+      setIsMoveToRackModalOpen(false);
+      toast.success(`Successfully moved ${selectedItems.size} assets to Rack "${targetRack.name}"`, { id: toastId });
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to batch move items to rack", { id: toastId });
+    }
+  };
+
+  const handleBatchChangeStatus = async () => {
+    if (selectedItems.size === 0) {
+      toast.error("No items selected");
+      return;
+    }
+
+    const toastId = toast.loading(`Changing status of ${selectedItems.size} items...`);
+    try {
+      const batch = writeBatch(db);
+      const updatedAt = new Date().toISOString();
+
+      selectedItems.forEach(itemId => {
+        const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
+        batch.update(itemRef, { 
+          status: selectedBatchStatus,
+          updatedAt
+        });
+      });
+
+      await batch.commit();
+      setSelectedItems(new Set());
+      setIsChangeStatusModalOpen(false);
+      toast.success(`Successfully changed status of ${selectedItems.size} items to ${selectedBatchStatus}`, { id: toastId });
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to batch change status", { id: toastId });
     }
   };
 
@@ -5986,6 +6090,28 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 <span>Assign Batch</span>
               </button>
 
+              <button 
+                onClick={() => {
+                  setSelectedRackId('');
+                  setIsMoveToRackModalOpen(true);
+                }}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in"
+              >
+                <Server size={14} className="text-blue-400 font-bold" />
+                <span>Move to Rack</span>
+              </button>
+
+              <button 
+                onClick={() => {
+                  setSelectedBatchStatus('available');
+                  setIsChangeStatusModalOpen(true);
+                }}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in"
+              >
+                <Sliders size={14} className="text-purple-400 font-bold" />
+                <span>Change Status</span>
+              </button>
+
               {selectedItems.size === 2 && (
                 <button 
                   onClick={handleCheckCompatibility}
@@ -6004,6 +6130,180 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               </button>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Batch Move to Rack Modal */}
+      <AnimatePresence>
+        {isMoveToRackModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden border border-neutral-100 font-sans"
+            >
+              <div className="p-6 md:p-8 flex items-center justify-between border-b border-[#f4f4f5]">
+                <div className="flex items-center gap-3">
+                  <span className="p-3 bg-neutral-900 text-white rounded-2xl">
+                    <Server size={20} />
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Move Selected to Rack</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-[#0066cc]">
+                      Deploying {selectedItems.size} items to structural hardware
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsMoveToRackModalOpen(false)}
+                  className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-400 hover:text-neutral-900 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6 md:p-8 space-y-6">
+                <div className="bg-neutral-100/50 p-4 border border-neutral-200 rounded-2xl flex items-start gap-3">
+                  <Info size={16} className="text-neutral-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-neutral-600 leading-relaxed font-semibold">
+                    Moving items to a rack will update their location association and automatically install them as Rack Equipment inside the chosen rack workspace.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400">Select Target Rack Workspace</label>
+                  {racks.length === 0 ? (
+                    <div className="p-8 text-center border-2 border-dashed border-neutral-200 rounded-2xl bg-neutral-50 space-y-4">
+                      <p className="text-xs text-neutral-400 italic font-bold">No physical racks created yet.</p>
+                      <button 
+                        onClick={() => {
+                          setIsMoveToRackModalOpen(false);
+                          navigate('/racks');
+                        }}
+                        className="mx-auto px-6 py-2.5 bg-neutral-900 hover:bg-black text-white rounded-xl font-bold text-[10px] uppercase tracking-widest transition flex items-center gap-2 cursor-pointer"
+                      >
+                        <Plus size={12} />
+                        <span>Create Rack Workspace</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedRackId}
+                      onChange={(e) => setSelectedRackId(e.target.value)}
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs font-bold uppercase tracking-wider outline-none focus:ring-2 focus:ring-primary transition cursor-pointer"
+                    >
+                      <option value="">-- Choose a Rack --</option>
+                      {racks.map(rack => (
+                        <option key={rack.id} value={rack.id}>{rack.name} ({rack.totalUnits}U)</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6 md:p-8 bg-neutral-50 border-t border-neutral-100 flex gap-4">
+                <button
+                  onClick={() => setIsMoveToRackModalOpen(false)}
+                  className="flex-1 py-4 bg-white border border-neutral-200 text-neutral-600 rounded-2xl font-bold hover:bg-neutral-100 transition shadow-sm text-xs uppercase tracking-wider"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBatchMoveToRack}
+                  disabled={!selectedRackId}
+                  className="flex-1 py-4 bg-black text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl font-black uppercase tracking-widest text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  Move Assets
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Batch Change Status Modal */}
+      <AnimatePresence>
+        {isChangeStatusModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden border border-neutral-100 font-sans"
+            >
+              <div className="p-6 md:p-8 flex items-center justify-between border-b border-[#f4f4f5]">
+                <div className="flex items-center gap-3">
+                  <span className="p-3 bg-neutral-900 text-white rounded-2xl">
+                    <Sliders size={20} />
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Change Status</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-purple-600">
+                      Formally changing condition of {selectedItems.size} selected items
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsChangeStatusModalOpen(false)}
+                  className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-400 hover:text-neutral-900 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6 md:p-8 space-y-6">
+                <div className="space-y-4">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400">Select New Asset Status</label>
+                  <div className="grid grid-cols-1 gap-2.5 max-h-[300px] overflow-y-auto pr-1">
+                    {[
+                      { id: 'available', label: 'Available', desc: 'Item is stored securely and ready to pack/deploy' },
+                      { id: 'in_use', label: 'In Use', desc: 'Item is dispatched on active operation (Handover required)' },
+                      { id: 'maintenance', label: 'Maintenance', desc: 'Item is under technical repair/service cycle' },
+                      { id: 'retired', label: 'Retired', desc: 'Item is decommissioned from the fleet' },
+                      { id: 'missing', label: 'Missing', desc: 'Item cannot be located in current scan' }
+                    ].map(statusOption => (
+                      <button
+                        key={statusOption.id}
+                        type="button"
+                        onClick={() => setSelectedBatchStatus(statusOption.id as any)}
+                        className={`w-full p-4 rounded-2xl flex items-start gap-4 border text-left transition cursor-pointer ${
+                          selectedBatchStatus === statusOption.id 
+                            ? 'bg-neutral-900 text-white border-neutral-900 shadow-md' 
+                            : 'bg-white text-neutral-800 border-neutral-100 hover:bg-neutral-50'
+                        }`}
+                      >
+                        <div className={`w-3.5 h-3.5 rounded-full border-2 mt-1 shrink-0 ${
+                          selectedBatchStatus === statusOption.id ? 'bg-primary border-primary' : 'bg-white border-neutral-300'
+                        }`} />
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-wide">{statusOption.label}</p>
+                          <p className={`text-[10px] font-medium leading-relaxed mt-0.5 ${selectedBatchStatus === statusOption.id ? 'text-neutral-300' : 'text-neutral-400'}`}>
+                            {statusOption.desc}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 md:p-8 bg-neutral-50 border-t border-neutral-100 flex gap-4">
+                <button
+                  onClick={() => setIsChangeStatusModalOpen(false)}
+                  className="flex-1 py-4 bg-white border border-neutral-200 text-neutral-600 rounded-2xl font-bold hover:bg-neutral-100 transition shadow-sm text-xs uppercase tracking-wider"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBatchChangeStatus}
+                  className="flex-1 py-4 bg-black text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl font-black uppercase tracking-widest text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  Update Statuses
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

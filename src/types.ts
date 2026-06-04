@@ -122,6 +122,17 @@ export interface UserProfile {
   activeWorkspaceId?: string;
   workspaces?: Workspace[];
   selectedIndustry?: string;
+  permissions?: {
+    locations?: {
+      [inventoryId: string]: 'reader' | 'editor' | 'auditor' | 'none';
+    };
+    packingLists?: {
+      view?: boolean;
+      edit?: boolean;
+      export?: boolean;
+      audit?: boolean;
+    };
+  };
 }
 
 export interface Workspace {

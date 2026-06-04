@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, query, onSnapshot, deleteDoc, updateDoc, addDoc, getDocs, writeBatch, where, orderBy, arrayUnion } from 'firebase/firestore';
-import { Plus, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft } from 'lucide-react';
+import { Plus, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Reorder, AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -19,6 +19,14 @@ import ShareModal from '../components/ShareModal';
 
 export default function PackingListDetail({ user, adminSettings }: { user: UserProfile | null, adminSettings: AdminSettings | null }) {
   const { id } = useParams<{ id: string }>();
+  
+  // Permissions Matrix Access Guard Check
+  const isOrgAdmin = user?.role === 'owner' || user?.role === 'admin';
+  const canViewList = !user || isOrgAdmin || !user.permissions || user.permissions.packingLists?.view !== false;
+  const canEditList = !user || isOrgAdmin || !user.permissions || user.permissions.packingLists?.edit !== false;
+  const canExportList = !user || isOrgAdmin || !user.permissions || user.permissions.packingLists?.export !== false;
+  const canAuditList = !user || isOrgAdmin || !user.permissions || user.permissions.packingLists?.audit !== false;
+
   const [list, setList] = useState<PackingList | null>(null);
   const [items, setItems] = useState<PackingItem[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -660,6 +668,11 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     e.preventDefault();
     if (!id || !quickAddName.trim()) return;
     
+    if (!canEditList) {
+      toast.error("Permission denied: You do not have 'Editor' permissions inside this matrix.");
+      return;
+    }
+    
     try {
       await addDoc(collection(db, 'packingLists', id, 'items'), {
         name: quickAddName.trim(),
@@ -1071,6 +1084,11 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
   const handleUpdateItem = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (!canEditList) {
+      toast.error("Permission denied: You do not have 'Editor' permissions inside this matrix.");
+      setEditingItem(null);
+      return;
+    }
     if (!id || !editingItem || !isDirty) {
       setEditingItem(null);
       return;
@@ -1551,6 +1569,26 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const shareUrl = `${window.location.origin}/#/p/${id}${list?.shareToken ? `?token=${list.shareToken}` : ''}`;
 
   if (loading) return <div className="flex justify-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
+
+  if (!canViewList) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center space-y-6">
+        <div className="w-24 h-24 bg-red-50 rounded-[2.5rem] flex items-center justify-center text-red-500 shadow-inner">
+          <Shield size={48} />
+        </div>
+        <div className="space-y-2 max-w-sm">
+          <h2 className="text-3xl font-black uppercase tracking-tighter text-neutral-900">Access Denied</h2>
+          <p className="text-neutral-500 font-medium italic text-sm">
+            You do not have permission to view this packing list. Please contact your organization administrator to update your <span className="font-bold text-[#2563eb]">Permissions Matrix</span>.
+          </p>
+        </div>
+        <Link to="/organizer" className="px-8 py-3 bg-neutral-900 text-white rounded-xl font-bold hover:bg-black transition uppercase tracking-widest text-xs btn">
+          Go back to Organizer
+        </Link>
+      </div>
+    );
+  }
+
   if (!list) return null;
 
   return (
@@ -2098,7 +2136,13 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     <Bell size={18} />
                   </button>
                   <button
-                    onClick={() => setIsQRPrintModalOpen(true)}
+                    onClick={() => {
+                      if (!canExportList) {
+                        toast.error("Permission denied: You do not have 'Export' permissions to print QR tags or generate PDFs.");
+                        return;
+                      }
+                      setIsQRPrintModalOpen(true);
+                    }}
                     className="p-2.5 bg-white border border-neutral-200 rounded-xl font-bold hover:bg-neutral-50 transition shadow-sm text-neutral-400 hover:text-primary shrink-0"
                     title="Print Asset Tags"
                   >
@@ -2151,7 +2195,13 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
             <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full md:w-auto">
               {list && (
                 <button
-                  onClick={() => setShowManualCheckout(true)}
+                  onClick={() => {
+                    if (!canAuditList) {
+                      toast.error("Permission denied: You do not have 'Auditor' permissions to perform list check-out/return operations.");
+                      return;
+                    }
+                    setShowManualCheckout(true);
+                  }}
                   className={`col-span-2 sm:col-span-1 md:flex-none flex items-center justify-center gap-2 px-3 py-3 rounded-xl font-bold transition shadow-sm text-xs ${
                     list.status === 'Active'
                       ? 'bg-rose-100 border border-rose-200 text-rose-700 hover:bg-rose-200'

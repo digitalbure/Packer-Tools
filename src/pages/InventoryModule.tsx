@@ -148,6 +148,8 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     selectedInventory.ownerEmail?.toLowerCase() === user?.email?.toLowerCase() || 
     selectedInventory.collaborators?.some(c => c.email && c.email.toLowerCase() === user?.email?.toLowerCase() && c.role === 'editor') || 
     user?.role === 'admin' || 
+    user?.role === 'owner' ||
+    (user?.permissions?.locations && user.permissions.locations[selectedInventory.id] === 'editor') ||
     user?.isSuperAdmin;
 
   // BOM Lead Time & Supply Chain Risk Analyzer states
@@ -503,6 +505,19 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       
       // Filter list: user is developer/admin, list owner, or is listed in visibilities targets
       const visible = allInvs.filter(inv => {
+        const isOrgAdmin = user?.role === 'owner' || user?.role === 'admin';
+        const userLocPermissions = user?.permissions?.locations || {};
+        
+        // If explicit role is set to none or restricted, filter out (for standard members)
+        if (!isOrgAdmin && userLocPermissions[inv.id] === 'none') {
+          return false;
+        }
+        
+        // If they have reader, editor, or auditor, always show
+        if (!isOrgAdmin && userLocPermissions[inv.id] && ['reader', 'editor', 'auditor'].includes(userLocPermissions[inv.id])) {
+          return true;
+        }
+
         if (inv.ownerId === user.uid) return true;
         if (inv.ownerEmail && inv.ownerEmail.toLowerCase() === user.email?.toLowerCase()) return true;
         
