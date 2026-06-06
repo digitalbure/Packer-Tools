@@ -16,6 +16,7 @@ import QRPrintModal from '../components/QRPrintModal';
 import ManualCheckoutModal from '../components/ManualCheckoutModal';
 import { checkLimit } from '../lib/limitUtils';
 import ShareModal from '../components/ShareModal';
+import { logActivity } from '../services/activityLog';
 
 export default function PackingListDetail({ user, adminSettings }: { user: UserProfile | null, adminSettings: AdminSettings | null }) {
   const { id } = useParams<{ id: string }>();
@@ -1273,6 +1274,15 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
     try {
       await updateDoc(doc(db, 'packingLists', id, 'items', item.id), { status: newStatus });
+      if (user) {
+        await logActivity(
+          user.uid,
+          user.displayName || user.email || 'Platform User',
+          'list_status_change',
+          `Updated list item "${item.name}" status to "${newStatus}" in list "${list?.name || 'Untitled List'}"`,
+          { listId: id, listName: list?.name, itemStatus: newStatus }
+        );
+      }
     } catch (error) {
       console.error("Error updating item status:", error);
     }

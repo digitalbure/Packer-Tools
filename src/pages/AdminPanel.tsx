@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch, setDoc } from 'firebase/firestore';
 import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Smartphone, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin, Bug, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
@@ -34,6 +34,7 @@ export const MODULE_METADATA: {
   movingDashboard: { name: 'Moving Coordinator', description: 'Workflow staging for residential and office moves.', icon: 'Package', version: 'v1.1.5', category: 'Logistics' },
   rackingDashboard: { name: 'Racking Console', description: 'Visual mapping for network switches and server hardware layouts.', icon: 'Layers', version: 'v1.3.2', category: 'Operations' },
   marketplace: { name: 'Rental Marketplace', description: 'List, rent, and process escrow bookings between organizations.', icon: 'ShoppingBag', version: 'v2.0.1', category: 'Operations' },
+  marketplaceListings: { name: 'Marketplace Listings Module', description: 'Allow users to list gear/lists to the Rent/Buy marketplace shelf.', icon: 'ShoppingBag', version: 'v1.0.0', category: 'Operations' },
   kioskMode: { name: 'Kiosk Terminal Mode', description: 'Enables safe self-service check-outs via restricted kiosk profiles.', icon: 'QrCode', version: 'v2.1.0', category: 'Kiosk' },
   orgManagement: { name: 'Org Multi-Tenancy', description: 'Provides multiple divisions, corporate entities, and custom permissions.', icon: 'Building2', version: 'v1.8.0', category: 'Advanced' },
   departments: { name: 'Departmental Isolation', description: 'Segregates assets and users to independent corporate divisions.', icon: 'Layers', version: 'v1.6.0', category: 'Core' },
@@ -109,6 +110,14 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const [listingFilter, setListingFilter] = useState<'all' | 'featured' | 'sponsored' | 'suspended'>('all');
   const [editingUserForListings, setEditingUserForListings] = useState<UserProfile | null>(null);
   const [isUserListingsModalOpen, setIsUserListingsModalOpen] = useState(false);
+
+  // Category Settings States
+  const [categories, setCategories] = useState<any[]>([]);
+  const [listingsSubTab, setListingsSubTab] = useState<'moderate' | 'categories'>('moderate');
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryId, setNewCategoryId] = useState('');
+  const [newCategoryImage, setNewCategoryImage] = useState('');
 
   // Bug Report system states
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
@@ -605,6 +614,12 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       console.warn("AdminPanel: Error catching bugs:", error);
     });
 
+    const unsubscribeCategories = onSnapshot(collection(db, 'marketplaceCategories'), (snapshot) => {
+      setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.warn("AdminPanel: Error catching marketplaceCategories:", error);
+    });
+
     setLoading(false);
     return () => {
       unsubscribeUsers();
@@ -616,8 +631,98 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       unsubscribeDepts();
       unsubscribeTeams();
       unsubscribeBugs();
+      unsubscribeCategories();
     };
   }, []);
+
+  const handleAutoPopulateCategories = async () => {
+    try {
+      const defaultCats = [
+        { id: 'cinema-cameras', name: 'Cinema Cameras', image: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=400' },
+        { id: 'cinema-lenses', name: 'Cinema Lenses', image: 'https://images.unsplash.com/photo-1617005082133-5c8cdd97eadd?auto=format&fit=crop&q=80&w=400' },
+        { id: 'photography-lenses', name: 'Photography Lenses', image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400' },
+        { id: 'still-hybrid', name: 'Still / Hybrid Cameras', image: 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?auto=format&fit=crop&q=80&w=400' },
+        { id: 'lighting-electric', name: 'Lighting / Electric', image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&q=80&w=400' },
+        { id: 'audio', name: 'Audio Gear', image: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&q=80&w=400' },
+        { id: 'ge-packages', name: 'G&E Packages', image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=400' },
+        { id: 'heavy-machinery', name: 'Heavy Machinery & Cranes', image: 'https://images.unsplash.com/photo-1579684389781-71fa80d34154?auto=format&fit=crop&q=80&w=400' },
+        { id: 'power-tools', name: 'Industrial Power Tools', image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=400' },
+        { id: 'site-scaffolding', name: 'Hoists & Scaffold Systems', image: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=400' },
+        { id: 'diagnostics', name: 'Garages & Calibration Diagnostics', image: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=400' },
+        { id: 'imaging', name: 'Medical Ultrasound & Scopes', image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&q=80&w=400' },
+        { id: 'patient-monitors', name: 'Care Vitals & ECG Monitors', image: 'https://images.unsplash.com/photo-1551076805-e1869033e561?auto=format&fit=crop&q=80&w=400' },
+        { id: 'clinical-pipettes', name: 'Lab Clinical Micropipettes', image: 'https://images.unsplash.com/photo-1579154204601-01588f351167?auto=format&fit=crop&q=80&w=400' },
+        { id: 'warehouse-logistics', name: 'Propane Forklifts & Shifters', image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=400' }
+      ];
+
+      for (const cat of defaultCats) {
+        await setDoc(doc(db, 'marketplaceCategories', cat.id), {
+          name: cat.name,
+          image: cat.image,
+          createdAt: new Date().toISOString()
+        }, { merge: true });
+      }
+      toast.success("Default marketplace categories successfully populated / restored!");
+    } catch (error) {
+      console.error("Error populating default categories:", error);
+      toast.error("Failed to populate default categories.");
+    }
+  };
+
+  const handleSaveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName || !newCategoryId) {
+      toast.error("Category DB Slug (Id) and Display Name are required.");
+      return;
+    }
+    try {
+      await setDoc(doc(db, 'marketplaceCategories', newCategoryId.trim().toLowerCase()), {
+        name: newCategoryName.trim(),
+        image: newCategoryImage.trim() || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      toast.success(editingCategory ? "Category updated successfully!" : "Category created successfully!");
+      
+      // Reset form
+      setEditingCategory(null);
+      setNewCategoryId('');
+      setNewCategoryName('');
+      setNewCategoryImage('');
+    } catch (error) {
+      console.error("Error saving category:", error);
+      toast.error("Failed to save category.");
+    }
+  };
+
+  const handleDeleteCategory = async (catId: string) => {
+    if (!confirm(`Are you sure you want to delete category "${catId}"? Marketplace listings using this category won't be deleted, but the category won't show on the search home screen.`)) return;
+    try {
+      await deleteDoc(doc(db, 'marketplaceCategories', catId));
+      toast.success("Category deleted.");
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      toast.error("Failed to delete category.");
+    }
+  };
+
+  const getCategoryListingsCount = (catId: string) => {
+    return lists.filter(l => l.marketplaceEnabled && l.category === catId && l.moderationStatus !== 'suspended').length;
+  };
+
+  // Self-bootstrapping categories
+  useEffect(() => {
+    if (activeTab === 'listings' && categories.length === 0 && loading === false) {
+      const checkAndAutoCreate = async () => {
+        const querySnapshot = await getDocs(collection(db, 'marketplaceCategories'));
+        if (querySnapshot.empty) {
+          console.log("Categories directory is empty, auto-bootstrapping defaults!");
+          handleAutoPopulateCategories();
+        }
+      };
+      checkAndAutoCreate();
+    }
+  }, [activeTab, categories.length, loading]);
 
   const handleUpdatePlan = async (userId: string, newPlan: string) => {
     try {
@@ -1363,7 +1468,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                 <div className="space-y-4">
                   <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Included Features</p>
                   <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2">
-                    {(['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'branding', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'kioskMode', 'orgManagement', 'departments', 'teams', 'inventoryManagement', 'projectCost', 'supplierManagement', 'bomManagement', 'customBarcodes', 'automaticDepreciation', 'digitalSignatures', 'clientPortal', 'apiIntegrations', 'weightAnalytics', 'kioskOrderMode', 'kioskDirectCheckout'] as const).map(feature => (
+                    {(['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'branding', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'marketplaceListings', 'kioskMode', 'orgManagement', 'departments', 'teams', 'inventoryManagement', 'projectCost', 'supplierManagement', 'bomManagement', 'customBarcodes', 'automaticDepreciation', 'digitalSignatures', 'clientPortal', 'apiIntegrations', 'weightAnalytics', 'kioskOrderMode', 'kioskDirectCheckout'] as const).map(feature => (
                       <label key={feature} className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl border border-neutral-100 cursor-pointer hover:bg-neutral-100 transition">
                         <input
                           type="checkbox"
@@ -3584,7 +3689,27 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
       {activeTab === 'listings' && (
         <div className="space-y-8 animate-in fade-in duration-300">
-          {/* Stats Bar */}
+          {/* Sub Tab headers */}
+          <div className="flex border-b border-neutral-100 pb-2 gap-6">
+            <button
+              type="button"
+              onClick={() => setListingsSubTab('moderate')}
+              className={`pb-2 text-xs font-black uppercase tracking-wider border-b-2 transition ${listingsSubTab === 'moderate' ? 'border-primary text-neutral-900 font-extrabold' : 'border-transparent text-neutral-400 hover:text-neutral-700 font-bold'}`}
+            >
+              💼 Listing Moderation
+            </button>
+            <button
+              type="button"
+              onClick={() => setListingsSubTab('categories')}
+              className={`pb-2 text-xs font-black uppercase tracking-wider border-b-2 transition ${listingsSubTab === 'categories' ? 'border-primary text-neutral-900 font-extrabold' : 'border-transparent text-neutral-400 hover:text-neutral-700 font-bold'}`}
+            >
+              🏷️ Category Settings
+            </button>
+          </div>
+
+          {listingsSubTab === 'moderate' && (
+            <>
+              {/* Stats Bar */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-2">
               <span className="text-neutral-400 text-[10px] font-black uppercase tracking-widest block">Total Listings</span>
@@ -3780,6 +3905,215 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               </table>
             </div>
           </div>
+            </>
+          )}
+
+          {listingsSubTab === 'categories' && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Category form card & categories directory */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Manual Category Editor form */}
+                <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6 self-start">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">
+                      {editingCategory ? 'Edit Category' : 'Create Category'}
+                    </h3>
+                    <p className="text-xs text-neutral-500">
+                      Configure marketplace taxonomy categories manually.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleSaveCategory} className="space-y-5">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Category DB ID (Slug)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. cinema-cameras"
+                        value={newCategoryId}
+                        onChange={(e) => setNewCategoryId(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                        className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold font-mono outline-none focus:ring-2 focus:ring-primary transition"
+                        disabled={!!editingCategory}
+                        required
+                      />
+                      <p className="text-[10px] text-neutral-450 uppercase">Unique slug used in database. Only lower-case, hyphens.</p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Display Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Cinema Cameras"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Photo URL (Direct Web Link)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          placeholder="Paste Unsplash or Imgur URL..."
+                          value={newCategoryImage}
+                          onChange={(e) => setNewCategoryImage(e.target.value)}
+                          className="flex-1 px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition"
+                        />
+                      </div>
+                      <p className="text-[10px] text-neutral-450 uppercase">Pulled from direct URL links.</p>
+                    </div>
+
+                    {/* Image Preview Area */}
+                    {newCategoryImage && (
+                      <div className="relative rounded-2xl overflow-hidden aspect-video border border-neutral-100 bg-neutral-50">
+                        <img 
+                          src={newCategoryImage} 
+                          alt="Category preview" 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400';
+                            toast.error("Image link failed to load, falling back to default.");
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/40 flex items-end p-3">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-white">Live URL Preview</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 pt-2">
+                      {editingCategory && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCategory(null);
+                            setNewCategoryId('');
+                            setNewCategoryName('');
+                            setNewCategoryImage('');
+                          }}
+                          className="flex-1 px-4 py-2.5 bg-neutral-100 text-neutral-700 rounded-xl text-xs font-extrabold uppercase tracking-wider hover:bg-neutral-200 transition whitespace-nowrap"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        className="flex-1 px-4 py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-extrabold uppercase tracking-wider hover:bg-neutral-800 transition whitespace-nowrap"
+                      >
+                        {editingCategory ? 'Update' : 'Create'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Categories Directory table & actions */}
+                <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm lg:col-span-2 space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900 flex items-center gap-2">
+                        <span>Categories Directory</span>
+                        <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded-full text-[10px] font-black uppercase">
+                          {categories.length} Total
+                        </span>
+                      </h3>
+                      <p className="text-xs text-neutral-500">
+                        Manage active listing categories synced with the marketplace.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAutoPopulateCategories}
+                        className="flex items-center gap-2 px-4 py-2 bg-neutral-100 text-neutral-700 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-neutral-200 transition"
+                        title="Auto populate / restore standard categories"
+                      >
+                        <Zap size={14} className="text-[#ff4f3a]" />
+                        <span>Auto Defaults</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {categories.length === 0 ? (
+                    <div className="p-16 border-2 border-dashed border-neutral-100 rounded-2xl text-center space-y-4">
+                      <p className="text-neutral-450 italic text-xs">
+                        No custom categories found in Firestore database. Click "Auto Defaults" above to scaffold standard settings or use the form to add manually!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-neutral-100 text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                            <th className="pb-4 shrink-0">Photo</th>
+                            <th className="pb-4">Display Name / ID</th>
+                            <th className="pb-4 text-center">Active Items Count</th>
+                            <th className="pb-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-50 text-xs">
+                          {categories.map((cat) => {
+                            const count = getCategoryListingsCount(cat.id);
+                            return (
+                              <tr key={cat.id} className="hover:bg-neutral-50/20 group">
+                                <td className="py-4 pr-4">
+                                  <div className="w-12 h-12 rounded-xl overflow-hidden border border-neutral-150 bg-neutral-50">
+                                    <img 
+                                      src={cat.image || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400'} 
+                                      alt={cat.name} 
+                                      className="w-full h-full object-cover"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  </div>
+                                </td>
+                                <td className="py-2">
+                                  <div>
+                                    <p className="font-extrabold text-neutral-800 text-sm">{cat.name}</p>
+                                    <p className="font-mono text-[9px] text-neutral-400 font-bold uppercase">{cat.id}</p>
+                                  </div>
+                                </td>
+                                <td className="py-4 text-center font-bold">
+                                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider ${count > 0 ? 'bg-primary/10 text-primary' : 'bg-neutral-100 text-neutral-400'}`}>
+                                    {count} {count === 1 ? 'item' : 'items'}
+                                  </span>
+                                </td>
+                                <td className="py-4 text-right">
+                                  <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingCategory(cat);
+                                        setNewCategoryId(cat.id);
+                                        setNewCategoryName(cat.name);
+                                        setNewCategoryImage(cat.image || '');
+                                      }}
+                                      className="p-2 text-neutral-500 hover:text-neutral-950 hover:bg-neutral-100 rounded-xl transition"
+                                      title="Edit details"
+                                    >
+                                      <Edit2 size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteCategory(cat.id)}
+                                      className="p-2 text-neutral-400 hover:text-red-500 hover:bg-neutral-100 rounded-xl transition"
+                                      title="Delete Category"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -5512,6 +5846,33 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   </div>
 
                   <div className="space-y-2">
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Default Marketplace Currency</label>
+                    <select
+                      value={settings?.marketplaceRegionConfig?.defaultCurrency || 'USD'}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSettings(s => {
+                          if (!s) return null;
+                          const cfg = s.marketplaceRegionConfig || { launchCountry: 'Fiji', availableCountries: ['Fiji'], restrictToAvailableCountries: false };
+                          return {
+                            ...s,
+                            marketplaceRegionConfig: { ...cfg, defaultCurrency: val }
+                          };
+                        });
+                      }}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition font-semibold"
+                    >
+                      <option value="USD">USD (United States Dollar, $)</option>
+                      <option value="FJD">FJD (Fijian Dollar, FJ$)</option>
+                      <option value="AUD">AUD (Australian Dollar, A$)</option>
+                      <option value="NZD">NZD (New Zealand Dollar, NZ$)</option>
+                      <option value="GBP">GBP (British Pound, £)</option>
+                      <option value="CAD">CAD (Canadian Dollar, C$)</option>
+                      <option value="EUR">EUR (Euro, €)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
                     <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Packer Tools Available Countries List</label>
                     <div className="grid grid-cols-2 gap-2">
                       {['Fiji', 'United States', 'Australia', 'New Zealand', 'United Kingdom', 'Canada'].map((country) => {
@@ -5567,6 +5928,176 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     >
                       <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceRegionConfig?.restrictToAvailableCountries ? 'right-1' : 'left-1'}`}></div>
                     </button>
+                  </div>
+
+                  {/* Fiji VAT & Global Country Taxes Customization */}
+                  <div className="space-y-4 pt-6 border-t border-neutral-100">
+                    <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800 flex items-center gap-1.5 flex-wrap">
+                      <Globe size={16} className="text-primary shrink-0" />
+                      <span>Fiji VAT & Global Country Taxes Customization</span>
+                    </h4>
+                    <p className="text-[11px] text-neutral-500 font-bold uppercase tracking-wider leading-relaxed">
+                      Configure custom target tax percentages and charge logic per country for the marketplace checkout totals.
+                    </p>
+
+                    <div className="p-5 bg-neutral-900 border border-neutral-800 rounded-2xl text-white space-y-4 shadow-xl">
+                      <div className="border-b border-neutral-800 pb-3 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] uppercase tracking-wider text-primary font-black block">National VAT Settings (Fiji Centric)</span>
+                          <span className="text-[9px] text-neutral-400 font-semibold block">Choose custom VAT rates and whether it's VIP (Inclusive) or VEP (Exclusive)</span>
+                        </div>
+                        <span className="bg-[#ff4f3a] text-white text-[8px] font-black px-2 py-0.5 rounded tracking-widest uppercase shrink-0">FJ Config</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest font-mono">Fiji VAT Percentage Rate (%)</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            placeholder="15"
+                            value={settings?.taxConfig?.fijiVatRate ?? 15}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setSettings(s => {
+                                if (!s) return null;
+                                const tCfg = s.taxConfig || { fijiVatRate: 15, fijiVatType: 'VIP' };
+                                return {
+                                  ...s,
+                                  taxConfig: { ...tCfg, fijiVatRate: val }
+                                };
+                              });
+                            }}
+                            className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs font-bold text-white outline-none focus:border-primary"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest font-mono">Fiji VAT Display Type (VIP / VEP Toggle)</label>
+                          <div className="flex bg-neutral-950 p-1 rounded-xl border border-neutral-800 h-9.5 items-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSettings(s => {
+                                  if (!s) return null;
+                                  const tCfg = s.taxConfig || { fijiVatRate: 15, fijiVatType: 'VIP' };
+                                  return {
+                                    ...s,
+                                    taxConfig: { ...tCfg, fijiVatType: 'VIP' }
+                                  };
+                                });
+                              }}
+                              className={`flex-1 text-center py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all h-7.5 flex items-center justify-center gap-1 ${
+                                (settings?.taxConfig?.fijiVatType || 'VIP') === 'VIP'
+                                  ? 'bg-primary text-white shadow-sm font-black'
+                                  : 'text-neutral-400 hover:text-white'
+                              }`}
+                            >
+                              <span>VIP (VAT Inclusive)</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSettings(s => {
+                                  if (!s) return null;
+                                  const tCfg = s.taxConfig || { fijiVatRate: 15, fijiVatType: 'VIP' };
+                                  return {
+                                    ...s,
+                                    taxConfig: { ...tCfg, fijiVatType: 'VEP' }
+                                  };
+                                });
+                              }}
+                              className={`flex-1 text-center py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all h-7.5 flex items-center justify-center gap-1 ${
+                                (settings?.taxConfig?.fijiVatType || 'VIP') === 'VEP'
+                                  ? 'bg-[#ff4f3a] text-white shadow-sm font-black'
+                                  : 'text-neutral-400 hover:text-white'
+                              }`}
+                            >
+                              <span>VEP (VAT Exclusive)</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Other Countries Backend config */}
+                      <div className="border-t border-neutral-800 pt-4 space-y-3">
+                        <div>
+                          <span className="text-[10px] uppercase tracking-wider text-neutral-400 font-extrabold block">International Taxes Configurator</span>
+                          <span className="text-[9px] text-neutral-500 font-semibold block">Configured custom tax settings used globally for checkout on international orders</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                          {['United States', 'Australia', 'New Zealand', 'United Kingdom', 'Canada'].map((country) => {
+                            const config = settings?.taxConfig?.otherCountriesTaxRates?.[country] || { rate: 10, type: 'exclusive' };
+                            return (
+                              <div key={country} className="p-3 bg-neutral-950/70 rounded-xl border border-neutral-850 flex flex-col gap-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-black uppercase text-neutral-300">{country}</span>
+                                  <span className="text-[8px] font-mono text-neutral-500 uppercase">Custom Tax</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-[7px] uppercase font-black tracking-widest text-neutral-500">Tax Rate %</span>
+                                    <input 
+                                      type="number"
+                                      step="0.1"
+                                      value={config.rate}
+                                      onChange={(e) => {
+                                        const r = parseFloat(e.target.value) || 0;
+                                        setSettings(s => {
+                                          if (!s) return null;
+                                          const tCfg = s.taxConfig || { fijiVatRate: 15, fijiVatType: 'VIP' };
+                                          const rates = tCfg.otherCountriesTaxRates || {};
+                                          return {
+                                            ...s,
+                                            taxConfig: {
+                                              ...tCfg,
+                                              otherCountriesTaxRates: {
+                                                ...rates,
+                                                [country]: { ...config, rate: r }
+                                              }
+                                            }
+                                          };
+                                        });
+                                      }}
+                                      className="w-full bg-neutral-900 border border-neutral-800 rounded px-1.5 py-0.5 text-[9px] text-white font-extrabold"
+                                    />
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-[7px] uppercase font-black tracking-widest text-neutral-500">Tax Type</span>
+                                    <select
+                                      value={config.type}
+                                      onChange={(e) => {
+                                        const ty = e.target.value as 'exclusive' | 'inclusive';
+                                        setSettings(s => {
+                                          if (!s) return null;
+                                          const tCfg = s.taxConfig || { fijiVatRate: 15, fijiVatType: 'VIP' };
+                                          const rates = tCfg.otherCountriesTaxRates || {};
+                                          return {
+                                            ...s,
+                                            taxConfig: {
+                                              ...tCfg,
+                                              otherCountriesTaxRates: {
+                                                ...rates,
+                                                [country]: { ...config, type: ty }
+                                              }
+                                            }
+                                          };
+                                        });
+                                      }}
+                                      className="w-full bg-neutral-900 border border-neutral-800 rounded px-1.5 py-0.5 text-[9px] text-white font-extrabold"
+                                    >
+                                      <option value="exclusive">Exclusive</option>
+                                      <option value="inclusive">Inclusive</option>
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Marketplace Landing Page Copy & Core Visual Controls */}
@@ -5709,6 +6240,78 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                             className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showStaffPicks !== false ? 'bg-primary' : 'bg-neutral-200'}`}
                           >
                             <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showStaffPicks !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
+                          <div>
+                            <p className="font-bold text-xs uppercase text-neutral-800">Show Featured Listings</p>
+                            <p className="text-[8.5px] text-neutral-450 uppercase">Promoted spotlight listings</p>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showFeatured: cfg.showFeatured !== false ? false : true } };
+                            })}
+                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showFeatured !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                          >
+                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showFeatured !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
+                          <div>
+                            <p className="font-bold text-xs uppercase text-neutral-800">Show Shipped To You</p>
+                            <p className="text-[8.5px] text-neutral-450 uppercase">Nationwide Shippable items</p>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showShippedToYou: cfg.showShippedToYou !== false ? false : true } };
+                            })}
+                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showShippedToYou !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                          >
+                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showShippedToYou !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
+                          <div>
+                            <p className="font-bold text-xs uppercase text-neutral-800">Show Latest Gear</p>
+                            <p className="text-[8.5px] text-neutral-450 uppercase">Newly onboarded assets</p>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showLatestGear: cfg.showLatestGear !== false ? false : true } };
+                            })}
+                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showLatestGear !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                          >
+                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showLatestGear !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
+                          <div>
+                            <p className="font-bold text-xs uppercase text-neutral-800">Show Popular Items</p>
+                            <p className="text-[8.5px] text-neutral-450 uppercase">High-viewcount dynamic listings</p>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => setSettings(s => {
+                              if (!s) return null;
+                              const cfg = s.marketplaceLandingPageConfig || {};
+                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showPopularItems: cfg.showPopularItems !== false ? false : true } };
+                            })}
+                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showPopularItems !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                          >
+                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showPopularItems !== false ? 'right-0.5' : 'left-0.5'}`}></div>
                           </button>
                         </div>
 

@@ -42,6 +42,7 @@ import PageViewer from './pages/PageViewer';
 import KioskMode from './pages/KioskMode';
 import ListingsModule from './pages/ListingsModule';
 import GearBioPage from './pages/GearBioPage';
+import ShopPage from './pages/ShopPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import AddGearModal from './components/AddGearModal';
 import { IndustryProvider } from './context/IndustryContext';
@@ -124,6 +125,7 @@ function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick, selectedCom
           <Route path="/list/:id" element={<PackingListDetail user={user} adminSettings={adminSettings} />} />
           <Route path="/p/:id" element={<PackingListBioView />} />
           <Route path="/marketplace/:id" element={<MarketplaceView />} />
+          <Route path="/shop/:uid" element={<ShopPage />} />
           <Route path="/marketplace" element={<Marketplace user={user} adminSettings={adminSettings} />} />
           <Route path="/scan/:id" element={user ? <CameraScanner user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/admin" element={user?.isSuperAdmin ? <AdminPanel user={user} onMenuClick={onMenuClick} /> : <Navigate to="/" />} />

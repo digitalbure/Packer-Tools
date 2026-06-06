@@ -3,6 +3,7 @@ import { collection, query, onSnapshot, doc, updateDoc, addDoc } from 'firebase/
 import { db } from '../firebase';
 import { UserProfile, GearItem } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Zap, 
   X, 
@@ -14,7 +15,14 @@ import {
   Activity, 
   Info,
   CalendarCheck,
-  CheckCircle2
+  CheckCircle2,
+  Package,
+  PlusCircle,
+  ArrowUpRight,
+  ShoppingBag,
+  Globe,
+  Percent,
+  BookOpen
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,6 +34,14 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [gearList, setGearList] = useState<GearItem[]>([]);
   const [activeModal, setActiveModal] = useState<'none' | 'tags' | 'maintenance' | 'insurance'>('none');
+  
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentPath = location.pathname;
+
+  if (user?.disableQuickActions) {
+    return null;
+  }
   
   // Interactive Maintenance State
   const [selectedGearId, setSelectedGearId] = useState('');
@@ -129,22 +145,212 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
   const averageValue = totalItemCount > 0 ? totalValuation / totalItemCount : 0;
   const maxPriceItem = gearList.reduce((max, item) => (item.price || 0) > (max.price || 0) ? item : max, { name: 'None', price: 0 });
 
+  // Page-specific Context configuration
+  let contextTitle = "Global Operations";
+  let contextDesc = "Manage spreadsheets, generate QR codes, and audit system configurations instantly.";
+  let contextActions: {
+    title: string;
+    description: string;
+    icon: React.ReactNode;
+    onClick: () => void;
+    colorClass: string;
+  }[] = [];
+
+  const handleNavigate = (path: string) => {
+    setIsOpen(false);
+    navigate(path);
+  };
+
+  const isLibrary = currentPath.includes('/library') || currentPath.includes('/gear');
+  const isMarketplace = currentPath.includes('/marketplace');
+  const isDashboard = currentPath === '/dashboard' || currentPath === '/';
+  const isInventory = currentPath.includes('/inventory') || currentPath.includes('/list') || currentPath.includes('/p/');
+  const isProjects = currentPath.includes('/projects') || currentPath.includes('/project/');
+
+  if (isLibrary) {
+    contextTitle = "Gear Library Actions";
+    contextDesc = "Currently in your master Gear Library. Print adhesive tags, perform audits, or trigger inspections.";
+    contextActions = [
+      {
+        title: "Print QR Barcode Tags",
+        description: "Open printable label sheet overlay with physical ID tracking details.",
+        icon: <Printer size={18} />,
+        onClick: () => {
+          setIsOpen(false);
+          setActiveModal('tags');
+        },
+        colorClass: "bg-blue-50 text-blue-600"
+      },
+      {
+        title: "Log Fleet Inspection",
+        description: "Update calibration dates, cleanliness, or test results.",
+        icon: <ClipboardCheck size={18} />,
+        onClick: () => {
+          setIsOpen(false);
+          setActiveModal('maintenance');
+        },
+        colorClass: "bg-amber-50 text-amber-600"
+      },
+      {
+        title: "Export Spreadsheet (.CSV)",
+        description: "Construct and download localized CSV archives of your entire inventory library.",
+        icon: <Download size={18} />,
+        onClick: handleExportCSV,
+        colorClass: "bg-emerald-50 text-emerald-600"
+      }
+    ];
+  } else if (isMarketplace) {
+    contextTitle = "Marketplace Actions";
+    contextDesc = "Currently searching peer gear. Navigate directly to listings optimization profiles or back to administrative centers.";
+    contextActions = [
+      {
+        title: "My Active Listings",
+        description: "Direct tracking of rental availability rates and user listing orders.",
+        icon: <ShoppingBag size={18} />,
+        onClick: () => handleNavigate('/listings'),
+        colorClass: "bg-rose-50 text-[#ff4f3a]"
+      },
+      {
+        title: "Deploy Spare Assets",
+        description: "Configure spare items to list them on the global B2B checkout marketplace.",
+        icon: <PlusCircle size={18} />,
+        onClick: () => handleNavigate('/library'),
+        colorClass: "bg-purple-50 text-purple-600"
+      },
+      {
+        title: "Administrative Dashboard",
+        description: "Return to the general operations workspace central control panel.",
+        icon: <CalendarCheck size={18} />,
+        onClick: () => handleNavigate('/dashboard'),
+        colorClass: "bg-neutral-50 text-neutral-800"
+      }
+    ];
+  } else if (isDashboard) {
+    contextTitle = "Nerve Center Actions";
+    contextDesc = "Direct controls from primary workspace dashboards. Execute quick setups or review storage setups.";
+    contextActions = [
+      {
+        title: "Marketplace Portals",
+        description: "Explore hire equipment and connect directly with local organizations.",
+        icon: <ShoppingBag size={18} />,
+        onClick: () => handleNavigate('/marketplace'),
+        colorClass: "bg-rose-50 text-[#ff4f3a]"
+      },
+      {
+        title: "Custom Systems Builder",
+        description: "Combine standard list items into complex flight rigs or customized assemblies.",
+        icon: <Activity size={18} />,
+        onClick: () => handleNavigate('/systems-builder'),
+        colorClass: "bg-blue-50 text-blue-600"
+      },
+      {
+        title: "Inspect Storage Racks",
+        description: "Track shelving maps, compartment counts, and regional dispatch lockers.",
+        icon: <TrendingUp size={18} />,
+        onClick: () => handleNavigate('/racks'),
+        colorClass: "bg-purple-50 text-purple-600"
+      }
+    ];
+  } else if (isInventory) {
+    contextTitle = "Sheet Tracking Actions";
+    contextDesc = "Analyzing packing lists or customized sheet collections. Execute high-level insurance audits.";
+    contextActions = [
+      {
+        title: "Insurance Valuation Audit",
+        description: "Generate aggregate financial underwriting totals and unit pricing statistics.",
+        icon: <TrendingUp size={18} />,
+        onClick: () => {
+          setIsOpen(false);
+          setActiveModal('insurance');
+        },
+        colorClass: "bg-purple-50 text-purple-600"
+      },
+      {
+        title: "Backup Inventory Registries",
+        description: "Pull localized spreadsheet databases tracking every listed piece.",
+        icon: <Download size={18} />,
+        onClick: handleExportCSV,
+        colorClass: "bg-emerald-50 text-emerald-600"
+      },
+      {
+        title: "Inspect Equipment Log",
+        description: "Review physical wear or update service intervals on assets.",
+        icon: <ClipboardCheck size={18} />,
+        onClick: () => {
+          setIsOpen(false);
+          setActiveModal('maintenance');
+        },
+        colorClass: "bg-amber-50 text-amber-600"
+      }
+    ];
+  } else if (isProjects) {
+    contextTitle = "Project Booking Actions";
+    contextDesc = "Reviewing project tracking databases. Update team listings or summon artificial templates.";
+    contextActions = [
+      {
+        title: "Launch Gemini Assistant",
+        description: "Summon the interactive template engine to construct checklists dynamically.",
+        icon: <Zap size={18} />,
+        onClick: () => handleNavigate('/ai-wizard'),
+        colorClass: "bg-amber-50 text-amber-600"
+      },
+      {
+        title: "Coordinate Teams / Contacts",
+        description: "Adjust operator profiles, organization structures, and communication logs.",
+        icon: <CheckCircle2 size={18} />,
+        onClick: () => handleNavigate('/organization'),
+        colorClass: "bg-indigo-50 text-indigo-600"
+      }
+    ];
+  } else {
+    // Default Fallbacks
+    contextActions = [
+      {
+        title: "Export Master Inventory (CSV)",
+        description: "Verify physical registries by generating immediate localized spreadsheets.",
+        icon: <Download size={18} />,
+        onClick: handleExportCSV,
+        colorClass: "bg-emerald-50 text-emerald-600"
+      },
+      {
+        title: "Print Adhesive Tags (QR)",
+        description: "Construct grid sheets matching physical barcodes and scan codes.",
+        icon: <Printer size={18} />,
+        onClick: () => {
+          setIsOpen(false);
+          setActiveModal('tags');
+        },
+        colorClass: "bg-blue-50 text-blue-600"
+      },
+      {
+        title: "Maintenance Performance Audit",
+        description: "Document periodic visual checks and update certification marks.",
+        icon: <ClipboardCheck size={18} />,
+        onClick: () => {
+          setIsOpen(false);
+          setActiveModal('maintenance');
+        },
+        colorClass: "bg-amber-50 text-amber-600"
+      }
+    ];
+  }
+
   return (
     <>
-      {/* Persistent sticky quick action toggle trigger button on deep right */}
-      <div className="fixed right-0 top-1/2 -translate-y-1/2 z-[40]">
+      {/* Persistently floating, compact, and non-obtrusive round Zap toggle trigger */}
+      <div className="fixed right-4 top-1/2 -translate-y-1/2 z-[40]">
         <button
           onClick={() => setIsOpen(true)}
-          className="bg-neutral-900 border-l border-y border-neutral-800 text-white hover:text-white px-3 py-4 rounded-l-2xl shadow-2xl hover:bg-neutral-800 hover:pl-4 transition-all duration-200 cursor-pointer flex flex-col items-center gap-2 group border border-r-0"
+          className="bg-neutral-950 border border-neutral-800 text-white hover:text-white p-3 rounded-full shadow-2xl hover:bg-neutral-855 active:scale-95 transition-all duration-200 cursor-pointer flex items-center justify-center group relative h-11 w-11"
         >
           <motion.div
             animate={{ scale: [1, 1.15, 1] }}
-            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+            transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
           >
-            <Zap size={14} className="text-amber-400 group-hover:rotate-12 transition-transform" />
+            <Zap size={16} className="text-[#ff4f3a] group-hover:rotate-12 transition-transform" />
           </motion.div>
-          <span className="text-[7.5px] font-black uppercase tracking-[0.25em] writing-mode-vertical whitespace-nowrap horizontal-tb select-none leading-none layout-vertical">
-            QUICK ACTIONS
+          <span className="absolute right-full mr-3.5 bg-neutral-955 text-white text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap shadow-xl pointer-events-none border border-neutral-800 translate-x-2 group-hover:translate-x-0 leading-none">
+            Quick Actions
           </span>
         </button>
       </div>
@@ -174,11 +380,11 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
               <div className="bg-neutral-50 px-6 py-5 border-b border-neutral-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 bg-neutral-900 text-white rounded-lg flex items-center justify-center">
-                    <Zap size={14} className="text-amber-400" />
+                    <Zap size={14} className="text-[#ff4f3a]" />
                   </div>
                   <div>
                     <h3 className="font-black text-xs uppercase tracking-wider text-neutral-800 leading-none">Quick Actions</h3>
-                    <p className="text-[7.5px] font-mono leading-none tracking-widest text-neutral-400 uppercase mt-1">Contexual rig operations</p>
+                    <p className="text-[7.5px] font-mono leading-none tracking-widest text-[#ff4f3a] uppercase mt-1">Contextual operations active</p>
                   </div>
                 </div>
 
@@ -198,100 +404,51 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
               {/* Drawer Body content (scrollable) */}
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 
-                {/* Section utility greeting indicator */}
-                <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-100 text-[10px] text-neutral-500 leading-relaxed">
-                  <span className="font-black text-neutral-900 uppercase">Proactive System Center</span><br/>
-                  Manage export spreadsheet archives, generate printable assets sheets, log device inspections, and compile insurance reports instantly.
+                {/* Dynamically Styled Context Highlight card */}
+                <div className="bg-neutral-900 text-white rounded-2xl p-4 border border-neutral-800 text-[10px] leading-relaxed shadow-md">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#ff4f3a] animate-ping" />
+                    <span className="font-mono text-[8px] font-black uppercase tracking-widest text-[#ff4f3a]">{contextTitle}</span>
+                  </div>
+                  <p className="font-semibold text-neutral-300">
+                    {contextDesc}
+                  </p>
                 </div>
 
-                {/* Primary Large Buttons (mockup layout matched) */}
+                {/* Primary Large Buttons (rendered dynamically based on location context!) */}
                 <div className="space-y-3.5">
-                  <h4 className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Available Utilities</h4>
+                  <h4 className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Localized Utilities</h4>
                   
-                  {/* UTILITY 1: CSV Export */}
-                  <button
-                    onClick={handleExportCSV}
-                    className="w-full bg-neutral-50 hover:bg-neutral-100/80 hover:scale-[1.01] active:scale-95 text-neutral-905 border border-neutral-200 p-5 rounded-2xl transition text-left flex items-start gap-4"
-                  >
-                    <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
-                      <Download size={18} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-tight text-neutral-800">Export Inventory (CSV)</p>
-                      <p className="text-[9px] text-neutral-400 font-medium leading-relaxed uppercase mt-0.5 mt-0.5">
-                        Download full details of {gearList.length} items instantly.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* UTILITY 2: Print QR tags */}
-                  <button
-                    onClick={() => {
-                      setIsOpen(false);
-                      setActiveModal('tags');
-                    }}
-                    className="w-full bg-neutral-50 hover:bg-neutral-100/80 hover:scale-[1.01] active:scale-95 text-neutral-905 border border-neutral-200 p-5 rounded-2xl transition text-left flex items-start gap-4"
-                  >
-                    <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
-                      <Printer size={18} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-tight text-neutral-800">Print Asset Tags</p>
-                      <p className="text-[9px] text-neutral-400 font-medium leading-relaxed uppercase mt-0.5">
-                        Develop barcode printable label templates.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* UTILITY 3: Maintenance Log manager */}
-                  <button
-                    onClick={() => {
-                      setIsOpen(false);
-                      setActiveModal('maintenance');
-                    }}
-                    className="w-full bg-neutral-50 hover:bg-neutral-100/80 hover:scale-[1.01] active:scale-95 text-neutral-905 border border-neutral-200 p-5 rounded-2xl transition text-left flex items-start gap-4"
-                  >
-                    <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
-                      <ClipboardCheck size={18} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-tight text-neutral-800">Maintenance Log</p>
-                      <p className="text-[9px] text-neutral-400 font-medium leading-relaxed uppercase mt-0.5">
-                        Keep health records and dates up to date.
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* UTILITY 4: Insurance Report builder */}
-                  <button
-                    onClick={() => {
-                      setIsOpen(false);
-                      setActiveModal('insurance');
-                    }}
-                    className="w-full bg-neutral-50 hover:bg-neutral-100/80 hover:scale-[1.01] active:scale-95 text-neutral-905 border border-neutral-200 p-5 rounded-2xl transition text-left flex items-start gap-4"
-                  >
-                    <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center shrink-0">
-                      <TrendingUp size={18} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-tight text-neutral-800">Insurance Report</p>
-                      <p className="text-[9px] text-neutral-400 font-medium leading-relaxed uppercase mt-0.5">
-                        Aggregate and audit asset replacement pricing.
-                      </p>
-                    </div>
-                  </button>
+                  {contextActions.map((act, idx) => (
+                    <button
+                      key={idx}
+                      onClick={act.onClick}
+                      className="w-full bg-neutral-50 hover:bg-neutral-100/90 hover:scale-[1.01] active:scale-95 text-neutral-905 border border-neutral-200/60 p-4 rounded-2xl transition text-left flex items-start gap-4 shadow-sm"
+                    >
+                      <div className={`w-10 h-10 ${act.colorClass} rounded-xl flex items-center justify-center shrink-0 shadow-inner`}>
+                        {act.icon}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-black uppercase tracking-tight text-neutral-800 line-clamp-1">{act.title}</p>
+                        <p className="text-[9px] text-neutral-400 font-medium leading-relaxed uppercase mt-0.5 mt-0.5 line-clamp-2">
+                          {act.description}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
 
               {/* Drawer Footer info details */}
               <div className="bg-neutral-50 px-6 py-4 border-t border-neutral-150 flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-neutral-400">
-                <span>Enterprise Mode</span>
-                <span>v1.2.0 Active</span>
+                <span>Adaptive Context mode</span>
+                <span>Active</span>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
 
       {/* DIALOG 1: Asset Tags printable sheet overlay */}
       <AnimatePresence>

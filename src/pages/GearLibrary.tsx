@@ -48,6 +48,7 @@ import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, GearItem, GearItemVersion, GearIncident, AdminSettings, Container, Organization, Department, Team } from '../types';
+import { logActivity } from '../services/activityLog';
 import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -507,7 +508,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     severity: 'medium',
     resolved: false
   });
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>(() => {
+    return user?.viewDensity === 'compact' ? 'compact' : 'grid';
+  });
+
+  useEffect(() => {
+    if (user?.viewDensity) {
+      setViewMode(user.viewDensity === 'compact' ? 'compact' : 'grid');
+    }
+  }, [user?.viewDensity]);
+
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   
   // Batch Move to Rack & Change Status states
@@ -1531,7 +1541,15 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             return;
           }
 
+          const targetItem = effectiveGear.find(it => it.id === id);
           await deleteDoc(doc(db, 'users', user.uid, 'gearLibrary', id));
+          await logActivity(
+            user.uid,
+            user.displayName || user.email || 'Platform User',
+            'gear_delete',
+            `Removed gear "${targetItem?.name || 'Unknown Item'}" from Gear Library`,
+            { gearName: targetItem?.name || 'Unknown' }
+          );
           toast.success('Item removed from library');
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
         } catch (error) {
@@ -1631,6 +1649,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             rentalPeriod: data.rentalPeriod || 'day',
             currency: data.currency || '$',
             secondaryCategories: data.secondaryCategories || [],
+            minRentalDays: data.minRentalDays || 1,
+            maxRentalDays: data.maxRentalDays || 30,
             updatedAt: updatedAt
           });
         });
@@ -2001,6 +2021,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       }
 
       await addDoc(colRef, newGearPayload);
+      await logActivity(
+        user.uid,
+        user.displayName || user.email || 'Platform User',
+        'gear_add',
+        `Added gear "${newItem.name}" to Gear Library`,
+        { gearName: newItem.name }
+      );
       setIsAddModalOpen(false);
       setNewItem({
         name: '',
@@ -2394,6 +2421,30 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     <option value="day">Instant Booking (Auto-accept reservation contracts)</option>
                     <option value="week">Manual verification (Host verification requirements)</option>
                   </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black tracking-widest text-neutral-500">Min Rental Duration (Days)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 1"
+                    value={item.minRentalDays || ''}
+                    onChange={(e) => setItem({ ...item, minRentalDays: parseInt(e.target.value) || 1 })}
+                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0066cc]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black tracking-widest text-neutral-500">Max Rental Duration (Days)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 30"
+                    value={item.maxRentalDays || ''}
+                    onChange={(e) => setItem({ ...item, maxRentalDays: parseInt(e.target.value) || 30 })}
+                    className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#0066cc]"
+                  />
                 </div>
 
                 {/* Rental Add-ons Support */}

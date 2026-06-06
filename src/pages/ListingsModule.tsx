@@ -29,6 +29,9 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { isFeatureEnabled } from '../lib/featureUtils';
+import UpgradeNowModal from '../components/UpgradeNowModal';
+import { Lock, Shield, Crown } from 'lucide-react';
 
 interface ListingsModuleProps {
   user: UserProfile;
@@ -38,6 +41,7 @@ interface ListingsModuleProps {
 export default function ListingsModule({ user, adminSettings }: ListingsModuleProps) {
   const [activeSubTab, setActiveSubTab] = useState<'console' | 'bookings' | 'gear-bookings' | 'settings'>('console');
   const [lists, setLists] = useState<PackingList[]>([]);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   // Gear Bookings and Reservation State
   const [gearBookings, setGearBookings] = useState<any[]>([]);
@@ -75,15 +79,40 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
   const [newListCurrency, setNewListCurrency] = useState('USD');
   const [newListDetails, setNewListDetails] = useState('');
   const [newListDeposit, setNewListDeposit] = useState(150);
+  const [newListCategory, setNewListCategory] = useState('cinema-cameras');
+  const [newListTransactionType, setNewListTransactionType] = useState<'rent' | 'sale'>('rent');
 
   // Edit Price Form State
   const [editPrice, setEditPrice] = useState(0);
   const [editDeposit, setEditDeposit] = useState(0);
   const [editDetails, setEditDetails] = useState('');
   const [editCurrency, setEditCurrency] = useState('USD');
+  const [editCategory, setEditCategory] = useState('cinema-cameras');
+  const [editTransactionType, setEditTransactionType] = useState<'rent' | 'sale'>('rent');
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  const getCurrencySymbol = (code: string | undefined): string => {
+    const targetCode = code || adminSettings?.marketplaceRegionConfig?.defaultCurrency || 'USD';
+    switch (targetCode.toUpperCase()) {
+      case 'FJD': return 'FJ$';
+      case 'AUD': return 'A$';
+      case 'NZD': return 'NZ$';
+      case 'GBP': return '£';
+      case 'CAD': return 'C$';
+      case 'EUR': return '€';
+      case 'USD': return '$';
+      default: return '$';
+    }
+  };
+
+  useEffect(() => {
+    if (adminSettings?.marketplaceRegionConfig?.defaultCurrency) {
+      setNewListCurrency(adminSettings.marketplaceRegionConfig.defaultCurrency);
+      setEditCurrency(adminSettings.marketplaceRegionConfig.defaultCurrency);
+    }
+  }, [adminSettings]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -278,7 +307,9 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
         marketplaceCurrency: newListCurrency,
         marketplaceDetails: newListDetails,
         securityDeposit: Number(newListDeposit),
-        rentalStatus: 'awaiting_payment'
+        rentalStatus: 'awaiting_payment',
+        category: newListCategory,
+        transactionType: newListTransactionType
       });
 
       toast.success("Quick Marketplace Listing created successfully!");
@@ -322,9 +353,11 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
         securityDeposit: Number(editDeposit),
         marketplaceDetails: editDetails,
         marketplaceCurrency: editCurrency,
+        category: editCategory,
+        transactionType: editTransactionType,
         updatedAt: new Date().toISOString()
       });
-      toast.success("Listing prices and description updated successfully!");
+      toast.success("Listing prices, details, categories and sync status updated successfully!");
       setShowEditPriceModal(null);
     } catch (error) {
       console.error("Error saving price edit:", error);
@@ -359,6 +392,74 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
     .reduce((acc, l) => acc + (l.marketplacePrice || 0), 0);
 
   const activeCurrencies = user.activeMarketplaceCurrencies || ['USD'];
+  const currencySymbol = activeCurrencies[0] === 'FJD' ? 'FJ$' : '$';
+
+  if (!isFeatureEnabled('marketplaceListings', user, adminSettings)) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-8 text-center max-w-2xl mx-auto space-y-8">
+        <div className="relative">
+          {/* Decorative Background Glow */}
+          <div className="absolute -inset-4 bg-gradient-to-r from-[#ff4f3a]/20 to-amber-500/10 rounded-full blur-xl opacity-75" />
+          
+          <div className="relative w-24 h-24 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 border border-amber-200 shadow-lg">
+            <Lock size={36} className="stroke-[2.5]" />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <span className="px-3 py-1 bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[10px] font-black uppercase tracking-widest rounded-full">
+            Restricted Module
+          </span>
+          <h1 className="text-3xl sm:text-4.5xl font-black uppercase tracking-tighter text-neutral-900 leading-none">
+            Marketplace Listings Locked
+          </h1>
+          <p className="text-neutral-500 text-sm font-medium leading-relaxed">
+            Your current subscription tier does not permit listing rental/sale inventory on the public Rent & Buy Marketplace.
+            Upgrade to a premium tier to begin publishing gear packages, accepting manual deposits, and managing escrow booking contracts.
+          </p>
+        </div>
+
+        {/* Benefits Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full text-left pt-2">
+          <div className="p-4 bg-white rounded-2xl border border-neutral-100 shadow-sm flex gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-650 flex items-center justify-center shrink-0">
+              <Check size={18} />
+            </div>
+            <div>
+              <div className="text-xs font-black uppercase tracking-tight">Unlimited Listings</div>
+              <div className="text-[10px] text-neutral-400 font-semibold mt-0.5">Publish and manage unlimited rent/buy gears.</div>
+            </div>
+          </div>
+
+          <div className="p-4 bg-white rounded-2xl border border-neutral-100 shadow-sm flex gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-650 flex items-center justify-center shrink-0">
+              <Check size={18} />
+            </div>
+            <div>
+              <div className="text-xs font-black uppercase tracking-tight">Escrow Hires Tracking</div>
+              <div className="text-[10px] text-neutral-400 font-semibold mt-0.5">Automated deposit guarantees & conditions logs.</div>
+            </div>
+          </div>
+        </div>
+
+        <button 
+          onClick={() => setIsUpgradeModalOpen(true)}
+          className="px-8 py-4 bg-neutral-900 hover:bg-black text-white font-extrabold text-xs uppercase tracking-widest rounded-2xl transition shadow-xl hover:shadow-black/10 active:scale-95 cursor-pointer"
+        >
+          Upgrade Your Workspace
+        </button>
+
+        <UpgradeNowModal
+          isOpen={isUpgradeModalOpen}
+          onClose={() => setIsUpgradeModalOpen(false)}
+          user={user}
+          adminSettings={adminSettings}
+          restrictedFeatureName="Marketplace Listings Module"
+          onSuccess={(newPlan) => window.location.reload()}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-12">
@@ -449,7 +550,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                   { label: 'Total active Listings', value: totalListingsCount, color: 'bg-indigo-500', format: 'number' },
                   { label: 'Active Rentals', value: activeBookingsCount, color: 'bg-amber-500', format: 'number' },
                   { label: 'Completed Rentals', value: completedBookingsCount, color: 'bg-emerald-500', format: 'number' },
-                  { label: 'Settled Gear volume', value: `$${totalSettledRevenue.toLocaleString()}`, color: 'bg-primary', format: 'cash' },
+                  { label: 'Settled Gear volume', value: `${currencySymbol}${totalSettledRevenue.toLocaleString()}`, color: 'bg-primary', format: 'cash' },
                 ].map((stat, i) => (
                   <div key={i} className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-3">
                     <div className="flex items-center justify-between">
@@ -534,14 +635,14 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                 <div className="flex justify-between items-center">
                                   <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Rate</span>
                                   <span className="font-black text-neutral-900 text-base font-mono">
-                                    {list.marketplaceCurrency === 'FJD' ? 'FJ$' : '$'}
+                                    {getCurrencySymbol(list.marketplaceCurrency)}
                                     {list.marketplacePrice || 120} / day
                                   </span>
                                 </div>
                                 <div className="flex justify-between items-center text-[10px] text-neutral-400 font-semibold leading-none pt-1 border-t border-neutral-150">
                                   <span>Deposit fee:</span>
                                   <span className="font-mono text-neutral-800">
-                                    {list.marketplaceCurrency === 'FJD' ? 'FJ$' : '$'}
+                                    {getCurrencySymbol(list.marketplaceCurrency)}
                                     {list.securityDeposit || 150}
                                   </span>
                                 </div>
@@ -573,6 +674,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                   setEditDeposit(list.securityDeposit || 150);
                                   setEditDetails(list.marketplaceDetails || '');
                                   setEditCurrency(list.marketplaceCurrency || 'USD');
+                                  setEditCategory(list.category || 'cinema-cameras');
+                                  setEditTransactionType(list.transactionType === 'Sale' ? 'sale' : 'rent');
                                   setShowEditPriceModal(list);
                                 }}
                                 className="px-4 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow transition"
@@ -675,11 +778,11 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                           <div className="space-y-0.5 pb-2">
                             <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest block leading-none">Rental Earning</span>
                             <h3 className="text-2xl font-black text-neutral-950 font-mono">
-                              {item.marketplaceCurrency === 'FJD' ? 'FJ$' : '$'}
+                              {getCurrencySymbol(item.marketplaceCurrency)}
                               {item.marketplacePrice || 120}
                             </h3>
                             <span className="text-[9px] text-neutral-400 font-medium block">
-                              Holds Security Deposit: {item.marketplaceCurrency === 'FJD' ? 'FJ$' : '$'}{item.securityDeposit ?? 150}
+                              Holds Security Deposit: {getCurrencySymbol(item.marketplaceCurrency)}{item.securityDeposit ?? 150}
                             </span>
                           </div>
 
@@ -1205,6 +1308,45 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Offer Category</label>
+                    <select
+                      value={newListCategory}
+                      onChange={(e) => setNewListCategory(e.target.value)}
+                      className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-bold outline-none text-neutral-800 animate-fade-in"
+                    >
+                      <option value="cinema-cameras">Cinema Cameras</option>
+                      <option value="cinema-lenses">Cinema Lenses</option>
+                      <option value="photography-lenses">Photography Lenses</option>
+                      <option value="still-hybrid">Still / Hybrid Cameras</option>
+                      <option value="lighting-electric">Lighting / Electric</option>
+                      <option value="audio">Audio Gear</option>
+                      <option value="ge-packages">G&E Packages</option>
+                      <option value="heavy-machinery">Heavy Machinery & Cranes</option>
+                      <option value="power-tools">Power Tools</option>
+                      <option value="site-scaffolding">Site Scaffolding</option>
+                      <option value="diagnostics">Diagnostics</option>
+                      <option value="imaging">Imaging</option>
+                      <option value="patient-monitors">Patient Monitors</option>
+                      <option value="clinical-pipettes">Clinical Pipettes</option>
+                      <option value="warehouse-logistics">Warehouse Logistics</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Offering Type</label>
+                    <select
+                      value={newListTransactionType}
+                      onChange={(e) => setNewListTransactionType(e.target.value as any)}
+                      className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-bold outline-none text-neutral-800 animate-fade-in"
+                    >
+                      <option value="rent">Rent Out</option>
+                      <option value="sale">Sell Outright</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Marketplace Details / Description</label>
                   <textarea
@@ -1308,6 +1450,45 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                       <option key={code} value={code}>{code}</option>
                     ))}
                   </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Offer Category</label>
+                    <select
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                      className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-bold outline-none text-neutral-800"
+                    >
+                      <option value="cinema-cameras">Cinema Cameras</option>
+                      <option value="cinema-lenses">Cinema Lenses</option>
+                      <option value="photography-lenses">Photography Lenses</option>
+                      <option value="still-hybrid">Still / Hybrid Cameras</option>
+                      <option value="lighting-electric">Lighting / Electric</option>
+                      <option value="audio">Audio Gear</option>
+                      <option value="ge-packages">G&E Packages</option>
+                      <option value="heavy-machinery">Heavy Machinery & Cranes</option>
+                      <option value="power-tools">Power Tools</option>
+                      <option value="site-scaffolding">Site Scaffolding</option>
+                      <option value="diagnostics">Diagnostics</option>
+                      <option value="imaging">Imaging</option>
+                      <option value="patient-monitors">Patient Monitors</option>
+                      <option value="clinical-pipettes">Clinical Pipettes</option>
+                      <option value="warehouse-logistics">Warehouse Logistics</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Offering Type</label>
+                    <select
+                      value={editTransactionType}
+                      onChange={(e) => setEditTransactionType(e.target.value as any)}
+                      className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-bold outline-none text-neutral-800"
+                    >
+                      <option value="rent">Rent Out</option>
+                      <option value="sale">Sell Outright</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="space-y-1">

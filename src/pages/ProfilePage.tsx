@@ -63,11 +63,52 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
   const [storeName, setStoreName] = useState(user.storeName || user.displayName || '');
   const [storeBio, setStoreBio] = useState(user.storeBio || user.bio || '');
   const [storeLogo, setStoreLogo] = useState(user.storeLogo || user.photoURL || '');
+  const [storeCoverImage, setStoreCoverImage] = useState(user.storeCoverImage || '');
+  const [storeWebsite, setStoreWebsite] = useState(user.storeWebsite || user.website || '');
+  const [storeEmail, setStoreEmail] = useState(user.storeEmail || user.email || '');
+  const [storePhone, setStorePhone] = useState(user.storePhone || '');
+  const [storeTwitter, setStoreTwitter] = useState(user.storeTwitter || '');
+  const [storeInstagram, setStoreInstagram] = useState(user.storeInstagram || '');
+  const [storeLinkedin, setStoreLinkedin] = useState(user.storeLinkedin || '');
+  const [storeFacebook, setStoreFacebook] = useState(user.storeFacebook || '');
   const [kycFullIdName, setKycFullIdName] = useState(user.kycFullIdName || user.displayName || '');
   const [kycIdType, setKycIdType] = useState<'passport' | 'national_id' | 'drivers_license'>(user.kycIdType || 'passport');
   const [kycIdNumber, setKycIdNumber] = useState(user.kycIdNumber || '');
   const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
   const [isSavingStore, setIsSavingStore] = useState(false);
+
+  const handleSaveStoreProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingStore(true);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const updateData = {
+        storeCustomUrl,
+        storeName,
+        storeBio,
+        storeLogo,
+        storeCoverImage,
+        storeWebsite,
+        storeEmail,
+        storePhone,
+        storeTwitter,
+        storeInstagram,
+        storeLinkedin,
+        storeFacebook
+      };
+      await updateDoc(userRef, updateData);
+      onUpdate({
+        ...user,
+        ...updateData
+      });
+      toast.success("Shopfront profile updated successfully!");
+    } catch (err) {
+      console.error("Error saving store profile:", err);
+      toast.error("Failed to persist shopfront settings.");
+    } finally {
+      setIsSavingStore(false);
+    }
+  };
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -380,6 +421,80 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                 </div>
               </div>
 
+              {/* View Density Preferences */}
+              <div className="pt-8 border-t border-neutral-100 space-y-4">
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800">Application View Density</h4>
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-1">Configure your global layout preference for listings and tables across all asset modules.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const userRef = doc(db, 'users', user.uid);
+                        await updateDoc(userRef, { viewDensity: 'comfortable' });
+                        onUpdate({ ...user, viewDensity: 'comfortable' });
+                        toast.success("Comfortable layout mode enabled!");
+                      } catch (err) {
+                        console.error(err);
+                        toast.error("Error setting layout density.");
+                      }
+                    }}
+                    className={`p-5 rounded-2xl border text-left transition-all relative ${
+                      (user.viewDensity || 'comfortable') === 'comfortable'
+                        ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg'
+                        : 'bg-neutral-50 text-neutral-700 border-neutral-200/60 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="font-extrabold block text-sm tracking-tight">Comfortable View (Visual/Cards)</span>
+                        <p className={`text-[10px] mt-1.5 leading-relaxed font-semibold ${(user.viewDensity || 'comfortable') === 'comfortable' ? 'text-neutral-350' : 'text-neutral-450'}`}>
+                          Maximizes negative space, emphasizing visual card structures, detailed item information, and friendly media-rich packaging.
+                        </p>
+                      </div>
+                      <div className={`p-1.5 rounded-full shrink-0 ml-3 ${(user.viewDensity || 'comfortable') === 'comfortable' ? 'bg-white text-neutral-900' : 'bg-neutral-200 text-neutral-500'}`}>
+                        <Check size={12} className="stroke-[3]" />
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const userRef = doc(db, 'users', user.uid);
+                        await updateDoc(userRef, { viewDensity: 'compact' });
+                        onUpdate({ ...user, viewDensity: 'compact' });
+                        toast.success("Compact layout mode enabled!");
+                      } catch (err) {
+                        console.error(err);
+                        toast.error("Error setting layout density.");
+                      }
+                    }}
+                    className={`p-5 rounded-2xl border text-left transition-all relative ${
+                      user.viewDensity === 'compact'
+                        ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg'
+                        : 'bg-neutral-50 text-neutral-700 border-neutral-200/60 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="font-extrabold block text-sm tracking-tight">Compact View (Dense Tables)</span>
+                        <p className={`text-[10px] mt-1.5 leading-relaxed font-semibold ${user.viewDensity === 'compact' ? 'text-neutral-350' : 'text-neutral-450'}`}>
+                          Condenses rows, maximizes field-level visibility on tables, and packs as much operational metadata as possible onto the screen.
+                        </p>
+                      </div>
+                      <div className={`p-1.5 rounded-full shrink-0 ml-3 ${user.viewDensity === 'compact' ? 'bg-white text-neutral-900' : 'bg-neutral-200 text-neutral-500'}`}>
+                        <Check size={12} className="stroke-[3]" />
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Dashboard Layout Preferences */}
               <div className="pt-8 border-t border-neutral-100 space-y-4">
                 <div>
@@ -447,6 +562,80 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                         </p>
                       </div>
                       <div className={`p-1.5 rounded-full shrink-0 ml-3 ${user.dashboardMode === 'all' ? 'bg-white text-neutral-900' : 'bg-neutral-200 text-neutral-500'}`}>
+                        <Check size={12} className="stroke-[3]" />
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Actions Drawer Preference */}
+              <div className="pt-8 border-t border-neutral-100 space-y-4">
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800">Quick Actions Overlay Widget</h4>
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-1">Enable or disable the floating Quick Actions slider on the edge of your screen.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const userRef = doc(db, 'users', user.uid);
+                        await updateDoc(userRef, { disableQuickActions: false });
+                        onUpdate({ ...user, disableQuickActions: false });
+                        toast.success("Quick Actions enabled successfully!");
+                      } catch (err) {
+                        console.error(err);
+                        toast.error("Error updating preference.");
+                      }
+                    }}
+                    className={`p-5 rounded-2xl border text-left transition-all relative ${
+                      !user.disableQuickActions
+                        ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg'
+                        : 'bg-neutral-50 text-neutral-700 border-neutral-200/60 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="font-extrabold block text-sm tracking-tight">Show Floating Widget</span>
+                        <p className={`text-[10px] mt-1.5 leading-relaxed font-semibold ${!user.disableQuickActions ? 'text-neutral-350' : 'text-neutral-450'}`}>
+                          Keep the amber-accented sliding drawer active globally for fast CSV exports, QR tags printing, and maintenance auditing.
+                        </p>
+                      </div>
+                      <div className={`p-1.5 rounded-full shrink-0 ml-3 ${!user.disableQuickActions ? 'bg-white text-neutral-900' : 'bg-neutral-200 text-neutral-500'}`}>
+                        <Check size={12} className="stroke-[3]" />
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const userRef = doc(db, 'users', user.uid);
+                        await updateDoc(userRef, { disableQuickActions: true });
+                        onUpdate({ ...user, disableQuickActions: true });
+                        toast.success("Quick Actions floating widget hidden!");
+                      } catch (err) {
+                        console.error(err);
+                        toast.error("Error updating preference.");
+                      }
+                    }}
+                    className={`p-5 rounded-2xl border text-left transition-all relative ${
+                      user.disableQuickActions
+                        ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg'
+                        : 'bg-neutral-50 text-neutral-700 border-neutral-200/60 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="font-extrabold block text-sm tracking-tight">Hide Floating Widget</span>
+                        <p className={`text-[10px] mt-1.5 leading-relaxed font-semibold ${user.disableQuickActions ? 'text-neutral-350' : 'text-neutral-450'}`}>
+                          Removes the side-tab toggle from all screens. You can still access deep diagnostics directly from your administrative workspace dashboards.
+                        </p>
+                      </div>
+                      <div className={`p-1.5 rounded-full shrink-0 ml-3 ${user.disableQuickActions ? 'bg-white text-neutral-900' : 'bg-neutral-200 text-neutral-500'}`}>
                         <Check size={12} className="stroke-[3]" />
                       </div>
                     </div>
@@ -538,6 +727,191 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                 </div>
               </div>
             </div>
+          </section>
+
+          {/* Public Shopfront Brand Settings Panel */}
+          <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8 animate-fade-in animate-duration-300">
+            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="micro-label bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-full inline-block font-black uppercase">Brand Storefront</span>
+                <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3 text-neutral-900">
+                  <Package className="text-primary shrink-0" />
+                  <span>Public Shopfront & Brand Settings</span>
+                </h3>
+                <p className="text-xs text-neutral-500 font-semibold leading-relaxed">
+                  Configure how your brand, logo, cover image, and support connections appear on your public shopfront.
+                </p>
+              </div>
+
+              {/* View Live Shopfront Link */}
+              <a 
+                href={`#/shop/${user.uid}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#ff4f3a]/10 hover:bg-[#ff4f3a]/25 text-[#ff4f3a] font-extrabold uppercase text-[10px] tracking-widest rounded-xl transition self-start sm:self-center"
+              >
+                <span>View Live Store</span>
+                <ExternalLink size={12} className="stroke-[2.5]" />
+              </a>
+            </header>
+
+            <form onSubmit={handleSaveStoreProfile} className="space-y-6">
+              {user.plan === 'free' && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+                  <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700 font-semibold leading-relaxed">
+                    <strong>Subscription Required</strong>: Your workspace is on the Free Tier. Only paying users has active listings visible on search index and can receive hire deposits. You can still customize your draft brand credentials below.
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Store Name */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-neutral-400 block">Store Name</label>
+                  <input
+                    type="text"
+                    value={storeName}
+                    onChange={(e) => setStoreName(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition font-bold"
+                    placeholder="e.g. Cinema Gear Hire Fiji"
+                    required
+                  />
+                </div>
+
+                {/* Cover Image */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-neutral-400 block">Cover Image URL</label>
+                  <input
+                    type="url"
+                    value={storeCoverImage}
+                    onChange={(e) => setStoreCoverImage(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition font-mono text-xs"
+                    placeholder="https://images.unsplash.com/photo-..."
+                  />
+                </div>
+
+                {/* Logo Image URL */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-neutral-400 block">Logo / Profile Photo URL</label>
+                  <input
+                    type="url"
+                    value={storeLogo}
+                    onChange={(e) => setStoreLogo(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition font-mono text-xs"
+                    placeholder="https://..."
+                  />
+                </div>
+
+                {/* Custom slugs */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-neutral-400 block">Store Website Partner URL</label>
+                  <input
+                    type="url"
+                    value={storeWebsite}
+                    onChange={(e) => setStoreWebsite(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition text-xs font-mono"
+                    placeholder="https://..."
+                  />
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-neutral-400 block">Store Email</label>
+                  <input
+                    type="email"
+                    value={storeEmail}
+                    onChange={(e) => setStoreEmail(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition text-sm"
+                    placeholder="hire@brand.com"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-neutral-400 block">Store Phone Number</label>
+                  <input
+                    type="text"
+                    value={storePhone}
+                    onChange={(e) => setStorePhone(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition text-sm"
+                    placeholder="+679 ..."
+                  />
+                </div>
+
+                {/* Twitter */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-neutral-400 block">Twitter Handle</label>
+                  <input
+                    type="text"
+                    value={storeTwitter}
+                    onChange={(e) => setStoreTwitter(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition font-medium"
+                    placeholder="@handle"
+                  />
+                </div>
+
+                {/* Instagram */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-neutral-400 block">Instagram Handle</label>
+                  <input
+                    type="text"
+                    value={storeInstagram}
+                    onChange={(e) => setStoreInstagram(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition font-medium"
+                    placeholder="@handle"
+                  />
+                </div>
+
+                {/* LinkedIn */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-neutral-400 block">LinkedIn URL</label>
+                  <input
+                    type="text"
+                    value={storeLinkedin}
+                    onChange={(e) => setStoreLinkedin(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition font-medium"
+                    placeholder="linkedin.com/company/..."
+                  />
+                </div>
+
+                {/* Facebook */}
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black tracking-wider text-neutral-400 block">Facebook URL</label>
+                  <input
+                    type="text"
+                    value={storeFacebook}
+                    onChange={(e) => setStoreFacebook(e.target.value)}
+                    className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition font-medium"
+                    placeholder="facebook.com/..."
+                  />
+                </div>
+              </div>
+
+              {/* Biography */}
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase font-black tracking-wider text-neutral-400 block font-sans">Store Overview & Biography</label>
+                <textarea
+                  rows={4}
+                  value={storeBio}
+                  onChange={(e) => setStoreBio(e.target.value)}
+                  className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition font-medium leading-relaxed font-sans resize-none"
+                  placeholder="Tell clients about your industry specialization, equipment upkeep procedures, insurance criteria etc."
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex justify-end pt-4">
+                <button
+                  type="submit"
+                  disabled={isSavingStore}
+                  className="px-8 py-4 bg-neutral-900 hover:bg-neutral-800 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition shadow-lg active:scale-95 disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  <Save size={14} />
+                  <span>{isSavingStore ? "Saving changes..." : "Save Store Settings"}</span>
+                </button>
+              </div>
+            </form>
           </section>
 
           {/* Active Beta Notifications Desk */}

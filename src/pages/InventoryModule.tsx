@@ -245,7 +245,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   };
 
   // New layout, category filtering and selection states for Custom Inventories
-  const [inventoryViewMode, setInventoryViewMode] = useState<'list' | 'grid' | 'compact'>('list');
+  const [inventoryViewMode, setInventoryViewMode] = useState<'list' | 'grid' | 'compact'>(() => {
+    return user?.viewDensity === 'compact' ? 'compact' : 'list';
+  });
+
+  useEffect(() => {
+    if (user?.viewDensity) {
+      setInventoryViewMode(user.viewDensity === 'compact' ? 'compact' : 'list');
+    }
+  }, [user?.viewDensity]);
+
   const [selectedInventoryItems, setSelectedInventoryItems] = useState<Set<string>>(new Set());
   const [isInventoryBatchAssignOpen, setIsInventoryBatchAssignOpen] = useState(false);
   const [inventoryBatchAssignTarget, setInventoryBatchAssignTarget] = useState<{

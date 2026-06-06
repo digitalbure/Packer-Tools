@@ -359,6 +359,20 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["gearId", "ownerId", "clientName", "startDate", "endDate"]
+    },
+    "ActivityLog": {
+      "title": "Activity Log",
+      "description": "Tracks and log user actions like gear additions, status changes, and list modifications.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "actionType": { "type": "string" },
+        "description": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "metadata": { "type": "object" }
+      },
+      "required": ["userId", "actionType", "description", "timestamp"]
     }
   },
   "firestore": {
@@ -465,6 +479,10 @@
     "/gearBookings/{bookingId}": {
       "schema": "GearBooking",
       "description": "Bookings for user-offered gear items"
+    },
+    "/activityLogs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "Audit trails for user actions across tools"
     }
   }
 }

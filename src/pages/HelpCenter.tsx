@@ -48,6 +48,18 @@ const articles = [
     tips: ["Enable thermal lithium isolation flags on power bank cells inside sub-zero or deep underwater conditions to prevent rapid energy drain."]
   },
   {
+    id: 'marketplace-operations-guide',
+    title: "Marketplace & Brand Storefront Operations",
+    description: "Learn how to establish custom public hiring storefronts, configure default regional currencies, and verify billing license approvals.",
+    category: 'packer-tools-academy',
+    steps: [
+      { title: "Personalize Shopfront Info", description: "Utilize your Profile configurations to upload custom branding, store names, backgrounds, websites, and business coordinates." },
+      { title: "Define Global Region Currency", description: "Update default currency (FJD, AUD, NZD, GBP, EUR, Canadian or US Dollars) via the Admin region manager dashboard." },
+      { title: "Unlock Commercial Hires", description: "Observe subscription tier standards to enable Marketplace listings and overcome regulatory escrow licensing safeguards." }
+    ],
+    tips: ["Active Academy members can customize their storefront with advanced social handles (Instagram, LinkedIn, Twitter, Facebook) to boost trust!"]
+  },
+  {
     id: 'setup-profile',
     title: "How to set up your Profile & Theme",
     description: "Your profile is your digital ID and control hub. Customize bio, marketplace, and visual environments.",

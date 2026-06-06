@@ -16,6 +16,8 @@ import Marketplace from './Marketplace';
 import DeveloperTab from '../components/DeveloperTab';
 import ShareModal from '../components/ShareModal';
 import ManualCheckoutModal from '../components/ManualCheckoutModal';
+import { logActivity } from '../services/activityLog';
+import ActivityLog from '../components/ActivityLog';
 
 type DashboardTab = 'overview' | 'lists' | 'templates' | 'directories' | 'marketplace' | 'developer' | 'beta_bugs';
 type SortField = 'createdAt' | 'name' | 'status';
@@ -342,12 +344,8 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/gearLibrary`);
     });
 
-    const qAllItems = query(collectionGroup(db, 'items'));
-    const unsubscribeAllItems = onSnapshot(qAllItems, (snapshot) => {
-      setAllItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'items (collectionGroup)');
-    });
+    // We replaced the insecure items collectionGroup search with a dynamic and secure lists-level subcollection listener below.
+    const unsubscribeAllItems = () => {};
 
     const unsubscribeUsers = onSnapshot(query(collection(db, 'users'), where('isProfilePublic', '==', true)), (snapshot) => {
       const fetchedUsers = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })) as UserProfile[];
@@ -383,6 +381,32 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
     };
   }, [user.uid]);
 
+  // Real-time listener for all items within the user's packing lists
+  useEffect(() => {
+    if (!lists || lists.length === 0) {
+      setAllItems([]);
+      return;
+    }
+
+    const unsubscribes = lists.map(list => {
+      const q = query(collection(db, 'packingLists', list.id, 'items'));
+      return onSnapshot(q, (snapshot) => {
+        const listItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setAllItems(prev => {
+          // Filter out existing items for this list and append new ones
+          const filtered = prev.filter(item => item.listId !== list.id);
+          return [...filtered, ...listItems];
+        });
+      }, (error) => {
+        console.warn(`Error listening to items for list ${list.id}:`, error);
+      });
+    });
+
+    return () => {
+      unsubscribes.forEach(unsub => unsub());
+    };
+  }, [lists]);
+
   const handleCompleteReminder = async (id: string) => {
     try {
       await updateDoc(doc(db, 'reminders', id), { status: 'completed' });
@@ -413,6 +437,13 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+      await logActivity(
+        user.uid,
+        user.displayName || user.email || 'Platform User',
+        'list_add',
+        `Created packing list "${newListName}"`,
+        { listId: docRef.id, listName: newListName }
+      );
       setNewListName('');
       setIsCreating(false);
       navigate(`/list/${docRef.id}`);
@@ -426,7 +457,15 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
     e.stopPropagation();
     if (window.confirm("Are you sure you want to delete this list?")) {
       try {
+        const targetList = lists.find(l => l.id === id);
         await deleteDoc(doc(db, 'packingLists', id));
+        await logActivity(
+          user.uid,
+          user.displayName || user.email || 'Platform User',
+          'list_delete',
+          `Deleted packing list "${targetList?.name || 'Unknown List'}"`,
+          { listId: id, listName: targetList?.name }
+        );
       } catch (error) {
         console.error("Error deleting list:", error);
       }
@@ -544,6 +583,28 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
 
   return (
     <div className="space-y-12">
+      {/* Symmetrical Mode Switcher Bar */}
+      <div className="flex justify-center md:justify-start">
+        <div className="flex bg-neutral-105 p-1 rounded-2xl border border-neutral-200/60 w-fit shrink-0 shadow-sm">
+          <button 
+            type="button"
+            onClick={() => {
+              navigate('/marketplace');
+              toast.success("Welcome to Peer-To-Peer Marketplace!");
+            }}
+            className="px-5 py-2 rounded-xl text-[10px] font-black text-neutral-500 hover:text-neutral-900 uppercase tracking-widest transition-all cursor-pointer"
+          >
+            Marketplace Hub
+          </button>
+          <button 
+            type="button"
+            className="px-5 py-2 rounded-xl text-[10px] font-black bg-[#ff4f3a] text-white shadow-sm uppercase tracking-widest transition-all"
+          >
+            Packer Tools
+          </button>
+        </div>
+      </div>
+
       <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-neutral-100 pb-6">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-3">
@@ -1931,6 +1992,10 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
             )}
           </div>
           )}
+          {/* Live Activities Audit Feed */}
+          <div className="pt-4">
+            <ActivityLog user={user} />
+          </div>
         </div>
       ) : (activeTab === 'lists' || activeTab === 'templates') ? (
           <section className="space-y-8">

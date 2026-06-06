@@ -1,11 +1,28 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.2.0`
+## Current Application Version: `v4.3.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
 
 This document provides complete instructions on how to build, run, and tag this repository for production deployment or continuous integration. 
+
+---
+
+## 📦 Stable Release Log: v4.3.0 (Brand Shopfronts & Regional Currencies Edition)
+
+### Key Production Enhancements Added:
+1. **Dynamic Regional Currency Registry:**
+   - Multi-currency region settings inside the Marketplace Admin Panel dashboard, enabling administrators to select the default currency (USD, FJD, AUD, NZD, GBP, CAD, or EUR) for the entire workspace.
+   - Dynamic conversion handles and local formatting symbols (e.g. `FJ$`, `A$`, `NZ$`, `£`, `€`) instantly propagating to search listings, bio landing cards, details metrics, and active checkouts.
+
+2. **Custom Brand Shopfront Profiles:**
+   - Released dedicated public seller routes (`#/shop/:uid`) designed to host professional organization portfolios, cover banners, logos, and external social media connections (Twitter, Instagram, LinkedIn, Facebook).
+   - Dynamic settings mapping built into User Profile panels allowing instant updates to public storefront properties.
+
+3. **Enterprise Sizing Locks & Paywalls:**
+   - Implemented Feature Flag-level enforcement for Marketplace Listings, ensuring only premium tier organizations gain pubic listing rights.
+   - Interactive, high-contrast Upgrade Modal prompts connecting restricted operators to secure payment funnels.
 
 ---
 

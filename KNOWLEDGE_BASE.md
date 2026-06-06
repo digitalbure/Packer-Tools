@@ -56,3 +56,32 @@ In both the main **Gear Library** and **Multi-Department Lists**, you can activa
 
 ## 📥 3. Connecting Custodians to Assets
 When an asset is assigned to a specific **Member**, they are designated as the custodian. If the asset status is marked as `'in_use'`, the borrower's name displays across list views, letting coordinators see at a glance who holds checked-out items.
+
+---
+
+## 🎨 4. Public Brand Shopfronts & Regional Currencies Settings (v4.3.0)
+
+Packer Tools offers advanced customization options for rental marketplace operators and gear hire companies looking to build a professional public presence.
+
+### 🏢 Setting up your Public Shopfront
+Authorized operators can deploy a high-fidelity, independent public brand storefront accessible at `#/shop/:uid`. 
+
+#### Step-by-Step Brand Configuration:
+1. **Navigate to Brand Settings:** Open your main **Profile Page** (`#/profile`) and scroll to the **Public Shopfront & Brand Settings** card.
+2. **Branding Assets Input:**
+   - Define your **Store Name** (e.g., *Sulu-Light Cinema Fiji*) and biography overview.
+   - Insert URLs for **Logo/Profile Image** and a high-resolution **Cover Banner**.
+   - Input your customer support connections (Store Email, Phone number, and Website partner link).
+3. **Link Social Handles:** Connect your professional social channels including Twitter, Instagram, LinkedIn, and Facebook profiles.
+4. **Publish Store:** Click **Save Store Settings**. Your public link is immediately compiled at the top of the panel via the **"View Live Store"** shortcut.
+
+### 🪙 Configuring the Global Marketplace Currency
+To maintain flawless rate synchronization across multi-national hire markets, administrators can configure the default workspace currency:
+1. **Navigate to Admin Control:** Go to the **Admin Panel** (`#/admin`) and choose the **Settings** / **Global Configurations** layout.
+2. **Choose Default Currency:** Locate the **"Default Marketplace Currency"** dropdown selector inside the Regions configuration column.
+3. **Select Active Code:** Toggle between **USD**, **FJD** (Fijian Dollar), **AUD** (Australian Dollar), **NZD** (New Zealand Dollar), **GBP** (British Pound), **CAD** (Canadian Dollar), or **EUR** (Euro).
+4. **Instant Synchronization:** Clicking submit updates pricing displays, marketplace cards, Bio view lists, and public checkouts dynamically across the entire organization.
+
+### 🔒 Marketplace Listing Permissions
+To post items or complete escrow hires, users must be associated with the appropriate subscription pricing plan. If an operator's workspace is on the **Free Tier**, clicking the listings editor dynamically prompts an **Upgrade Blockout Wall** preventing unauthorized publications until subscription standards are cleared.
+

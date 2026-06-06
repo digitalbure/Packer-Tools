@@ -1,4 +1,4 @@
-export type FeatureKey = 'aiWizard' | 'gearLibrary' | 'reminders' | 'versionHistory' | 'branding' | 'qrSharing' | 'toolingLists' | 'organizer' | 'travelCases' | 'logisticsDashboard' | 'movingDashboard' | 'rackingDashboard' | 'marketplace' | 'kioskMode' | 'orgManagement' | 'departments' | 'teams' | 'inventoryManagement' | 'projectCost' | 'supplierManagement' | 'bomManagement' | 'customBarcodes' | 'automaticDepreciation' | 'digitalSignatures' | 'clientPortal' | 'apiIntegrations' | 'weightAnalytics' | 'kioskOrderMode' | 'kioskDirectCheckout';
+export type FeatureKey = 'aiWizard' | 'gearLibrary' | 'reminders' | 'versionHistory' | 'branding' | 'qrSharing' | 'toolingLists' | 'organizer' | 'travelCases' | 'logisticsDashboard' | 'movingDashboard' | 'rackingDashboard' | 'marketplace' | 'marketplaceListings' | 'kioskMode' | 'orgManagement' | 'departments' | 'teams' | 'inventoryManagement' | 'projectCost' | 'supplierManagement' | 'bomManagement' | 'customBarcodes' | 'automaticDepreciation' | 'digitalSignatures' | 'clientPortal' | 'apiIntegrations' | 'weightAnalytics' | 'kioskOrderMode' | 'kioskDirectCheckout';
 
 export type UserRole = 'owner' | 'admin' | 'manager' | 'technician' | 'viewer';
 
@@ -110,6 +110,7 @@ export interface UserProfile {
   defaultSecurityDeposit?: number; // User custom default fixed security deposit
   country?: string; // User selected marketplace country
   dashboardMode?: 'minimal' | 'all';
+  viewDensity?: 'compact' | 'comfortable';
   subscriptionStatus?: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid';
   trialStartDate?: string;
   trialEndDate?: string;
@@ -117,6 +118,7 @@ export interface UserProfile {
   // KYC & Verified Seller Store Fields
   kycStatus?: 'not_started' | 'pending' | 'verified' | 'rejected';
   kycSubmittedAt?: string;
+  disableQuickActions?: boolean;
   kycFullIdName?: string;
   kycIdType?: 'passport' | 'national_id' | 'drivers_license';
   kycIdNumber?: string;
@@ -124,7 +126,15 @@ export interface UserProfile {
   storeName?: string;
   storeBio?: string;
   storeLogo?: string;
+  storeCoverImage?: string;
   storeCustomUrl?: string;
+  storeWebsite?: string;
+  storeEmail?: string;
+  storePhone?: string;
+  storeTwitter?: string;
+  storeInstagram?: string;
+  storeLinkedin?: string;
+  storeFacebook?: string;
   activeWorkspaceId?: string;
   workspaces?: Workspace[];
   selectedIndustry?: string;
@@ -287,6 +297,8 @@ export interface GearItem {
   isAvailableForSale?: boolean;
   salePrice?: number;
   addOns?: { itemId?: string; name: string; price: number; useDefaultPrice?: boolean }[];
+  minRentalDays?: number;
+  maxRentalDays?: number;
 }
 
 export interface Container {
@@ -822,6 +834,12 @@ export interface AdminSettings {
     launchCountry: string;
     availableCountries: string[];
     restrictToAvailableCountries: boolean;
+    defaultCurrency?: string;
+  };
+  taxConfig?: {
+    fijiVatRate: number;
+    fijiVatType: 'VIP' | 'VEP';
+    otherCountriesTaxRates?: { [country: string]: { rate: number; type: 'exclusive' | 'inclusive' } };
   };
   marketplaceLandingPageConfig?: {
     heroTitle?: string;
@@ -842,6 +860,10 @@ export interface AdminSettings {
     requiresEduVerification?: boolean;
     partnerLogosText?: string;
     partnerLogosList?: string[];
+    showFeatured?: boolean;
+    showShippedToYou?: boolean;
+    showLatestGear?: boolean;
+    showPopularItems?: boolean;
   };
   footerNavConfig?: {
     enabled: boolean;

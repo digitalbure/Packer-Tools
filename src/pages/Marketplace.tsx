@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings } from '../types';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { 
   Search, 
   MapPin, 
@@ -61,6 +61,7 @@ interface ProductItem {
   reviews: number;
   image: string;
   ownerName?: string;
+  ownerId?: string;
   ownerRating?: number;
   instantBook?: boolean;
   shippingDays?: number;
@@ -71,6 +72,7 @@ interface ProductItem {
   featured?: boolean;
   featuredPriority?: number;
   isUserListing?: boolean;
+  securityDeposit?: number;
   addOns?: Array<{
     itemId?: string;
     name: string;
@@ -212,6 +214,20 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   const [currentMode, setCurrentMode] = useState<'rent' | 'buy'>('rent');
   const [searchQuery, setSearchQuery] = useState('');
   const [userListings, setUserListings] = useState<any[]>([]);
+  const [dbCategories, setDbCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'marketplaceCategories'), (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name || '',
+        image: doc.data().image || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
+        count: 0
+      }));
+      setDbCategories(docs);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const q = query(
@@ -233,6 +249,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
           reviews: 1,
           image: data.image || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
           ownerName: data.ownerEmail ? data.ownerEmail.split('@')[0] : 'Owner',
+          ownerId: data.ownerId || '',
           ownerRating: 5.0,
           instantBook: true,
           isUserListing: true,
@@ -243,6 +260,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
           moderationStatus: data.moderationStatus || 'approved',
           description: data.marketplaceDetails || data.description || '',
           securityDeposit: data.securityDeposit || 0,
+          bookingClientName: data.bookingClientName || null,
         };
       }).filter(item => item.moderationStatus !== 'suspended');
       setUserListings(dbListings);
@@ -270,6 +288,10 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   const bannerBButtonText = landingConfig.bannerBButtonText || 'Claim Now';
   const bannerBImage = landingConfig.bannerBImage || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=300';
   const showStaffPicks = landingConfig.showStaffPicks !== false;
+  const showFeatured = landingConfig.showFeatured !== false;
+  const showShippedToYou = landingConfig.showShippedToYou !== false;
+  const showLatestGear = landingConfig.showLatestGear !== false;
+  const showPopularItems = landingConfig.showPopularItems !== false;
   const showCategories = landingConfig.showCategories !== false;
   const showGuarantees = landingConfig.showGuarantees !== false;
   const requiresEduVerification = landingConfig.requiresEduVerification !== false;
@@ -293,7 +315,19 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     }
   }, [isFiji, user?.location]);
 
-  const currencySymbol = isFiji ? 'FJ$' : '$';
+  const defaultCurrency = adminSettings?.marketplaceRegionConfig?.defaultCurrency;
+  let currencySymbol = '$';
+  if (defaultCurrency) {
+    if (defaultCurrency === 'FJD') currencySymbol = 'FJ$';
+    else if (defaultCurrency === 'AUD') currencySymbol = 'A$';
+    else if (defaultCurrency === 'NZD') currencySymbol = 'NZ$';
+    else if (defaultCurrency === 'GBP') currencySymbol = '£';
+    else if (defaultCurrency === 'CAD') currencySymbol = 'C$';
+    else if (defaultCurrency === 'EUR') currencySymbol = '€';
+    else currencySymbol = '$';
+  } else {
+    currencySymbol = isFiji ? 'FJ$' : '$';
+  }
 
   // Fiji-centric brand/owner mappings
   const mappedPopularProducts = POPULAR_PRODUCTS.map(p => {
@@ -423,15 +457,80 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   // Custom interactive flow state
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [bookingDays, setBookingDays] = useState(3);
+  const [rentStartDate, setRentStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [rentEndDate, setRentEndDate] = useState(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+  const [rentTime, setRentTime] = useState('09:00');
   const [selectedAddOns, setSelectedAddOns] = useState<Set<number>>(new Set());
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [crewMessageText, setCrewMessageText] = useState('');
+
+  // Automatically calculate custom rental duration bookingDays based on selected dates
+  useEffect(() => {
+    try {
+      const start = new Date(rentStartDate).getTime();
+      const end = new Date(rentEndDate).getTime();
+      const diffTime = end - start;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      // clamp to at least 1 day
+      const daysCalculated = diffDays > 0 ? diffDays : 1;
+      setBookingDays(daysCalculated);
+    } catch (e) {
+      setBookingDays(3);
+    }
+  }, [rentStartDate, rentEndDate]);
   
   // Categories reference carousel scroll indices
   const [categoryScrollIndex, setCategoryScrollIndex] = useState(0);
 
   // Search suggestions that appear dynamically as user types
   const popularKeywords = ['fx6', 'fx3', 'camera', 'sony fx6 full-frame cinema camera', 'sony fx3 full-frame cinema camera'];
+
+  const calculateTaxAndTotal = () => {
+    if (!selectedProduct) {
+      return { subtotal: 0, taxAmount: 0, damageWaiver: 0, totalQuote: 0, isInclusive: true, taxPercent: 0 };
+    }
+    
+    const baseSubtotal = selectedProduct.price * (selectedProduct.isSale ? 1 : bookingDays);
+    const addonsSum = Array.from(selectedAddOns).reduce((sum, idx) => {
+      const addon = selectedProduct.addOns?.[idx];
+      return sum + (addon?.price || 0);
+    }, 0) * (selectedProduct.isSale ? 1 : bookingDays);
+    const subtotal = baseSubtotal + addonsSum;
+    
+    const damageWaiver = selectedProduct.isSale ? 0 : (isFiji ? 30 : 15);
+    
+    let taxPercent = 0;
+    let isInclusive = true;
+    
+    if (isFiji) {
+      taxPercent = adminSettings?.taxConfig?.fijiVatRate ?? 15;
+      isInclusive = (adminSettings?.taxConfig?.fijiVatType || 'VIP') === 'VIP';
+    } else {
+      const internationalcfg = adminSettings?.taxConfig?.otherCountriesTaxRates?.[activeCountry] || { rate: 10, type: 'exclusive' };
+      taxPercent = internationalcfg.rate;
+      isInclusive = internationalcfg.type === 'inclusive';
+    }
+    
+    let taxAmount = 0;
+    let totalQuote = 0;
+    
+    if (isInclusive) {
+      taxAmount = subtotal - (subtotal / (1 + (taxPercent / 100)));
+      totalQuote = subtotal + damageWaiver;
+    } else {
+      taxAmount = subtotal * (taxPercent / 100);
+      totalQuote = subtotal + damageWaiver + taxAmount;
+    }
+    
+    return {
+      subtotal,
+      taxAmount,
+      damageWaiver,
+      totalQuote,
+      isInclusive,
+      taxPercent
+    };
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -457,11 +556,60 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     setFavoriteItems(newFavs);
   };
 
-  const handleBookingSubmit = (e: React.FormEvent) => {
+  const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success(`Booking request sent for ${selectedProduct?.name}! Total Estimated Rental: ${currencySymbol}${(selectedProduct?.price || 0) * bookingDays}.`);
-    setIsBookingModalOpen(false);
-    setSelectedProduct(null);
+    if (!selectedProduct) return;
+
+    try {
+      const taxAndTotal = calculateTaxAndTotal();
+
+      if (selectedProduct.isUserListing) {
+        // Real update to user packing list document to reflect the booking!
+        const listRef = doc(db, 'packingLists', selectedProduct.id);
+        await updateDoc(listRef, {
+          bookingClientName: user?.displayName || user?.email?.split('@')[0] || 'Active Operator',
+          bookingClientEmail: user?.email || 'guest-operator@packer.com',
+          bookingClientSignature: user?.displayName || 'Digital Signature Signed',
+          bookingPaidAt: new Date().toISOString(),
+          rentalStatus: selectedProduct.isSale ? 'returned' : 'awaiting_payment',
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      // Also create a record in gearBookings collection for calendars/dashboards!
+      const bookingData = {
+        gearId: selectedProduct.id,
+        gearName: selectedProduct.name,
+        brand: selectedProduct.brand || 'Packer Partner',
+        ownerId: selectedProduct.ownerId || 'platform_admin',
+        clientName: user?.displayName || user?.email?.split('@')[0] || 'Active Operator',
+        clientEmail: user?.email || 'guest-operator@packer.com',
+        clientPhone: (user as any)?.phone || '+1 (555) 0199',
+        startDate: rentStartDate,
+        endDate: rentEndDate,
+        depositAmount: selectedProduct.securityDeposit || 0,
+        paymentStatus: 'Deposit Paid',
+        reservationType: selectedProduct.isSale ? 'custom' : 'deposit',
+        customConditions: ['Standard Marketplace Insurance Waiver', 'Owner Verification Complete'],
+        createdAt: new Date().toISOString(),
+        totalPrice: taxAndTotal.totalQuote,
+        taxAmount: taxAndTotal.taxAmount,
+        damageWaiver: taxAndTotal.damageWaiver,
+        taxPercent: taxAndTotal.taxPercent,
+        isTaxInclusive: taxAndTotal.isInclusive,
+        transactionType: selectedProduct.isSale ? 'sale' : 'rent'
+      };
+      
+      await addDoc(collection(db, 'gearBookings'), bookingData);
+
+      toast.success(`Booking request finalized & synced! Total Estimated cost: ${currencySymbol}${taxAndTotal.totalQuote.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+    } catch (error) {
+      console.error("Error creating synced booking:", error);
+      toast.error("Failed to complete marketplace booking sync.");
+    } finally {
+      setIsBookingModalOpen(false);
+      setSelectedProduct(null);
+    }
   };
 
   const handleMessageCrewSubmit = (e: React.FormEvent) => {
@@ -479,40 +627,34 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     return itemInd === selectedIndustry;
   };
 
-  const allRentals = [
-    ...userListings.filter(l => !l.isSale),
-    ...mappedPopularProducts.map(p => ({ ...p, industry: 'production' })),
-    ...mappedShippedProducts.map(p => ({ ...p, industry: 'production' })),
-    ...mappedStaffPicks.map(p => ({ ...p, industry: 'production' })),
-    ...MULTI_INDUSTRY_PRODUCTS.filter(p => !p.isSale)
-  ].filter(activeIndustryFilter);
+  const allRentals = userListings.filter(l => !l.isSale).filter(activeIndustryFilter);
 
-  const allSales = [
-    ...userListings.filter(l => l.isSale),
-    ...mappedSalesProducts.map(p => ({ ...p, industry: 'production' })),
-    ...MULTI_INDUSTRY_PRODUCTS.filter(p => p.isSale)
-  ].filter(activeIndustryFilter);
+  const allSales = userListings.filter(l => l.isSale).filter(activeIndustryFilter);
 
   const getCategoriesList = () => {
+    const baseCats = dbCategories.length > 0 ? dbCategories : [...CATEGORIES, ...EXTRA_CATEGORIES];
     if (selectedIndustry === 'all') {
-      return [...CATEGORIES, ...EXTRA_CATEGORIES];
+      return baseCats;
     } else if (selectedIndustry === 'production') {
-      return CATEGORIES;
+      return baseCats.filter(c => ['cinema-cameras', 'cinema-lenses', 'photography-lenses', 'still-hybrid', 'lighting-electric', 'audio', 'ge-packages'].includes(c.id));
     } else {
       if (selectedIndustry === 'construction') {
-        return EXTRA_CATEGORIES.slice(0, 4);
+        return baseCats.filter(c => ['heavy-machinery', 'power-tools', 'site-scaffolding', 'welding-assemblies'].includes(c.id));
       } else if (selectedIndustry === 'automotive') {
-        return EXTRA_CATEGORIES.slice(4, 8);
+        return baseCats.filter(c => ['diagnostics', 'lifting-jacks', 'power-air-tools', 'mechanical-handtools'].includes(c.id));
       } else if (selectedIndustry === 'medical') {
-        return EXTRA_CATEGORIES.slice(8, 12);
+        return baseCats.filter(c => ['imaging', 'patient-monitors', 'clinical-pipettes', 'surgical-support'].includes(c.id));
       } else if (selectedIndustry === 'general_logistics') {
-        return EXTRA_CATEGORIES.slice(12, 15);
+        return baseCats.filter(c => ['warehouse-logistics', 'platform-carts', 'flight-cases'].includes(c.id));
       }
-      return EXTRA_CATEGORIES;
+      return baseCats;
     }
   };
 
-  const activeCategories = getCategoriesList();
+  const activeCategories = getCategoriesList().map(c => ({
+    ...c,
+    count: userListings.filter(l => l.category === c.id).length
+  }));
 
   const filteredProducts = (currentMode === 'rent' ? allRentals : allSales)
     .filter(item => {
@@ -543,157 +685,212 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       return weightB - weightA;
     });
 
+  const getShippedItems = () => {
+    const dbItems = userListings.filter(l => l.isShipped || l.shippingDays);
+    if (dbItems.length > 0) return dbItems;
+    return [...userListings, ...mappedShippedProducts].slice(0, 5);
+  };
+
+  const getFeaturedItems = () => {
+    const dbItems = userListings.filter(l => l.featured);
+    if (dbItems.length > 0) return dbItems;
+    return [...userListings, ...mappedPopularProducts].filter(l => l.featured || l.instantBook).slice(0, 4);
+  };
+
+  const getStaffPicksItems = () => {
+    const dbItems = userListings.filter(l => l.sponsored);
+    if (dbItems.length > 0) return dbItems;
+    return [...userListings, ...mappedStaffPicks].slice(0, 4);
+  };
+
+  const getLatestItems = () => {
+    const dbItems = [...userListings].reverse();
+    if (dbItems.length > 0) return dbItems;
+    return [...userListings, ...mappedPopularProducts].slice(0, 5);
+  };
+
+  const getPopularItems = () => {
+    const dbItems = [...userListings].sort((a,b) => (b.reviews || 0) - (a.reviews || 0));
+    if (dbItems.length > 0) return dbItems;
+    return [...userListings, ...mappedPopularProducts].slice(1, 6);
+  };
+
   return (
     <div id="marketplace-landing-root" className="min-h-screen bg-white text-neutral-900 pb-20 font-sans selection:bg-neutral-900 selection:text-white">
       
-      {isFiji && (
-        <div id="fiji-soft-launch-ribbon" className="bg-[#101f18] text-emerald-400 border-b border-emerald-900/40 text-center py-2.5 px-4 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2.5 shadow-md">
-          <Globe size={12} className="animate-pulse" />
-          <span>🌴 Bula Vinaka! Welcome to Fiji's Dedicated Packer Tools Marketplace Hub</span>
-          <span className="bg-emerald-900/60 text-emerald-300 px-2 py-0.5 rounded text-[8px] font-black tracking-wider ml-1">FJD OPERATIONAL</span>
-        </div>
-      )}
-      {!isAuthorized && (
-        <div id="unauthorized-launch-ribbon" className="bg-neutral-950 text-amber-500 border-b border-amber-900/30 text-center py-2.5 px-4 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2.5 shadow-md">
-          <Globe size={12} />
-          <span>⚠️ Soft Launch Notice: Active marketplace services are prioritized in {launchCountry}. Some features may be restricted for {user?.country || 'your current region'}.</span>
-        </div>
-      )}
-      
-      {/* 1. TOP PREMIUM GRADIENT HERO BANNER */}
-      <div 
-        id="marketplace-hero-section"
-        className="relative bg-[#2e1d2c] bg-radial-gradient text-white overflow-hidden py-24 px-6 md:px-12 text-center"
-        style={{
-          backgroundImage: `linear-gradient(rgba(46, 29, 44, 0.85), rgba(24, 15, 23, 0.95)), url('https://images.unsplash.com/photo-1622547748225-3fc4abd2cca0?auto=format&fit=crop&q=80&w=1600')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        {/* Subtle decorative glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[70%] h-[150px] bg-purple-500/10 blur-[120px] rounded-full pointer-events-none" />
-
-        {/* Brand Header */}
-        <div className="max-w-7xl mx-auto flex items-center justify-between pointer-events-auto absolute top-6 left-6 right-6 z-10">
+      {/* Clean Modern Symmetrical Top Navigation & Scheduler Section */}
+      <div className="max-w-7xl mx-auto px-6 md:px-12 py-8 space-y-6">
+        
+        {/* Compact custom header row specifying live workspace shift */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-neutral-100">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-black text-white text-base shadow-lg">
+            <div className="w-8 h-8 rounded-xl bg-[#ff4f3a] flex items-center justify-center font-black text-white text-base shadow-sm">
               P
             </div>
-            <span className="font-bold uppercase tracking-wider text-sm">Packer Marketplace</span>
+            <div>
+              <span className="font-extrabold uppercase tracking-widest text-[#ff4f3a] text-[9px] block font-mono">Peer-To-Peer Hire</span>
+              <span className="font-bold uppercase tracking-wider text-sm text-neutral-900 block -mt-0.5">Packer Marketplace</span>
+            </div>
           </div>
-          <div className="flex items-center gap-4 text-xs font-semibold">
-            <span className="text-neutral-300">New around here?</span>
-            <button 
-              onClick={() => toast.success("Sign up simulation - enterprise access authorized.")}
-              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all text-white"
-            >
-              Start Earning
-            </button>
-          </div>
+
+          {user && (
+            <div className="flex bg-neutral-100 p-1 rounded-2xl border border-neutral-200/40">
+              <button 
+                type="button"
+                className="px-5 py-2 rounded-xl text-[10px] font-black bg-[#ff4f3a] text-white shadow-sm uppercase tracking-wider transition-all"
+              >
+                Marketplace Hub
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  navigate('/dashboard');
+                  toast.success("Switched to Packer Tools Workspace!");
+                }}
+                className="px-5 py-2 rounded-xl text-[10px] font-black text-neutral-500 hover:text-neutral-900 uppercase tracking-wider transition-all"
+              >
+                Packer Tools
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Content */}
-        <div className="max-w-4xl mx-auto mt-6 space-y-6 relative z-10">
-          <div className="space-y-4">
-             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest text-[#ff4f3a]">
-               <Flame size={12} className="animate-pulse" />
-               <span>{heroSubtitle}</span>
-             </div>
-             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-               {heroTitle}
-             </h1>
-             {heroDescription && (
-               <p className="text-sm md:text-base text-neutral-300 font-semibold max-w-2xl mx-auto leading-relaxed uppercase tracking-wide">
-                 {heroDescription}
-               </p>
-             )}
+        {/* Dynamic Launch Notifications */}
+        {!isAuthorized && (
+          <div id="unauthorized-launch-ribbon" className="bg-neutral-950 text-amber-500 border border-amber-900/30 rounded-2xl p-3 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2.5 shadow-md">
+            <Globe size={12} className="shrink-0 text-amber-500" />
+            <span>⚠️ Soft Launch Notice: Active marketplace services are prioritized in {launchCountry}. Some features may be restricted for {user?.country || 'your current region'}.</span>
           </div>
+        )}
 
-          {/* Mode Switcher Rent vs Buy */}
-          <div className="flex justify-center">
-            <div className="bg-neutral-900/60 p-1 rounded-xl flex items-center border border-white/10 backdrop-blur-md">
+        {/* Compact search & date duration board */}
+        <div className="bg-neutral-900 text-white rounded-[2rem] p-6 md:p-8 space-y-6 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-3xl rounded-full pointer-events-none" />
+
+          {/* Mode switch header row */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
+            <div>
+              <h1 className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
+                <span>Find & Reserve Premium Equipment</span>
+              </h1>
+              <p className="text-xs text-neutral-400 mt-1 uppercase font-bold tracking-wider">Instant deployment near {locationQuery} for organization members</p>
+            </div>
+
+            {/* Mode Switcher Rent vs Buy */}
+            <div className="bg-neutral-950 p-1 rounded-xl flex items-center border border-neutral-800 self-start lg:self-auto">
               <button
+                type="button"
                 onClick={() => {
                   setCurrentMode('rent');
                   toast.info("Switched to Rent mode");
                 }}
-                className={`px-5 py-2 rounded-lg text-xs font-bold uppercase transition-all duration-200 ${currentMode === 'rent' ? 'bg-[#ff4f3a] text-white shadow-xl' : 'text-neutral-300 hover:text-white'}`}
+                className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ${currentMode === 'rent' ? 'bg-[#ff4f3a] text-white shadow-md' : 'text-neutral-400 hover:text-white'}`}
               >
-                Rent
+                Rent Gear
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setCurrentMode('buy');
                   toast.info("Switched to Buy & Sell mode");
                 }}
-                className={`px-5 py-2 rounded-lg text-xs font-bold uppercase transition-all duration-200 ${currentMode === 'buy' ? 'bg-[#ff4f3a] text-white shadow-xl' : 'text-neutral-300 hover:text-white'}`}
+                className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ${currentMode === 'buy' ? 'bg-[#ff4f3a] text-white shadow-md' : 'text-neutral-400 hover:text-white'}`}
               >
-                Buy
+                Buy / Sale
               </button>
             </div>
           </div>
 
-          {/* Integrated Search Box */}
-          <div className="max-w-2xl mx-auto bg-neutral-900/90 border border-white/10 rounded-2xl p-2 md:p-3 shadow-2xl backdrop-blur-xl flex flex-col md:flex-row items-center gap-2">
+          {/* Form Filter Row spanning search keyword config, location preferences AND Scheduling inputs */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 bg-neutral-950/80 border border-neutral-800/65 p-3 rounded-2xl shadow-inner">
             
-            {/* Search Input Field */}
-            <div className="w-full flex items-center gap-2 px-3 py-2 border-b md:border-b-0 md:border-r border-white/10">
-              <Search size={16} className="text-neutral-400 shrink-0" />
-              <input
-                type="text"
-                placeholder="Search gear (e.g. Sony FX6, RED, Alexa...)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-transparent text-white text-sm outline-none placeholder-neutral-500 font-semibold"
-              />
+            {/* 1. Keyword search input */}
+            <div className="lg:col-span-4 flex items-center gap-2.5 px-3 py-1.5 border-b lg:border-b-0 lg:border-r border-neutral-800/60 shrink-0">
+              <Search size={16} className="text-[#ff4f3a] shrink-0" />
+              <div className="flex flex-col w-full">
+                <label className="text-[8px] font-black uppercase tracking-widest text-[#ff4f3a]">Search Equipment</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Sony FX6, RED, Arri..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-transparent text-white text-xs outline-none focus:ring-0 placeholder-neutral-600 font-bold mt-0.5"
+                />
+              </div>
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="p-1 hover:bg-white/10 rounded-full text-neutral-400">
-                  <X size={12} />
+                <button onClick={() => setSearchQuery('')} className="p-1 hover:bg-neutral-800 rounded-full text-neutral-400 shrink-0">
+                  <X size={10} />
                 </button>
               )}
             </div>
 
-            {/* Location Select (Aesthetic) */}
-            <div className="w-full flex items-center gap-2 px-3 py-2 shrink-0 md:max-w-[200px]">
+            {/* 2. Brand new date/time selectors */}
+            <div className="lg:col-span-4 flex items-center gap-2.5 px-3 py-1.5 border-b lg:border-b-0 lg:border-r border-neutral-800/60 shrink-0">
+              <Calendar size={16} className="text-emerald-500 shrink-0" />
+              <div className="flex-1 flex flex-col">
+                <label className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Pick-up / Drop-off Dates & Times ({bookingDays} {bookingDays === 1 ? 'day' : 'days'})</label>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <input 
+                    type="date"
+                    value={rentStartDate}
+                    onChange={(e) => setRentStartDate(e.target.value)}
+                    className="bg-transparent text-white text-[11px] outline-none font-bold border-none p-0 focus:ring-0 calendar-dark-icon w-[95px]"
+                  />
+                  <span className="text-neutral-600 text-[10px] font-bold">to</span>
+                  <input 
+                    type="date"
+                    value={rentEndDate}
+                    onChange={(e) => setRentEndDate(e.target.value)}
+                    className="bg-transparent text-white text-[11px] outline-none font-bold border-none p-0 focus:ring-0 calendar-dark-icon w-[95px]"
+                  />
+                  <input 
+                    type="time"
+                    value={rentTime}
+                    onChange={(e) => setRentTime(e.target.value)}
+                    className="bg-transparent text-emerald-400 text-[11px] outline-none font-bold border-none p-0 focus:ring-0 w-12 ml-1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Location Select */}
+            <div className="lg:col-span-2.5 flex items-center gap-2.5 px-3 py-1.5 shrink-0">
               <MapPin size={16} className="text-[#ff4f3a] shrink-0" />
-              <input
-                type="text"
-                value={locationQuery}
-                onChange={(e) => setLocationQuery(e.target.value)}
-                className="w-full bg-transparent text-white text-sm outline-none font-semibold"
-              />
+              <div className="flex flex-col w-full">
+                <label className="text-[8px] font-black uppercase tracking-widest text-neutral-500 font-bold">Dispatch Location</label>
+                <input
+                  type="text"
+                  value={locationQuery}
+                  onChange={(e) => setLocationQuery(e.target.value)}
+                  className="w-full bg-transparent text-white text-xs outline-none focus:ring-0 font-bold mt-0.5"
+                />
+              </div>
             </div>
 
-            {/* Submit Dynamic search triggers drawer/filters */}
-            <button
-              onClick={() => {
-                setIsSearchDrawerOpen(true);
-                toast.success(`Refined filters loaded for "${searchQuery || 'All items'}"`);
-              }}
-              className="w-full md:w-auto bg-[#ff4f3a] hover:bg-[#e43f2a] active:scale-95 text-white font-bold uppercase tracking-wider text-xs px-6 py-3.5 rounded-xl transition duration-150 shrink-0 flex items-center justify-center gap-2 shadow-lg"
-            >
-              <Search size={14} />
-              <span>Search</span>
-            </button>
-          </div>
-
-          {/* Members section logos displaying high quality partners */}
-          <div className="pt-6 space-y-3.5 opacity-60">
-            <p className="text-[10px] font-black tracking-widest text-neutral-400 uppercase">{partnerLogosText}</p>
-            <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4 text-xs font-black tracking-wider text-neutral-300">
-              {partnerLogosList.map((logo, index) => (
-                <span key={index} className="hover:text-white transition cursor-default uppercase">{logo}</span>
-              ))}
+            {/* 4. Search Trigger button */}
+            <div className="lg:col-span-1.5 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSearchDrawerOpen(true);
+                  toast.success(`Refined filters loaded for "${searchQuery || 'all equipment'}"!`);
+                }}
+                className="w-full bg-[#ff4f3a] hover:bg-[#e43f2a] active:scale-95 text-white font-black uppercase tracking-wider text-[10px] py-3 rounded-xl transition duration-150 flex items-center justify-center gap-1.5 shadow-md"
+              >
+                <Search size={12} />
+                <span>Search</span>
+              </button>
             </div>
-          </div>
 
+          </div>
         </div>
 
         {/* Dynamic drawer activation indicator trigger button floating on side */}
-        <div className="absolute right-0 bottom-4 z-20">
+        <div className="relative z-25 flex justify-end">
           <button
+            type="button"
             onClick={() => setIsSearchDrawerOpen(true)}
-            className="flex items-center gap-2 bg-[#ff4f3a] text-white text-[10px] font-black uppercase tracking-widest py-2.5 px-4 rounded-l-xl opacity-90 hover:opacity-100 transition shadow-lg shrink-0"
+            className="flex items-center gap-2 bg-[#ff4f3a] text-white text-[10px] font-black uppercase tracking-widest py-2.5 px-4 rounded-xl opacity-90 hover:opacity-100 transition shadow-lg shrink-0 mt-2"
           >
             <SlidersHorizontal size={12} />
             <span>Open Filters Drawer</span>
@@ -1482,7 +1679,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
         </div>
 
         {/* 5B. RENTALS SHIPPED TO YOU (ONLY VISIBLE ON RENT MODE - MATCHING SCREENSHOT 3) */}
-        {currentMode === 'rent' && (
+        {showShippedToYou && currentMode === 'rent' && (
           <div className="space-y-6 pt-6 border-t border-neutral-100">
             <div>
               <h3 className="text-sm font-black uppercase tracking-widest text-[#ff4f3a]">Rentals Shipped to You</h3>
@@ -1490,7 +1687,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              {mappedShippedProducts.slice(0, 5).map((product) => {
+              {getShippedItems().slice(0, 5).map((product) => {
                 const isFav = favoriteItems.has(product.id);
                 return (
                   <div 
@@ -1545,109 +1742,208 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       </div>
 
 
-      {/* 6. NEW CREW AND FREELANCE MULTIMEDIA DIRECTORY (MATCHING SCREENSHOT 4 & 5) */}
-      <div id="marketplace-crew-display" className="bg-neutral-50 py-16 border-y border-neutral-100">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 space-y-10">
-          
-          <div className="flex items-end justify-between border-b border-neutral-200 pb-5">
+      {/* FEATURED GEAR SECTION */}
+      {showFeatured && (
+        <div id="featured-gear-section" className="max-w-7xl mx-auto px-6 md:px-12 py-12 space-y-8">
+          <div>
+            <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight">Featured Gear</h2>
+            <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider mt-1">Premium visual equipment handpicked for our network near {locationQuery}</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {getFeaturedItems().slice(0, 4).map((product) => {
+              const isFav = favoriteItems.has(product.id);
+              return (
+                <div 
+                  key={product.id}
+                  onClick={() => {
+                    setSelectedProduct(product);
+                    setIsBookingModalOpen(true);
+                  }}
+                  className="group cursor-pointer bg-white rounded-3xl border border-neutral-100 overflow-hidden hover:shadow-2xl transition duration-200 flex flex-col justify-between"
+                >
+                  <div className="h-44 w-full bg-neutral-50 relative overflow-hidden shrink-0">
+                    <img 
+                      src={product.image} 
+                      alt={product.name} 
+                      className="w-full h-full object-cover object-center transform group-hover:scale-105 transition duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                      <span className="bg-yellow-400 text-neutral-900 text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wider shadow">
+                        ★ FEATURED
+                      </span>
+                      <button
+                        onClick={(e) => toggleFavorite(product.id, e)}
+                        className="w-7 h-7 bg-white/95 rounded-full flex items-center justify-center text-neutral-500 hover:text-red-500"
+                      >
+                        <Heart size={14} className={isFav ? 'fill-red-500 text-red-500' : ''} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-5 space-y-3.5 flex-1 flex flex-col justify-between">
+                    <div className="space-y-1">
+                      <p className="text-[8.5px] font-mono text-neutral-400 uppercase tracking-widest">{product.brand}</p>
+                      <h4 className="text-[10.5px] font-black uppercase text-neutral-800 line-clamp-2 leading-relaxed" title={product.name}>
+                        {product.name}
+                      </h4>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+                      <div>
+                        <span className="text-sm font-black text-[#ff4f3a]">{currencySymbol}{product.price}</span>
+                        <span className="text-[8.5px] text-neutral-400 font-semibold uppercase">/day</span>
+                      </div>
+                      <span className="text-[8.5px] text-neutral-400 font-black uppercase tracking-wider">
+                        ⚡ INSTANT BOOK
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+
+      {/* LATEST GEAR SECTION */}
+      {showLatestGear && (
+        <div id="latest-gear-section" className="bg-neutral-50 py-16 border-y border-neutral-100 mb-6">
+          <div className="max-w-7xl mx-auto px-6 md:px-12 space-y-8 animate-in fade-in duration-300">
             <div>
-              <span className="bg-[#ff4f3a] text-white text-[8px] tracking-widest uppercase font-black py-1 px-2.5 rounded-full">
-                Creative Marketplace
+              <span className="bg-emerald-600 text-white text-[8px] font-black uppercase px-2.5 py-1 rounded-full tracking-wider shadow-sm">
+                Newly Onboarded
               </span>
-              <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight mt-3">
-                New Crew in {locationQuery}
-              </h2>
-              <p className="text-xs text-neutral-400 font-semibold uppercase mt-1 tracking-wider">
-                Hire local cinematographers, editors & production support instantly
-              </p>
+              <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight mt-3">Latest Gear near {locationQuery}</h2>
+              <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider mt-1">Automatically displaying recently listed products listed by organization members</p>
             </div>
 
-            <button
-              onClick={() => toast.info("Full roster loaded. Total of 98 certified operators available in Area range.")}
-              className="text-[10px] font-black uppercase tracking-widest text-[#ff4f3a] hover:text-[#d33a28] transition"
-            >
-              View All Skills
-            </button>
-          </div>
-
-          {/* Cards list */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-            {mappedCrews.map((crew) => (
-              <div 
-                key={crew.id}
-                className="bg-white rounded-[2rem] border border-neutral-205 p-6 flex flex-col justify-between gap-5 hover:shadow-xl transition-all hover:border-black"
-              >
-                <div className="space-y-4">
-                  {/* Avatar and Info Header */}
-                  <div className="relative">
-                    <div className="w-16 h-16 bg-neutral-100 rounded-2xl overflow-hidden shadow-inner border border-neutral-150">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {getLatestItems().slice(0, 4).map((product) => {
+                const isFav = favoriteItems.has(product.id);
+                return (
+                  <div 
+                    key={product.id}
+                    onClick={() => {
+                      setSelectedProduct(product);
+                      setIsBookingModalOpen(true);
+                    }}
+                    className="group cursor-pointer bg-white rounded-3xl border border-neutral-100 overflow-hidden hover:shadow-2xl transition duration-200 flex flex-col justify-between"
+                  >
+                    <div className="h-44 w-full bg-neutral-50 relative overflow-hidden shrink-0">
                       <img 
-                        src={crew.image} 
-                        alt={crew.name} 
-                        className="w-full h-full object-cover object-center"
+                        src={product.image} 
+                        alt={product.name} 
+                        className="w-full h-full object-cover object-center transform group-hover:scale-105 transition duration-500"
                         referrerPolicy="no-referrer"
                       />
+                      <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                        <span className="bg-emerald-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wider shadow">
+                          🆕 NEWLY LISTED
+                        </span>
+                        <button
+                          onClick={(e) => toggleFavorite(product.id, e)}
+                          className="w-7 h-7 bg-white/95 rounded-full flex items-center justify-center text-neutral-500 hover:text-red-500"
+                        >
+                          <Heart size={14} className={isFav ? 'fill-red-500 text-red-500' : ''} />
+                        </button>
+                      </div>
                     </div>
-                    
-                    {/* Top status tag */}
-                    <span className="absolute top-0 right-0 bg-[#ff4f3a] text-white font-black uppercase text-[7.5px] px-2 py-0.5 rounded tracking-widest">
-                      FOR HIRE
-                    </span>
-                  </div>
 
-                  {/* Rating or title detail */}
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="text-xs font-black uppercase tracking-tight text-neutral-800">{crew.name}</h4>
-                      {crew.isVerified && <span className="text-blue-500 font-black text-xs">✓</span>}
+                    <div className="p-5 space-y-3.5 flex-1 flex flex-col justify-between">
+                      <div className="space-y-1">
+                        <p className="text-[8.5px] font-mono text-neutral-400 uppercase tracking-widest">{product.brand}</p>
+                        <h4 className="text-[10.5px] font-black uppercase text-neutral-800 line-clamp-2 leading-relaxed" title={product.name}>
+                          {product.name}
+                        </h4>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+                        <div>
+                          <span className="text-sm font-black text-[#ff4f3a]">{currencySymbol}{product.price}</span>
+                          <span className="text-[8.5px] text-neutral-400 font-semibold uppercase">/day</span>
+                        </div>
+                        <span className="text-[8.5px] text-neutral-400 font-bold uppercase tracking-wider">
+                          {product.ownerName || 'Verified List'}
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-[10px] text-neutral-400 font-semibold uppercase">{crew.title}</p>
-                    
-                    <div className="flex items-center gap-1 text-[8.5px] font-bold text-neutral-400 uppercase">
-                      <Star size={10} className="fill-amber-400 text-amber-400" />
-                      <span className="text-neutral-700 font-black">5.0</span>
-                      <span>({crew.reviews} reviews)</span>
-                    </div>
                   </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
-                  {/* Creative skills pills (Matching exact screenshots) */}
-                  <div className="flex flex-wrap gap-1 pt-1">
-                    {crew.skills.map((skill, sIdx) => (
-                      <span 
-                        key={sIdx}
-                        className="bg-neutral-50 border border-neutral-200 text-neutral-600 font-medium text-[8px] uppercase tracking-wide px-2 py-0.5 rounded-full"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
 
-                  {/* Bio block extract */}
-                  <p className="text-[10px] text-neutral-500 leading-relaxed font-medium">
-                    {crew.bio}
-                  </p>
-                </div>
-
-                {/* Direct Action trigger */}
-                <button
-                  onClick={() => {
-                    setSelectedCrew(crew);
-                    setIsMessageModalOpen(true);
-                  }}
-                  className="w-full bg-neutral-905 hover:bg-neutral-800 text-white bg-neutral-900 rounded-xl py-3 text-[9px] font-mono tracking-widest font-black uppercase transition-all shadow-sm flex items-center justify-center gap-1.5"
-                >
-                  <Mail size={12} />
-                  <span>View Profile / Msg</span>
-                </button>
-              </div>
-            ))}
+      {/* POPULAR ITEMS / REVERED SECTOR GEAR SECTION */}
+      {showPopularItems && (
+        <div id="popular-gear-section" className="max-w-7xl mx-auto px-6 md:px-12 py-12 space-y-8">
+          <div>
+            <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight">Most Popular Equipment</h2>
+            <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider mt-1">High-utilization camera bodies and prime optics checked out this week</p>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {getPopularItems().slice(0, 4).map((product) => {
+              const isFav = favoriteItems.has(product.id);
+              return (
+                <div 
+                  key={product.id}
+                  onClick={() => {
+                    setSelectedProduct(product);
+                    setIsBookingModalOpen(true);
+                  }}
+                  className="group cursor-pointer bg-white rounded-3xl border border-neutral-100 overflow-hidden hover:shadow-2xl transition duration-200 flex flex-col justify-between"
+                >
+                  <div className="h-44 w-full bg-neutral-50 relative overflow-hidden shrink-0">
+                    <img 
+                      src={product.image} 
+                      alt={product.name} 
+                      className="w-full h-full object-cover object-center transform group-hover:scale-105 transition duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                      <span className="bg-[#ff4f3a] text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wider shadow">
+                        🔥 HOT PICK
+                      </span>
+                      <button
+                        onClick={(e) => toggleFavorite(product.id, e)}
+                        className="w-7 h-7 bg-white/95 rounded-full flex items-center justify-center text-neutral-500 hover:text-red-500"
+                      >
+                        <Heart size={14} className={isFav ? 'fill-red-500 text-red-500' : ''} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-5 space-y-3.5 flex-1 flex flex-col justify-between">
+                    <div className="space-y-1">
+                      <p className="text-[8.5px] font-mono text-neutral-400 uppercase tracking-widest">{product.brand}</p>
+                      <h4 className="text-[10.5px] font-black uppercase text-neutral-800 line-clamp-2 leading-relaxed" title={product.name}>
+                        {product.name}
+                      </h4>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+                      <div>
+                        <span className="text-sm font-black text-[#ff4f3a]">{currencySymbol}{product.price}</span>
+                        <span className="text-[8.5px] text-neutral-400 font-semibold uppercase">/day</span>
+                      </div>
+                      <span className="text-[8.5px] text-neutral-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                        <Star size={10} className="fill-amber-400 text-amber-400 text-yellow-500" />
+                        <span>4.9 ({product.reviews || 12})</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
-
-
-      {/* 7. STAFF RENTAL PICKS (MATCHING SCREENSHOT 5) */}
+      )}
       {showStaffPicks && (
         <div id="staff-picks-section" className="max-w-7xl mx-auto px-6 md:px-12 py-16 space-y-8">
           <div>
@@ -1656,7 +1952,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {mappedStaffPicks.map((product) => {
+            {getStaffPicksItems().map((product) => {
               const isFav = favoriteItems.has(product.id);
               return (
                 <div 
@@ -1997,40 +2293,55 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                 )}
 
                 {/* Submitting booking checkout summary details */}
-                <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100 space-y-2">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500">Estimate Pricing</p>
-                  
-                  <div className="flex justify-between items-center text-xs text-neutral-600">
-                    <span className="font-semibold uppercase text-[9px]">{selectedProduct.isSale ? 'Outright purchase cost' : `Daily Rate x ${bookingDays} Days`}</span>
-                    <span className="font-black text-neutral-900">{currencySymbol}{selectedProduct.isSale ? selectedProduct.price.toLocaleString() : (selectedProduct.price * bookingDays).toLocaleString()}</span>
-                  </div>
+                {(() => {
+                  const { subtotal, taxAmount, damageWaiver, totalQuote, isInclusive, taxPercent } = calculateTaxAndTotal();
+                  return (
+                    <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100 space-y-2">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500">Estimate Pricing Breakdown</p>
+                      
+                      <div className="flex justify-between items-center text-xs text-neutral-600">
+                        <span className="font-semibold uppercase text-[9px]">{selectedProduct.isSale ? 'Outright purchase cost' : `Daily Rate x ${bookingDays} Days`}</span>
+                        <span className="font-black text-neutral-900">{currencySymbol}{(selectedProduct.price * (selectedProduct.isSale ? 1 : bookingDays)).toLocaleString()}</span>
+                      </div>
 
-                  {!selectedProduct.isSale && selectedAddOns.size > 0 && (
-                    <div className="flex justify-between items-center text-xs text-neutral-600">
-                      <span className="font-semibold uppercase text-[9px]">Add-Ons ({selectedAddOns.size} selected)</span>
-                      <span className="font-black text-emerald-600">
-                        + {currencySymbol}{(Array.from(selectedAddOns).reduce((sum, idx) => sum + (selectedProduct.addOns?.[idx]?.price || 0), 0) * bookingDays).toLocaleString()}
-                      </span>
+                      {!selectedProduct.isSale && selectedAddOns.size > 0 && (
+                        <div className="flex justify-between items-center text-xs text-neutral-600">
+                          <span className="font-semibold uppercase text-[9px]">Add-Ons ({selectedAddOns.size} selected)</span>
+                          <span className="font-black text-emerald-600">
+                            + {currencySymbol}{(Array.from(selectedAddOns).reduce((sum, idx) => sum + (selectedProduct.addOns?.[idx]?.price || 0), 0) * bookingDays).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between items-center text-xs text-neutral-600 border-b border-rose-100 pb-1.5 font-sans">
+                        <span className="font-semibold uppercase text-[9px]">Platform Service / Damage Waiver Fees</span>
+                        <span className="font-bold text-neutral-700">{currencySymbol}{damageWaiver.toLocaleString()}</span>
+                      </div>
+
+                      {/* Dynamic Tax Component displaying exact VAT % / GST config details */}
+                      <div className="flex justify-between items-center text-xs text-neutral-600 pb-1.5 font-sans border-b border-neutral-200/60">
+                        <div className="flex flex-col">
+                          <span className="font-semibold uppercase text-[9.5px] text-neutral-700">Tax Platform Service Fees</span>
+                          <span className="text-[7.5px] uppercase text-neutral-400 font-bold -mt-0.5 leading-none">
+                            {isFiji 
+                              ? `Fiji VAT (${taxPercent}%) ${isInclusive ? 'Included (VIP)' : 'VEP added'}` 
+                              : `Tax / GST (${taxPercent}%) ${isInclusive ? 'Included' : 'Exclusive'}`}
+                          </span>
+                        </div>
+                        <span className="font-bold text-neutral-700">
+                          {isInclusive ? '(Included) ' : '+ '}{currencySymbol}{taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-xs text-neutral-800 pt-1">
+                        <span className="font-black uppercase text-[10px]">Total Quote</span>
+                        <span className="font-black text-sm text-[#ff4f3a]">
+                          {currencySymbol}{totalQuote.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
                     </div>
-                  )}
-
-                  <div className="flex justify-between items-center text-xs text-neutral-600 border-b border-neutral-200/60 pb-1.5 font-sans">
-                    <span className="font-semibold uppercase text-[9px]">Damage Waiver Coverage</span>
-                    <span className="font-bold text-emerald-600">{currencySymbol}{selectedProduct.isSale ? '0' : isFiji ? '30' : '15'}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center text-xs text-neutral-800 pt-1">
-                    <span className="font-black uppercase text-[10px]">Total Quote</span>
-                    <span className="font-black text-sm text-[#ff4f3a]">
-                      {currencySymbol}
-                      {selectedProduct.isSale 
-                        ? selectedProduct.price.toLocaleString() 
-                        : (
-                            (selectedProduct.price + Array.from(selectedAddOns).reduce((sum, idx) => sum + (selectedProduct.addOns?.[idx]?.price || 0), 0)) * bookingDays + (isFiji ? 30 : 15)
-                          ).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
+                  );
+                })()}
 
                 <div className="flex gap-3 pt-2">
                   <button

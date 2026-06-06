@@ -17,6 +17,7 @@ import {
 import { db } from '../firebase';
 import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { toast } from 'sonner';
+import { logActivity } from '../services/activityLog';
 
 interface Contact {
   id: string;
@@ -128,6 +129,13 @@ export default function ManualCheckoutModal({ type, data, user, onClose, onSucce
           currentHolder: assigneeName,
           updatedAt: new Date().toISOString()
         });
+        await logActivity(
+          user.uid,
+          user.displayName || user.email || 'Platform User',
+          'gear_status_change',
+          `Checked out gear "${name}" to ${assigneeName}`,
+          { gearId: data.id, status: 'in_use', assignee: assigneeName, gearName: name }
+        );
         toast.success(`"${name}" checked out successfully to ${assigneeName}`);
       } else {
         // Update Packing List of packingLists/{id}
@@ -141,6 +149,13 @@ export default function ManualCheckoutModal({ type, data, user, onClose, onSucce
           rentalStatus: 'released',
           updatedAt: new Date().toISOString()
         });
+        await logActivity(
+          user.uid,
+          user.displayName || user.email || 'Platform User',
+          'list_status_change',
+          `Checked out list "${name}" to ${assigneeName}`,
+          { listId: data.id, status: 'Active', assignee: assigneeName, listName: name }
+        );
         toast.success(`Packing List "${name}" checked out successfully to ${assigneeName}`);
       }
       
@@ -167,6 +182,13 @@ export default function ManualCheckoutModal({ type, data, user, onClose, onSucce
           currentHolder: null,
           updatedAt: new Date().toISOString()
         });
+        await logActivity(
+          user.uid,
+          user.displayName || user.email || 'Platform User',
+          'gear_status_change',
+          `Checked in gear "${name}" to Gear Library`,
+          { gearId: data.id, status: 'available', gearName: name }
+        );
         toast.success(`"${name}" has been checked in and is now Available.`);
       } else {
         const listRef = doc(db, 'packingLists', data.id);
@@ -175,6 +197,13 @@ export default function ManualCheckoutModal({ type, data, user, onClose, onSucce
           rentalStatus: 'returned',
           updatedAt: new Date().toISOString()
         });
+        await logActivity(
+          user.uid,
+          user.displayName || user.email || 'Platform User',
+          'list_status_change',
+          `Checked in list "${name}" as Completed`,
+          { listId: data.id, status: 'Completed', listName: name }
+        );
         toast.success(`Packing List "${name}" has been marked as returned / Completed.`);
       }
 

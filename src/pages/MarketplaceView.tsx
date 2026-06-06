@@ -154,6 +154,20 @@ export default function MarketplaceView() {
     );
   }
 
+  const defaultCurrency = globalSettings?.marketplaceRegionConfig?.defaultCurrency;
+  let currencySymbol = '$';
+  if (defaultCurrency) {
+    if (defaultCurrency === 'FJD') currencySymbol = 'FJ$';
+    else if (defaultCurrency === 'AUD') currencySymbol = 'A$';
+    else if (defaultCurrency === 'NZD') currencySymbol = 'NZ$';
+    else if (defaultCurrency === 'GBP') currencySymbol = '£';
+    else if (defaultCurrency === 'CAD') currencySymbol = 'C$';
+    else if (defaultCurrency === 'EUR') currencySymbol = '€';
+    else currencySymbol = '$';
+  } else {
+    currencySymbol = list?.currency || '$';
+  }
+
   return (
     <div className="min-h-screen bg-[#F5F5F4] text-[#1A1A1A] font-sans">
       <main className="grid lg:grid-cols-2 min-h-screen">
@@ -190,13 +204,35 @@ export default function MarketplaceView() {
                   </div>
                 </div>
               )}
+
+              {/* Seller Info (Click to Shopfront!) */}
+              {list.ownerId && (
+                <div className="p-6 bg-amber-50/50 rounded-[2rem] border border-amber-200/40 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#ff4f3a] block mb-1">Verified Seller Storefront</span>
+                      <h3 className="font-black text-neutral-800 uppercase tracking-tight text-lg">
+                        {list.ownerEmail ? list.ownerEmail.split('@')[0] : 'Sum of Parts LLC'}
+                      </h3>
+                    </div>
+
+                    <a 
+                      href={`#/shop/${list.ownerId}`}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-black uppercase text-[9px] tracking-widest rounded-xl transition"
+                    >
+                      <span>Visit Store</span>
+                      <ExternalLink size={10} className="stroke-[2.5]" />
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-8 py-8 border-y border-neutral-100">
               <div>
                 <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-2">Price</div>
                 <div className="text-4xl font-black tracking-tight">
-                  {list.price ? `${list.currency || '$'}${list.price}` : 'Free / Gift'}
+                  {list.price ? `${currencySymbol}${list.price}` : 'Free / Gift'}
                 </div>
               </div>
               {recipient && (
@@ -273,7 +309,7 @@ export default function MarketplaceView() {
                 </button>
                 <div className="text-right">
                   <div className="text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-1">Total Value</div>
-                  <div className="text-2xl font-black">{list.price ? `${list.currency || '$'}${list.price}` : 'N/A'}</div>
+                  <div className="text-2xl font-black">{list.price ? `${currencySymbol}${list.price}` : 'N/A'}</div>
                 </div>
               </div>
             </header>

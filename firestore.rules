@@ -155,10 +155,20 @@ service cloud.firestore {
              data.status in ['open', 'in_review', 'resolved'];
     }
 
+    function isValidActivityLog(data) {
+      return data.keys().hasAll(['userId', 'userName', 'actionType', 'description', 'timestamp', 'metadata']) &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() < 128 &&
+             data.userName is string && data.userName.size() > 0 && data.userName.size() < 256 &&
+             data.actionType is string && data.actionType.size() > 0 && data.actionType.size() < 64 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 1024 &&
+             data.timestamp is string &&
+             data.metadata is map;
+    }
+
     // Rules
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin() || (isAuthenticated() && resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId);
+      allow get: if isOwner(userId) || isAdmin() || (isAuthenticated() && resource.data.isProfilePublic == true);
+      allow list: if isAdmin() || (isAuthenticated() && (resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || resource.data.isProfilePublic == true));
       allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
       allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.plan == resource.data.plan) || isAdmin();
 
@@ -314,7 +324,7 @@ service cloud.firestore {
     }
 
     match /organizations/{orgId} {
-      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin() || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId == orgId));
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.ownerId == request.auth.uid);
     }
@@ -364,6 +374,13 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
       allow create: if true;
       allow update, delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    // Rules for activityLogs collection
+    match /activityLogs/{logId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidActivityLog(request.resource.data);
+      allow update, delete: if false;
     }
 
   }
