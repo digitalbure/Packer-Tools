@@ -24,6 +24,47 @@ type SortField = 'createdAt' | 'name' | 'status';
 type SortOrder = 'asc' | 'desc';
 type ViewMode = 'grid' | 'list';
 
+// Helper to compress and resize images into compact JPEGs to fit Firestore safely (<100KB)
+function compressAndResizeImage(file: File, maxWidth = 800, maxHeight = 600, quality = 0.65): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(event.target?.result as string || '');
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function Dashboard({ user, adminSettings: propAdminSettings }: { user: UserProfile, adminSettings: AdminSettings | null }) {
   const [lists, setLists] = useState<PackingList[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -45,6 +86,9 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const [newBugModule, setNewBugModule] = useState('General UI');
   const [newBugSeverity, setNewBugSeverity] = useState<'low' | 'medium' | 'high' | 'critical'>('low');
   const [isBugSubmitting, setIsBugSubmitting] = useState(false);
+  const [bugScreenshots, setBugScreenshots] = useState<string[]>([]);
+  const [isBugUploading, setIsBugUploading] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   
   // Custom public directories & sub-group list states
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -352,7 +396,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       setUsersList(fetchedUsers);
       setIsDirectoriesLoading(false);
     }, (error) => {
-      console.error("Error fetching directories users:", error);
+      handleFirestoreError(error, OperationType.LIST, 'users (public profiles)');
       setIsDirectoriesLoading(false);
     });
 
@@ -360,14 +404,14 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       const fetchedOrgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Organization[];
       setOrgsList(fetchedOrgs);
     }, (error) => {
-      console.error("Error fetching directories organizations:", error);
+      handleFirestoreError(error, OperationType.LIST, 'organizations');
     });
 
     const qBugs = query(collection(db, 'bugs'), where('userId', '==', user.uid));
     const unsubscribeBugs = onSnapshot(qBugs, (snapshot) => {
       setUserBugs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => {
-      console.error("Error fetching user's reported bugs:", error);
+      handleFirestoreError(error, OperationType.LIST, 'bugs');
     });
 
     return () => {
@@ -2431,13 +2475,15 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                         module: newBugModule,
                         severity: newBugSeverity,
                         status: 'open',
-                        createdAt: new Date().toISOString()
+                        createdAt: new Date().toISOString(),
+                        screenshots: bugScreenshots
                       });
                       toast.success("Bug report successfully filed! Admins have been notified.");
                       setNewBugTitle('');
                       setNewBugDesc('');
                       setNewBugModule('General UI');
                       setNewBugSeverity('low');
+                      setBugScreenshots([]);
                     } catch (error: any) {
                       console.error("Error creating bug report:", error);
                       toast.error("Failed to submit bug report. Try again.");
@@ -2506,9 +2552,72 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                     />
                   </div>
 
+                  {/* Screenshot Upload with compression */}
+                  <div className="space-y-1.5 text-left bg-neutral-50/50 p-3 rounded-2xl border border-neutral-100">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block mb-1">Attach Screenshots ({bugScreenshots.length}/3)</label>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {bugScreenshots.map((src, idx) => (
+                        <div key={idx} className="relative w-14 h-14 rounded-xl overflow-hidden border border-neutral-200 group bg-neutral-100 flex items-center justify-center">
+                          <img src={src} alt="preview" className="object-cover w-full h-full" />
+                          <button
+                            type="button"
+                            onClick={() => setBugScreenshots(prev => prev.filter((_, i) => i !== idx))}
+                            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition rounded-xl text-white font-bold text-xs"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                      {bugScreenshots.length < 3 && (
+                        <label className={`w-14 h-14 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-50 border-neutral-300 hover:border-purple-500 transition text-neutral-400 hover:text-purple-600 ${isBugUploading ? 'pointer-events-none opacity-50' : ''}`}>
+                          {isBugUploading ? (
+                            <span className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></span>
+                          ) : (
+                            <>
+                              <Plus size={16} />
+                              <span className="text-[8px] font-bold mt-0.5 uppercase">Add</span>
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            disabled={isBugUploading}
+                            className="hidden"
+                            onChange={async (e) => {
+                              if (!e.target.files || e.target.files.length === 0) return;
+                              setIsBugUploading(true);
+                              try {
+                                const files = Array.from(e.target.files);
+                                const newBase64s: string[] = [];
+                                for (const file of files) {
+                                  if (bugScreenshots.length + newBase64s.length >= 3) {
+                                    toast.error("You can attach up to 3 screenshots.");
+                                    break;
+                                  }
+                                  const compressed = await compressAndResizeImage(file);
+                                  newBase64s.push(compressed);
+                                }
+                                setBugScreenshots(prev => [...prev, ...newBase64s]);
+                                toast.success("Screenshot(s) added and optimized!");
+                              } catch (err) {
+                                console.error("Error processing image:", err);
+                                toast.error("Failed to process layout screenshot.");
+                              } finally {
+                                setIsBugUploading(false);
+                                e.target.value = ''; // Reset uploader
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+                    <p className="text-[9px] text-neutral-400 mt-1">PNG/JPG up to 3 files. High quality visual compression keeps database transactions super light.</p>
+                  </div>
+
                   <button
                     type="submit"
-                    disabled={isBugSubmitting}
+                    disabled={isBugSubmitting || isBugUploading}
                     className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white font-bold rounded-xl text-xs uppercase tracking-widest transition shadow-md hover:shadow-lg active:scale-[0.98]"
                   >
                     {isBugSubmitting ? 'Filing Issue Statement...' : 'Submit Issue to Administrators'}
@@ -2546,11 +2655,19 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                       const statusBadge = {
                         open: { bg: 'bg-red-50 text-red-600 border-red-100', text: '🔴 Staged/Open' },
                         in_review: { bg: 'bg-amber-50 text-amber-600 border-amber-100', text: '🟡 Staged for fix' },
-                        resolved: { bg: 'bg-green-50 text-green-600 border-green-150', text: '🟢 Solved & Resolved' }
-                      }[bug.status as string || 'open'];
+                        resolved: { bg: 'bg-emerald-55 bg-emerald-50 text-emerald-700 border-emerald-150', text: '🟢 Fixed & Resolved' },
+                        fixed: { bg: 'bg-emerald-50 text-emerald-700 border-emerald-150', text: '🟢 Fixed' }
+                      }[bug.status as string || 'open'] || { bg: 'bg-emerald-50 text-emerald-700 border-emerald-150', text: '🟢 Fixed' };
+
+                      const isFixed = bug.status === 'fixed' || bug.status === 'resolved';
 
                       return (
-                        <div key={bug.id} className="p-5 rounded-2xl border border-neutral-100 hover:bg-neutral-50/50 transition flex flex-col gap-3 text-left">
+                        <div key={bug.id} className={`p-5 rounded-2xl border transition flex flex-col gap-3 text-left relative overflow-hidden ${isFixed ? 'border-emerald-100 bg-emerald-50/10' : 'border-neutral-100 bg-white hover:bg-neutral-50/50'}`}>
+                          {isFixed && (
+                            <div className="absolute top-2 right-2 border border-emerald-200 bg-emerald-50 text-emerald-700 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-mono select-none">
+                              Fixed
+                            </div>
+                          )}
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border font-mono ${severityColor}`}>
@@ -2566,13 +2683,32 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                           </div>
 
                           <div className="space-y-1">
-                            <h4 className="font-bold text-neutral-900 text-sm leading-snug">{bug.title}</h4>
+                            <h4 className={`font-bold text-sm leading-snug ${isFixed ? 'line-through text-neutral-400 decoration-neutral-400 decoration-2' : 'text-neutral-900'}`}>{bug.title}</h4>
                             <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Module: {bug.module || 'General UI'}</p>
                           </div>
 
-                          <p className="text-xs text-neutral-500 font-medium line-clamp-3 bg-neutral-50 p-2.5 rounded-lg border border-neutral-100/60 font-mono">
+                          <p className={`text-xs p-2.5 rounded-lg border font-mono ${isFixed ? 'line-through text-neutral-400/80 bg-neutral-50/50 border-neutral-150' : 'text-neutral-500 bg-neutral-50 border-neutral-100/60 font-medium'}`}>
                             {bug.description}
                           </p>
+
+                          {/* Screenshots display */}
+                          {bug.screenshots && bug.screenshots.length > 0 && (
+                            <div className="space-y-1.5 mt-1">
+                              <p className="text-[9px] font-black uppercase text-neutral-400 tracking-wider">Attached Screenshots ({bug.screenshots.length}):</p>
+                              <div className="flex flex-wrap gap-2">
+                                {bug.screenshots.map((img: string, sIdx: number) => (
+                                  <div 
+                                    key={sIdx} 
+                                    onClick={() => setZoomedImage(img)}
+                                    className="w-16 h-12 rounded-lg overflow-hidden border border-neutral-200 cursor-pointer hover:opacity-85 hover:border-purple-500 transition bg-neutral-100 relative group flex items-center justify-center shrink-0"
+                                  >
+                                    <img src={img} alt="Screenshot" className="object-cover w-full h-full" />
+                                    <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition" />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Admin comment display */}
                           {bug.adminNotes ? (
@@ -2739,6 +2875,32 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
             user={user}
             onClose={() => setCheckoutList(null)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Lightbox Screenshot zoom modal */}
+      <AnimatePresence>
+        {zoomedImage && (
+          <div 
+            className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center z-[200] p-4 cursor-pointer"
+            onClick={() => setZoomedImage(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative max-w-4xl max-h-[85vh] overflow-hidden rounded-3xl shadow-2xl bg-black"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setZoomedImage(null)}
+                className="absolute top-4 right-4 p-2 bg-neutral-900/60 hover:bg-neutral-800 text-white rounded-full transition shadow z-10"
+              >
+                <X size={18} />
+              </button>
+              <img src={zoomedImage} alt="Zoomed preview" className="max-w-full max-h-[85vh] object-contain block" />
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

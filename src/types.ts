@@ -912,10 +912,11 @@ export interface BugReport {
   description: string;
   module: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
-  status: 'open' | 'in_review' | 'resolved';
+  status: 'open' | 'in_review' | 'resolved' | 'fixed';
   createdAt: string;
   adminNotes?: string;
   adminNotesUpdatedAt?: string;
+  screenshots?: string[];
 }
 
 

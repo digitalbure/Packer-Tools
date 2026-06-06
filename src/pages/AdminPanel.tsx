@@ -122,11 +122,12 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   // Bug Report system states
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
   const [bugSearchQuery, setBugSearchQuery] = useState('');
-  const [bugStatusFilter, setBugStatusFilter] = useState<'all' | 'open' | 'in_review' | 'resolved'>('all');
+  const [bugStatusFilter, setBugStatusFilter] = useState<'all' | 'open' | 'in_review' | 'resolved' | 'fixed'>('all');
   const [bugSeverityFilter, setBugSeverityFilter] = useState<'all' | 'low' | 'medium' | 'high' | 'critical'>('all');
   const [editingBugReport, setEditingBugReport] = useState<BugReport | null>(null);
   const [bugAdminNotes, setBugAdminNotes] = useState('');
-  const [bugStatusUpdate, setBugStatusUpdate] = useState<'open' | 'in_review' | 'resolved'>('open');
+  const [bugStatusUpdate, setBugStatusUpdate] = useState<'open' | 'in_review' | 'resolved' | 'fixed'>('open');
+  const [adminZoomedImage, setAdminZoomedImage] = useState<string | null>(null);
 
   // Search/filter state for features
   const [featureSearchQuery, setFeatureSearchQuery] = useState('');
@@ -1793,6 +1794,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                 <option value="open">🔴 Open Bugs</option>
                 <option value="in_review">🟡 In Review</option>
                 <option value="resolved">🟢 Resolved Issues</option>
+                <option value="fixed">🟢 Fixed Issues</option>
               </select>
             </div>
 
@@ -1855,23 +1857,26 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     high: { bg: 'bg-orange-100 text-orange-800 border-orange-200', text: '🟠 High Severity' },
                     medium: { bg: 'bg-yellow-100 text-yellow-800 border-yellow-200', text: '🟡 Medium Severity' },
                     low: { bg: 'bg-blue-100 text-blue-800 border-blue-200', text: '🔵 Low Severity' }
-                  }[bug.severity || 'low'];
+                  }[bug.severity || 'low'] || { bg: 'bg-blue-100 text-blue-800 border-blue-200', text: '🔵 Low Severity' };
 
                   const statusConfig = {
                     open: { bg: 'bg-red-50 text-red-700 border-red-100', text: 'Open / Pending' },
                     in_review: { bg: 'bg-amber-50 text-amber-700 border-amber-100', text: 'Staged / In Review' },
-                    resolved: { bg: 'bg-green-50 text-green-700 border-green-100', text: 'Fully Resolved' }
-                  }[bug.status || 'open'];
+                    resolved: { bg: 'bg-green-50 text-green-700 border-green-100', text: 'Fully Resolved' },
+                    fixed: { bg: 'bg-emerald-100 text-emerald-805 border-emerald-200', text: '🟢 Fixed & Crossed Out' }
+                  }[bug.status || 'open'] || { bg: 'bg-emerald-100 text-emerald-805 border-emerald-200', text: '🟢 Fixed' };
+
+                  const isFixed = bug.status === 'fixed' || bug.status === 'resolved';
 
                   return (
                     <div 
                       key={bug.id}
-                      className={`bg-white rounded-3xl border shadow-sm overflow-hidden flex flex-col md:flex-row transition hover:shadow-md ${
-                        bug.status === 'resolved' 
-                          ? 'border-neutral-100' 
+                      className={`rounded-3xl border shadow-sm overflow-hidden flex flex-col md:flex-row transition hover:shadow-md relative ${
+                        isFixed 
+                          ? 'border-emerald-100 bg-emerald-50/5' 
                           : bug.severity === 'critical'
-                            ? 'border-red-200 ring-4 ring-red-50/50'
-                            : 'border-neutral-200'
+                            ? 'bg-white border-red-200 ring-4 ring-red-50/50'
+                            : 'bg-white border-neutral-200'
                       }`}
                     >
                       {/* Left: Bug Info */}
@@ -1889,15 +1894,34 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                         </div>
 
                         <div className="space-y-1">
-                          <h4 className="text-lg font-bold text-neutral-900 leading-snug">{bug.title}</h4>
+                          <h4 className={`text-lg font-bold leading-snug ${isFixed ? 'line-through text-neutral-400 decoration-neutral-400 decoration-2' : 'text-neutral-900'}`}>{bug.title}</h4>
                           <p className="text-xs text-neutral-500 font-medium">
                             Reported by <span className="font-bold text-neutral-800">{bug.userName}</span> ({bug.userEmail}) on {bug.createdAt ? new Date(bug.createdAt).toLocaleDateString() : 'Unknown Date'}
                           </p>
                         </div>
 
-                        <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-100 text-xs text-neutral-600 font-medium whitespace-pre-wrap leading-relaxed">
+                        <div className={`p-4 rounded-2xl border text-xs font-medium whitespace-pre-wrap leading-relaxed ${isFixed ? 'line-through text-neutral-400/80 bg-neutral-50/50 border-neutral-150' : 'bg-neutral-50 border-neutral-100 text-neutral-600'}`}>
                           {bug.description}
                         </div>
+
+                        {/* Screenshots display */}
+                        {bug.screenshots && bug.screenshots.length > 0 && (
+                          <div className="space-y-1.5 mt-2">
+                            <p className="text-[10px] uppercase font-black tracking-widest text-neutral-400">Reporter Attached Screenshots ({bug.screenshots.length}):</p>
+                            <div className="flex flex-wrap gap-2">
+                              {bug.screenshots.map((img: string, sci: number) => (
+                                <div 
+                                  key={sci}
+                                  onClick={() => setAdminZoomedImage(img)}
+                                  className="w-20 h-14 rounded-xl border border-neutral-200 cursor-pointer overflow-hidden relative group hover:border-purple-500 transition shadow bg-neutral-100 flex items-center justify-center shrink-0"
+                                >
+                                  <img src={img} alt="Screenshot attachment" className="object-cover w-full h-full" />
+                                  <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition" />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Admin comments */}
                         {bug.adminNotes && (
@@ -1933,6 +1957,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                               <option value="open">🔴 Open / Pending</option>
                               <option value="in_review">🟡 Staged / In Review</option>
                               <option value="resolved">🟢 Fully Resolved</option>
+                              <option value="fixed">🟢 Fixed & Crossed Out</option>
                             </select>
                           </div>
 
@@ -8142,6 +8167,27 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* Lightbox Zoom modal for Admin screenshots reviews */}
+      {adminZoomedImage && (
+        <div 
+          className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center z-[200] p-4 cursor-pointer"
+          onClick={() => setAdminZoomedImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[85vh] overflow-hidden rounded-3xl shadow-2xl bg-black"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setAdminZoomedImage(null)}
+              className="absolute top-4 right-4 p-2 bg-neutral-900/60 hover:bg-neutral-800 text-white rounded-full transition shadow z-10"
+            >
+              <X size={18} />
+            </button>
+            <img src={adminZoomedImage} alt="Zoomed screenshot attachment" className="max-w-full max-h-[85vh] object-contain block" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

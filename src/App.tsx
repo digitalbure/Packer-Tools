@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, addDoc, query, where } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { UserProfile } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 
@@ -377,7 +377,7 @@ export default function App() {
       const unsubscribe = onSnapshot(q, (snapshot) => {
         setListsCount(snapshot.size);
       }, (error) => {
-        console.warn("App: Error listening to packingLists count:", error);
+        handleFirestoreError(error, OperationType.LIST, 'packingLists (count)');
       });
       return () => unsubscribe();
     } else {
@@ -686,7 +686,7 @@ export default function App() {
           }
           setLoading(false);
         }, (error) => {
-          console.error("App: Error listening to user profile:", error);
+          handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
           setLoading(false);
         });
       } else {
@@ -717,7 +717,7 @@ export default function App() {
         setAdminSettings(docSnap.data() as AdminSettings);
       }
     }, (error) => {
-      console.warn("App: Error listening to global settings:", error);
+      handleFirestoreError(error, OperationType.GET, 'adminSettings/global');
     });
 
     return () => {

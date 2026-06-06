@@ -323,9 +323,10 @@
         "description": { "type": "string" },
         "module": { "type": "string" },
         "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
-        "status": { "type": "string", "enum": ["open", "in_review", "resolved"] },
+        "status": { "type": "string", "enum": ["open", "in_review", "resolved", "fixed"] },
         "createdAt": { "type": "string", "format": "date-time" },
-        "adminNotes": { "type": "string" }
+        "adminNotes": { "type": "string" },
+        "screenshots": { "type": "array", "items": { "type": "string" }, "description": "Array of base64 compressed screenshots" }
       },
       "required": ["userId", "title", "description", "status"]
     },

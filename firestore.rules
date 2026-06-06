@@ -45,10 +45,13 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true ||
-          (request.auth.token.email == "jnakasamai@gmail.com" && request.auth.token.email_verified == true));
+      return isAuthenticated() && (
+        (request.auth.token.email == "jnakasamai@gmail.com" && request.auth.token.email_verified == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true
+        ))
+      );
     }
 
     function isCollaborator(listId) {
@@ -152,7 +155,7 @@ service cloud.firestore {
              data.userId is string &&
              data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
              data.description is string && data.description.size() > 0 && data.description.size() < 5000 &&
-             data.status in ['open', 'in_review', 'resolved'];
+             data.status in ['open', 'in_review', 'resolved', 'fixed'];
     }
 
     function isValidActivityLog(data) {
@@ -168,7 +171,7 @@ service cloud.firestore {
     // Rules
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin() || (isAuthenticated() && resource.data.isProfilePublic == true);
-      allow list: if isAdmin() || (isAuthenticated() && (resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || resource.data.isProfilePublic == true));
+      allow list: if isAdmin() || (isAuthenticated() && (resource.data.isProfilePublic == true || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId)));
       allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
       allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.plan == resource.data.plan) || isAdmin();
 
@@ -206,7 +209,7 @@ service cloud.firestore {
 
     // Collection Group for Gear
     match /{path=**}/gearLibrary/{itemId} {
-      allow read: if isAuthenticated() && (resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow read: if isAuthenticated() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId));
     }
 
     // Collection Group for Items
@@ -342,13 +345,13 @@ service cloud.firestore {
     }
 
     match /departments/{deptId} {
-      allow read: if isAuthenticated() && (resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow read: if isAuthenticated() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId));
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/organizations/$(resource.data.orgId)).data.ownerId == request.auth.uid);
     }
 
     match /teams/{teamId} {
-      allow read: if isAuthenticated() && (resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow read: if isAuthenticated() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId));
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/organizations/$(resource.data.orgId)).data.ownerId == request.auth.uid);
     }
