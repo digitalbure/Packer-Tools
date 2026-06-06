@@ -104,45 +104,15 @@ const CATEGORIES: CategoryItem[] = [
   { id: 'ge-packages', name: 'G&E Packages', count: 618, image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=400' },
 ];
 
-const POPULAR_PRODUCTS: ProductItem[] = [
-  { id: 'rent-1', name: 'Sony FX3 Full-Frame Cinema Camera', brand: 'Sony', model: 'FX3', category: 'cinema-cameras', price: 50, rating: 4.8, reviews: 92, image: 'https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=400', ownerName: 'Sum of Parts LLC', instantBook: true, addOns: [{ name: 'Sony CFexpress 80GB Type-A Card', price: 10 }, { name: 'Sachtler Flowtech 75 Tripod System', price: 25 }] },
-  { id: 'rent-2', name: 'Sony FX6 Full-Frame Cinema Camera', brand: 'Sony', model: 'FX6', category: 'cinema-cameras', price: 75, rating: 4.9, reviews: 120, image: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=400', ownerName: 'Bogdan Rental', instantBook: true, addOns: [{ name: 'Sony 160GB CFexpress Card Type-A', price: 15 }, { name: 'E-Image 2-Stage Carbon Fiber Tripod', price: 20 }] },
-  { id: 'rent-3', name: 'Zeiss Super Speed Prime Lens Set 35/50/85', brand: 'Zeiss', model: 'Super Speed', category: 'cinema-lenses', price: 150, rating: 5.0, reviews: 11, image: 'https://images.unsplash.com/photo-1617005082133-5c8cdd97eadd?auto=format&fit=crop&q=80&w=400', ownerName: 'NirvanaMedia', instantBook: false, addOns: [{ name: 'Tiffen 77mm Variable ND Filter Set', price: 8 }] },
-  { id: 'rent-4', name: 'ARRI Alexa Mini LF Package + Wireless Video', brand: 'ARRI', model: 'Alexa Mini LF', category: 'cinema-cameras', price: 250, rating: 4.9, reviews: 45, image: 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?auto=format&fit=crop&q=80&w=400', ownerName: 'Brentwood Sizzle', instantBook: true, addOns: [{ name: 'Teradek Bolt 4K LT 750 Receiver Module', price: 40 }] },
-  { id: 'rent-5', name: 'Sony Alpha a7S III Mirrorless Camera', brand: 'Sony', model: 'a7S III', category: 'still-hybrid', price: 40, rating: 4.7, reviews: 74, image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400', ownerName: 'Carson Zhu', instantBook: true, addOns: [{ name: 'Atomos Ninja V 5" Touchscreen Monitor', price: 12 }, { name: 'Zhiyun Crane 3S Handheld Stabilizer Gimbal', price: 18 }] },
-  { id: 'rent-6', name: 'Cooke SP3 Full Frame cinema prime Lens', brand: 'Cooke', model: 'SP3', category: 'cinema-lenses', price: 245, rating: 4.9, reviews: 8, image: 'https://images.unsplash.com/photo-1617005082133-5c8cdd97eadd?auto=format&fit=crop&q=80&w=400', ownerName: 'Bogdan Rental', instantBook: false },
-];
+const POPULAR_PRODUCTS: ProductItem[] = [];
 
-const SHIPPED_PRODUCTS: ProductItem[] = [
-  { id: 'ship-1', name: 'Aputure NOVA P600c 1x1 Softbox Kit', brand: 'Aputure', model: 'NOVA P600c', category: 'lighting-electric', price: 90, rating: 4.9, reviews: 26, image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&q=80&w=400', ownerName: 'Zac Zotic', instantBook: true, shippingDays: 3, isShipped: true },
-  { id: 'ship-2', name: 'DJI Matrice 300 RTK Drone Visual Suite', brand: 'DJI', model: 'Matrice 300', category: 'still-hybrid', price: 450, rating: 5.0, reviews: 3, image: 'https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&q=80&w=400', ownerName: 'NirvanaMedia LLC', instantBook: false, shippingDays: 3, isShipped: true },
-  { id: 'ship-3', name: 'DZOFILM Vespid Prime 4-Lens Kit (PL Mount)', brand: 'DZOFILM', model: 'Vespid Prime Set', category: 'cinema-lenses', price: 175, rating: 4.8, reviews: 67, image: 'https://images.unsplash.com/photo-1617005082133-5c8cdd97eadd?auto=format&fit=crop&q=80&w=400', ownerName: 'Baim', instantBook: true, shippingDays: 3, isShipped: true },
-  { id: 'ship-4', name: 'Fujifilm X30 Classic Premium Compact Camera', brand: 'Fujifilm', model: 'X30', category: 'still-hybrid', price: 39, rating: 4.9, reviews: 42, image: 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?auto=format&fit=crop&q=80&w=400', ownerName: 'Sum of Parts LLC', instantBook: false, shippingDays: 3, isShipped: true },
-  { id: 'ship-5', name: 'Sony FE 24-70mm f/2.8 GM Lens (Type I)', brand: 'Sony', model: 'FE 24-70mm', category: 'photography-lenses', price: 70, rating: 4.8, reviews: 14, image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400', ownerName: 'Men\'s Bread Productions', instantBook: true, shippingDays: 4, isShipped: true },
-];
+const SHIPPED_PRODUCTS: ProductItem[] = [];
 
-const SALES_PRODUCTS: ProductItem[] = [
-  { id: 'sale-1', name: 'Sigma FF High-Speed Prime Lens Series Set', brand: 'Sigma', model: 'FF High-Speed', category: 'cinema-lenses', price: 5000, rating: 4.9, reviews: 12, image: 'https://images.unsplash.com/photo-1617005082133-5c8cdd97eadd?auto=format&fit=crop&q=80&w=400', isSale: true, ownerName: 'Adam Griffin' },
-  { id: 'sale-2', name: 'NiSi C5 Matte Box Cinema Star Kit', brand: 'NiSi', model: 'C5 Kit', category: 'cinema-lenses', price: 534, originalPrice: 749, rating: 4.8, reviews: 7, image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400', isSale: true, ownerName: 'LOMISFILM' },
-  { id: 'sale-3', name: 'Paul C. Buff, Inc Einstein E640 Flash Unit', brand: 'Paul C. Buff', model: 'Einstein E640', category: 'lighting-electric', price: 500, originalPrice: 575, rating: 4.5, reviews: 3, image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&q=80&w=400', isSale: true, ownerName: '805 Studios LLC' },
-  { id: 'sale-4', name: 'Pelican Air 1607 Custom Divider Case', brand: 'Pelican', model: 'Air 1607', category: 'ge-packages', price: 250, originalPrice: 420, rating: 4.9, reviews: 23, image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=400', isSale: true, ownerName: 'Ethan Sigmon' },
-  { id: 'sale-5', name: 'Contax T2 Titan Black 35mm Point and Shoot', brand: 'Contax', model: 'T2', category: 'still-hybrid', price: 1750, originalPrice: 2000, rating: 5.0, reviews: 23, image: 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?auto=format&fit=crop&q=80&w=400', isSale: true, ownerName: 'Ethan Sigmon' },
-];
+const SALES_PRODUCTS: ProductItem[] = [];
 
-const CREW_LIST: CrewItem[] = [
-  { id: 'crew-1', name: 'Ecarum Sumpter', title: 'Photographer & Videographer', rating: 4.9, reviews: 1, image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400', skills: ['Editor', 'Visual Effects Editor', 'Event Videographer'], bio: 'Hi there! I specialize in high production music videos and commercial layouts across the state.', isVerified: true },
-  { id: 'crew-2', name: 'Sean Chow', title: 'Cinematographer & Camera Op', rating: 5.0, reviews: 3, image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400', skills: ['Cinematographer', 'Steadicam Op', 'Colorist'], bio: 'NYU Alum & current AFI Cinematography Fellow. Experienced with 35mm, ARRI/RED workflows, and underwater rigs.', isVerified: true },
-  { id: 'crew-3', name: 'Trent Mills', title: 'Producer & Technical Writer', rating: 4.8, reviews: 8, image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=400', skills: ['Actor - Film & Television', 'Editor', 'Executive Producer'], bio: 'Bilingual actor and creative director based in Los Angeles. Built lines for HBO, Amazon Studios and more.', isVerified: true },
-  { id: 'crew-4', name: 'Abel Garcia Rodriguez', title: 'Film & Commercial Producer', rating: 5.0, reviews: 12, image: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=400', skills: ['Film Producer', 'Line Producer', 'Logistics Op'], bio: 'Film Producer Los Angeles Yo Jay Media. Multi-genre expert with solid focus on budget optimization.', isVerified: true },
-  { id: 'crew-5', name: 'Rhys Kroehler', title: 'Independent Film Director', rating: 5.0, reviews: 1, image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=400', skills: ['Director', 'Director of Photography'], bio: 'USC Film Production BFA 2025: Executive Assistant at WME Agency 2026. Specializing in intimate dramatic features.', isVerified: true },
-];
+const CREW_LIST: CrewItem[] = [];
 
-const STAFF_PICKS: ProductItem[] = [
-  { id: 'pick-1', name: 'Aputure LS C300d II w/ softbox, fresnel, lantern and stand', brand: 'Aputure', model: 'LS C300d II', category: 'lighting-electric', price: 40, rating: 4.8, reviews: 49, image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&q=80&w=400', ownerName: 'Zac Zotic', instantBook: true },
-  { id: 'pick-2', name: 'Sony FX3 + FX3 Rig + Sigma Art 24-70 2.8 package', brand: 'Sony', model: 'FX3 Rig Combo', category: 'cinema-cameras', price: 138, rating: 5.0, reviews: 82, image: 'https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=400', ownerName: 'Bogdan Rental', instantBook: true },
-  { id: 'pick-3', name: 'Aputure Nova P300c RGBWW LED Panel / Color LED Panel', brand: 'Aputure', model: 'Nova P300c', category: 'lighting-electric', price: 50, rating: 4.9, reviews: 31, image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&q=80&w=400', ownerName: 'Sum of Parts LLC', instantBook: true },
-  { id: 'pick-4', name: 'Sony Alpha a7 IV Camera w/Sigma 24-70mm f2.8 lens & Rode VideoMic Pro', brand: 'Sony', model: 'a7 IV Kit', category: 'still-hybrid', price: 70, rating: 4.7, reviews: 19, image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400', ownerName: 'Bogdan Rental', instantBook: true },
-];
+const STAFF_PICKS: ProductItem[] = [];
 
 const INDUSTRIES_MARKET = [
   { id: 'all', name: 'View All Industries', description: 'Explore items globally' },
@@ -155,54 +125,30 @@ const INDUSTRIES_MARKET = [
 
 const EXTRA_CATEGORIES: CategoryItem[] = [
   // Construction
-  { id: 'heavy-machinery', name: 'Heavy Machinery & Cranes', count: 320, image: 'https://images.unsplash.com/photo-1579684389781-71fa80d34154?auto=format&fit=crop&q=80&w=400' },
-  { id: 'power-tools', name: 'Industrial Power Tools', count: 4501, image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=400' },
-  { id: 'site-scaffolding', name: 'Hoists & Scaffold Systems', count: 1450, image: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=400' },
-  { id: 'welding-assemblies', name: 'Welding & Arc Outfits', count: 890, image: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&q=80&w=400' },
+  { id: 'heavy-machinery', name: 'Heavy Machinery & Cranes', count: 0, image: 'https://images.unsplash.com/photo-1579684389781-71fa80d34154?auto=format&fit=crop&q=80&w=400' },
+  { id: 'power-tools', name: 'Industrial Power Tools', count: 0, image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=400' },
+  { id: 'site-scaffolding', name: 'Hoists & Scaffold Systems', count: 0, image: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=400' },
+  { id: 'welding-assemblies', name: 'Welding & Arc Outfits', count: 0, image: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&q=80&w=400' },
 
   // Automotive
-  { id: 'diagnostics', name: 'Garages & Calibration Diagnostics', count: 1205, image: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=400' },
-  { id: 'lifting-jacks', name: 'Pneumatic Lifting Jacks & Ramps', count: 850, image: 'https://images.unsplash.com/photo-1530047625168-4b18df2df4f6?auto=format&fit=crop&q=80&w=400' },
-  { id: 'power-air-tools', name: 'Air Compressors & Impact Tools', count: 2310, image: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&q=80&w=400' },
-  { id: 'mechanical-handtools', name: 'Heavy Wrench & Storage Cabinets', count: 4920, image: 'https://images.unsplash.com/photo-1534224039826-c7a0eda0e6b3?auto=format&fit=crop&q=80&w=400' },
+  { id: 'diagnostics', name: 'Garages & Calibration Diagnostics', count: 0, image: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=400' },
+  { id: 'lifting-jacks', name: 'Pneumatic Lifting Jacks & Ramps', count: 0, image: 'https://images.unsplash.com/photo-1530047625168-4b18df2df4f6?auto=format&fit=crop&q=80&w=400' },
+  { id: 'power-air-tools', name: 'Air Compressors & Impact Tools', count: 0, image: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&q=80&w=400' },
+  { id: 'mechanical-handtools', name: 'Heavy Wrench & Storage Cabinets', count: 0, image: 'https://images.unsplash.com/photo-1534224039826-c7a0eda0e6b3?auto=format&fit=crop&q=80&w=400' },
 
   // Medical
-  { id: 'imaging', name: 'Medical Ultrasound & Scopes', count: 412, image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&q=80&w=400' },
-  { id: 'patient-monitors', name: 'Care Vitals & ECG Monitors', count: 980, image: 'https://images.unsplash.com/photo-1551076805-e1869033e561?auto=format&fit=crop&q=80&w=400' },
-  { id: 'clinical-pipettes', name: 'Lab Clinical Micropipettes', count: 1540, image: 'https://images.unsplash.com/photo-1579154204601-01588f351167?auto=format&fit=crop&q=80&w=400' },
-  { id: 'surgical-support', name: 'Minor Surgical Light & Otoscopes', count: 620, image: 'https://images.unsplash.com/photo-1584515901307-a5418eb66a8a?auto=format&fit=crop&q=80&w=400' },
+  { id: 'imaging', name: 'Medical Ultrasound & Scopes', count: 0, image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&q=80&w=400' },
+  { id: 'patient-monitors', name: 'Care Vitals & ECG Monitors', count: 0, image: 'https://images.unsplash.com/photo-1551076805-e1869033e561?auto=format&fit=crop&q=80&w=400' },
+  { id: 'clinical-pipettes', name: 'Lab Clinical Micropipettes', count: 0, image: 'https://images.unsplash.com/photo-1579154204601-01588f351167?auto=format&fit=crop&q=80&w=400' },
+  { id: 'surgical-support', name: 'Minor Surgical Light & Otoscopes', count: 0, image: 'https://images.unsplash.com/photo-1584515901307-a5418eb66a8a?auto=format&fit=crop&q=80&w=400' },
 
   // General logistics
-  { id: 'warehouse-logistics', name: 'Propane Forklifts & Shifters', count: 2430, image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=400' },
-  { id: 'platform-carts', name: 'High Capacity Flatbed Dollies', count: 1105, image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=400' },
-  { id: 'flight-cases', name: 'Flight Cases & G&E Pack Trunks', count: 3108, image: 'https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=400' }
+  { id: 'warehouse-logistics', name: 'Propane Forklifts & Shifters', count: 0, image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=400' },
+  { id: 'platform-carts', name: 'High Capacity Flatbed Dollies', count: 0, image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=400' },
+  { id: 'flight-cases', name: 'Flight Cases & G&E Pack Trunks', count: 0, image: 'https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=400' }
 ];
 
-const MULTI_INDUSTRY_PRODUCTS: ProductItem[] = [
-  // Construction
-  { id: 'const-1', name: 'Caterpillar 302.7 CR Mini Excavator - 2.7 Tons', brand: 'Caterpillar', model: '302.7 CR', category: 'heavy-machinery', price: 250, rating: 4.9, reviews: 34, image: 'https://images.unsplash.com/photo-1579684389781-71fa80d34154?auto=format&fit=crop&q=80&w=400', ownerName: 'Atlas Fleet Rentals', instantBook: true, industry: 'construction' },
-  { id: 'const-2', name: 'Hilti TE 70-ATC SDS Max Rotary Hammer Drill Kit', brand: 'Hilti', model: 'TE 70-ATC', category: 'power-tools', price: 45, rating: 4.8, reviews: 112, image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=400', ownerName: 'Pacific Tool Shed', instantBook: true, industry: 'construction' },
-  { id: 'const-3', name: 'Genie GS-1930 Electric Self-Propelled Scissor Lift', brand: 'Genie', model: 'GS-1930', category: 'site-scaffolding', price: 120, rating: 4.7, reviews: 29, image: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=400', ownerName: 'Ascent Hoist & Rig', instantBook: false, industry: 'construction' },
-  { id: 'const-4', name: 'Miller Bobcat 250 Engine Welder-Generator', brand: 'Miller', model: 'Bobcat 250', category: 'welding-assemblies', price: 75, rating: 4.9, reviews: 14, image: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&q=80&w=400', ownerName: 'MetalCraft Inc', instantBook: true, industry: 'construction' },
-  { id: 'const-5', name: 'DeWalt 20V Cordless Max Combo 6-Tool Drill Kit', brand: 'DeWalt', model: 'DCK620D2', category: 'power-tools', price: 110, rating: 4.6, reviews: 220, image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=400', ownerName: 'DeWalt Central', isSale: true, industry: 'construction' },
-
-  // Automotive
-  { id: 'auto-1', name: 'Snap-on ZEUS+ Intelligent Diagnostic Scanner Tool', brand: 'Snap-on', model: 'EEMS348', category: 'diagnostics', price: 95, rating: 5.0, reviews: 18, image: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=400', ownerName: 'Apex Diagnostic Station', instantBook: true, industry: 'automotive' },
-  { id: 'auto-2', name: 'BendPak HD-9 Four-Post Car Parking Lift System', brand: 'BendPak', model: 'HD-9', category: 'lifting-jacks', price: 150, rating: 4.9, reviews: 41, image: 'https://images.unsplash.com/photo-1530047625168-4b18df2df4f6?auto=format&fit=crop&q=80&w=400', ownerName: 'Veloce R&D Garage', instantBook: false, industry: 'automotive' },
-  { id: 'auto-3', name: 'Ingersoll Rand Air Impact 1/2" Heavy Duty Gun', brand: 'Ingersoll Rand', model: '2235TiMAX', category: 'power-air-tools', price: 30, rating: 4.8, reviews: 76, image: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&q=80&w=400', ownerName: 'Pneumatic Outlet', instantBook: true, industry: 'automotive' },
-  { id: 'auto-4', name: 'Mac Tools Professional Socket Wrench Master Chest', brand: 'Mac Tools', model: 'MB1300', category: 'mechanical-handtools', price: 1850, rating: 4.9, reviews: 15, image: 'https://images.unsplash.com/photo-1534224039826-c7a0eda0e6b3?auto=format&fit=crop&q=80&w=400', ownerName: 'Canyon Mechanics', isSale: true, industry: 'automotive' },
-
-  // Medical
-  { id: 'med-1', name: 'GE Vscan Air Handheld Wireless Ultrasound Scanner', brand: 'GE Healthcare', model: 'Vscan Air', category: 'imaging', price: 180, rating: 5.0, reviews: 9, image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&q=80&w=400', ownerName: 'Horizon Clinical Tech', instantBook: true, industry: 'medical' },
-  { id: 'med-2', name: 'Philips Goldway G40 Multiparameter Vital Patient Monitor', brand: 'Philips', model: 'Goldway G40', category: 'patient-monitors', price: 65, rating: 4.7, reviews: 14, image: 'https://images.unsplash.com/photo-1551076805-e1869033e561?auto=format&fit=crop&q=80&w=400', ownerName: 'CarePlus Logistics', instantBook: true, industry: 'medical' },
-  { id: 'med-3', name: 'Eppendorf Research Plus Master Adjustable Micropipette Set', brand: 'Eppendorf', model: 'Research Plus', category: 'clinical-pipettes', price: 35, rating: 4.9, reviews: 43, image: 'https://images.unsplash.com/photo-1579154204601-01588f351167?auto=format&fit=crop&q=80&w=400', ownerName: 'BioLab Research Group', instantBook: true, industry: 'medical' },
-  { id: 'med-4', name: 'Welch Allyn Diagnostic MacroView LED Otoscope Kit', brand: 'Welch Allyn', model: 'MacroView LED', category: 'surgical-support', price: 450, rating: 4.8, reviews: 29, image: 'https://images.unsplash.com/photo-1584515901307-a5418eb66a8a?auto=format&fit=crop&q=80&w=400', ownerName: 'MedDirect Supplies', isSale: true, industry: 'medical' },
-
-  // Logistics
-  { id: 'log-1', name: 'Toyota 8FGU25 5000lb Cushion Tire Propane Forklift', brand: 'Toyota Heavy', model: '8FGU25', category: 'warehouse-logistics', price: 190, rating: 4.9, reviews: 52, image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=400', ownerName: 'Omni Logistic Fleet', instantBook: false, industry: 'general_logistics' },
-  { id: 'log-2', name: 'Uline Heavy Duty Industrial Platform Hand Truck', brand: 'Uline', model: 'Platform Truck', category: 'platform-carts', price: 15, rating: 4.6, reviews: 108, image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=400', ownerName: 'Summit Packing Depot', instantBook: true, industry: 'general_logistics' },
-  { id: 'log-3', name: 'Pelican Storm iM2875 Custom Transport Flight Trunk', brand: 'Pelican', model: 'iM2875', category: 'flight-cases', price: 180, originalPrice: 220, rating: 4.9, reviews: 215, image: 'https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=400', ownerName: 'CaseMasters LLC', isSale: true, industry: 'general_logistics' }
-];
+const MULTI_INDUSTRY_PRODUCTS: ProductItem[] = [];
 
 interface MarketplaceProps {
   user?: UserProfile | null;
@@ -329,119 +275,6 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     currencySymbol = isFiji ? 'FJ$' : '$';
   }
 
-  // Fiji-centric brand/owner mappings
-  const mappedPopularProducts = POPULAR_PRODUCTS.map(p => {
-    if (isFiji) {
-      const fijiOwners: { [key: string]: string } = {
-        'Sum of Parts LLC': 'Fiji Television Ltd',
-        'Bogdan Rental': 'Pacific Film Services (Suva)',
-        'NirvanaMedia': 'Mai TV Fiji',
-        'Brentwood Sizzle': 'Viti Levu Broadcast Group',
-        'Carson Zhu': 'Nadi Bay Rental Center'
-      };
-      return {
-        ...p,
-        ownerName: fijiOwners[p.ownerName || ''] || 'Fiji Media Services',
-        price: Math.round(p.price * 2.2)
-      };
-    }
-    return p;
-  });
-
-  const mappedShippedProducts = SHIPPED_PRODUCTS.map(p => {
-    if (isFiji) {
-      const fijiOwners: { [key: string]: string } = {
-        'Zac Zotic': 'Coconut Media Co. (Suva)',
-        'NirvanaMedia LLC': 'Pacific Film Services Ltd',
-        'Baim': 'Viti West Production Equipment',
-        'Sum of Parts LLC': 'Fiji Television Ltd',
-        "Men's Bread Productions": 'South Pacific Broadcast Center'
-      };
-      return {
-        ...p,
-        ownerName: fijiOwners[p.ownerName || ''] || 'Malamala Film Hub',
-        price: Math.round(p.price * 2.2)
-      };
-    }
-    return p;
-  });
-
-  const mappedSalesProducts = SALES_PRODUCTS.map(p => {
-    if (isFiji) {
-      const fijiOwners: { [key: string]: string } = {
-        'Adam Griffin': 'Elena Bulatiko (Suva)',
-        'LOMISFILM': 'Suva Matte Box Sales',
-        '805 Studios LLC': 'Nadi Event Services',
-        'Ethan Sigmon': 'Viti Levu Spares'
-      };
-      return {
-        ...p,
-        ownerName: fijiOwners[p.ownerName || ''] || 'Tanoa Films Co',
-        price: Math.round(p.price * 2.2),
-        originalPrice: p.originalPrice ? Math.round(p.originalPrice * 2.2) : undefined
-      };
-    }
-    return p;
-  });
-
-  const mappedStaffPicks = STAFF_PICKS.map(p => {
-    if (isFiji) {
-      const fijiOwners: { [key: string]: string } = {
-        'Zac Zotic': 'South Pacific Rentals (Suva)',
-        'Bogdan Rental': 'Fiji Film Equipment Hire',
-        'Sum of Parts LLC': 'Fiji Television Ltd'
-      };
-      return {
-        ...p,
-        ownerName: fijiOwners[p.ownerName || ''] || 'Sandy Cay Camera Co',
-        price: Math.round(p.price * 2.2)
-      };
-    }
-    return p;
-  });
-
-  const mappedCrews = CREW_LIST.map(c => {
-    if (isFiji) {
-      const fijiCrews: { [key: string]: { name: string; title: string; skills: string[]; bio: string } } = {
-        'Ecarum Sumpter': {
-          name: 'Savenaca Ravula',
-          title: 'Senior Coral Reef Videographer & Drone Pilot',
-          skills: ['CAA Fiji Certified Drone Operator', 'Underwater Housing Specialist', 'Fiji Event Director'],
-          bio: 'Bula Vinaka! Professional Director of Photography with 10+ years capturing deep oceans, marine sanctuaries, and local documentaries inside Viti Levu.'
-        },
-        'Sean Chow': {
-          name: 'Jone Vakaloloma',
-          title: 'Suva Broadcast Cinematographer',
-          skills: ['Directing', 'Fiji TV Broadcast Operator', 'Steadicam Expert'],
-          bio: 'Lead camera operator on major Pacific regional meetings, Fiji television news, and local cinema reels.'
-        },
-        'Trent Mills': {
-          name: 'Elena Tagivakatini',
-          title: 'Creative Director & South Pacific Producer',
-          skills: ['Film Producer', 'Cultural Advisor', 'Sound Designer'],
-          bio: 'Specializing in Fiji-local cultural clearances, production logistics, talent sourcing, and commercial storytelling.'
-        },
-        'Abel Garcia Rodriguez': {
-          name: 'Amit Patel',
-          title: 'Commercial Film and Wedding Producer',
-          skills: ['Multi-day Event Coordination', 'Production Management', 'Lighting Arranger'],
-          bio: 'Based in Lautoka. Expert coordinator for grand wedding videography, corporate events, and hotel advertising.'
-        },
-        'Rhys Kroehler': {
-          name: 'Samuela Rokotakala',
-          title: 'Ocean Documentary Filmmaker',
-          skills: ['Underwater Cameraman', 'Water Safety Officer', 'Colorist'],
-          bio: 'BFA recipient from USP. Specialized in marine preservation features, marine biology expedition logging, and island cinematography.'
-        }
-      };
-      const mapped = fijiCrews[c.name] || { name: c.name, title: c.title, skills: c.skills, bio: c.bio };
-      return {
-        ...c,
-        ...mapped
-      };
-    }
-    return c;
-  });
 
   const [isSearchDrawerOpen, setIsSearchDrawerOpen] = useState(false);
   
@@ -686,33 +519,23 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     });
 
   const getShippedItems = () => {
-    const dbItems = userListings.filter(l => l.isShipped || l.shippingDays);
-    if (dbItems.length > 0) return dbItems;
-    return [...userListings, ...mappedShippedProducts].slice(0, 5);
+    return userListings.filter(l => l.isShipped || l.shippingDays).slice(0, 5);
   };
 
   const getFeaturedItems = () => {
-    const dbItems = userListings.filter(l => l.featured);
-    if (dbItems.length > 0) return dbItems;
-    return [...userListings, ...mappedPopularProducts].filter(l => l.featured || l.instantBook).slice(0, 4);
+    return userListings.filter(l => l.featured || l.instantBook || l.marketplaceEnabled).slice(0, 4);
   };
 
   const getStaffPicksItems = () => {
-    const dbItems = userListings.filter(l => l.sponsored);
-    if (dbItems.length > 0) return dbItems;
-    return [...userListings, ...mappedStaffPicks].slice(0, 4);
+    return userListings.filter(l => l.sponsored || l.featured).slice(0, 4);
   };
 
   const getLatestItems = () => {
-    const dbItems = [...userListings].reverse();
-    if (dbItems.length > 0) return dbItems;
-    return [...userListings, ...mappedPopularProducts].slice(0, 5);
+    return [...userListings].reverse().slice(0, 5);
   };
 
   const getPopularItems = () => {
-    const dbItems = [...userListings].sort((a,b) => (b.reviews || 0) - (a.reviews || 0));
-    if (dbItems.length > 0) return dbItems;
-    return [...userListings, ...mappedPopularProducts].slice(1, 6);
+    return [...userListings].sort((a,b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 5);
   };
 
   return (
@@ -801,11 +624,11 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
             </div>
           </div>
 
-          {/* Form Filter Row spanning search keyword config, location preferences AND Scheduling inputs */}
+          {/* Form Filter Row spanning search keyword config and location preferences */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 bg-neutral-950/80 border border-neutral-800/65 p-3 rounded-2xl shadow-inner">
             
             {/* 1. Keyword search input */}
-            <div className="lg:col-span-4 flex items-center gap-2.5 px-3 py-1.5 border-b lg:border-b-0 lg:border-r border-neutral-800/60 shrink-0">
+            <div className="lg:col-span-6 flex items-center gap-2.5 px-3 py-1.5 border-b lg:border-b-0 lg:border-r border-neutral-800/60 shrink-0">
               <Search size={16} className="text-[#ff4f3a] shrink-0" />
               <div className="flex flex-col w-full">
                 <label className="text-[8px] font-black uppercase tracking-widest text-[#ff4f3a]">Search Equipment</label>
@@ -824,37 +647,8 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
               )}
             </div>
 
-            {/* 2. Brand new date/time selectors */}
-            <div className="lg:col-span-4 flex items-center gap-2.5 px-3 py-1.5 border-b lg:border-b-0 lg:border-r border-neutral-800/60 shrink-0">
-              <Calendar size={16} className="text-emerald-500 shrink-0" />
-              <div className="flex-1 flex flex-col">
-                <label className="text-[8px] font-black uppercase tracking-widest text-emerald-500">Pick-up / Drop-off Dates & Times ({bookingDays} {bookingDays === 1 ? 'day' : 'days'})</label>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <input 
-                    type="date"
-                    value={rentStartDate}
-                    onChange={(e) => setRentStartDate(e.target.value)}
-                    className="bg-transparent text-white text-[11px] outline-none font-bold border-none p-0 focus:ring-0 calendar-dark-icon w-[95px]"
-                  />
-                  <span className="text-neutral-600 text-[10px] font-bold">to</span>
-                  <input 
-                    type="date"
-                    value={rentEndDate}
-                    onChange={(e) => setRentEndDate(e.target.value)}
-                    className="bg-transparent text-white text-[11px] outline-none font-bold border-none p-0 focus:ring-0 calendar-dark-icon w-[95px]"
-                  />
-                  <input 
-                    type="time"
-                    value={rentTime}
-                    onChange={(e) => setRentTime(e.target.value)}
-                    className="bg-transparent text-emerald-400 text-[11px] outline-none font-bold border-none p-0 focus:ring-0 w-12 ml-1"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Location Select */}
-            <div className="lg:col-span-2.5 flex items-center gap-2.5 px-3 py-1.5 shrink-0">
+            {/* 2. Location Select */}
+            <div className="lg:col-span-4 flex items-center gap-2.5 px-3 py-1.5 shrink-0">
               <MapPin size={16} className="text-[#ff4f3a] shrink-0" />
               <div className="flex flex-col w-full">
                 <label className="text-[8px] font-black uppercase tracking-widest text-neutral-500 font-bold">Dispatch Location</label>
@@ -867,8 +661,8 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
               </div>
             </div>
 
-            {/* 4. Search Trigger button */}
-            <div className="lg:col-span-1.5 flex items-center justify-end">
+            {/* 3. Search Trigger button */}
+            <div className="lg:col-span-2 flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => {
@@ -2236,13 +2030,67 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                           <button
                             key={days}
                             type="button"
-                            onClick={() => setBookingDays(days)}
+                            onClick={() => {
+                              setBookingDays(days);
+                              const start = new Date(rentStartDate);
+                              const newEnd = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+                              setRentEndDate(newEnd.toISOString().split('T')[0]);
+                            }}
                             className={`py-2 rounded-xl text-xs font-black transition-all ${bookingDays === days ? 'bg-[#ff4f3a] text-white shadow-md' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700'}`}
                           >
                             {days} {days === 1 ? 'Day' : 'Days'}
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    {/* Compact Date/Time inputs inside Booking Process */}
+                    <div className="grid grid-cols-2 gap-3 pt-1 border-t border-neutral-100/65 text-left">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Pick-up Date</label>
+                        <input 
+                          type="date"
+                          value={rentStartDate}
+                          onChange={(e) => {
+                            setRentStartDate(e.target.value);
+                            const start = new Date(e.target.value);
+                            const end = new Date(rentEndDate);
+                            if (end <= start) {
+                              const newEnd = new Date(start.getTime() + bookingDays * 24 * 60 * 60 * 1000);
+                              setRentEndDate(newEnd.toISOString().split('T')[0]);
+                            }
+                          }}
+                          className="w-full bg-neutral-50 hover:bg-neutral-100 text-neutral-800 text-xs font-bold border border-neutral-200/60 rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-[#ff4f3a]"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Drop-off Date</label>
+                        <input 
+                          type="date"
+                          value={rentEndDate}
+                          onChange={(e) => {
+                            setRentEndDate(e.target.value);
+                            const start = new Date(rentStartDate);
+                            const end = new Date(e.target.value);
+                            if (end > start) {
+                              const diffTime = end.getTime() - start.getTime();
+                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                              setBookingDays(diffDays > 0 ? diffDays : 1);
+                            }
+                          }}
+                          className="w-full bg-neutral-50 hover:bg-neutral-100 text-neutral-800 text-xs font-bold border border-neutral-200/60 rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-[#ff4f3a]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 text-left">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Pick-up Time</label>
+                      <input 
+                        type="time"
+                        value={rentTime}
+                        onChange={(e) => setRentTime(e.target.value)}
+                        className="w-full bg-neutral-50 hover:bg-neutral-100 text-neutral-800 text-xs font-bold border border-neutral-200/60 rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-[#ff4f3a]"
+                      />
                     </div>
 
                     {/* Optional Rental Add-ons Checklist */}

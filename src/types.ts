@@ -217,6 +217,7 @@ export interface PackingList {
   bookingClientName?: string; // Name of client checking out
   bookingClientEmail?: string; // Email of client checking out
   bookingPaidAt?: string; // Timestamp of cleared payment
+  image?: string; // Primary image for listing
   createdAt: string;
   updatedAt: string;
 }

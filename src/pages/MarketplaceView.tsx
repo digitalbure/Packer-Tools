@@ -81,6 +81,27 @@ export default function MarketplaceView() {
         const itemsData = itemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as PackingItem[];
         setItems(itemsData.sort((a, b) => (a.order || 0) - (b.order || 0)));
 
+        const firstItemImage = itemsData.find(item => item.photoUrls && item.photoUrls.length > 0)?.photoUrls?.[0] || '';
+        const ogImageUrl = listData.image || firstItemImage || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400';
+
+        // Update social OG & Twitter tags dynamically
+        const updateOrCreateMetaTag = (selector: string, attrName: string, attrVal: string, contentVal: string) => {
+          let element = document.querySelector(selector);
+          if (!element) {
+            element = document.createElement('meta');
+            element.setAttribute(attrName, attrVal);
+            document.head.appendChild(element);
+          }
+          element.setAttribute('content', contentVal);
+        };
+
+        updateOrCreateMetaTag('meta[property="og:title"]', 'property', 'og:title', `${listData.name} | Visual Inventory Marketplace`);
+        updateOrCreateMetaTag('meta[property="og:description"]', 'property', 'og:description', listData.marketplaceDetails || listData.description || `View visual inventory for ${listData.name}`);
+        updateOrCreateMetaTag('meta[property="og:image"]', 'property', 'og:image', ogImageUrl);
+        updateOrCreateMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', `${listData.name} | Visual Inventory Marketplace`);
+        updateOrCreateMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', listData.marketplaceDetails || listData.description || `View visual inventory for ${listData.name}`);
+        updateOrCreateMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', ogImageUrl);
+
         // Fetch recipient if exists
         if (listData.recipientId) {
           const contactSnap = await getDoc(doc(db, 'contacts', listData.recipientId));

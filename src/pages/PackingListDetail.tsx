@@ -79,6 +79,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [editCurrency, setEditCurrency] = useState('USD');
   const [editMarketplaceEnabled, setEditMarketplaceEnabled] = useState(false);
   const [editMarketplaceDetails, setEditMarketplaceDetails] = useState('');
+  const [editImage, setEditImage] = useState('');
   const [editGeneratedCaption, setEditGeneratedCaption] = useState('');
   const [editStatus, setEditStatus] = useState<'Draft' | 'Active' | 'Sent' | 'Received' | 'Completed'>('Draft');
   const [editBookingFeePercent, setEditBookingFeePercent] = useState<number>(10);
@@ -180,6 +181,18 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       const fetchedItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as PackingItem[];
       setItems(fetchedItems.sort((a, b) => (a.order || 0) - (b.order || 0)));
       setLoading(false);
+
+      // Self-healing cover image assignment in background
+      const firstImg = fetchedItems.find(item => item.photoUrls && item.photoUrls.length > 0)?.photoUrls?.[0] || '';
+      if (firstImg && id) {
+        getDoc(doc(db, 'packingLists', id)).then((listSnap) => {
+          if (listSnap.exists() && !listSnap.data().image) {
+            updateDoc(doc(db, 'packingLists', id), { image: firstImg }).catch(err => {
+              console.warn("Background list image syncer:", err);
+            });
+          }
+        });
+      }
     });
 
     const versionsRef = collection(db, 'packingLists', id, 'versions');
@@ -1533,6 +1546,9 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       }
     }
 
+    const firstItemImage = items.find(item => item.photoUrls && item.photoUrls.length > 0)?.photoUrls?.[0] || '';
+    const finalImage = editImage || firstItemImage;
+
     try {
       await updateDoc(doc(db, 'packingLists', id), {
         recipientId: editRecipientId,
@@ -1541,6 +1557,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         currency: editCurrency,
         marketplaceEnabled: editMarketplaceEnabled,
         marketplaceDetails: editMarketplaceDetails,
+        image: finalImage,
         status: editStatus,
         bookingFeePercent: Number(editBookingFeePercent),
         securityDeposit: Number(editSecurityDeposit),
@@ -2173,6 +2190,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       setEditCurrency(list?.currency || 'USD');
                       setEditMarketplaceEnabled(list?.marketplaceEnabled || false);
                       setEditMarketplaceDetails(list?.marketplaceDetails || '');
+                      setEditImage(list?.image || '');
                       setEditStatus(list?.status || 'Draft');
                       setEditBookingFeePercent(list?.bookingFeePercent ?? (user?.defaultBookingFee ?? 10));
                       setEditSecurityDeposit(list?.securityDeposit ?? (user?.defaultSecurityDeposit ?? 150));
@@ -4561,6 +4579,61 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
                     {editMarketplaceEnabled && (
                       <div className="pt-4 border-t border-neutral-200 space-y-4">
+                        {/* Thumbnail Image Selector */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] uppercase tracking-widest font-black text-neutral-400 block pb-1">
+                            Listing Cover Thumbnail Selector
+                          </label>
+                          <div className="p-4 bg-white border border-neutral-100 rounded-2xl space-y-3">
+                            <span className="text-[9px] text-neutral-400 font-bold uppercase tracking-wide block">
+                              Select a primary image from your visual inventory items:
+                            </span>
+                            
+                            {(() => {
+                              const itemImages = Array.from(new Set(items.flatMap(item => item.photoUrls || []).filter(Boolean)));
+                              if (itemImages.length === 0) {
+                                return (
+                                  <div className="py-4 text-center rounded-xl bg-neutral-50 border border-dashed border-neutral-150">
+                                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
+                                      No item photos found in this list. Upload photos to packing list items to select a thumbnail.
+                                    </p>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                                  {itemImages.map((imageUrl, idx) => {
+                                    const isSelected = editImage === imageUrl || (!editImage && idx === 0);
+                                    return (
+                                      <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => setEditImage(imageUrl)}
+                                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
+                                          isSelected ? 'border-primary shadow-md scale-102 ring-2 ring-primary/20' : 'border-neutral-200 opacity-60 hover:opacity-100'
+                                        }`}
+                                      >
+                                        <img src={imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                        {isSelected && (
+                                          <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
+                                            <div className="bg-primary text-white p-0.5 rounded-full">
+                                              <CheckCircle2 size={10} className="stroke-[3]" />
+                                            </div>
+                                          </div>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
+                            
+                            <p className="text-[9px] text-neutral-400 leading-relaxed">
+                              {editImage ? "✓ Selected item photo will serve as the cover image of the listing on the marketplace index and shared preview pages." : "ℹ️ No cover image custom-selected. The listing will automatically fall back to using the first available item image by default."}
+                            </p>
+                          </div>
+                        </div>
+
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <label className="text-[10px] uppercase tracking-widest font-black text-neutral-400">Marketplace Details</label>
