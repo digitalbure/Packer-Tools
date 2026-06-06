@@ -1,11 +1,25 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.3.0`
+## Current Application Version: `v4.4.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
 
 This document provides complete instructions on how to build, run, and tag this repository for production deployment or continuous integration. 
+
+---
+
+## 📦 Stable Release Log: v4.4.0 (Beta Diagnostics & Visual Bug Reporting Edition)
+
+### Key Production Enhancements Added:
+1. **Interactive Bug Reporting with Screenshot Uploads:**
+   - Implemented an elegant visual issue reporting panel directly on the operator dashboard.
+   - Designed client-side canvas-based image compression and resolution scaling to fit Firestore's document limits perfectly (<100KB).
+   - Built an interactive overlay lightbox slider to zoom and inspect submitted snapshots.
+
+2. **Cross-Out Validation & Status Resolution in Admin Control:**
+   - Unified administrative view panel displaying report statuses styled with crossout line-through formatting for resolved tasks.
+   - Seamless Firestore status synchronization enabling admins to mark reported issues as "Fixed" or "In Review".
 
 ---
 

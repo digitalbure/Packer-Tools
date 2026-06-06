@@ -149,7 +149,7 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
               </li>
               <li>
                 <span className="text-[10px] text-neutral-400 font-mono tracking-tighter">
-                  Version v4.2.0 ({versionSuffix})
+                  Version v4.4.0 ({versionSuffix})
                 </span>
               </li>
             </ul>
