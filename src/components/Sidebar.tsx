@@ -42,7 +42,11 @@ import {
   Cpu,
   ShoppingBag,
   Sparkles,
-  Compass
+  Compass,
+  Sun,
+  Mail,
+  Code,
+  Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings, FeatureKey } from '../types';
@@ -158,6 +162,26 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
   ];
 
   const isAdminRoute = location.pathname.startsWith('/admin');
+  const isProfileRoute = location.pathname.startsWith('/profile');
+
+  const profileNavItems = [
+    // Section: Identity
+    { id: 'about', label: 'About Me', section: 'Identity', icon: <User size={18} /> },
+    { id: 'connect', label: 'Connect & Socials', section: 'Identity', icon: <Globe size={18} /> },
+    
+    // Section: Workspace Prefs
+    { id: 'preferences', label: 'Layout & Density', section: 'Workspace', icon: <Settings size={18} /> },
+    { id: 'theme', label: 'Theme Settings', section: 'Workspace', icon: <Sun size={18} /> },
+    
+    // Section: Monetization & Brand
+    { id: 'store', label: 'Brand & Shopfront', section: 'Shopfront', icon: <Package size={18} /> },
+    { id: 'billing', label: 'Plan & Billing', section: 'Shopfront', icon: <BarChart3 size={18} /> },
+    
+    // Section: Technical
+    { id: 'api', label: 'API & Embeds', section: 'Developer', icon: <Code size={18} /> },
+    { id: 'notifications', label: 'Notification Desk', section: 'Developer', icon: <Mail size={18} /> },
+    { id: 'device', label: 'Mobile App (PWA)', section: 'Developer', icon: <Smartphone size={18} /> },
+  ];
 
   const projectStarters = [
     { to: '/tooling', label: 'Tooling Lists', icon: <Wrench size={18} />, feature: 'toolingLists' as FeatureKey },
@@ -278,6 +302,76 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                 );
               })}
             </nav>
+          </div>
+        ) : isProfileRoute ? (
+          /* Profile Navigation */
+          <div className="space-y-6">
+            <div className="flex items-center justify-between px-3">
+              {!isCollapsed && <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 leading-none">User Settings</h3>}
+              <Link
+                to="/dashboard"
+                className="flex items-center gap-2 p-2.5 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition text-neutral-900 shadow-sm group"
+                title="Exit Profile Settings"
+              >
+                {!isCollapsed && <span className="text-[9px] font-black uppercase tracking-widest pl-1">Exit</span>}
+                <X size={14} className="group-hover:rotate-90 transition-transform" />
+              </Link>
+            </div>
+
+            {/* Profile Summary Card when not collapsed */}
+            {!isCollapsed && (
+              <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-100 mx-1 flex items-center gap-3">
+                <img src={user.photoURL} alt={user.displayName} className="w-10 h-10 rounded-full border border-primary/10 select-none pointer-events-none" />
+                <div className="flex flex-col min-w-0">
+                  <span className="font-bold text-xs truncate leading-tight text-neutral-950 uppercase">{user.displayName || 'User'}</span>
+                  <span className="text-[8px] font-black uppercase bg-primary/10 text-primary px-1 mr-auto rounded mt-0.5">{user.plan} Tier</span>
+                </div>
+              </div>
+            )}
+
+            {/* Profile Navigation Groups */}
+            <div className="space-y-5">
+              {['Identity', 'Workspace', 'Shopfront', 'Developer'].map((sect) => {
+                const sectItems = profileNavItems.filter(item => item.section === sect);
+                return (
+                  <div key={sect} className="space-y-1">
+                    {!isCollapsed && (
+                      <h4 className="text-[9px] font-black uppercase tracking-widest text-neutral-400 px-3 mb-1">{sect}</h4>
+                    )}
+                    <nav className="space-y-0.5">
+                      {sectItems.map((item) => {
+                        const currentTab = new URLSearchParams(location.search).get('tab') || 'about';
+                        const isActive = currentTab === item.id;
+                        return (
+                          <Link
+                            key={item.id}
+                            to={`/profile?tab=${item.id}`}
+                            onClick={() => setIsMobileOpen(false)}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-xl font-bold transition-all group ${
+                              isActive 
+                                ? 'bg-neutral-900 text-white shadow-lg' 
+                                : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
+                            } ${isCollapsed ? 'justify-center' : ''}`}
+                            title={isCollapsed ? item.label : ''}
+                          >
+                            <div className="shrink-0 flex items-center justify-center w-5">{item.icon}</div>
+                            {!isCollapsed && (
+                              <motion.span
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="text-xs uppercase tracking-tight"
+                              >
+                                {item.label}
+                              </motion.span>
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </nav>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ) : isProjectRoute ? (
           /* Project Workspace Navigation */

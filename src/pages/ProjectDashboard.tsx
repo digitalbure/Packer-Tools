@@ -40,6 +40,15 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
   const [addStep, setAddStep] = useState(1);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortBy, setBy] = useState<'newest' | 'oldest' | 'name' | 'status'>('newest');
+
+  const handleCancelAddingAll = () => {
+    setIsAdding(false);
+    setAddStep(1);
+    if (user?.uid) {
+      localStorage.removeItem(`packer_draft_project_${user.uid}`);
+    }
+  };
+
   const [newProject, setNewProject] = useState<{
     name: string;
     description: string;
@@ -63,6 +72,39 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
   });
 
   const TOTAL_STEPS = 3;
+
+  // App-Wide Project Creation Auto Save / Resume Disrupted State
+  useEffect(() => {
+    if (user?.uid) {
+      const draftKey = `packer_draft_project_${user.uid}`;
+      const saved = localStorage.getItem(draftKey);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.newProject?.name || parsed.newProject?.description) {
+            setNewProject(parsed.newProject);
+            setAddStep(parsed.addStep || 1);
+            setIsAdding(true);
+            toast.success("Resumed your disrupted Project creation draft.");
+          }
+        } catch (e) {
+          console.error("Failed to restore project draft:", e);
+        }
+      }
+    }
+  }, [user?.uid]);
+
+  // Persist project draft to local storage as the user types
+  useEffect(() => {
+    if (user?.uid && isAdding) {
+      const draftKey = `packer_draft_project_${user.uid}`;
+      localStorage.setItem(draftKey, JSON.stringify({
+        newProject,
+        addStep,
+        updatedAt: new Date().toISOString()
+      }));
+    }
+  }, [newProject, addStep, isAdding, user?.uid]);
 
   useEffect(() => {
     const q = query(collection(db, 'projects'), where('ownerId', '==', user.uid));
@@ -100,6 +142,7 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
         createdAt: serverTimestamp()
       });
       setIsAdding(false);
+      localStorage.removeItem(`packer_draft_project_${user.uid}`);
       setAddStep(1);
       setNewProject({
         name: '',
@@ -640,7 +683,7 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setIsAdding(false); setAddStep(1); }}
+              onClick={handleCancelAddingAll}
               className="absolute inset-0 bg-neutral-900/40 backdrop-blur-sm"
             />
             <motion.div
@@ -668,7 +711,7 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
                       </p>
                     </div>
                   </div>
-                  <button onClick={() => { setIsAdding(false); setAddStep(1); }} className="p-2 sm:p-3 hover:bg-neutral-50 rounded-full transition">
+                  <button onClick={handleCancelAddingAll} className="p-2 sm:p-3 hover:bg-neutral-50 rounded-full transition">
                     <Plus size={24} className="rotate-45" />
                   </button>
                 </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
 import { db } from '../firebase';
@@ -19,6 +20,10 @@ interface ProfilePageProps {
 }
 
 export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePageProps) {
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const activeTab = searchParams.get('tab') || 'about';
+
   const { theme, setTheme } = useTheme();
   const { isReadyToInstall, isInstalled, triggerInstall } = usePWAInstall();
   const [profileBillingCycle, setProfileBillingCycle] = useState<'monthly' | 'annual'>('monthly');
@@ -178,19 +183,28 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
             </div>
           </div>
         </div>
-        <button
-          onClick={() => setIsEditing(!isEditing)}
-          className={`w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase text-xs tracking-widest transition-all ${
-            isEditing ? 'bg-neutral-100 text-neutral-600' : 'bg-primary text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5'
-          }`}
-        >
-          {isEditing ? 'Cancel' : 'Edit Profile'}
-        </button>
+        {(activeTab === 'about' || activeTab === 'connect') && (
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            className={`w-full sm:w-auto px-8 py-3 rounded-full font-bold uppercase text-xs tracking-widest transition-all ${
+              isEditing ? 'bg-neutral-100 text-neutral-600' : 'bg-primary text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5'
+            }`}
+          >
+            {isEditing ? 'Cancel' : 'Edit Profile'}
+          </button>
+        )}
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-        <div className="md:col-span-2 space-y-6 sm:space-y-8">
-          <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8">
+      <motion.div
+        key={activeTab}
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -15 }}
+        transition={{ duration: 0.25 }}
+        className="space-y-8 sm:space-y-12"
+      >
+        {activeTab === 'about' && (
+          <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8 animate-fade-in animate-duration-300">
             <h3 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
               <User className="text-primary" />
               <span>About Me</span>
@@ -295,9 +309,11 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
               </div>
             )}
           </section>
+        )}
 
-          {/* Marketplace Equipment Rental Settings */}
-          <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8">
+        {activeTab === 'preferences' && (
+          /* Marketplace Equipment Rental Settings */
+          <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8 animate-fade-in animate-duration-300">
             <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
               <Globe className="text-primary shrink-0" />
               <span>Rental Marketplace Settings</span>
@@ -1035,8 +1051,10 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
               </div>
             </div>
           </section>
+        )}
 
-          {/* Public Shopfront Brand Settings Panel */}
+        {activeTab === 'store' && (
+          /* Public Shopfront Brand Settings Panel */
           <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8 animate-fade-in animate-duration-300">
             <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
@@ -1220,9 +1238,12 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
               </div>
             </form>
           </section>
+        )}
 
-          {/* Active Beta Notifications Desk */}
-          <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8 animate-fade-in">
+        {activeTab === 'notifications' && (
+          <div className="space-y-8 sm:space-y-12 animate-fade-in">
+            {/* Active Beta Notifications Desk */}
+            <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8">
             <header className="space-y-1">
               <span className="micro-label bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded-full inline-block font-black">Release Build v4.0.0</span>
               <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
@@ -1432,9 +1453,10 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
             }}
           />
         </div>
+        )}
 
-        <div className="space-y-6 sm:space-y-8 col-span-1">
-          {/* Mobile App PWA Install Card */}
+        {activeTab === 'device' && (
+          /* Mobile App PWA Install Card */
           <section className="bg-gradient-to-br from-neutral-900 to-neutral-950 text-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-neutral-800 shadow-xl space-y-6 sm:space-y-8 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 blur-3xl rounded-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700" />
             
@@ -1481,8 +1503,10 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
               Compatible with Safari, Chrome, Samsung, & Edge
             </div>
           </section>
+        )}
 
-          {/* Theme Preferences Card */}
+        {activeTab === 'theme' && (
+          /* Theme Preferences Card */
           <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8 animate-fade-in">
             <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
               <Sun className="text-primary" size={20} />
@@ -1518,7 +1542,9 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
               </button>
             </div>
           </section>
+        )}
 
+        {activeTab === 'billing' && (
           <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8">
             <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
               <BarChart3 className="text-primary shrink-0" />
@@ -1880,7 +1906,9 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
               )}
             </div>
           </section>
+        )}
 
+        {activeTab === 'connect' && (
           <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8">
             <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
               <Globe className="text-primary shrink-0" />
@@ -1957,11 +1985,11 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
               )}
             </div>
           </section>
-        </div>
-      </div>
+        )}
 
-      {/* API & Developer Settings */}
-      <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8">
+        {activeTab === 'api' && (
+          /* API & Developer Settings */
+          <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
           <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
             <Code className="text-primary shrink-0" />
@@ -2102,6 +2130,25 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
           </div>
         </div>
       </section>
+      )}
+      </motion.div>
+
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        user={user}
+        adminSettings={adminSettings}
+        onSuccess={(newPlan) => onUpdate({ ...user, plan: newPlan })}
+      />
+
+      <UpgradeNowModal
+        isOpen={isUpgradeNowModalOpen}
+        onClose={() => setIsUpgradeNowModalOpen(false)}
+        user={user}
+        adminSettings={adminSettings}
+        restrictedFeatureName={restrictedFeature}
+        onSuccess={(newPlan) => onUpdate({ ...user, plan: newPlan })}
+      />
     </div>
   );
 }

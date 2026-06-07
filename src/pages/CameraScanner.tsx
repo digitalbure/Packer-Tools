@@ -18,6 +18,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
   const [isIdentifying, setIsIdentifying] = useState(false);
   const [isRemovingBg, setIsRemovingBg] = useState(false);
   const [scanMode, setScanMode] = useState<'ai' | 'manual'>('ai');
+  const [cameraError, setCameraError] = useState(false);
   const [identifiedItem, setIdentifiedItem] = useState<{ 
     name: string; 
     category: string; 
@@ -49,9 +50,33 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
+      setCameraError(false);
     } catch (error) {
       console.error("Error accessing camera:", error);
-      toast.error("Could not access camera. Please ensure permissions are granted.");
+      setCameraError(true);
+      toast.error("Could not access camera. Please ensure permissions are granted or upload an image instead.");
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        setCapturedImage(dataUrl);
+        if (scanMode === 'ai') {
+          handleIdentify(dataUrl);
+        } else {
+          const randomTag = `TAG-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+          setAssetTag(randomTag);
+        }
+      };
+      reader.onerror = (error) => {
+        console.error("Error reading file:", error);
+        toast.error("Failed to read image file.");
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -260,25 +285,78 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
       <div className="relative aspect-[3/4] bg-neutral-900 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white">
         {!capturedImage && scanMode === 'ai' ? (
           <>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 border-[40px] border-black/20 pointer-events-none">
-              <div className="w-full h-full border-2 border-white/50 border-dashed rounded-2xl"></div>
-            </div>
-            <div className="absolute bottom-8 left-0 right-0 flex justify-center">
-              <button
-                onClick={capturePhoto}
-                className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all border-8 border-neutral-200"
-              >
-                <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white">
-                  <Camera size={32} />
+            {cameraError ? (
+              <div className="w-full h-full bg-neutral-900 flex flex-col items-center justify-center p-8 text-center space-y-6">
+                <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center animate-pulse">
+                  <Camera size={40} />
                 </div>
-              </button>
-            </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-white uppercase tracking-wider">Camera Access Denied</h3>
+                  <p className="text-xs text-neutral-450 max-w-xs leading-relaxed">
+                    We couldn't open the video camera in this browser. You can still import your equipment by uploading an image.
+                  </p>
+                </div>
+                <div className="w-full pt-4 max-w-xs">
+                  <label className="flex flex-col items-center justify-center w-full h-36 px-4 transition bg-neutral-950/55 border-2 border-dashed border-neutral-700 hover:border-primary rounded-2xl cursor-pointer hover:bg-neutral-950/80">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Zap className="w-8 h-8 mb-2.5 text-primary animate-bounce fill-primary/10" />
+                      <p className="mb-1 text-sm text-neutral-100 font-semibold"><span className="text-primary font-black uppercase tracking-wider">Upload Image</span></p>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">PNG, JPG or JPEG</p>
+                    </div>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleFileUpload}
+                    />
+                  </label>
+                </div>
+                <button
+                  onClick={startCamera}
+                  className="px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center gap-2"
+                >
+                  <RefreshCw size={14} />
+                  <span>Retry Camera Link</span>
+                </button>
+              </div>
+            ) : (
+              <>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 border-[40px] border-black/20 pointer-events-none">
+                  <div className="w-full h-full border-2 border-white/50 border-dashed rounded-2xl"></div>
+                </div>
+                
+                {/* Upload override on top right */}
+                <div className="absolute top-4 right-4 z-10">
+                  <label className="px-4 py-2 bg-neutral-900/80 hover:bg-neutral-900 text-white rounded-xl border border-white/10 cursor-pointer flex items-center justify-center shadow-lg transition duration-205 backdrop-blur-sm" title="Upload Image File">
+                    <span className="text-[10px] font-black uppercase tracking-widest mr-2">Upload File</span>
+                    <Package size={14} />
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleFileUpload}
+                    />
+                  </label>
+                </div>
+
+                <div className="absolute bottom-8 left-0 right-0 flex justify-center">
+                  <button
+                    onClick={capturePhoto}
+                    className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all border-8 border-neutral-200"
+                  >
+                    <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white">
+                      <Camera size={32} />
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
           </>
         ) : !capturedImage && scanMode === 'manual' ? (
           <div className="w-full h-full bg-white p-8 flex flex-col justify-center space-y-8">

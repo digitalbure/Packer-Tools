@@ -24,6 +24,7 @@ export default function BulkScanModal({ isOpen, onClose, listId, user }: BulkSca
   const [detectedItems, setDetectedItems] = useState<{ name: string; category: string; selected: boolean; tags: string[]; organizationTip?: string }[]>([]);
   const [isLikelyComplete, setIsLikelyComplete] = useState(true);
   const [warningReason, setWarningReason] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -44,9 +45,28 @@ export default function BulkScanModal({ isOpen, onClose, listId, user }: BulkSca
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
+      setCameraError(false);
     } catch (error) {
       console.error("Error accessing camera:", error);
-      toast.error("Could not access camera.");
+      setCameraError(true);
+      toast.error("Could not access camera. Please ensure permissions are granted or upload an image instead.");
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        setCapturedImage(dataUrl);
+        handleBulkIdentify(dataUrl);
+      };
+      reader.onerror = (error) => {
+        console.error("Error reading file:", error);
+        toast.error("Failed to read image file.");
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -191,26 +211,78 @@ export default function BulkScanModal({ isOpen, onClose, listId, user }: BulkSca
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {!capturedImage ? (
-            <div className="relative aspect-video bg-neutral-900 rounded-3xl overflow-hidden group">
-              <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-              <div className="absolute inset-0 border-[20px] border-black/20 pointer-events-none">
-                <div className="w-full h-full border-2 border-white/30 border-dashed rounded-xl"></div>
-              </div>
-              <div className="absolute bottom-6 left-0 right-0 flex justify-center">
-                <button
-                  onClick={capturePhoto}
-                  className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all border-4 border-neutral-200"
-                >
-                  <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white">
-                    <Camera size={24} />
+            <div className="relative aspect-video bg-neutral-900 rounded-3xl overflow-hidden group flex items-center justify-center">
+              {cameraError ? (
+                <div className="w-full h-full bg-neutral-950 flex flex-col items-center justify-center p-6 text-center space-y-4">
+                  <div className="w-14 h-14 bg-red-400/10 text-red-500 rounded-full flex items-center justify-center">
+                    <Camera size={28} />
                   </div>
-                </button>
-              </div>
-              <div className="absolute top-4 left-4 right-4 text-center">
-                <p className="text-white/70 text-xs font-bold bg-black/40 backdrop-blur-md py-2 px-4 rounded-full inline-block">
-                  Lay out items clearly for best results
-                </p>
-              </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-white uppercase tracking-wider">Camera Access Denied</p>
+                    <p className="text-xs text-neutral-400 max-w-sm">
+                      We couldn't request the camera in this browser. You can still bulk scan by uploading a picture of your laid out equipment.
+                    </p>
+                  </div>
+                  <div className="w-full max-w-xs pt-1">
+                    <label className="flex flex-col items-center justify-center w-full h-24 px-4 transition bg-neutral-900/50 border-2 border-dashed border-neutral-700 hover:border-primary rounded-xl cursor-pointer hover:bg-neutral-900">
+                      <div className="flex flex-col items-center justify-center pt-3 pb-3">
+                        <Zap className="w-6 h-6 mb-1 text-primary animate-bounce fill-primary/10" />
+                        <p className="text-xs text-neutral-200 font-semibold"><span className="text-primary font-bold">Upload image</span> or drag here</p>
+                      </div>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleFileUpload}
+                      />
+                    </label>
+                  </div>
+                  <button
+                    onClick={startCamera}
+                    className="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest transition flex items-center gap-1.5"
+                  >
+                    <RefreshCw size={12} />
+                    <span>Retry Camera Link</span>
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 border-[20px] border-black/20 pointer-events-none">
+                    <div className="w-full h-full border-2 border-white/30 border-dashed rounded-xl"></div>
+                  </div>
+                  
+                  {/* File Upload Option Icon button over video */}
+                  <div className="absolute top-4 right-4 z-10 animate-fade-in">
+                    <label className="p-2 py-1.5 bg-neutral-905/90 hover:bg-neutral-900 text-white rounded-xl border border-white/10 cursor-pointer flex items-center justify-center shadow-lg transition duration-200 backdrop-blur" title="Upload Image File">
+                      <span className="text-[9px] font-black uppercase tracking-widest mr-2">Upload File</span>
+                      <Package size={14} />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleFileUpload}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="absolute bottom-6 left-0 right-0 flex justify-center">
+                    <button
+                      onClick={capturePhoto}
+                      className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all border-4 border-neutral-200"
+                    >
+                      <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white">
+                        <Camera size={24} />
+                      </div>
+                    </button>
+                  </div>
+                  <div className="absolute top-4 left-4 right-4 text-center">
+                    <p className="text-white/70 text-xs font-bold bg-black/40 backdrop-blur-md py-2 px-4 rounded-full inline-block">
+                      Lay out items clearly for best results
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-6">
