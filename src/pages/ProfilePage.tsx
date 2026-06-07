@@ -643,6 +643,313 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                 </div>
               </div>
 
+              {/* Customizable Dashboard Widgets & Quick Access Buttons Preferences */}
+              <div className="pt-8 border-t border-neutral-100 space-y-6">
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800">Custom Dashboard Column & Widget Builder</h4>
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-1">
+                    Control which widgets, alerts, charts, and operational consoles are rendered on your administrative homepage workspace.
+                  </p>
+                </div>
+
+                <div className="bg-neutral-50 p-5 rounded-3xl border border-neutral-150 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Widget Toggle: Stats Summary Cards */}
+                    <div className="flex items-center justify-between p-3.5 bg-white border border-neutral-100 rounded-2xl">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-black uppercase tracking-tight text-neutral-800 block">Performance Metric Cards</span>
+                        <p className="text-[9px] text-neutral-400 font-bold uppercase block">Kit Value, Audit Score, and Total Weight trackers</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const current = user.layoutPreferences || {};
+                          const updated = {
+                            ...current,
+                            showStatsCards: current.showStatsCards === false ? true : false
+                          };
+                          try {
+                            const userRef = doc(db, 'users', user.uid);
+                            await updateDoc(userRef, { layoutPreferences: updated });
+                            onUpdate({ ...user, layoutPreferences: updated });
+                            toast.success("Stats summary metric cards preference updated!");
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 outline-none shrink-0 border ${
+                          (user.layoutPreferences?.showStatsCards !== false) ? 'bg-[#ff4f3a] border-[#ff4f3a]' : 'bg-neutral-200 border-neutral-300'
+                        }`}
+                      >
+                        <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${
+                          (user.layoutPreferences?.showStatsCards !== false) ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* Widget Toggle: Active Deployments distribution chart */}
+                    <div className="flex items-center justify-between p-3.5 bg-white border border-neutral-100 rounded-2xl">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-black uppercase tracking-tight text-neutral-800 block">Deployments chart</span>
+                        <p className="text-[9px] text-neutral-400 font-bold uppercase block">Bar chart of weight and valuation distributions</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const current = user.layoutPreferences || {};
+                          const updated = {
+                            ...current,
+                            showDistributionChart: current.showDistributionChart === false ? true : false
+                          };
+                          try {
+                            const userRef = doc(db, 'users', user.uid);
+                            await updateDoc(userRef, { layoutPreferences: updated });
+                            onUpdate({ ...user, layoutPreferences: updated });
+                            toast.success("Deployments distribution chart preference updated!");
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 outline-none shrink-0 border ${
+                          (user.layoutPreferences?.showDistributionChart !== false) ? 'bg-[#ff4f3a] border-[#ff4f3a]' : 'bg-neutral-200 border-neutral-300'
+                        }`}
+                      >
+                        <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${
+                          (user.layoutPreferences?.showDistributionChart !== false) ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* Widget Toggle: Gear Maintenance Center */}
+                    <div className="flex items-center justify-between p-3.5 bg-white border border-neutral-100 rounded-2xl">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-black uppercase tracking-tight text-neutral-800 block">Maintenance Alerts Panel</span>
+                        <p className="text-[9px] text-neutral-400 font-bold uppercase block">Display gear service countdowns and imminent repairs</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const current = user.layoutPreferences || {};
+                          const updated = {
+                            ...current,
+                            showMaintenanceAlerts: current.showMaintenanceAlerts === false ? true : false
+                          };
+                          try {
+                            const userRef = doc(db, 'users', user.uid);
+                            await updateDoc(userRef, { layoutPreferences: updated });
+                            onUpdate({ ...user, layoutPreferences: updated });
+                            toast.success("Maintenance alerts panel preference updated!");
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 outline-none shrink-0 border ${
+                          (user.layoutPreferences?.showMaintenanceAlerts !== false) ? 'bg-[#ff4f3a] border-[#ff4f3a]' : 'bg-neutral-200 border-neutral-300'
+                        }`}
+                      >
+                        <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${
+                          (user.layoutPreferences?.showMaintenanceAlerts !== false) ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* Widget Toggle: Recent Packing Lists */}
+                    <div className="flex items-center justify-between p-3.5 bg-white border border-neutral-100 rounded-2xl">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-black uppercase tracking-tight text-neutral-800 block">Recent Packing Lists</span>
+                        <p className="text-[9px] text-neutral-400 font-bold uppercase block">Fast links to your recently accessed templates & sheets</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const current = user.layoutPreferences || {};
+                          const updated = {
+                            ...current,
+                            showRecentLists: current.showRecentLists === false ? true : false
+                          };
+                          try {
+                            const userRef = doc(db, 'users', user.uid);
+                            await updateDoc(userRef, { layoutPreferences: updated });
+                            onUpdate({ ...user, layoutPreferences: updated });
+                            toast.success("Recent packing lists panel preference updated!");
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 outline-none shrink-0 border ${
+                          (user.layoutPreferences?.showRecentLists !== false) ? 'bg-[#ff4f3a] border-[#ff4f3a]' : 'bg-neutral-200 border-neutral-300'
+                        }`}
+                      >
+                        <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${
+                          (user.layoutPreferences?.showRecentLists !== false) ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* Widget Toggle: Kiosk Self-checkout Terminal */}
+                    <div className="flex items-center justify-between p-3.5 bg-white border border-neutral-100 rounded-2xl">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-black uppercase tracking-tight text-neutral-800 block">Kiosk self-checkout terminal hub</span>
+                        <p className="text-[9px] text-neutral-400 font-bold uppercase block">QR scanning pairing portal for tablet dispatching</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const current = user.layoutPreferences || {};
+                          const updated = {
+                            ...current,
+                            showKioskTerminal: current.showKioskTerminal === false ? true : false
+                          };
+                          try {
+                            const userRef = doc(db, 'users', user.uid);
+                            await updateDoc(userRef, { layoutPreferences: updated });
+                            onUpdate({ ...user, layoutPreferences: updated });
+                            toast.success("Kiosk self-checkout terminal hub preference updated!");
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 outline-none shrink-0 border ${
+                          (user.layoutPreferences?.showKioskTerminal !== false) ? 'bg-[#ff4f3a] border-[#ff4f3a]' : 'bg-neutral-200 border-neutral-300'
+                        }`}
+                      >
+                        <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${
+                          (user.layoutPreferences?.showKioskTerminal !== false) ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* Widget Toggle: Construction Safety OSHA Console */}
+                    <div className="flex items-center justify-between p-3.5 bg-white border border-neutral-100 rounded-2xl">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-black uppercase tracking-tight text-neutral-800 block">OSHA Safety & drops console</span>
+                        <p className="text-[9px] text-neutral-400 font-bold uppercase block">Worksites compliance score and insulated tooling checks</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const current = user.layoutPreferences || {};
+                          const updated = {
+                            ...current,
+                            showSafetyConsole: current.showSafetyConsole === false ? true : false
+                          };
+                          try {
+                            const userRef = doc(db, 'users', user.uid);
+                            await updateDoc(userRef, { layoutPreferences: updated });
+                            onUpdate({ ...user, layoutPreferences: updated });
+                            toast.success("Safety compliance checks console preference updated!");
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 outline-none shrink-0 border ${
+                          (user.layoutPreferences?.showSafetyConsole !== false) ? 'bg-[#ff4f3a] border-[#ff4f3a]' : 'bg-neutral-200 border-neutral-300'
+                        }`}
+                      >
+                        <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${
+                          (user.layoutPreferences?.showSafetyConsole !== false) ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* Widget Toggle: Fleet Vehicle Dispatch */}
+                    <div className="flex items-center justify-between p-3.5 bg-white border border-neutral-100 rounded-2xl">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-black uppercase tracking-tight text-neutral-800 block">Fleet vehicles dispatch locker</span>
+                        <p className="text-[9px] text-neutral-400 font-bold uppercase block">Fuel tracking and vehicle assignments checkout checklist</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const current = user.layoutPreferences || {};
+                          const updated = {
+                            ...current,
+                            showFleetDispatch: current.showFleetDispatch === false ? true : false
+                          };
+                          try {
+                            const userRef = doc(db, 'users', user.uid);
+                            await updateDoc(userRef, { layoutPreferences: updated });
+                            onUpdate({ ...user, layoutPreferences: updated });
+                            toast.success("Fleet vehicle dispatch checklist preference updated!");
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 outline-none shrink-0 border ${
+                          (user.layoutPreferences?.showFleetDispatch !== false) ? 'bg-[#ff4f3a] border-[#ff4f3a]' : 'bg-neutral-200 border-neutral-300'
+                        }`}
+                      >
+                        <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${
+                          (user.layoutPreferences?.showFleetDispatch !== false) ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* CUSTOM QUICK ACTION BUTTON SELECTOR */}
+                  <div className="pt-6 border-t border-neutral-200 mt-4 space-y-4">
+                    <div>
+                      <span className="text-xs font-black uppercase tracking-wider text-neutral-800 block">Visible Quick Actions Buttons</span>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase leading-relaxed">
+                        Customize exactly which quick access creation cards are enabled inside the Rapid Action Hub grid. Unchecked buttons will be filtered out.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+                      {[
+                        { id: 'packing_list', name: '+ packing list' },
+                        { id: 'inventory', name: '+ inventory' },
+                        { id: 'rack', name: '+ tech rack' },
+                        { id: 'system_build', name: '+ system build' },
+                        { id: 'listing', name: '+ list item' },
+                      ].map((buttonItem) => {
+                        const visibleButtons = user.layoutPreferences?.visibleQuickActions || ['packing_list', 'inventory', 'rack', 'system_build', 'listing'];
+                        const isChecked = visibleButtons.includes(buttonItem.id);
+                        return (
+                          <button
+                            key={buttonItem.id}
+                            type="button"
+                            onClick={async () => {
+                              const current = user.layoutPreferences || {};
+                              const currentButtons = current.visibleQuickActions || ['packing_list', 'inventory', 'rack', 'system_build', 'listing'];
+                              let updated: string[];
+                              if (currentButtons.includes(buttonItem.id)) {
+                                if (currentButtons.length <= 1) {
+                                  toast.error("Please keep at least one action button checked.");
+                                  return;
+                                }
+                                updated = currentButtons.filter(b => b !== buttonItem.id);
+                              } else {
+                                updated = [...currentButtons, buttonItem.id];
+                              }
+                              const updatedPrefs = { ...current, visibleQuickActions: updated };
+                              try {
+                                const userRef = doc(db, 'users', user.uid);
+                                await updateDoc(userRef, { layoutPreferences: updatedPrefs });
+                                onUpdate({ ...user, layoutPreferences: updatedPrefs });
+                                toast.success(`Button "${buttonItem.name}" configuration updated!`);
+                              } catch (err) {
+                                console.error(err);
+                              }
+                            }}
+                            className={`p-3 rounded-2xl border text-center transition-all ${
+                              isChecked 
+                                ? `bg-neutral-900 border-neutral-900 text-white shadow-md`
+                                : `bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200/60`
+                            }`}
+                          >
+                            <span className="text-[10px] font-black uppercase tracking-wider block">{buttonItem.name}</span>
+                            <span className="text-[8px] opacity-70 uppercase tracking-widest font-mono block mt-1">
+                              {isChecked ? 'Enabled' : 'Hidden'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Customizable Booking Fee & Security Deposit for Paid Users */}
               <div className="pt-8 border-t border-neutral-100 space-y-4">
                 <div className="flex items-center justify-between">

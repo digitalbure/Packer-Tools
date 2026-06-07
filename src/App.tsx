@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, addDoc, query, where } from 'firebase/firestore';
@@ -43,6 +43,8 @@ import KioskMode from './pages/KioskMode';
 import ListingsModule from './pages/ListingsModule';
 import GearBioPage from './pages/GearBioPage';
 import ShopPage from './pages/ShopPage';
+import ScenarioBuilder from './pages/ScenarioBuilder';
+import TravellerModule from './pages/TravellerModule';
 import ErrorBoundary from './components/ErrorBoundary';
 import AddGearModal from './components/AddGearModal';
 import { IndustryProvider } from './context/IndustryContext';
@@ -149,6 +151,8 @@ function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick, selectedCom
           <Route path="/organizer" element={isFeatureEnabled('organizer', user, adminSettings) ? <OrganizerModule user={user} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
           <Route path="/inventory" element={user ? <InventoryModule user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/travel-cases" element={isFeatureEnabled('travelCases', user, adminSettings) ? <TravelCaseModule user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
+          <Route path="/scenario-builder" element={user ? <ScenarioBuilder user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+          <Route path="/traveller" element={user ? <TravellerModule user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/logistics" element={user ? <LogisticsDashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/contacts" element={user ? <Contacts user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/contact" element={<ContactPage />} />
@@ -347,6 +351,19 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  const hasInitializedSidebarCollapse = useRef(false);
+
+  useEffect(() => {
+    if (user && !hasInitializedSidebarCollapse.current) {
+      if (user.layoutPreferences?.sidebarCollapsedInitially) {
+        setIsSidebarCollapsed(true);
+      } else if (user.layoutPreferences?.sidebarCollapsedInitially === false) {
+        setIsSidebarCollapsed(false);
+      }
+      hasInitializedSidebarCollapse.current = true;
+    }
+  }, [user]);
   const [listsCount, setListsCount] = useState(0);
   const [currentHash, setCurrentHash] = useState(window.location.hash);
   

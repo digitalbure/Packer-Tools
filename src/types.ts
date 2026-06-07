@@ -111,6 +111,18 @@ export interface UserProfile {
   country?: string; // User selected marketplace country
   dashboardMode?: 'minimal' | 'all';
   viewDensity?: 'compact' | 'comfortable';
+  layoutPreferences?: {
+    showRecentLists?: boolean;
+    showMaintenanceAlerts?: boolean;
+    showQuickActionGrid?: boolean;
+    showStatsCards?: boolean;
+    showDistributionChart?: boolean;
+    showKioskTerminal?: boolean;
+    showSafetyConsole?: boolean;
+    showFleetDispatch?: boolean;
+    visibleQuickActions?: string[]; // e.g. ['packing_list', 'inventory', 'rack', 'system_build', 'listing']
+    sidebarCollapsedInitially?: boolean;
+  };
   subscriptionStatus?: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid';
   trialStartDate?: string;
   trialEndDate?: string;

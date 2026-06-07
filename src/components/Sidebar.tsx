@@ -40,7 +40,9 @@ import {
   Camera,
   AlertCircle,
   Cpu,
-  ShoppingBag
+  ShoppingBag,
+  Sparkles,
+  Compass
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings, FeatureKey } from '../types';
@@ -131,6 +133,8 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
       icon: <Zap size={20} />, 
       feature: 'aiWizard' as FeatureKey 
     },
+    { to: '/scenario-builder', label: 'Scenario Builder', icon: <Sparkles size={20} /> },
+    { to: '/traveller', label: 'Traveller Module', icon: <Compass size={20} /> },
   ].filter(item => {
     if (item.feature === 'kioskMode') return true;
     return !item.feature || isFeatureEnabled(item.feature, user, adminSettings);

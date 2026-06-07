@@ -129,6 +129,8 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
 
   const { activeIndustry, customTerms, currentWorkspace, isConstruction, isAutomotive, getAdjustedLabel } = useIndustry();
 
+  const visibleButtons = user.layoutPreferences?.visibleQuickActions || ['packing_list', 'inventory', 'rack', 'system_build', 'listing'];
+
   const currentWorkspaceId = currentWorkspace?.id || null;
 
   // Filter lists & gear of standard user fetches by currently active industry workspace sandbox
@@ -818,7 +820,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       {activeTab === 'overview' ? (
         <div className="space-y-12 animate-in fade-in duration-300 font-sans">
           {/* Construction Panel */}
-          {isConstruction && (
+          {isConstruction && user.layoutPreferences?.showSafetyConsole !== false && (
             <div className="bg-neutral-900 text-white rounded-[2rem] p-6 lg:p-8 border border-neutral-800 shadow-xl space-y-6 text-left relative overflow-hidden">
               {/* Background Accent */}
               <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -959,7 +961,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
           )}
 
           {/* Automotive Panel */}
-          {isAutomotive && (
+          {isAutomotive && user.layoutPreferences?.showFleetDispatch !== false && (
             <div className="bg-indigo-950 text-white rounded-[2rem] p-6 lg:p-8 border border-indigo-900 shadow-xl space-y-6 text-left relative overflow-hidden">
               {/* Background Accent */}
               <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -1095,149 +1097,162 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
           {(user.dashboardMode || 'minimal') === 'minimal' ? (
             <div className="space-y-12">
             {/* Quick Action Grid */}
-            <div className="bg-neutral-50/50 p-8 sm:p-10 rounded-[2.5rem] border border-neutral-100/80 shadow-sm space-y-8">
-              <div className="space-y-2 text-left">
-                <span className="micro-label bg-primary/10 text-primary border border-primary/10 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
-                  Minimalist Workspace
-                </span>
-                <h2 className="text-3xl font-black text-neutral-900 tracking-tight">Rapid Action Hub</h2>
-                <p className="text-sm text-neutral-500 font-medium font-sans">Create packing lists, check inventories, publish listings, and configure AV rack gear.</p>
-              </div>
+            {user.layoutPreferences?.showQuickActionGrid !== false && (
+              <div className="bg-neutral-50/50 p-8 sm:p-10 rounded-[2.5rem] border border-neutral-100/80 shadow-sm space-y-8">
+                <div className="space-y-2 text-left">
+                  <span className="micro-label bg-primary/10 text-primary border border-primary/10 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
+                    Minimalist Workspace
+                  </span>
+                  <h2 className="text-3xl font-black text-neutral-900 tracking-tight">Rapid Action Hub</h2>
+                  <p className="text-sm text-neutral-500 font-medium font-sans">Create packing lists, check inventories, publish listings, and configure AV rack gear.</p>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* 1. +Packing List */}
-                <button
-                  type="button"
-                  onClick={() => setIsCreating(true)}
-                  className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
-                >
-                  <div className="w-10 h-10 bg-[#ff3b30]/10 text-[#ff3b30] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#ff3b30] group-hover:text-white">
-                    <Plus size={20} className="stroke-[3]" />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ Packing List</span>
-                      <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-2 py-0.5 rounded-full select-none font-mono">
-                        {lists.length}/{activePlan?.maxPackingLists || 3}
-                      </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* 1. +Packing List */}
+                  {visibleButtons.includes('packing_list') && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCreating(true)}
+                      className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
+                    >
+                      <div className="w-10 h-10 bg-[#ff3b30]/10 text-[#ff3b30] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#ff3b30] group-hover:text-white">
+                        <Plus size={20} className="stroke-[3]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ Packing List</span>
+                          <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-2 py-0.5 rounded-full select-none font-mono">
+                            {lists.length}/{activePlan?.maxPackingLists || 3}
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
+                          Create new camera gear logs, templates, or travel checklists.
+                        </p>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* 2. +Inventory */}
+                  {visibleButtons.includes('inventory') && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/inventory')}
+                      className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
+                    >
+                      <div className="w-10 h-10 bg-[#34c759]/10 text-[#34c759] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#34c759] group-hover:text-white">
+                        <Plus size={20} className="stroke-[3]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ Inventory</span>
+                          <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-2 py-0.5 rounded-full select-none font-mono">
+                            {gear.length}/{activePlan?.maxGearItems || 50}
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
+                          Add items to your direct departments, storage rooms, or Custom Sheets.
+                        </p>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* 3. +Rack */}
+                  {visibleButtons.includes('rack') && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/racks')}
+                      className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
+                    >
+                      <div className="w-10 h-10 bg-[#007aff]/10 text-[#007aff] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#007aff] group-hover:text-white">
+                        <Plus size={20} className="stroke-[3]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ Rack</span>
+                          <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-2 py-0.5 rounded-full select-none font-mono">
+                            Limit: {activePlan?.maxRacks || 1}
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
+                          Establish vertically-aligned space limits for technical hardware cases.
+                        </p>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* 4. +System Build */}
+                  {visibleButtons.includes('system_build') && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/systems-builder')}
+                      className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
+                    >
+                      <div className="w-10 h-10 bg-[#5856d6]/15 text-[#5856d6] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#5856d6] group-hover:text-white">
+                        <Plus size={20} className="stroke-[3]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ System Build</span>
+                          <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-2 py-0.5 rounded-full select-none font-mono">
+                            Limit: {activePlan?.maxProjects || 3}
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
+                          Construct and test detailed video or hybrid studio rigs.
+                        </p>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* 5. +Listing */}
+                  {visibleButtons.includes('listing') && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/listings')}
+                      className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
+                    >
+                      <div className="w-10 h-10 bg-[#ff9500]/10 text-[#ff9500] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#ff9500] group-hover:text-white">
+                        <Plus size={20} className="stroke-[3]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ Listing</span>
+                          <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2.5 py-0.5 rounded-full select-none">
+                            Market
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
+                          Publish a camera kit to our verification marketplace for rent or sales.
+                        </p>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Info & Settings Link Card */}
+                  <div className="p-6 bg-primary/5 rounded-3xl border border-primary/10 flex flex-col justify-between h-48 text-left">
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase tracking-wider font-extrabold text-primary">Need Analytics?</span>
+                      <p className="text-xs text-neutral-600 leading-normal font-semibold">
+                        To view full billing reports, category piecharts, health ratios and the self-checkout Kiosk terminal, switch your dashboard preset to <strong className="font-bold">Show All</strong>.
+                      </p>
                     </div>
-                    <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
-                      Create new camera gear logs, templates, or travel checklists.
-                    </p>
+                    <Link
+                      to="/profile"
+                      className="text-xs font-bold text-primary hover:underline flex items-center gap-1.5"
+                    >
+                      Configure In Settings <ChevronRight size={14} />
+                    </Link>
                   </div>
-                </button>
-
-                {/* 2. +Inventory */}
-                <button
-                  type="button"
-                  onClick={() => navigate('/inventory')}
-                  className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
-                >
-                  <div className="w-10 h-10 bg-[#34c759]/10 text-[#34c759] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#34c759] group-hover:text-white">
-                    <Plus size={20} className="stroke-[3]" />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ Inventory</span>
-                      <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-2 py-0.5 rounded-full select-none font-mono">
-                        {gear.length}/{activePlan?.maxGearItems || 50}
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
-                      Add items to your direct departments, storage rooms, or Custom Sheets.
-                    </p>
-                  </div>
-                </button>
-
-                {/* 3. +Rack */}
-                <button
-                  type="button"
-                  onClick={() => navigate('/racks')}
-                  className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
-                >
-                  <div className="w-10 h-10 bg-[#007aff]/10 text-[#007aff] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#007aff] group-hover:text-white">
-                    <Plus size={20} className="stroke-[3]" />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ Rack</span>
-                      <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-2 py-0.5 rounded-full select-none font-mono">
-                        Limit: {activePlan?.maxRacks || 1}
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
-                      Establish vertically-aligned space limits for technical hardware cases.
-                    </p>
-                  </div>
-                </button>
-
-                {/* 4. +System Build */}
-                <button
-                  type="button"
-                  onClick={() => navigate('/systems-builder')}
-                  className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
-                >
-                  <div className="w-10 h-10 bg-[#5856d6]/15 text-[#5856d6] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#5856d6] group-hover:text-white">
-                    <Plus size={20} className="stroke-[3]" />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ System Build</span>
-                      <span className="text-[10px] bg-neutral-100 text-neutral-500 font-bold px-2 py-0.5 rounded-full select-none font-mono">
-                        Limit: {activePlan?.maxProjects || 3}
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
-                      Construct and test detailed video or hybrid studio rigs.
-                    </p>
-                  </div>
-                </button>
-
-                {/* 5. +Listing */}
-                <button
-                  type="button"
-                  onClick={() => navigate('/listings')}
-                  className="p-6 bg-white rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md hover:border-neutral-200 transition-all text-left flex flex-col justify-between h-48 focus:outline-none cursor-pointer group"
-                >
-                  <div className="w-10 h-10 bg-[#ff9500]/10 text-[#ff9500] rounded-2xl flex items-center justify-center transition-colors group-hover:bg-[#ff9500] group-hover:text-white">
-                    <Plus size={20} className="stroke-[3]" />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-extrabold text-neutral-900 block text-lg tracking-tight">+ Listing</span>
-                      <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2.5 py-0.5 rounded-full select-none">
-                        Market
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-450 mt-1.5 leading-relaxed font-semibold">
-                      Publish a camera kit to our verification marketplace for rent or sales.
-                    </p>
-                  </div>
-                </button>
-
-                {/* Info & Settings Link Card */}
-                <div className="p-6 bg-primary/5 rounded-3xl border border-primary/10 flex flex-col justify-between h-48 text-left">
-                  <div className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-primary">Need Analytics?</span>
-                    <p className="text-xs text-neutral-600 leading-normal font-semibold">
-                      To view full billing reports, category piecharts, health ratios and the self-checkout Kiosk terminal, switch your dashboard preset to <strong className="font-bold">Show All</strong>.
-                    </p>
-                  </div>
-                  <Link
-                    to="/profile"
-                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1.5"
-                  >
-                    Configure In Settings <ChevronRight size={14} />
-                  </Link>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Recent Lists and Reminders */}
-            <div className="space-y-12">
-              <section className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+            {user.layoutPreferences?.showRecentLists !== false && (
+              <div className="space-y-12">
+                <section className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
                       <Package size={24} />
                     </div>
@@ -1452,38 +1467,43 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                 </section>
               )}
             </div>
+          )}
           </div>
           ) : (
             <div className="space-y-12">
-            {/* Stats Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {[
-                { label: 'Kit Value', value: `$${gearStats.totalValue.toLocaleString()}`, icon: <TrendingUp size={20} />, color: 'bg-green-500' },
-                { label: 'Audit Score', value: `${gearStats.auditScore.toFixed(0)}%`, icon: <ShieldCheck size={20} />, color: 'bg-primary' },
-                { label: 'Intensity', value: `${gearStats.usageIntensity.toFixed(1)}x`, icon: <Activity size={20} />, color: 'bg-accent' },
-                { label: 'Total Weight', value: `${(gearStats.totalWeight / 1000).toFixed(1)}kg`, icon: <TrendingUp size={20} />, color: 'bg-blue-500' },
-              ].map((stat, i) => (
-                <div key={i} className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-4">
-                  <div className={`w-10 h-10 ${stat.color} text-white rounded-xl flex items-center justify-center shadow-lg shadow-${stat.color.split('-')[1]}/20`}>
-                    {stat.icon}
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest truncate">{stat.label}</p>
-                    <h3 className="text-xl md:text-2xl font-black">{stat.value}</h3>
-                  </div>
-                </div>
-              ))}
-            </div>
+             {/* Stats Summary Cards */}
+             {user.layoutPreferences?.showStatsCards !== false && (
+               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                 {[
+                   { label: 'Kit Value', value: `$${gearStats.totalValue.toLocaleString()}`, icon: <TrendingUp size={20} />, color: 'bg-green-500' },
+                   { label: 'Audit Score', value: `${gearStats.auditScore.toFixed(0)}%`, icon: <ShieldCheck size={20} />, color: 'bg-primary' },
+                   { label: 'Intensity', value: `${gearStats.usageIntensity.toFixed(1)}x`, icon: <Activity size={20} />, color: 'bg-accent' },
+                   { label: 'Total Weight', value: `${(gearStats.totalWeight / 1000).toFixed(1)}kg`, icon: <TrendingUp size={20} />, color: 'bg-blue-500' },
+                 ].map((stat, i) => (
+                   <div key={i} className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-4">
+                     <div className={`w-10 h-10 ${stat.color} text-white rounded-xl flex items-center justify-center shadow-lg shadow-${stat.color.split('-')[1]}/20`}>
+                       {stat.icon}
+                     </div>
+                     <div className="space-y-1">
+                       <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest truncate">{stat.label}</p>
+                       <h3 className="text-xl md:text-2xl font-black">{stat.value}</h3>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             )}
 
-            <section className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center font-black">
-                    AI
-                  </div>
-                  <h2 className="text-2xl font-bold">Gear Insights</h2>
-                </div>
-              </div>
+             {user.layoutPreferences?.showDistributionChart !== false && (
+               <>
+                 <section className="space-y-6">
+                   <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-3">
+                       <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center font-black">
+                         AI
+                       </div>
+                       <h2 className="text-2xl font-bold">Gear Insights</h2>
+                     </div>
+                   </div>
               
               <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
                 {/* Category Distribution Chart */}
@@ -1674,20 +1694,23 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                 )}
               </div>
             </section>
+          </>
+        )}
 
             {/* Gear Kiosk Terminal Hub */}
-            <section className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-                    <QrCode size={20} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black uppercase tracking-tight">Kiosk Terminal Hub</h2>
-                    <p className="text-neutral-500 text-[10px] font-black uppercase tracking-widest font-sans">Self-Service Sign-out station for devices</p>
+            {user.layoutPreferences?.showKioskTerminal !== false && (
+              <section className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                      <QrCode size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black uppercase tracking-tight">Kiosk Terminal Hub</h2>
+                      <p className="text-neutral-500 text-[10px] font-black uppercase tracking-widest font-sans">Self-Service Sign-out station for devices</p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
               <div className="bg-white rounded-[2rem] border border-neutral-100 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-12">
                 <div className="p-6 sm:p-8 md:col-span-7 space-y-6 flex flex-col justify-between text-left">
@@ -1817,6 +1840,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                 </div>
               </div>
             </section>
+          )}
 
             <section className="space-y-6">
               <div className="flex items-center justify-between">

@@ -85,3 +85,34 @@ To maintain flawless rate synchronization across multi-national hire markets, ad
 ### 🔒 Marketplace Listing Permissions
 To post items or complete escrow hires, users must be associated with the appropriate subscription pricing plan. If an operator's workspace is on the **Free Tier**, clicking the listings editor dynamically prompts an **Upgrade Blockout Wall** preventing unauthorized publications until subscription standards are cleared.
 
+---
+
+## 🎨 5. Personalizing Workspace Layout & Preferences
+
+Packer Tools allows detailed control over how the application is presented on your specific account, providing a personalized experience optimized for your hardware and daily operational task load.
+
+### 🎛️ Modifying Dashboard Columns & Widgets
+You can choose to preserve real-estate by only rendering panels critical to your workflows:
+1. **Open User Settings:** Navigate to your **Profile Page** (`#/profile`).
+2. **Scroll to Dash Layout Builder:** Scroll down to the **Custom Dashboard Column & Widget Builder** card.
+3. **Toggle Active Widgets:** Switch the state indicators to enable/disable specific elements:
+   - *Performance Metric Cards:* Show/hide total kit valuations and stock summary counts.
+   - *Deployments Chart:* Toggle the visual bar diagram illustrating asset weight distributions.
+   - *Maintenance Schedules:* Toggle countdown reminders indicating overdue visual checks.
+   - *Recent Lists:* Toggle the list registry card containing latest packing lists.
+   - *Kiosk Mode Terminal:* Toggle tablet connection QR tags.
+   - *Safety Console & Fleet Dispatch:* Control heavy industrial and vehicle compliance check cards.
+4. Toggling automatically persists settings to the Firestore cloud database instantly.
+
+### ⚡ Customizing Rapid Action Triggers
+By default, the Dashboard renders various action shortcut creation buttons. You can refine this:
+1. Under **Visible Quick Actions Buttons**, simply select/uncheck specific trigger elements.
+2. Unchecked actions (such as `+ inventory` or `+ tech rack`) are dynamically hidden from your landing page, allowing a simpler, clutter-free action hub layout.
+
+### 📐 Booting with Collapsed Navigation Sidebar
+For operators functioning on lower-resolution tablets, laptop terminals, or portable visual carts:
+1. Locate the **Default Navigation Sidebar Width** selector in your configuration cards.
+2. Toggle **Start Sidebar Collapsed** to **ON**.
+3. During future app opens or system cold-boots, the sidebar will initialize in its collapsed state, affording maximum layout width from the very first rendering frame.
+
+

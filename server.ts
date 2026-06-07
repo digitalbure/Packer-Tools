@@ -841,6 +841,356 @@ app.post("/api/estimate-weight", async (req, res) => {
   }
 });
 
+// Scenario Builder Suggestion Endpoint
+app.post("/api/generate-scenario-list", async (req, res) => {
+  const { brief, gear } = req.body;
+  try {
+    const gearSummary = Array.isArray(gear)
+      ? gear.map(g => ({ id: g.id, name: g.name, category: g.primaryCategory || g.category || "" }))
+      : [];
+
+    const prompt = `You are a professional packing list builder and logistics expert. The user wants to build a packing list for a specific scenario/brief:
+    "${brief || "Solo photography session"}"
+    
+    Here is a list of existing gear items in the user's library:
+    ${JSON.stringify(gearSummary)}
+    
+    Task:
+    Analyze the user brief and the user's existing gear. Identify specific gear items from the user's library that match the brief (set their matchedGearId).
+    Also suggest recommended equipment or essential items for this gig/scenario, even if they aren't in the gear list (leave matchedGearId blank/null for these so they know they are missing/need to be sourced).
+    Make realistic suggestions tailored to the brief. Max 10 items.
+    
+    Return strictly JSON matching the response schema.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            recommendedItems: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  category: { type: Type.STRING },
+                  reason: { type: Type.STRING },
+                  quantity: { type: Type.NUMBER },
+                  estimatedWeight: { type: Type.NUMBER },
+                  weightUnit: { type: Type.STRING, enum: ["g", "kg", "lb", "oz"] },
+                  matchedGearId: { type: Type.STRING }
+                },
+                required: ["name", "category", "reason", "quantity"]
+              }
+            }
+          },
+          required: ["recommendedItems"]
+        }
+      }
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    console.error("Scenario Generator AI Error (using heuristic fallback):", error);
+
+    // Dynamic fuzzy heuristic offline builder
+    const briefLower = (brief || "").toLowerCase();
+    const recommendedItems: any[] = [];
+    const safeGear = Array.isArray(gear) ? gear : [];
+
+    // Helper to find a gear item by name fuzzy
+    const findMatch = (keywords: string[]) => {
+      return safeGear.find(g => {
+        const nameClean = (g.name || "").toLowerCase();
+        return keywords.some(k => nameClean.includes(k));
+      });
+    };
+
+    if (briefLower.includes("photo") || briefLower.includes("camera") || briefLower.includes("shoot") || briefLower.includes("wedding")) {
+      // Photo set
+      const camMatch = findMatch(["camera", "fx3", "canon", "sony", "nikon", "body"]);
+      recommendedItems.push({
+        name: camMatch ? camMatch.name : "Professional DSLR/Mirrorless Camera Body",
+        category: "Camera",
+        reason: "Primary body for capturing high-resolution photographs under varying conditions.",
+        quantity: 1,
+        estimatedWeight: 800,
+        weightUnit: "g",
+        matchedGearId: camMatch ? camMatch.id : ""
+      });
+
+      const lensMatch = findMatch(["lens", "zoom", "prime", "focal", "mm"]);
+      recommendedItems.push({
+        name: lensMatch ? lensMatch.name : "24-70mm f/2.8 Standard Zoom Lens",
+        category: "Lens",
+        reason: "Versatile zoom range suitable for portraits, wide shots, and quick tracking.",
+        quantity: 1,
+        estimatedWeight: 900,
+        weightUnit: "g",
+        matchedGearId: lensMatch ? lensMatch.id : ""
+      });
+
+      const batMatch = findMatch(["battery", "power", "charger"]);
+      recommendedItems.push({
+        name: batMatch ? batMatch.name : "High Capacity Camera Batteries",
+        category: "Power",
+        reason: "Sustained power buffer during critical continuous shooting blocks.",
+        quantity: 3,
+        estimatedWeight: 150,
+        weightUnit: "g",
+        matchedGearId: batMatch ? batMatch.id : ""
+      });
+
+      const cardMatch = findMatch(["sd", "card", "cfexpress", "memory", "storage"]);
+      recommendedItems.push({
+        name: cardMatch ? cardMatch.name : "128GB High-Speed SD Card (V60/V90)",
+        category: "Accessories",
+        reason: "High-write speed media storage to handle fast bursting and large RAW image files.",
+        quantity: 2,
+        estimatedWeight: 5,
+        weightUnit: "g",
+        matchedGearId: cardMatch ? cardMatch.id : ""
+      });
+
+      const lightMatch = findMatch(["light", "flash", "led", "aputure", "speedlight"]);
+      recommendedItems.push({
+        name: lightMatch ? lightMatch.name : "Portable Speedlight / On-Camera Flash",
+        category: "Lighting",
+        reason: "Fill-in shadow details and establish clean catchlights in portrait sessions.",
+        quantity: 1,
+        estimatedWeight: 400,
+        weightUnit: "g",
+        matchedGearId: lightMatch ? lightMatch.id : ""
+      });
+    } else if (briefLower.includes("outdoor") || briefLower.includes("hike") || briefLower.includes("trek") || briefLower.includes("camp")) {
+      // Wilderness/Adventure pack
+      const packMatch = findMatch(["backpack", "pack", "bag", "rucksack"]);
+      recommendedItems.push({
+        name: packMatch ? packMatch.name : "55L Multi-Day Adventure Expedition Pack",
+        category: "Accessories",
+        reason: "High durability frame with load distribution to carry entire payload safely.",
+        quantity: 1,
+        estimatedWeight: 1.8,
+        weightUnit: "kg",
+        matchedGearId: packMatch ? packMatch.id : ""
+      });
+
+      const tentMatch = findMatch(["tent", "tarp", "shelter"]);
+      recommendedItems.push({
+        name: tentMatch ? tentMatch.name : "3-Season Lightweight 2-Person Shelter Tent",
+        category: "Accessories",
+        reason: "Waterproof wind-resilient overnight shelter.",
+        quantity: 1,
+        estimatedWeight: 2.1,
+        weightUnit: "kg",
+        matchedGearId: tentMatch ? tentMatch.id : ""
+      });
+
+      const sleepMatch = findMatch(["sleep", "sleeping", "mat", "pad", "bag"]);
+      recommendedItems.push({
+        name: sleepMatch ? sleepMatch.name : "Insulated Sleeping Bag & Air Pad",
+        category: "Accessories",
+        reason: "Thermal regulation to maintain body heat in cold overnight drafts.",
+        quantity: 1,
+        estimatedWeight: 1.2,
+        weightUnit: "kg",
+        matchedGearId: sleepMatch ? sleepMatch.id : ""
+      });
+
+      const powerMatch = findMatch(["power", "battery", "solar", "bank"]);
+      recommendedItems.push({
+        name: powerMatch ? powerMatch.name : "10,000mAh Rugged USB Charger Power Bank",
+        category: "Power",
+        reason: "Backup battery to charge emergency GPS locator beacon, phone, and camera units.",
+        quantity: 1,
+        estimatedWeight: 220,
+        weightUnit: "g",
+        matchedGearId: powerMatch ? powerMatch.id : ""
+      });
+    } else {
+      // General dynamic fallback checklist based on generic contents
+      const genericMatch = safeGear[0];
+      recommendedItems.push({
+        name: genericMatch ? genericMatch.name : "Primary Equipment Host Device",
+        category: genericMatch ? (genericMatch.primaryCategory || "Gear") : "Gear",
+        reason: "Primary device matched from your active library directory.",
+        quantity: 1,
+        estimatedWeight: 1.5,
+        weightUnit: "kg",
+        matchedGearId: genericMatch ? genericMatch.id : ""
+      });
+
+      recommendedItems.push({
+        name: "Standard Tool Kit & Utilities",
+        category: "Accessories",
+        reason: "General purpose multi-tools, zip ties, and tape for quick adjustments.",
+        quantity: 1,
+        estimatedWeight: 500,
+        weightUnit: "g",
+        matchedGearId: ""
+      });
+
+      recommendedItems.push({
+        name: "Heavy-Duty Protective Carrying Case",
+        category: "Accessories",
+        reason: "Impact proof case for keeping device items shielded from moisture and shock.",
+        quantity: 1,
+        estimatedWeight: 3.2,
+        weightUnit: "kg",
+        matchedGearId: ""
+      });
+    }
+
+    res.json({
+      recommendedItems,
+      aiWarning: "AI Quota Exceeded. Sourced your packing list using Packer Tools smart matching heuristics."
+    });
+  }
+});
+
+// Traveller Module Itinerary Suggester Endpoint
+app.post("/api/generate-travel-itinerary", async (req, res) => {
+  const { destination, startDate, endDate, purpose, climate, transport } = req.body;
+  try {
+    const prompt = `You are a luxury travel helper and professional flight itinerary planner.
+    Destination: ${destination || "Nadi, Fiji"}
+    Dates: ${startDate || "Upcoming departure Date"} to ${endDate || "Return Date"}
+    Purpose: ${purpose || "Photography expedition"}
+    Climate Context: ${climate || "Tropical and sunny"}
+    Transport: ${transport || "Commercial flight"}
+    
+    Task:
+    Draft a fully articulated travel itinerary containing:
+    1. A day-by-day itinerary (max 4 days) showing interesting activity itineraries.
+    2. A suggested travel-specific checklist (clothes, accessories, electronics, documents, adapters) suitable for the climate & travel purpose.
+    3. Three travel reminders with offsets (e.g., -1 for 1 day before, -7 for 7 days before) to assist on documents, baggage, and packing readiness logs.
+    
+    Return strictly JSON matching the response schema.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            itineraryDays: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  dayNumber: { type: Type.NUMBER },
+                  title: { type: Type.STRING },
+                  activities: { type: Type.ARRAY, items: { type: Type.STRING } }
+                },
+                required: ["dayNumber", "title", "activities"]
+              }
+            },
+            packingChecklist: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  category: { type: Type.STRING },
+                  reason: { type: Type.STRING },
+                  quantity: { type: Type.NUMBER }
+                },
+                required: ["name", "category", "reason", "quantity"]
+              }
+            },
+            reminders: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  dueDateOffsetDays: { type: Type.NUMBER },
+                  title: { type: Type.STRING },
+                  message: { type: Type.STRING }
+                },
+                required: ["dueDateOffsetDays", "title", "message"]
+              }
+            }
+          },
+          required: ["itineraryDays", "packingChecklist", "reminders"]
+        }
+      }
+    });
+
+    res.json(JSON.parse(response.text || "{}"));
+  } catch (error: any) {
+    console.error("Travel AI Itinerary Agent Error (using heuristic fallback):", error);
+
+    // High quality offline fallback
+    const dest = destination || "Nadi, Fiji";
+    const climateDesc = climate || "Warm & Tropical";
+    
+    const itineraryDays = [
+      {
+        dayNumber: 1,
+        title: "Departure & In-Transit Settlement",
+        activities: [
+          `Arrive at airport terminals, pass visual baggage verification, security audits, and board.`,
+          `Touchdown at ${dest}, secure local ground transport, and check-in to accommodation.`,
+          `Unpack delicate electronic gear items, test equipment calibration under ${climateDesc} climate adjustment, and rest.`
+        ]
+      },
+      {
+        dayNumber: 2,
+        title: "Primary Mission / Exploration Run",
+        activities: [
+          `Morning Briefing: Coordinate travel checklists and review schedule milestones.`,
+          `Conduct full day of scheduled activities (${purpose || "Field exploration"}).`,
+          `Evening back-up run: Log visual photos/data on backup drives, clear memory units, and cycle rechargeable power cells.`
+        ]
+      },
+      {
+        dayNumber: 3,
+        title: "Secondary Excursions & Souvenir Audits",
+        activities: [
+          `Engage with local sights, communities, and landmarks around ${dest}.`,
+          `Conduct final structural shoot/exploration at golden hour.`,
+          `Final packing audit: Verify all cables, filters, adapters, and personal kits match initial luggage payload tallies.`
+        ]
+      },
+      {
+        dayNumber: 4,
+        title: "Packing-Up & Return Transit",
+        activities: [
+          `Organize all checked gear items securely back into travel suitcases or Pelican cases.`,
+          `Checkout from lodging, clear airport customs and tax-free portals.`,
+          `Return flight, and run visual post-transit inventory check-in list.`
+        ]
+      }
+    ];
+
+    const packingChecklist = [
+      { name: "Digital Travel Passport, Flight Itinerary & Boarding Pass", category: "Documents", reason: "Mandatory identification records for airport customs and airline boarding.", quantity: 1 },
+      { name: "Universal Travel Power Plug Adapter Bundle", category: "Electronics", reason: "Permits charging cameras and phone cells across overseas electrical wall configurations.", quantity: 1 },
+      { name: `Climate-Specific Wardrobe (${climateDesc})`, category: "Apparel", reason: "Appropriate attire optimized for local climate and humidity parameters.", quantity: 5 },
+      { name: "High-Density Power Bank (USB-C Power Delivery)", category: "Power", reason: "Maintains phone/locator batteries during long inter-city train or flight passages.", quantity: 1 },
+      { name: "Toiletries Kit & Daily Medication Bags", category: "Personal", reason: "Sustain hygienic health standards throughout travel blocks.", quantity: 1 }
+    ];
+
+    const reminders = [
+      { dueDateOffsetDays: -3, title: "Travel Documents Decoded", message: `Ensure your electronic visas, passport validity, and accommodation booking confirmations are printed or stored offline.` },
+      { dueDateOffsetDays: -1, title: "Batteries Safety Compliance", message: `Airline guidelines stipulate that all high-capacity lithium-ion cells must remain in your carry-on baggage. Do not pack batteries in checked-in baggage.` },
+      { dueDateOffsetDays: 0, title: "Double-check Flight Status", message: `Run a final baggage weight inspection to avoid airline over-limit penalties prior to arriving at Nadi/local airport terminals.` }
+    ];
+
+    res.json({
+      itineraryDays,
+      packingChecklist,
+      reminders,
+      aiWarning: "AI Quota Exceeded (429). Prepared local Fiji Travel guide and itinerary fallback."
+    });
+  }
+});
+
 app.post("/api/paypal/create-order", async (req, res) => {
   try {
     const { planId, amount } = req.body;
