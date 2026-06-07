@@ -374,6 +374,33 @@
         "metadata": { "type": "object" }
       },
       "required": ["userId", "actionType", "description", "timestamp"]
+    },
+    "CustomPage": {
+      "title": "Custom Page",
+      "description": "Rich content or compliance pages managed by admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "slug": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string", "enum": ["legal", "policy", "info", "other"] },
+        "status": { "type": "string", "enum": ["draft", "published"] },
+        "isVisible": { "type": "boolean" },
+        "lastUpdatedBy": { "type": "string" }
+      },
+      "required": ["slug", "title", "content", "category", "status"]
+    },
+    "MarketplaceCategory": {
+      "title": "Marketplace Category",
+      "description": "Category for rental listings.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "image": { "type": "string" }
+      },
+      "required": ["name"]
     }
   },
   "firestore": {
@@ -484,6 +511,14 @@
     "/activityLogs/{logId}": {
       "schema": "ActivityLog",
       "description": "Audit trails for user actions across tools"
+    },
+    "/pages/{pageId}": {
+      "schema": "CustomPage",
+      "description": "Static content pages for terms of service, privacy, etc."
+    },
+    "/marketplaceCategories/{categoryId}": {
+      "schema": "MarketplaceCategory",
+      "description": "Marketplace gear categories."
     }
   }
 }

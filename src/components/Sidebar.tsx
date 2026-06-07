@@ -167,6 +167,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
   const profileNavItems = [
     // Section: Identity
     { id: 'about', label: 'About Me', section: 'Identity', icon: <User size={18} /> },
+    { id: 'kyc', label: 'Business & KYC (Fiji)', section: 'Identity', icon: <ShieldCheck size={18} /> },
     { id: 'connect', label: 'Connect & Socials', section: 'Identity', icon: <Globe size={18} /> },
     
     // Section: Workspace Prefs

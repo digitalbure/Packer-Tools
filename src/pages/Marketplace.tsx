@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings } from '../types';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { 
   Search, 
@@ -171,6 +171,8 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
         count: 0
       }));
       setDbCategories(docs);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'marketplaceCategories');
     });
     return () => unsub();
   }, []);
@@ -211,7 +213,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       }).filter(item => item.moderationStatus !== 'suspended');
       setUserListings(dbListings);
     }, (error) => {
-      console.error("Marketplace: Error loading custom listings:", error);
+      handleFirestoreError(error, OperationType.LIST, 'packingLists (marketplaceEnabled)');
     });
     return () => unsubscribe();
   }, []);

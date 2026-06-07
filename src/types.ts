@@ -147,6 +147,14 @@ export interface UserProfile {
   storeInstagram?: string;
   storeLinkedin?: string;
   storeFacebook?: string;
+  // Fiji Business & FRCS KYC Compliance fields
+  fijiBusinessStatus?: 'not_started' | 'registered' | 'platform_representation';
+  fijiFrcsTin?: string;
+  fijiBusinessLicenseNumber?: string;
+  fijiBusinessRegisteredName?: string;
+  fijiBusinessType?: 'sole_trader' | 'partnership' | 'company' | 'cooperative';
+  fijiUsePlatformBusinessLicense?: boolean;
+  fijiAllowPackerListToList?: boolean;
   activeWorkspaceId?: string;
   workspaces?: Workspace[];
   selectedIndustry?: string;

@@ -248,6 +248,16 @@ service cloud.firestore {
       allow write: if isAdmin() && isValidPlan(request.resource.data);
     }
 
+    match /marketplaceCategories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /pages/{pageId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /racks/{rackId} {
       allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
       allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid && isValidRack(request.resource.data);

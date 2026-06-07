@@ -2193,6 +2193,11 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const renderMarketplaceSetup = (item: GearItem, setItem: (updatedItem: GearItem) => void) => {
     const isMarketplaceEnabled = item.secondaryCategories?.includes('Rentable') || false;
 
+    // Fiji FRCS compliance check
+    const hasPlatformRepresentation = user.fijiBusinessStatus === 'platform_representation' || user.fijiUsePlatformBusinessLicense === true;
+    const hasRegisteredBusiness = user.fijiBusinessStatus === 'registered' || (!!user.fijiBusinessRegisteredName && !!user.fijiBusinessLicenseNumber);
+    const hasVerifiedListerOption = hasRegisteredBusiness || hasPlatformRepresentation || user.fijiAllowPackerListToList === true;
+
     // Helper to add addon
     const handleAddAddOn = () => {
       let addonName = '';
@@ -2261,6 +2266,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               type="checkbox" 
               checked={isMarketplaceEnabled}
               onChange={(e) => {
+                if (e.target.checked && !hasVerifiedListerOption) {
+                  toast.error("Fiji Compliance Required: Register your FRCS business info or select Platform Representation in your User Profile under Business & KYC tab first!");
+                  return;
+                }
                 const list = item.secondaryCategories || [];
                 const updatedCategories = e.target.checked 
                   ? [...list, 'Rentable']
@@ -2277,6 +2286,28 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             <div className="w-11 h-6 bg-neutral-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0044cc]"></div>
           </label>
         </div>
+
+        {/* Fiji FRCS Compliance Banner */}
+        {hasVerifiedListerOption && (
+          <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 flex flex-col gap-1 text-[11px] font-medium leading-relaxed">
+            {hasRegisteredBusiness ? (
+              <span className="text-[#002f6c] font-bold flex items-center gap-1.5">
+                🇫🇯 Compliant Direct Storefront Listing
+              </span>
+            ) : hasPlatformRepresentation ? (
+              <span className="text-amber-600 font-bold flex items-center gap-1.5 animate-pulse">
+                🇫🇯 Compliant Platform represented (Subject to 10% platform fee)
+              </span>
+            ) : (
+              <span className="text-neutral-500 font-bold flex items-center gap-1.5">
+                🇫🇯 Verified Listing (Authorized sub-lister)
+              </span>
+            )}
+            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
+              Registered Business: {user.fijiBusinessRegisteredName || "Platform Representative"}
+            </p>
+          </div>
+        )}
 
         {isMarketplaceEnabled ? (
           <div className="space-y-6 animate-fadeIn font-sans">

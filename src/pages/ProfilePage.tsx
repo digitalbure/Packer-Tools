@@ -82,6 +82,16 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
   const [isSubmittingKyc, setIsSubmittingKyc] = useState(false);
   const [isSavingStore, setIsSavingStore] = useState(false);
 
+  // Fiji Business Setup & FRCS Compliance KYC state fields
+  const [fijiBusinessStatus, setFijiBusinessStatus] = useState<'not_started' | 'registered' | 'platform_representation'>(user.fijiBusinessStatus || 'not_started');
+  const [fijiFrcsTin, setFijiFrcsTin] = useState(user.fijiFrcsTin || '');
+  const [fijiBusinessLicenseNumber, setFijiBusinessLicenseNumber] = useState(user.fijiBusinessLicenseNumber || '');
+  const [fijiBusinessRegisteredName, setFijiBusinessRegisteredName] = useState(user.fijiBusinessRegisteredName || '');
+  const [fijiBusinessType, setFijiBusinessType] = useState<'sole_trader' | 'partnership' | 'company' | 'cooperative'>(user.fijiBusinessType || 'sole_trader');
+  const [fijiUsePlatformBusinessLicense, setFijiUsePlatformBusinessLicense] = useState<boolean>(user.fijiUsePlatformBusinessLicense || false);
+  const [fijiAllowPackerListToList, setFijiAllowPackerListToList] = useState<boolean>(user.fijiAllowPackerListToList || false);
+  const [isSavingKycFiji, setIsSavingKycFiji] = useState(false);
+
   const handleSaveStoreProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingStore(true);
@@ -112,6 +122,35 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
       toast.error("Failed to persist shopfront settings.");
     } finally {
       setIsSavingStore(false);
+    }
+  };
+
+  const handleSaveFijiKyc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingKycFiji(true);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const updateData = {
+        fijiBusinessStatus,
+        fijiFrcsTin,
+        fijiBusinessLicenseNumber,
+        fijiBusinessRegisteredName,
+        fijiBusinessType,
+        fijiUsePlatformBusinessLicense,
+        fijiAllowPackerListToList,
+        kycStatus: (fijiBusinessStatus !== 'not_started' ? 'verified' : 'not_started') as 'not_started' | 'pending' | 'verified' | 'rejected',
+      };
+      await updateDoc(userRef, updateData);
+      onUpdate({
+        ...user,
+        ...updateData
+      });
+      toast.success("Fiji FRCS Business Compliance details saved successfully!");
+    } catch (err) {
+      console.error("Error saving Fiji KYC profile:", err);
+      toast.error("Failed to persist compliance settings.");
+    } finally {
+      setIsSavingKycFiji(false);
     }
   };
 
@@ -2131,6 +2170,209 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
         </div>
       </section>
       )}
+
+        {activeTab === 'kyc' && (
+          <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8 animate-fade-in animate-duration-300">
+            <header className="space-y-1">
+              <span className="micro-label bg-[#002f6c] text-white border border-[#002f6c] px-3 py-1 rounded-full inline-block font-black uppercase tracking-wider">
+                🇫🇯 FRCS compliance desk
+              </span>
+              <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3 text-neutral-900 pt-2">
+                <ShieldCheck className="text-[#002f6c] shrink-0" />
+                <span>Fiji Business Setup & KYC</span>
+              </h3>
+              <p className="text-xs text-neutral-500 font-semibold leading-relaxed">
+                Configure your Business Registry options to comply with the Fiji Revenue and Customs Service (FRCS) and Packer List compliance requirements.
+              </p>
+            </header>
+
+            <form onSubmit={handleSaveFijiKyc} className="space-y-6">
+              {/* Compliance Warning banner */}
+              <div className="p-5 bg-gradient-to-r from-[#002f6c]/5 to-primary/5 border border-[#002f6c]/10 rounded-2xl space-y-2">
+                <h4 className="text-xs font-black uppercase tracking-wider text-[#002f6c] flex items-center gap-2">
+                  <span>ℹ️ Fiji Market Governance Notice</span>
+                </h4>
+                <p className="text-[11px] text-neutral-600 font-medium leading-relaxed">
+                  As we establish the first equipment sharing & asset management community centered in <strong>Fiji</strong>, all store operators must operate within Fiji's business registration framework. Renting out equipment without declaring business setup or registered license details is restricted. Non-licensed entities can securely utilize the Packer List Platform license in representation mode.
+                </p>
+              </div>
+
+              {/* Selection for Business Registry */}
+              <div className="space-y-3">
+                <label className="text-[10px] uppercase font-black tracking-widest text-neutral-400 block">FRCS Registry Option</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
+                  {/* Option 2: Registered Business */}
+                  <label className={`p-5 rounded-2xl border flex flex-col justify-between cursor-pointer transition ${fijiBusinessStatus === 'registered' ? 'bg-[#002f6c]/5 border-[#002f6c] ring-1 ring-[#002f6c]' : 'bg-white border-neutral-200 hover:border-neutral-300'}`}>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2.5">
+                        <input 
+                          type="radio" 
+                          name="fijiBusinessStatus" 
+                          value="registered" 
+                          checked={fijiBusinessStatus === 'registered'}
+                          onChange={() => {
+                            setFijiBusinessStatus('registered');
+                            setFijiUsePlatformBusinessLicense(false);
+                          }}
+                          className="text-[#002f6c] focus:ring-[#002f6c]"
+                        />
+                        <span className="font-extrabold text-xs text-neutral-900 uppercase tracking-wider">Independent Registered Business</span>
+                      </div>
+                      <p className="text-[10px] text-neutral-500 leading-relaxed pl-6">
+                        I hold a valid Fiji Business License or registration under FRCS. I will list and transact under my business license.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Option 1: No Business License - Platform Representation */}
+                  <label className={`p-5 rounded-2xl border flex flex-col justify-between cursor-pointer transition ${fijiBusinessStatus === 'platform_representation' ? 'bg-[#ff4f3a]/5 border-[#ff4f3a] ring-1 ring-[#ff4f3a]' : 'bg-white border-neutral-200 hover:border-neutral-300'}`}>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2.5">
+                        <input 
+                          type="radio" 
+                          name="fijiBusinessStatus" 
+                          value="platform_representation" 
+                          checked={fijiBusinessStatus === 'platform_representation'}
+                          onChange={() => {
+                            setFijiBusinessStatus('platform_representation');
+                            setFijiUsePlatformBusinessLicense(true);
+                          }}
+                          className="text-[#ff4f3a] focus:ring-[#ff4f3a]"
+                        />
+                        <span className="font-extrabold text-xs text-neutral-900 uppercase tracking-wider">Use Platform Representation License</span>
+                      </div>
+                      <p className="text-[10px] text-neutral-500 leading-relaxed pl-6">
+                        I do NOT have a business license. I grant Packer List permission to list on my behalf which incurs a platform service handling fee.
+                      </p>
+                    </div>
+                  </label>
+
+                </div>
+              </div>
+
+              {/* Conditional Sub-info */}
+              {fijiBusinessStatus === 'registered' && (
+                <div className="p-6 bg-neutral-50 rounded-2xl border border-neutral-200/50 space-y-4 animate-fade-in">
+                  <span className="text-[10px] font-black uppercase tracking-wide text-[#002f6c]">Registered Business Credentials (FRCS Compliance)</span>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Registered Business Name</label>
+                      <input 
+                        type="text"
+                        placeholder="e.g. Suva Tech Hire Service"
+                        value={fijiBusinessRegisteredName}
+                        onChange={(e) => setFijiBusinessRegisteredName(e.target.value)}
+                        required={fijiBusinessStatus === 'registered'}
+                        className="w-full px-4 py-3 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#002f6c] outline-none transition text-xs font-bold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Fiji Business License No.</label>
+                      <input 
+                        type="text"
+                        placeholder="e.g. BL-2026-9481"
+                        value={fijiBusinessLicenseNumber}
+                        onChange={(e) => setFijiBusinessLicenseNumber(e.target.value)}
+                        required={fijiBusinessStatus === 'registered'}
+                        className="w-full px-4 py-3 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#002f6c] outline-none transition text-xs font-bold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">FRCS Taxpayer Identification No. (TIN)</label>
+                      <input 
+                        type="text"
+                        placeholder="e.g. 50-12345-0-9"
+                        value={fijiFrcsTin}
+                        onChange={(e) => setFijiFrcsTin(e.target.value)}
+                        required={fijiBusinessStatus === 'registered'}
+                        className="w-full px-4 py-3 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#002f6c] outline-none transition text-xs font-bold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Entity Type</label>
+                      <select 
+                        value={fijiBusinessType}
+                        onChange={(e: any) => setFijiBusinessType(e.target.value)}
+                        className="w-full px-4 py-3 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-[#002f6c] outline-none transition text-xs font-bold"
+                      >
+                        <option value="sole_trader">Sole Trader</option>
+                        <option value="partnership">Partnership</option>
+                        <option value="company">Registered Company</option>
+                        <option value="cooperative">Cooperative Group</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {fijiBusinessStatus === 'platform_representation' && (
+                <div className="p-6 bg-red-50/50 border border-neutral-250 rounded-2xl space-y-4 animate-fade-in text-left">
+                  <span className="text-[10px] font-black uppercase tracking-wide text-[#ff4f3a] flex items-center gap-2">
+                    <AlertCircle size={14} />
+                    <span>Platform Representation Terms & Service Fees</span>
+                  </span>
+                  <div className="space-y-2 text-[11px] text-neutral-600 leading-relaxed font-medium">
+                    <p>
+                      Packer List will register representing logistics with FRCS. To utilize this mechanism:
+                    </p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>A 10% representation fee is automatically withheld from payouts.</li>
+                      <li>You act as a sub-lister. All payments are compiled under Packer List’s legal framework.</li>
+                    </ul>
+                    <div className="pt-2 flex items-center gap-2.5">
+                      <input 
+                        type="checkbox" 
+                        id="fijiUsePlatformBusinessLicense"
+                        checked={fijiUsePlatformBusinessLicense}
+                        onChange={(e) => setFijiUsePlatformBusinessLicense(e.target.checked)}
+                        className="rounded text-primary focus:ring-0"
+                      />
+                      <label htmlFor="fijiUsePlatformBusinessLicense" className="font-bold text-neutral-800 cursor-pointer">
+                        I acknowledge and accept the 10% Service Handling Fee for platform license usage.
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Extra Verification Toggle */}
+              <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-100/80 flex items-start gap-4">
+                <input 
+                  type="checkbox" 
+                  id="fijiAllowPackerListToList"
+                  disabled={fijiBusinessStatus === 'registered'}
+                  checked={fijiAllowPackerListToList || fijiBusinessStatus === 'registered'}
+                  onChange={(e) => setFijiAllowPackerListToList(e.target.checked)}
+                  className="rounded text-[#002f6c] focus:ring-0 mt-1"
+                />
+                <div className="space-y-1">
+                  <label htmlFor="fijiAllowPackerListToList" className="text-xs font-black uppercase tracking-wider text-neutral-800 block cursor-pointer">
+                    No Direct Storefront (Allow Packer List to List & Verify)
+                  </label>
+                  <p className="text-[10px] text-neutral-500 font-bold uppercase leading-relaxed">
+                    If unchecked, users can own their storefront only if they possess an active business registration. Check this option to authorize Packer List Support to list and manage your listings on your behalf after a verification audit.
+                  </p>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <button
+                type="submit"
+                disabled={isSavingKycFiji}
+                className="w-full py-4 bg-[#002f6c] text-white rounded-2xl font-black uppercase tracking-widest hover:bg-[#002f6c]/90 transition shadow-xl flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {isSavingKycFiji ? 'Processing FRCS Verification...' : (
+                  <>
+                    <Save size={18} />
+                    <span>Save Compliance Profiles</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </section>
+        )}
       </motion.div>
 
       <PaymentModal

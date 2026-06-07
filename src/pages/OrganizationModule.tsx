@@ -995,17 +995,17 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
       />
 
       {/* Header with Switcher */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:flex-wrap">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => setShowSelector(true)}
-            className="w-12 h-12 bg-neutral-100 flex items-center justify-center rounded-2xl text-neutral-400 hover:text-neutral-900 transition shadow-sm active:scale-95"
+            className="w-12 h-12 bg-neutral-100 flex items-center justify-center rounded-2xl text-neutral-400 hover:text-neutral-900 transition shadow-sm active:scale-95 animate-fade-in shrink-0"
             title="Switch Workspace"
           >
             <LayoutDashboard size={24} />
           </button>
           
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6 min-w-0">
             <div 
               className="w-16 h-16 md:w-20 md:h-20 text-white rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center shadow-2xl relative group cursor-pointer shrink-0"
               style={{ backgroundColor: orgColor }}
@@ -1018,8 +1018,8 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tighter leading-none truncate">{org?.name}</h1>
-                <div className="relative group">
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-tighter leading-none truncate">{org?.name}</h1>
+                <div className="relative group shrink-0">
                   <button 
                     onClick={() => setShowSelector(!showSelector)}
                     className="p-1.5 bg-neutral-100 rounded-lg hover:bg-neutral-200 transition"
@@ -1035,12 +1035,12 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
           </div>
         </div>
 
-        <div className="flex items-center gap-2 p-1 bg-neutral-100 rounded-2xl md:rounded-3xl overflow-x-auto scrollbar-hide shrink-0 max-w-full">
+        <div className="flex items-center gap-1.5 p-1 bg-neutral-100 rounded-2xl md:rounded-3xl overflow-x-auto scrollbar-hide max-w-full">
           {(['overview', 'structure', 'members', 'permissions', 'terminals', 'api', 'settings'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-3.5 py-2 md:px-5 md:py-2.5 lg:px-6 lg:py-3 rounded-xl lg:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                 activeTab === tab 
                   ? 'bg-neutral-900 text-white shadow-lg translate-y-[-2px]' 
                   : 'text-neutral-400 hover:text-neutral-600'
