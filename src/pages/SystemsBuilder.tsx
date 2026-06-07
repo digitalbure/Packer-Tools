@@ -156,6 +156,41 @@ export default function SystemsBuilder({ user }: { user: UserProfile }) {
     localStorage.setItem('systems_imported_suppliers', JSON.stringify(importedSuppliers));
   }, [importedSuppliers]);
 
+  // App-wide Auto save & disrupted session recovery for Systems Projects & AI spec inputs
+  useEffect(() => {
+    if (user?.uid) {
+      const savedBuildName = localStorage.getItem(`systems_autosave_name_${user.uid}`);
+      if (savedBuildName) {
+        setNewBuildName(savedBuildName);
+        toast.info("Resumed disrupted systems project name draft.");
+      }
+      
+      const savedBuildDesc = localStorage.getItem(`systems_autosave_desc_${user.uid}`);
+      if (savedBuildDesc) setNewBuildDesc(savedBuildDesc);
+
+      const savedAiInput = localStorage.getItem(`systems_autosave_ai_${user.uid}`);
+      if (savedAiInput) setAiInput(savedAiInput);
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (user?.uid) {
+      localStorage.setItem(`systems_autosave_name_${user.uid}`, newBuildName);
+    }
+  }, [newBuildName, user?.uid]);
+
+  useEffect(() => {
+    if (user?.uid) {
+      localStorage.setItem(`systems_autosave_desc_${user.uid}`, newBuildDesc);
+    }
+  }, [newBuildDesc, user?.uid]);
+
+  useEffect(() => {
+    if (user?.uid) {
+      localStorage.setItem(`systems_autosave_ai_${user.uid}`, aiInput);
+    }
+  }, [aiInput, user?.uid]);
+
   // Sync Systems design projects list
   useEffect(() => {
     if (!user.uid) return;
@@ -266,6 +301,11 @@ export default function SystemsBuilder({ user }: { user: UserProfile }) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
+      // Clear auto-saved draft build name and description
+      if (user?.uid) {
+        localStorage.removeItem(`systems_autosave_name_${user.uid}`);
+        localStorage.removeItem(`systems_autosave_desc_${user.uid}`);
+      }
       setNewBuildName('');
       setNewBuildDesc('');
       setShowCreateModal(false);
@@ -408,6 +448,9 @@ export default function SystemsBuilder({ user }: { user: UserProfile }) {
       };
 
       await handleAddItemToSandbox(parsedItemSpec);
+      if (user?.uid) {
+        localStorage.removeItem(`systems_autosave_ai_${user.uid}`);
+      }
       setAiInput('');
       toast.success("Intelligence Copilot successfully cataloged device payload & specifications!");
     } catch (e) {
@@ -419,6 +462,9 @@ export default function SystemsBuilder({ user }: { user: UserProfile }) {
         quantity: 1,
         type: 'component'
       });
+      if (user?.uid) {
+        localStorage.removeItem(`systems_autosave_ai_${user.uid}`);
+      }
       setAiInput('');
     } finally {
       setIsAiAnalyzing(false);

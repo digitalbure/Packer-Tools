@@ -281,6 +281,35 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
     }
   }, [loading, gear, maintenanceAlerts]);
 
+  // App-wide Auto save & disrupted session recovery for newly created list & bug report draft
+  useEffect(() => {
+    if (user?.uid) {
+      const savedListName = localStorage.getItem(`packer_autosave_newlist_${user.uid}`);
+      if (savedListName) {
+        setNewListName(savedListName);
+        toast.info("Resumed disrupted list draft name.");
+      }
+      const savedBugTitle = localStorage.getItem(`packer_autosave_bugtitle_${user.uid}`);
+      if (savedBugTitle) setNewBugTitle(savedBugTitle);
+
+      const savedBugDesc = localStorage.getItem(`packer_autosave_bugdesc_${user.uid}`);
+      if (savedBugDesc) setNewBugDesc(savedBugDesc);
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (user?.uid) {
+      localStorage.setItem(`packer_autosave_newlist_${user.uid}`, newListName);
+    }
+  }, [newListName, user?.uid]);
+
+  useEffect(() => {
+    if (user?.uid) {
+      localStorage.setItem(`packer_autosave_bugtitle_${user.uid}`, newBugTitle);
+      localStorage.setItem(`packer_autosave_bugdesc_${user.uid}`, newBugDesc);
+    }
+  }, [newBugTitle, newBugDesc, user?.uid]);
+
   const handleRecordItemMaintenanceDoc = async (itemId: string, itemName: string) => {
     try {
       await updateDoc(doc(db, 'users', user.uid, 'gearLibrary', itemId), {
@@ -490,6 +519,10 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         `Created packing list "${newListName}"`,
         { listId: docRef.id, listName: newListName }
       );
+      // Clear auto-saved draft list on successful creation
+      if (user?.uid) {
+        localStorage.removeItem(`packer_autosave_newlist_${user.uid}`);
+      }
       setNewListName('');
       setIsCreating(false);
       navigate(`/list/${docRef.id}`);
