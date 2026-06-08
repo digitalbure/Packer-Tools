@@ -34,8 +34,15 @@ try {
 export const db = dbInstance;
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('https://www.googleapis.com/auth/chat');
 
 let isSigningIn = false;
+let cachedAccessToken: string | null = null;
+
+export const getAccessToken = () => cachedAccessToken;
+export const setAccessToken = (token: string | null) => {
+  cachedAccessToken = token;
+};
 
 export const signInWithGoogle = async () => {
   if (isSigningIn) {
@@ -45,6 +52,12 @@ export const signInWithGoogle = async () => {
   isSigningIn = true;
   try {
     const result = await signInWithPopup(auth, googleProvider);
+    if (result) {
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        cachedAccessToken = credential.accessToken;
+      }
+    }
     return result;
   } catch (error: any) {
     if (error.code === 'auth/popup-closed-by-user') {
@@ -103,6 +116,7 @@ export const signInWithGoogle = async () => {
 
 export const logout = () => {
   localStorage.removeItem('packer_demo_bypass');
+  cachedAccessToken = null;
   return signOut(auth);
 };
 

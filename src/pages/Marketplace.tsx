@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings } from '../types';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, signInWithGoogle } from '../firebase';
+import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDocs } from 'firebase/firestore';
+import PackerLogo from '../components/PackerLogo';
+import PickupDropoffWidget, { PickupDropoffState } from '../components/PickupDropoffWidget';
 import { 
   Search, 
   MapPin, 
@@ -253,13 +255,15 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     ? availableCountries.includes(user.country)
     : true;
 
-  const [locationQuery, setLocationQuery] = useState(isFiji ? 'Suva, Fiji' : 'Los Angeles, CA');
+  const [locationQuery, setLocationQuery] = useState(user?.location || (isFiji ? 'Suva, Fiji' : 'Los Angeles, CA'));
 
   useEffect(() => {
-    if (isFiji) {
+    if (user?.location) {
+      setLocationQuery(user.location);
+    } else if (isFiji) {
       setLocationQuery('Suva, Fiji');
     } else {
-      setLocationQuery(user?.location || 'Los Angeles, CA');
+      setLocationQuery('Los Angeles, CA');
     }
   }, [isFiji, user?.location]);
 
@@ -296,8 +300,75 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   const [rentEndDate, setRentEndDate] = useState(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
   const [rentTime, setRentTime] = useState('09:00');
   const [selectedAddOns, setSelectedAddOns] = useState<Set<number>>(new Set());
+  const [pickupDropoffState, setPickupDropoffState] = useState<PickupDropoffState | null>(null);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [crewMessageText, setCrewMessageText] = useState('');
+
+  // List Your Gear State Management
+  const [isListGearModalOpen, setIsListGearModalOpen] = useState(false);
+  const [userOwnLists, setUserOwnLists] = useState<any[]>([]);
+  const [userProjects, setUserProjects] = useState<any[]>([]);
+  const [loadingListsAndProjects, setLoadingListsAndProjects] = useState(false);
+  const [listingPriceMap, setListingPriceMap] = useState<{ [id: string]: number }>({});
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+  const handleOpenListGear = async () => {
+    setIsListGearModalOpen(true);
+    if (!user) return; // Unregistered doesn't need to load
+    if (user.kycStatus !== 'verified') return; // Unverified doesn't need to load lists yet
+
+    setLoadingListsAndProjects(true);
+    try {
+      // 1. Fetch Packing Lists
+      const qLists = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid));
+      const snapLists = await getDocs(qLists);
+      const listsData = snapLists.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setUserOwnLists(listsData);
+
+      // Initialize default pricing inputs for those lists
+      const pMap: { [id: string]: number } = {};
+      listsData.forEach((l: any) => {
+        pMap[l.id] = Number(l.marketplacePrice || l.price || 150);
+      });
+      setListingPriceMap(pMap);
+
+      // 2. Fetch Projects
+      const qProjects = query(collection(db, 'projects'), where('ownerId', '==', user.uid));
+      const snapProjects = await getDocs(qProjects);
+      const projectsData = snapProjects.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setUserProjects(projectsData);
+    } catch (err) {
+      console.error("Error loading user lists/projects:", err);
+      toast.error("Could not load your lists and projects.");
+    } finally {
+      setLoadingListsAndProjects(false);
+    }
+  };
+
+  const handleToggleMarketplace = async (listId: string, enabled: boolean) => {
+    const specifiedPrice = listingPriceMap[listId] || 150;
+    try {
+      const listRef = doc(db, 'packingLists', listId);
+      await updateDoc(listRef, {
+        marketplaceEnabled: enabled,
+        marketplacePrice: specifiedPrice,
+        transactionType: 'rent',
+        moderationStatus: 'approved'
+      });
+      toast.success(enabled ? `Listed on Marketplace for $${specifiedPrice}/day!` : "Removed from Marketplace.");
+      
+      setUserOwnLists(prev => prev.map(l => l.id === listId ? { ...l, marketplaceEnabled: enabled, marketplacePrice: specifiedPrice } : l));
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not update listing preference.");
+    }
+  };
 
   // Automatically calculate custom rental duration bookingDays based on selected dates
   useEffect(() => {
@@ -432,7 +503,21 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
         damageWaiver: taxAndTotal.damageWaiver,
         taxPercent: taxAndTotal.taxPercent,
         isTaxInclusive: taxAndTotal.isInclusive,
-        transactionType: selectedProduct.isSale ? 'sale' : 'rent'
+        transactionType: selectedProduct.isSale ? 'sale' : 'rent',
+        pickupDropoff: pickupDropoffState ? {
+          pickupType: pickupDropoffState.pickupType,
+          pickupLocationId: pickupDropoffState.pickupLocationId,
+          pickupCustomAddress: pickupDropoffState.pickupCustomAddress,
+          pickupTimeSlot: pickupDropoffState.pickupTimeSlot,
+          pickupNotes: pickupDropoffState.pickupNotes,
+          dropoffType: pickupDropoffState.dropoffType,
+          dropoffLocationId: pickupDropoffState.dropoffLocationId,
+          dropoffCustomAddress: pickupDropoffState.dropoffCustomAddress,
+          dropoffTimeSlot: pickupDropoffState.dropoffTimeSlot,
+          dropoffNotes: pickupDropoffState.dropoffNotes,
+          distanceKm: pickupDropoffState.distanceKm,
+          transitCost: pickupDropoffState.transitCost,
+        } : null
       };
       
       await addDoc(collection(db, 'gearBookings'), bookingData);
@@ -444,6 +529,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     } finally {
       setIsBookingModalOpen(false);
       setSelectedProduct(null);
+      setPickupDropoffState(null);
     }
   };
 
@@ -549,9 +635,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
         {/* Compact custom header row specifying live workspace shift */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-neutral-100">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#ff4f3a] flex items-center justify-center font-black text-white text-base shadow-sm">
-              P
-            </div>
+            <PackerLogo variant="symbol-only" size={32} />
             <div>
               <span className="font-extrabold uppercase tracking-widest text-[#ff4f3a] text-[9px] block font-mono">Peer-To-Peer Hire</span>
               <span className="font-bold uppercase tracking-wider text-sm text-neutral-900 block -mt-0.5">Packer Marketplace</span>
@@ -757,22 +841,28 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                   <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Pickup Preference</label>
                   <div className="grid grid-cols-3 gap-1.5">
                     <button 
-                      onClick={() => toast.success("Pickup selected")}
+                      onClick={() => toast.success("Pickup & Shipping option prioritized!")}
                       className="px-2 py-1.5 bg-neutral-900 border border-neutral-800 text-[9px] font-extrabold uppercase rounded-lg text-[#ff4f3a]"
                     >
                       Pickup + Ship
                     </button>
                     <button 
                       onClick={() => {
-                        setLocationQuery('Los Angeles, CA');
-                        toast.success("Default Location set to LA.");
+                        if (user?.location) {
+                          setLocationQuery(user.location);
+                          toast.success(`Filtered for listings near your location: ${user.location}`);
+                        } else {
+                          toast.error("Set your custom location under User Profile first!");
+                        }
                       }}
-                      className="px-2 py-1.5 bg-neutral-900 border border-neutral-800 text-[9px] font-extrabold uppercase rounded-lg text-neutral-300"
+                      className={`px-2 py-1.5 bg-neutral-900 border border-neutral-800 text-[9px] font-extrabold uppercase rounded-lg transition ${
+                        user?.location && locationQuery === user.location ? 'text-[#ff4f3a] border-[#ff4f3a]/20' : 'text-neutral-300'
+                      }`}
                     >
-                      LA Range
+                      {user?.location ? `Near ${user.location.split(',')[0]}` : 'Near Me'}
                     </button>
                     <button 
-                      onClick={() => toast.success("Interactive date ranges enabled.")}
+                      onClick={() => toast.success("Refined interactive schedules enabled.")}
                       className="px-2 py-1.5 bg-neutral-900 border border-neutral-800 text-[9px] font-extrabold uppercase rounded-lg text-neutral-300"
                     >
                       Select Dates
@@ -1859,14 +1949,14 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
             <div className="space-y-3.5 pt-4">
               <button
-                onClick={() => toast.success("Owner gear-onboarding wizard loaded! Ready to add new listing record.")}
+                onClick={handleOpenListGear}
                 className="inline-flex bg-[#ff4f3a] hover:bg-[#e43f2a] hover:scale-[1.02] text-white font-black text-xs uppercase tracking-widest px-10 py-4 rounded-xl shadow-xl transition"
               >
                 List your gear
               </button>
               <div className="flex justify-center gap-6 text-[9.5px] font-black uppercase tracking-wider text-neutral-450 text-neutral-500">
-                <span onClick={() => toast.info("Opening informational handbook.")} className="cursor-pointer hover:text-black transition underline">Learn about renting</span>
-                <span onClick={() => toast.info("Listing fee terms: 5% flat fee on finalized sales.")} className="cursor-pointer hover:text-black transition underline">Learn about selling</span>
+                <span onClick={() => { navigate('/help?category=packer-tools-academy'); toast.info("Renting guides loaded in Help Center!"); }} className="cursor-pointer hover:text-black transition underline">Learn about renting</span>
+                <span onClick={() => { navigate('/help?category=getting-started'); toast.info("Selling policies loaded in Help Center!"); }} className="cursor-pointer hover:text-black transition underline">Learn about selling</span>
               </div>
             </div>
 
@@ -2095,6 +2185,12 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                       />
                     </div>
 
+                    {/* Customizable Pickup and Dropoff Widget */}
+                    <div className="space-y-1 text-left">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Dispatch Routing Logistics</label>
+                      <PickupDropoffWidget onChange={setPickupDropoffState} />
+                    </div>
+
                     {/* Optional Rental Add-ons Checklist */}
                     {selectedProduct.addOns && selectedProduct.addOns.length > 0 && (
                       <div className="space-y-2 border-t border-neutral-100 pt-3 text-left">
@@ -2314,6 +2410,211 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 11. LIST YOUR GEAR OVERLAY DIALOG */}
+      <AnimatePresence>
+        {isListGearModalOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 sm:p-8 max-w-2xl w-full text-white space-y-6 shadow-2xl relative"
+            >
+              <button
+                onClick={() => setIsListGearModalOpen(false)}
+                className="absolute top-4 right-4 text-neutral-400 hover:text-white p-2 rounded-xl transition"
+              >
+                <X size={20} />
+              </button>
+
+              {/* Option 1: Unregistered User */}
+              {!user && (
+                <div className="space-y-6 text-center py-6">
+                  <div className="w-16 h-16 bg-rose-500/10 text-[#ff4f3a] rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+                    <UserCheck size={32} />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-black uppercase tracking-tight">Create an Account to List Equipment</h3>
+                    <p className="text-xs text-neutral-400 leading-relaxed max-w-md mx-auto uppercase font-bold tracking-wider">
+                      Our secure peer-to-peer visual gear workspace requires registered profiles. Sign in with Google to establish your shopfront.
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await signInWithGoogle();
+                        setIsListGearModalOpen(false);
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 bg-[#ff4f3a] hover:bg-[#e43f2a] text-white font-black text-xs uppercase tracking-widest px-8 py-3.5 rounded-xl shadow-lg transition"
+                  >
+                    <Globe size={14} />
+                    <span>Sign In with Google</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Option 2: Registered User but Unverified KYC */}
+              {user && user.kycStatus !== 'verified' && (
+                <div className="space-y-6 text-center py-6">
+                  <div className="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+                    <ShieldAlert size={32} />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-black uppercase tracking-tight">Identity & Business Setup Required</h3>
+                    <p className="text-xs text-neutral-400 leading-relaxed max-w-md mx-auto uppercase font-bold tracking-wider">
+                      Current KYC Status: <span className="text-amber-500 font-extrabold">{user.kycStatus || 'not_started'}</span>
+                    </p>
+                    <p className="text-xs text-neutral-400 leading-relaxed max-w-md mx-auto">
+                      Under administrative guidelines, all active lenders in the region must verify business ownership, license registrations, or identities before deploying commercial gear listings.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+                    <button
+                      onClick={() => {
+                        setIsListGearModalOpen(false);
+                        navigate('/profile?tab=kyc');
+                      }}
+                      className="bg-[#ff4f3a] hover:bg-[#e43f2a] text-white font-black text-xs uppercase tracking-widest px-8 py-3.5 rounded-xl shadow-lg transition"
+                    >
+                      Complete KYC Verification Form
+                    </button>
+                    <button
+                      onClick={() => setIsListGearModalOpen(false)}
+                      className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-black text-xs uppercase tracking-widest px-6 py-3.5 rounded-xl transition"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Option 3: Verified User (Select List / Kit to Add) */}
+              {user && user.kycStatus === 'verified' && (
+                <div className="space-y-6">
+                  <div className="border-b border-neutral-850 pb-4">
+                    <span className="text-[10px] font-black tracking-widest text-[#ff4f3a] uppercase block animate-pulse">Verified Member Hub</span>
+                    <h3 className="text-xl font-black uppercase tracking-tight">Select Packing Lists & Projects to List</h3>
+                    <p className="text-[11px] text-neutral-400 leading-relaxed font-semibold uppercase mt-0.5">
+                      Enable marketplace visibility for any of your custom kits and set daily rental price rates catalogued.
+                    </p>
+                  </div>
+
+                  {loadingListsAndProjects ? (
+                    <div className="py-12 text-center text-xs font-bold text-neutral-500 uppercase tracking-widest animate-pulse">
+                      Syncing items and project files...
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      {/* Project Filter Selector */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Select Project Filter (Optional)</label>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => setSelectedProjectId(null)}
+                            className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all ${
+                              selectedProjectId === null
+                                ? 'bg-[#ff4f3a] text-white border-[#ff4f3a] shadow-md'
+                                : 'bg-neutral-850 text-neutral-400 border-neutral-800 hover:border-neutral-700'
+                            }`}
+                          >
+                            All Projects & Lists
+                          </button>
+                          {userProjects.map(proj => (
+                            <button
+                              key={proj.id}
+                              onClick={() => setSelectedProjectId(proj.id)}
+                              className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all ${
+                                selectedProjectId === proj.id
+                                  ? 'bg-[#ff4f3a] text-white border-[#ff4f3a] shadow-md'
+                                  : 'bg-neutral-850 text-neutral-400 border-neutral-800 hover:border-neutral-700'
+                              }`}
+                            >
+                              {proj.name || 'Unnamed Project'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Lists Segment */}
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-neutral-500">
+                          <span>Packing Lists & Kits for Rent/Sell</span>
+                          <span>{userOwnLists.filter(l => !selectedProjectId || l.projectId === selectedProjectId).length} Found</span>
+                        </div>
+
+                        <div className="max-h-72 overflow-y-auto space-y-3 pr-1">
+                          {userOwnLists
+                            .filter(l => !selectedProjectId || l.projectId === selectedProjectId)
+                            .length === 0 ? (
+                              <div className="text-center py-10 bg-neutral-850/50 rounded-2xl border border-neutral-800/40 text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
+                                No checklists or gear packages matched the criteria. Create a packing list or add kits in lists first!
+                              </div>
+                            ) : (
+                              userOwnLists
+                                .filter(l => !selectedProjectId || l.projectId === selectedProjectId)
+                                .map((list) => {
+                                  const isListed = list.marketplaceEnabled === true;
+                                  const currentVal = listingPriceMap[list.id] ?? 150;
+
+                                  return (
+                                    <div key={list.id} className="bg-neutral-850 p-4 rounded-2xl border border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                      <div className="space-y-1">
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-[#ff4f3a]">
+                                          {list.brand || 'Custom'} {list.model || 'Kit'}
+                                        </span>
+                                        <h4 className="text-xs font-extrabold uppercase leading-tight">{list.name}</h4>
+                                        <div className="flex items-center gap-1.5 text-[9px] text-neutral-400 font-semibold uppercase">
+                                          <span>{list.itemsCount || 0} ITEMS</span>
+                                          <span>•</span>
+                                          <span>{isListed ? `Listed at $${list.marketplacePrice}/day` : 'Not Listed'}</span>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0 justify-end">
+                                        <div className="flex items-center gap-1 bg-neutral-900 px-3 py-1.5 rounded-xl border border-neutral-800">
+                                          <span className="text-neutral-450 text-[10px] font-bold">$</span>
+                                          <input
+                                            type="number"
+                                            value={currentVal}
+                                            onChange={(e) => {
+                                              const parsed = parseInt(e.target.value) || 0;
+                                              setListingPriceMap(prev => ({ ...prev, [list.id]: parsed }));
+                                            }}
+                                            className="w-12 bg-transparent text-white text-[10px] font-black focus:ring-0 outline-none text-right"
+                                            placeholder="150"
+                                          />
+                                          <span className="text-neutral-450 text-[9px] font-bold">/DAY</span>
+                                        </div>
+
+                                        <button
+                                          onClick={() => handleToggleMarketplace(list.id, !isListed)}
+                                          className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition ${
+                                            isListed
+                                              ? 'bg-neutral-800 text-red-400 border border-red-950/20 hover:text-red-300'
+                                              : 'bg-[#ff4f3a] text-white hover:bg-[#e43f2a]'
+                                          }`}
+                                        >
+                                          {isListed ? 'De-list' : 'List now'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                            )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </motion.div>
           </div>
         )}

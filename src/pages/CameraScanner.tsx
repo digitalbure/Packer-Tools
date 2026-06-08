@@ -36,11 +36,11 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
   const [libraryMatch, setLibraryMatch] = useState<GearItem | null>(null);
 
   useEffect(() => {
-    startCamera();
+    startCamera(false);
     return () => stopCamera();
   }, []);
 
-  const startCamera = async () => {
+  const startCamera = async (isManualClick = false) => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
@@ -52,9 +52,11 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
       }
       setCameraError(false);
     } catch (error) {
-      console.error("Error accessing camera:", error);
+      console.warn("Camera access denied or unavailable:", error);
       setCameraError(true);
-      toast.error("Could not access camera. Please ensure permissions are granted or upload an image instead.");
+      if (isManualClick) {
+        toast.error("Could not access camera. Please ensure permissions are granted or upload an image instead.");
+      }
     }
   };
 
@@ -312,7 +314,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
                   </label>
                 </div>
                 <button
-                  onClick={startCamera}
+                  onClick={() => startCamera(true)}
                   className="px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center gap-2"
                 >
                   <RefreshCw size={14} />

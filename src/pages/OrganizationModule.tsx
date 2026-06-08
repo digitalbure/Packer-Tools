@@ -51,6 +51,9 @@ import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import UpgradeNowModal from '../components/UpgradeNowModal';
 import PackerLogo from '../components/PackerLogo';
+import { getAccessToken, signInWithGoogle, setAccessToken } from '../firebase';
+import { fetchGoogleChatSpaces, sendGoogleChatMessage, ChatSpace, triggerGoogleChatAlert } from '../services/googleChat';
+import { MessageSquare, Send, RefreshCw, Layers3 } from 'lucide-react';
 
 interface OrganizationModuleProps {
   user: UserProfile | null;
@@ -65,7 +68,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [gear, setGear] = useState<any[]>([]);
   const [terminals, setTerminals] = useState<Terminal[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'structure' | 'members' | 'permissions' | 'api' | 'terminals' | 'stickers' | 'settings'>('structure');
+  const [activeTab, setActiveTab] = useState<'overview' | 'structure' | 'members' | 'permissions' | 'api' | 'terminals' | 'stickers' | 'settings' | 'googlechat'>('structure');
   const [inventories, setInventories] = useState<any[]>([]);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
   const [isLoading, setIsLoading] = useState(true);
@@ -112,6 +115,126 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
   const [stickerColorText, setStickerColorText] = useState('#000000');
   const [selectedStickerDeptId, setSelectedStickerDeptId] = useState('');
   const [selectedStickerTeamId, setSelectedStickerTeamId] = useState('');
+
+  // Google Chat States
+  const [chatToken, setChatToken] = useState<string | null>(getAccessToken());
+  const [chatSpaces, setChatSpaces] = useState<ChatSpace[]>([]);
+  const [isFetchingSpaces, setIsFetchingSpaces] = useState(false);
+  const [selectedSpaceName, setSelectedSpaceName] = useState<string>('');
+  const [selectedSpaceDisplayName, setSelectedSpaceDisplayName] = useState<string>('');
+  const [testMessageText, setTestMessageText] = useState("👋 This is a live testing status dispatch from the Packer Tools dashboard!");
+  const [isTestingMessage, setIsTestingMessage] = useState(false);
+  const [googleChatAlerts, setGoogleChatAlerts] = useState({
+    gear_added: true,
+    gear_maintenance: true,
+    low_stock: true,
+    checkout: true,
+    checkin: true,
+    payment_cleared: true,
+  });
+
+  // Track token mount
+  useEffect(() => {
+    const token = getAccessToken();
+    if (token) {
+      setChatToken(token);
+    }
+  }, [activeTab]);
+
+  // Sync with Firestore Org Settings
+  useEffect(() => {
+    if (org && (org as any).googleChatConfig) {
+      const config = (org as any).googleChatConfig;
+      if (config.spaceName) setSelectedSpaceName(config.spaceName);
+      if (config.spaceDisplayName) setSelectedSpaceDisplayName(config.spaceDisplayName);
+      if (config.alertsEnabled) {
+        setGoogleChatAlerts(prev => ({
+          ...prev,
+          ...config.alertsEnabled
+        }));
+      }
+    }
+  }, [org]);
+
+  // Load spaces when token is loaded
+  const handleLoadSpaces = async (token: string) => {
+    setIsFetchingSpaces(true);
+    try {
+      const spaces = await fetchGoogleChatSpaces(token);
+      setChatSpaces(spaces);
+    } catch (err: any) {
+      console.warn("Failed to load Google Chat spaces:", err);
+    } finally {
+      setIsFetchingSpaces(false);
+    }
+  };
+
+  useEffect(() => {
+    if (chatToken) {
+      handleLoadSpaces(chatToken);
+    }
+  }, [chatToken]);
+
+  const handleGoogleChatLogin = async () => {
+    try {
+      const result = await signInWithGoogle();
+      if (result) {
+        const token = getAccessToken();
+        setChatToken(token);
+        if (token) {
+          toast.success("Google Chat Connection Established successfully!");
+          handleLoadSpaces(token);
+        }
+      }
+    } catch (e: any) {
+      toast.error(`Authentication Failed: ${e.message || e}`);
+    }
+  };
+
+  const handleLinkSpace = async (space: ChatSpace) => {
+    if (!org) return;
+    try {
+      await updateDoc(doc(db, 'organizations', org.id), {
+        'googleChatConfig.spaceName': space.name,
+        'googleChatConfig.spaceDisplayName': space.displayName,
+      });
+      setSelectedSpaceName(space.name);
+      setSelectedSpaceDisplayName(space.displayName);
+      toast.success(`Space linked: ${space.displayName}`);
+    } catch (e: any) {
+      toast.error("Failed to link space in database.");
+    }
+  };
+
+  const handleToggleAlert = async (type: string, value: boolean) => {
+    if (!org) return;
+    try {
+      const updatedAlerts = { ...googleChatAlerts, [type]: value };
+      setGoogleChatAlerts(updatedAlerts);
+      await updateDoc(doc(db, 'organizations', org.id), {
+        'googleChatConfig.alertsEnabled': updatedAlerts,
+      });
+      toast.success("Alert trigger configuration updated successfully");
+    } catch (e: any) {
+      toast.error("Failed to update trigger settings.");
+    }
+  };
+
+  const handleSendTestMessage = async () => {
+    if (!chatToken || !selectedSpaceName) {
+      toast.error("Ensure a Space is Linked and authenticated to send test messages.");
+      return;
+    }
+    setIsTestingMessage(true);
+    try {
+      await sendGoogleChatMessage(chatToken, selectedSpaceName, `${testMessageText}`);
+      toast.success("Google Chat Message dispatched successfully!");
+    } catch (e: any) {
+      toast.error(`Dispatch failed: ${e.message || e}`);
+    } finally {
+      setIsTestingMessage(false);
+    }
+  };
 
   useEffect(() => {
     const pairCode = searchParams.get('pair') || searchParams.get('code');
@@ -1036,7 +1159,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
         </div>
 
         <div className="flex items-center gap-1.5 p-1 bg-neutral-100 rounded-2xl md:rounded-3xl overflow-x-auto scrollbar-hide max-w-full">
-          {(['overview', 'structure', 'members', 'permissions', 'terminals', 'api', 'settings'] as const).map(tab => (
+          {(['overview', 'structure', 'members', 'permissions', 'terminals', 'api', 'googlechat', 'settings'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1046,7 +1169,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                   : 'text-neutral-400 hover:text-neutral-600'
               }`}
             >
-              {tab === 'api' ? 'API & Embed' : tab === 'permissions' ? 'Permissions Matrix' : tab}
+              {tab === 'api' ? 'API & Embed' : tab === 'permissions' ? 'Permissions Matrix' : tab === 'googlechat' ? 'Google Chat' : tab}
             </button>
           ))}
         </div>
@@ -2768,6 +2891,246 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                 </div>
               )}
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'googlechat' && (
+          <motion.div 
+            key="googlechat"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-8"
+          >
+            {/* Header banner */}
+            <div className="bg-neutral-900 rounded-[2.5rem] p-6 sm:p-10 text-white relative overflow-hidden shadow-xl border border-neutral-800">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-3xl rounded-full -mr-20 -mt-20" />
+              <div className="relative space-y-4 max-w-4xl">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black px-2.5 py-1 rounded-xl uppercase tracking-widest">
+                    Google Workspace Integration
+                  </span>
+                  <span className="text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 font-black px-2.5 py-1 rounded-xl uppercase tracking-widest">
+                    OAuth Secure Chat Connection
+                  </span>
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-tighter">Google Chat Notification Engine</h2>
+                <p className="text-neutral-400 text-xs sm:text-sm leading-relaxed">
+                  Connect Packer Tools directly with your official Google Workspace environment. Broadcast real-time notifications about equipment check-outs, dangerous low-inventory limits, maintenance reminders, and checkout schedules directly into Google Chat Spaces with permission.
+                </p>
+              </div>
+            </div>
+
+            {/* Authentication status Card */}
+            <div className="bg-white rounded-[2.5rem] border border-neutral-100 p-8 shadow-sm space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Google Connection State</h3>
+                  <p className="text-xs text-neutral-400">
+                    {chatToken 
+                      ? "Your Google Workspace session token is active. Your Google Chat spaces are loaded below." 
+                      : "Authorize Packer Tools to access your Google Chat spaces using secure Single Sign-On (SSO)."}
+                  </p>
+                </div>
+                <div>
+                  {chatToken ? (
+                    <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 text-xs font-black px-4 py-2 rounded-xl border border-emerald-200">
+                      <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+                      <span>CONNECTED TO WORKSPACE</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleGoogleChatLogin}
+                      className="text-xs font-semibold px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl shadow transition"
+                    >
+                      <div className="flex items-center gap-3">
+                        <svg className="w-4 h-4" viewBox="0 0 48 48">
+                          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                        </svg>
+                        <span>Connect Google Chat</span>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Connected details or help instructions */}
+              {!chatToken && (
+                <div className="bg-neutral-50 rounded-2xl p-6 border border-neutral-100 flex flex-col md:flex-row md:items-center gap-4 justify-between">
+                  <div className="space-y-1 max-w-xl">
+                    <h4 className="text-xs font-black uppercase text-neutral-800">Operational Notice</h4>
+                    <p className="text-[11px] text-neutral-500 leading-relaxed">
+                      Due to environment security layers and iframe isolation standard in Google previews, popup block warnings can happen. Click **"Connect Google Chat"** and enable permissions. If the login popup closes instantly, make sure to click **"Open in new tab"** at the top right of this page and retry.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={handleGoogleChatLogin} 
+                    className="self-start md:self-auto px-4 py-2 text-xs font-bold text-neutral-700 bg-neutral-200 hover:bg-neutral-300 rounded-xl transition"
+                  >
+                    Authorize Session
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {chatToken && (
+              <div className="grid lg:grid-cols-3 gap-8">
+                {/* Left: Spaces Explorer */}
+                <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-neutral-100 p-8 shadow-sm space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Your Google Chat Spaces</h3>
+                      <p className="text-xs text-neutral-400">Select which channel or space will receive automatic Packer alerts.</p>
+                    </div>
+                    <button
+                      onClick={() => chatToken && handleLoadSpaces(chatToken)}
+                      disabled={isFetchingSpaces}
+                      className="p-3 hover:bg-neutral-100 rounded-2xl border border-neutral-200 text-neutral-600 hover:text-neutral-900 transition disabled:opacity-50"
+                      title="Reload Spaces"
+                    >
+                      <RefreshCw size={16} className={isFetchingSpaces ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
+
+                  {isFetchingSpaces ? (
+                    <div className="flex flex-col items-center justify-center p-12 space-y-3">
+                      <RefreshCw size={24} className="text-neutral-400 animate-spin" />
+                      <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Querying API spaces list...</p>
+                    </div>
+                  ) : chatSpaces.length === 0 ? (
+                    <div className="bg-neutral-50 rounded-[2rem] p-12 border border-neutral-100 text-center space-y-4">
+                      <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mx-auto">
+                        <MessageSquare size={20} className="text-neutral-400" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-black uppercase text-neutral-800">No Chat Spaces Detected</p>
+                        <p className="text-[11px] text-neutral-400 max-w-sm mx-auto">
+                          We retrieved 0 spaces on your Google Workspace account. Join or configure a space first, then press refresh!
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      {chatSpaces.map(space => {
+                        const isLinked = selectedSpaceName === space.name;
+                        return (
+                          <div 
+                            key={space.name}
+                            onClick={() => handleLinkSpace(space)}
+                            className={`p-6 rounded-3xl border text-left cursor-pointer transition-all ${
+                              isLinked 
+                                ? 'bg-neutral-900 border-neutral-950 text-white shadow-lg translate-y-[-2px]' 
+                                : 'bg-white hover:bg-neutral-50 border-neutral-100 hover:border-neutral-200 text-neutral-800'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-black text-xs">
+                                💬
+                              </div>
+                              {isLinked && (
+                                <span className="text-[8px] bg-emerald-500 text-white font-black px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                  Linked
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-4 space-y-1">
+                              <h4 className="text-xs font-black uppercase tracking-tight line-clamp-1">
+                                {space.displayName || 'Unnamed Space'}
+                              </h4>
+                              <p className={`text-[9px] font-mono ${isLinked ? 'text-neutral-400' : 'text-neutral-400'}`}>
+                                {space.name}
+                              </p>
+                              <div className="pt-2 flex items-center gap-1">
+                                <span className={`text-[8px] font-bold uppercase ${isLinked ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                                  Type: {space.type || 'ROOM'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Testing Console */}
+                  {selectedSpaceName && (
+                    <div className="bg-neutral-50 rounded-[2rem] p-6 border border-neutral-100 space-y-4">
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-black uppercase text-neutral-800">Direct Test Despatcher</h4>
+                        <p className="text-[10px] text-neutral-400">Send an instant test status update to "{selectedSpaceDisplayName}".</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={testMessageText}
+                          onChange={(e) => setTestMessageText(e.target.value)}
+                          className="flex-1 bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-neutral-900 text-neutral-800"
+                        />
+                        <button
+                          onClick={handleSendTestMessage}
+                          disabled={isTestingMessage || !testMessageText}
+                          className="px-4 py-2 bg-neutral-900 text-white hover:bg-neutral-800 disabled:bg-neutral-200 rounded-xl transition flex items-center gap-1.5 text-xs font-bold"
+                        >
+                          {isTestingMessage ? (
+                            <RefreshCw size={14} className="animate-spin" />
+                          ) : (
+                            <Send size={14} />
+                          )}
+                          <span>Send</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Alert rules dashboard */}
+                <div className="bg-white rounded-[2.5rem] border border-neutral-100 p-8 shadow-sm space-y-6">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Alert Trigger Rules</h3>
+                    <p className="text-xs text-neutral-400">Trigger standard messages when automated operations successfully verify in workspace modules.</p>
+                  </div>
+
+                  <div className="space-y-3.5 pt-2">
+                    {[
+                      { key: 'gear_added', title: 'New Gear Registration', desc: 'When a new camera body, lens, or travel case is added.' },
+                      { key: 'checkout', title: 'Gear Checked Out (OUT)', desc: 'When lists are checked-out or a terminal completes authorization.' },
+                      { key: 'checkin', title: 'Gear Checked In (IN)', desc: 'When Kiosk or mobile terminal scans return gears safely.' },
+                      { key: 'low_stock', title: 'Low Inventory Alert', desc: 'When a sheet list quantity level drops to 1 item or below.' },
+                      { key: 'gear_maintenance', title: 'Maintenance Overdue Alert', desc: 'When audits flag gear intervals or condition parameters.' },
+                      { key: 'payment_cleared', title: 'Paywall & Booking Clear', desc: 'When public lists pre-payments accept successfully.' },
+                    ].map(alert => (
+                      <div 
+                        key={alert.key}
+                        className="flex items-center justify-between p-4 bg-neutral-50 rounded-2xl border border-neutral-100"
+                      >
+                        <div className="space-y-0.5 pr-4">
+                          <h4 className="text-xs font-black uppercase tracking-tight text-neutral-800">{alert.title}</h4>
+                          <p className="text-[10px] text-neutral-400 leading-normal">{alert.desc}</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={(googleChatAlerts as any)[alert.key] ?? true}
+                            onChange={(e) => handleToggleAlert(alert.key, e.target.checked)}
+                            className="sr-only peer" 
+                          />
+                          <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 bg-neutral-50 rounded-2xl p-4 border border-neutral-100 flex items-start gap-2 text-[10px] text-neutral-400">
+                    <span className="text-base leading-none">💡</span>
+                    <p className="leading-relaxed">
+                      You can pair this linked Space to your official developer terminal configurations under the **"Terminals"** tab to automate hardware scans tracking.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

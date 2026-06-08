@@ -11,13 +11,17 @@ export default function Navbar({
   adminSettings, 
   onMenuClick,
   selectedCommunity,
-  onOpenSelector
+  onOpenSelector,
+  landingView,
+  setLandingView
 }: { 
   user: UserProfile | null, 
   adminSettings: AdminSettings | null, 
   onMenuClick?: () => void,
   selectedCommunity?: string | null,
-  onOpenSelector?: () => void
+  onOpenSelector?: () => void,
+  landingView?: string,
+  setLandingView?: (view: string) => void
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -35,7 +39,7 @@ export default function Navbar({
     <nav className="bg-paper/80 backdrop-blur-xl border-b border-primary/5 sticky top-0 z-50">
       <div className="w-full max-w-[1700px] mx-auto px-6 h-20 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" onClick={() => setLandingView?.('saas')} className="flex items-center gap-2 group">
             {adminSettings?.branding?.logo ? (
               <div className="flex items-center gap-2">
                 <img src={adminSettings.branding.logo} className="h-9 w-auto max-w-[140px] object-contain shrink-0 rounded-md" alt="Logo" referrerPolicy="no-referrer" />
@@ -66,6 +70,34 @@ export default function Navbar({
               <span className="text-[10px] font-black uppercase tracking-wider">{currentComm ? currentComm.name : 'Global Portal'}</span>
               <span className="text-[8px] text-neutral-400">▼</span>
             </button>
+          )}
+
+          {/* SaaS vs Marketplace Toggle inside navbar */}
+          {!user && (selectedCommunity === 'global' || !selectedCommunity) && setLandingView && (
+            <div className="flex bg-neutral-100 dark:bg-white/5 border border-neutral-200/50 dark:border-white/10 p-1 rounded-full text-xs font-bold gap-1 shadow-sm ml-2 shrink-0">
+              <button 
+                type="button"
+                onClick={() => setLandingView('saas')}
+                className={`px-3 py-1 rounded-full uppercase tracking-wider text-[9px] font-black transition-all cursor-pointer ${
+                  landingView !== 'marketplace' 
+                    ? 'bg-neutral-900 text-white shadow-xs' 
+                    : 'text-neutral-500 hover:text-neutral-800'
+                }`}
+              >
+                Platform
+              </button>
+              <button 
+                type="button"
+                onClick={() => setLandingView('marketplace')}
+                className={`px-3 py-1 rounded-full uppercase tracking-wider text-[9px] font-black transition-all cursor-pointer ${
+                  landingView === 'marketplace' 
+                    ? 'bg-neutral-900 text-white shadow-xs' 
+                    : 'text-neutral-500 hover:text-neutral-800'
+                }`}
+              >
+                Marketplace
+              </button>
+            </div>
           )}
         </div>
 

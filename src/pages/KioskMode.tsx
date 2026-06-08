@@ -32,6 +32,7 @@ import SignatureCanvas from 'react-signature-canvas';
 import { QRCodeCanvas } from 'qrcode.react';
 import { collection, query, where, getDocs, getDoc, addDoc, serverTimestamp, doc, updateDoc, onSnapshot, limit, arrayUnion } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
+import { triggerGoogleChatAlert } from '../services/googleChat';
 import { GearItem, UserProfile, CheckoutRecord, AdminSettings, Container } from '../types';
 import PackerLogo from '../components/PackerLogo';
 import { toast } from 'sonner';
@@ -886,6 +887,15 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
         });
       }
 
+      if (initialUser?.orgId) {
+        const itemNames = checkoutItems.map(it => `• ${it.name} [${it.assetTag}]`).join('\n');
+        triggerGoogleChatAlert(
+          initialUser.orgId,
+          'checkout',
+          `📤 *Equipment Checked Out*:\n• *Holder*: ${guestInfo.name || initialUser.displayName || 'Terminal Guest'}\n• *Items*:\n${itemNames}`
+        ).catch(err => console.warn('Google Chat check out error:', err));
+      }
+
       setLastOrderReceipt({
         orderNumber: `REC-${Math.floor(1000 + Math.random() * 9000)}`,
         userName: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
@@ -956,6 +966,15 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
           qty,
           isKit: item.isKit || false
         });
+      }
+
+      if (initialUser?.orgId) {
+        const itemNames = checkinItems.map(it => `• ${it.name} [${it.assetTag}]`).join('\n');
+        triggerGoogleChatAlert(
+          initialUser.orgId,
+          'checkin',
+          `📥 *Equipment Returned (Checked In)*:\n• *From*: ${guestInfo.name || initialUser.displayName || 'Terminal Guest'}\n• *Items*:\n${itemNames}`
+        ).catch(err => console.warn('Google Chat check in error:', err));
       }
 
       setLastOrderReceipt({

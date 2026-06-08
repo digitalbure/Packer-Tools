@@ -275,9 +275,56 @@ const AIRecognitionDisplay = ({ config }: { config?: AdminSettings['aiRecognitio
   );
 };
 
-export default function LandingPage({ user, adminSettings }: { user: UserProfile | null, adminSettings: AdminSettings | null }) {
+const featureKeyLabels: Record<string, string> = {
+  aiWizard: "AI List Generator",
+  gearLibrary: "Central Gear Library",
+  reminders: "Maintenance Alerts",
+  versionHistory: "Version History",
+  branding: "Custom Branding",
+  qrSharing: "Asset QR Codes",
+  toolingLists: "Field Tooling Lists",
+  organizer: "Kit Organizer",
+  travelCases: "Case Dimensioning Solver",
+  logisticsDashboard: "Logistics Dashboard",
+  movingDashboard: "Moving Log",
+  rackingDashboard: "Racks & Shell Shelving",
+  marketplace: "Lender Shopfronts",
+  marketplaceListings: "Commercial Listings",
+  kioskMode: "Kiosk Checkout Terminal",
+  orgManagement: "Organization Security",
+  departments: "Dynamic Departments",
+  teams: "Team Segregation",
+  inventoryManagement: "Active Warehouse Inventory",
+  projectCost: "Project Cost Estimating",
+  supplierManagement: "Supplier Catalogues",
+  bomManagement: "BOM Kit Deconstruction",
+  customBarcodes: "Custom Barcodes & Labels",
+  automaticDepreciation: "Asset Depreciation Log",
+  digitalSignatures: "Authorized Sign-offs",
+  clientPortal: "Client Rental App",
+  apiIntegrations: "External Integrations",
+  weightAnalytics: "Transit Weight Optimization",
+  kioskOrderMode: "Smart Checkout Queue",
+  kioskDirectCheckout: "Direct Tap Out"
+};
+
+export default function LandingPage({ 
+  user, 
+  adminSettings,
+  landingView: parentLandingView,
+  setLandingView: parentSetLandingView
+}: { 
+  user: UserProfile | null, 
+  adminSettings: AdminSettings | null,
+  landingView?: string,
+  setLandingView?: (view: string) => void
+}) {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
-  const [landingView, setLandingView] = useState<string>('saas');
+  const [localLandingView, setLocalLandingView] = useState<string>('saas');
+
+  const landingView = parentLandingView !== undefined ? parentLandingView : localLandingView;
+  const setLandingView = parentSetLandingView !== undefined ? parentSetLandingView : setLocalLandingView;
+
   const plans = adminSettings?.plans || [];
   const activeLander = adminSettings?.landers?.find(l => l.id === adminSettings.activeLanderId);
   
@@ -287,50 +334,7 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
 
   if (isMarketplaceActive) {
     return (
-      <div className="min-h-screen bg-paper text-primary selection:bg-accent selection:text-white bg-grid overflow-x-hidden pt-20">
-        {/* Header */}
-        <header className="fixed top-0 left-0 right-0 z-50 border-b border-primary/5 bg-paper/85 backdrop-blur-md">
-          <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
-            <Link to="/" onClick={() => setLandingView('saas')} className="flex items-center gap-1 group">
-              <PackerLogo variant="full" size={32} light={true} />
-            </Link>
-            
-            {/* SaaS vs Marketplace Toggle */}
-            <div className="flex bg-neutral-100 dark:bg-white/5 border border-neutral-200/50 dark:border-white/10 p-1 rounded-full text-xs font-bold gap-1 shadow-sm">
-              <button 
-                type="button"
-                onClick={() => setLandingView('saas')}
-                className={`px-3.5 py-1.5 rounded-full uppercase tracking-wider text-[9px] font-black transition-all ${
-                  !isMarketplaceActive 
-                    ? 'bg-neutral-900 text-white shadow-xs' 
-                    : 'text-neutral-500 hover:text-neutral-800'
-                }`}
-              >
-                Platform
-              </button>
-              <button 
-                type="button"
-                onClick={() => setLandingView('marketplace')}
-                className={`px-3.5 py-1.5 rounded-full uppercase tracking-wider text-[9px] font-black transition-all ${
-                  isMarketplaceActive 
-                    ? 'bg-neutral-900 text-white shadow-xs' 
-                    : 'text-neutral-500 hover:text-neutral-800'
-                }`}
-              >
-                Marketplace
-              </button>
-            </div>
-
-            <div className="flex items-center gap-4">
-              {user ? (
-                <Link to="/dashboard" className="px-6 py-2 bg-primary text-white rounded-full font-bold text-sm">Dashboard</Link>
-              ) : (
-                <button onClick={signInWithGoogle} className="px-6 py-2 bg-primary text-white rounded-full font-bold text-sm">Sign In</button>
-              )}
-            </div>
-          </div>
-        </header>
-
+      <div className="min-h-screen bg-paper text-primary selection:bg-accent selection:text-white bg-grid overflow-x-hidden pt-4">
         <div className="animate-fadeIn">
           <Marketplace user={user} adminSettings={adminSettings} />
         </div>
@@ -340,60 +344,9 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
 
   return (
     <div className="min-h-screen bg-paper text-primary selection:bg-accent selection:text-white bg-grid overflow-x-hidden">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-primary/5 bg-paper/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-1 group">
-            <PackerLogo variant="full" size={32} light={true} />
-          </Link>
-          
-          {/* SaaS vs Marketplace Toggle */}
-          <div className="flex bg-neutral-100 dark:bg-white/5 border border-neutral-200/50 dark:border-white/10 p-1 rounded-full text-xs font-bold gap-1 shadow-sm">
-            <button 
-              type="button"
-              onClick={() => setLandingView('saas')}
-              className={`px-3.5 py-1.5 rounded-full uppercase tracking-wider text-[9px] font-black transition-all ${
-                !isMarketplaceActive 
-                  ? 'bg-neutral-950 text-white shadow-xs animate-fadeIn' 
-                  : 'text-neutral-500 hover:text-neutral-800'
-              }`}
-            >
-              Platform
-            </button>
-            <button 
-              type="button"
-              onClick={() => setLandingView('marketplace')}
-              className={`px-3.5 py-1.5 rounded-full uppercase tracking-wider text-[9px] font-black transition-all ${
-                isMarketplaceActive 
-                  ? 'bg-neutral-950 text-white shadow-xs' 
-                  : 'text-neutral-500 hover:text-neutral-800'
-              }`}
-            >
-              Marketplace
-            </button>
-          </div>
-
-          <nav className="hidden md:flex items-center gap-8">
-            {(Array.isArray(lp?.header?.links) ? lp.header.links : []).map((link, i) => (
-              <a key={i} href={link.href} className="text-xs font-bold uppercase tracking-widest hover:text-accent transition-colors">
-                {link.label}
-              </a>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-4">
-            {user ? (
-              <Link to="/dashboard" className="px-6 py-2 bg-primary text-white rounded-full font-bold text-sm">Dashboard</Link>
-            ) : (
-              <button onClick={signInWithGoogle} className="px-6 py-2 bg-primary text-white rounded-full font-bold text-sm">Sign In</button>
-            )}
-          </div>
-        </div>
-      </header>
-
       {/* Hero Section - Split Layout */}
       {(lp?.hero?.isEnabled !== false) && (
-        <section className="relative min-h-screen flex flex-col lg:flex-row border-b border-primary/10 overflow-hidden pt-20">
+        <section className="relative min-h-screen flex flex-col lg:flex-row border-b border-primary/10 overflow-hidden pt-4">
           {/* Animated Industrial Gradient */}
         <motion.div
           animate={{
@@ -743,8 +696,8 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
                   return (
                     <div 
                       key={plan.id} 
-                      className={`p-8 rounded-3xl flex items-center justify-between transition-all relative overflow-hidden ${
-                        isPaid ? 'bg-white text-primary shadow-2xl scale-105' : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
+                      className={`p-8 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-all relative overflow-hidden ${
+                        isPaid ? 'bg-white text-primary shadow-2xl scale-102 border border-neutral-100' : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
                       }`}
                     >
                       {savingPct > 0 && (
@@ -752,22 +705,67 @@ export default function LandingPage({ user, adminSettings }: { user: UserProfile
                           Save {savingPct}%
                         </div>
                       )}
-                      <div>
-                        <div className="flex items-center gap-2">
+                      
+                      <div className="space-y-4 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-xl font-bold uppercase tracking-tight">{plan.name}</h3>
                           {trialInfo && (
-                            <span className="text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md bg-accent/15 text-accent">
+                            <span className="text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md bg-accent/15 text-accent shrink-0 animate-pulse">
                               {trialInfo}
                             </span>
                           )}
                         </div>
-                        <p className={`${isPaid ? 'text-primary/40' : 'text-white/40'} text-xs font-medium mt-1`}>
-                          {Array.isArray(plan.features) ? plan.features.slice(0, 3).map(f => f.replace(/([A-Z])/g, ' $1')).join(', ') : ''}...
-                        </p>
+
+                        {/* Quantitative Plan Limits */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] uppercase font-bold tracking-wider opacity-90">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-accent">■</span>
+                            <span>{plan.maxGearItems >= 10000 ? 'Unlimited' : `${plan.maxGearItems.toLocaleString()}`} Items</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-accent">■</span>
+                            <span>{plan.maxPackingLists >= 1000 ? 'Unlimited' : `${plan.maxPackingLists}`} Pack Lists</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-accent">■</span>
+                            <span>{plan.maxProjects >= 50 ? 'Unlimited' : `${plan.maxProjects}`} Projects</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-accent">■</span>
+                            <span>{plan.aiTokenLimit} AI Quota</span>
+                          </div>
+                        </div>
+
+                        {/* Feature Tags list */}
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {Array.isArray(plan.features) ? plan.features.slice(0, 3).map((f) => {
+                            const label = featureKeyLabels[f] || f.replace(/([A-Z])/g, ' $1');
+                            return (
+                              <span 
+                                key={f} 
+                                className={`text-[8px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md ${
+                                  isPaid 
+                                    ? 'bg-neutral-100 text-neutral-600 border border-neutral-200/50' 
+                                    : 'bg-white/10 text-white/80 border border-white/5'
+                                }`}
+                              >
+                                {label}
+                              </span>
+                            );
+                          }) : null}
+                          {Array.isArray(plan.features) && plan.features.length > 3 && (
+                            <span className={`text-[8px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md ${
+                              isPaid ? 'bg-neutral-50 text-neutral-400' : 'bg-white/5 text-white/45'
+                            }`}>
+                              +{plan.features.length - 3} More
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-black tracking-tighter">${calculatedPrice}</div>
-                        <div className={`micro-label ${isPaid ? 'text-primary/40' : 'text-white/40'}`}>
+
+                      <div className="text-left md:text-right shrink-0">
+                        <div className="text-3xl font-black tracking-tighter">${calculatedPrice}</div>
+                        <div className={`micro-label uppercase font-black tracking-widest text-[9px] ${isPaid ? 'text-primary/45' : 'text-white/45'}`}>
                           {isPaid ? periodLabel : 'Forever'}
                         </div>
                         {equivalentText && (

@@ -939,6 +939,39 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                         }`} />
                       </button>
                     </div>
+
+                    {/* Widget Toggle: Rapid Action Hub */}
+                    <div className="flex items-center justify-between p-3.5 bg-white border border-neutral-100 rounded-2xl">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-black uppercase tracking-tight text-neutral-800 block">Rapid Action Hub</span>
+                        <p className="text-[9px] text-neutral-400 font-bold uppercase block">Create panel with checklist triggers and asset creation grid</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const current = user.layoutPreferences || {};
+                          const updated = {
+                            ...current,
+                            showQuickActionGrid: current.showQuickActionGrid === false ? true : false
+                          };
+                          try {
+                            const userRef = doc(db, 'users', user.uid);
+                            await updateDoc(userRef, { layoutPreferences: updated });
+                            onUpdate({ ...user, layoutPreferences: updated });
+                            toast.success("Rapid Action Hub widget preference updated!");
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 outline-none shrink-0 border ${
+                          (user.layoutPreferences?.showQuickActionGrid !== false) ? 'bg-[#ff4f3a] border-[#ff4f3a]' : 'bg-neutral-200 border-neutral-300'
+                        }`}
+                      >
+                        <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${
+                          (user.layoutPreferences?.showQuickActionGrid !== false) ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
                   </div>
 
                   {/* CUSTOM QUICK ACTION BUTTON SELECTOR */}

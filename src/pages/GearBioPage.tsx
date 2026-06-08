@@ -12,6 +12,7 @@ import {
   Clock, Heart, ShoppingBag, Plus, Eye, Share2, Printer, CheckCircle,
   Phone, Mail, MessageSquare, AlertTriangle, ShieldCheck
 } from 'lucide-react';
+import PickupDropoffWidget, { PickupDropoffState } from '../components/PickupDropoffWidget';
 
 interface GearBioPageProps {
   user: UserProfile | null;
@@ -58,6 +59,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingConditions, setBookingConditions] = useState<string[]>([]);
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
+  const [pickupDropoffState, setPickupDropoffState] = useState<PickupDropoffState | null>(null);
 
   // Fetch Owner Booking Conditions
   useEffect(() => {
@@ -151,12 +153,27 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
         paymentStatus: bookingType === 'free' ? 'Free' : 'Pending Deposit',
         reservationType: bookingType,
         customConditions: selectedConditions,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        pickupDropoff: pickupDropoffState ? {
+          pickupType: pickupDropoffState.pickupType,
+          pickupLocationId: pickupDropoffState.pickupLocationId,
+          pickupCustomAddress: pickupDropoffState.pickupCustomAddress,
+          pickupTimeSlot: pickupDropoffState.pickupTimeSlot,
+          pickupNotes: pickupDropoffState.pickupNotes,
+          dropoffType: pickupDropoffState.dropoffType,
+          dropoffLocationId: pickupDropoffState.dropoffLocationId,
+          dropoffCustomAddress: pickupDropoffState.dropoffCustomAddress,
+          dropoffTimeSlot: pickupDropoffState.dropoffTimeSlot,
+          dropoffNotes: pickupDropoffState.dropoffNotes,
+          distanceKm: pickupDropoffState.distanceKm,
+          transitCost: pickupDropoffState.transitCost,
+        } : null
       };
 
       await addDoc(collection(db, 'gearBookings'), bookingData);
 
       setBookingSuccess(true);
+      setPickupDropoffState(null);
       toast.success("Spot reserved! The rental hold has been added to the calendar.");
     } catch (err) {
       console.error(err);
@@ -1093,6 +1110,12 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                             className="w-full p-2.5 bg-white border border-neutral-205 rounded-xl text-xs font-bold outline-none text-neutral-800 font-mono"
                           />
                         </div>
+                      </div>
+
+                      {/* Customizable Pickup and Dropoff Widget */}
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Dispatch Routing Logistics</label>
+                        <PickupDropoffWidget onChange={setPickupDropoffState} />
                       </div>
 
                       {/* Customized Checklist */}

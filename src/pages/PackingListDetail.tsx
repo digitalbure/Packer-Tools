@@ -7,7 +7,7 @@ import { Reorder, AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { UserProfile, PackingList, PackingItem, PackingListVersion, AdminSettings, Contact, GearItem, Project } from '../types';
+import { UserProfile, PackingList, PackingItem, PackingListVersion, AdminSettings, Contact, GearItem, Project, RentalAgreement } from '../types';
 import ReminderModal from '../components/ReminderModal';
 import BulkScanModal from '../components/BulkScanModal';
 import { identifyItem, suggestItemMetadata } from '../services/geminiService';
@@ -17,6 +17,110 @@ import ManualCheckoutModal from '../components/ManualCheckoutModal';
 import { checkLimit } from '../lib/limitUtils';
 import ShareModal from '../components/ShareModal';
 import { logActivity } from '../services/activityLog';
+
+const InteractiveSignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [hasDrawn, setHasDrawn] = useState(false);
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent | TouchEvent | MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  };
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    setIsDrawing(true);
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    if (e.cancelable) e.preventDefault();
+    
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    setHasDrawn(true);
+  };
+
+  const stopDrawing = () => {
+    if (isDrawing) {
+      setIsDrawing(false);
+      const canvas = canvasRef.current;
+      if (canvas && hasDrawn) {
+        onSave(canvas.toDataURL());
+      }
+    }
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (ctx && canvas) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      onSave('');
+      setHasDrawn(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center bg-neutral-900">
+        <label className="text-[9px] uppercase tracking-widest font-black text-neutral-400 block font-sans">
+          Sign to accept legal responsibilities *
+        </label>
+        <button
+          type="button"
+          onClick={clearCanvas}
+          className="text-[8px] bg-neutral-800 text-neutral-400 py-1 px-2.5 rounded-lg hover:text-white transition uppercase font-black tracking-wider"
+        >
+          Reset Pad
+        </button>
+      </div>
+      <div className="border-2 border-dashed border-neutral-850 bg-neutral-950 rounded-2xl relative overflow-hidden h-32 active:border-primary transition-colors">
+        <canvas
+          ref={canvasRef}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+          className="absolute inset-0 w-full h-full cursor-pointer touch-none"
+          width={450}
+          height={128}
+        />
+        {!hasDrawn && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-neutral-600 text-[10px] uppercase font-black tracking-widest font-mono">
+            Draw Signature Here (Mouse / Touch)
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default function PackingListDetail({ user, adminSettings }: { user: UserProfile | null, adminSettings: AdminSettings | null }) {
   const { id } = useParams<{ id: string }>();
@@ -88,6 +192,17 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  // Rental agreements state hooks
+  const [agreements, setAgreements] = useState<RentalAgreement[]>([]);
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
+  const [agreementType, setAgreementType] = useState<'pickup' | 'dropoff'>('pickup');
+  const [agreementSigneeName, setAgreementSigneeName] = useState('');
+  const [agreementSigneeEmail, setAgreementSigneeEmail] = useState('');
+  const [agreementSigneePhone, setAgreementSigneePhone] = useState('');
+  const [agreementNotes, setAgreementNotes] = useState('');
+  const [agreementSignature, setAgreementSignature] = useState('');
+  const [isSubmittingAgreement, setIsSubmittingAgreement] = useState(false);
   const [isGroupingEnabled, setIsGroupingEnabled] = useState(true);
   const [showBulkGroupModal, setShowBulkGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -201,6 +316,12 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       setVersions(fetchedVersions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     });
 
+    const agreementsRef = collection(db, 'packingLists', id, 'RentalAgreements');
+    const unsubscribeAgreements = onSnapshot(agreementsRef, (snapshot) => {
+      const fetchedAgreements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as RentalAgreement[];
+      setAgreements(fetchedAgreements.sort((a, b) => new Date(b.signedAt).getTime() - new Date(a.signedAt).getTime()));
+    });
+
     // Fetch contacts
     let unsubscribeContacts = () => {};
     if (user) {
@@ -216,6 +337,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       unsubscribeList();
       unsubscribeItems();
       unsubscribeVersions();
+      unsubscribeAgreements();
       unsubscribeContacts();
     };
   }, [id, navigate, user]);
@@ -1477,45 +1599,103 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     };
   };
 
-  const handleReleaseRental = async () => {
+  const handleReleaseRental = () => {
     if (!id || !list) return;
-    try {
-      // 1. Update the list state
-      await updateDoc(doc(db, 'packingLists', id), {
-        rentalStatus: 'released',
-        updatedAt: new Date().toISOString()
-      });
-      // 2. Batch update all items to 'packed' status (meaning checked out)
-      const batchRef = writeBatch(db);
-      for (const item of items) {
-        batchRef.update(doc(db, 'packingLists', id, 'items', item.id), { status: 'packed' });
-      }
-      await batchRef.commit();
-      toast.success(`Successfully checked out & released equipment to ${list.bookingClientName || 'client'}!`);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to release equipment.");
-    }
+    setAgreementType('pickup');
+    setAgreementSigneeName(list.bookingClientName || list.recipientName || '');
+    setAgreementSigneeEmail(list.bookingClientEmail || list.recipientEmail || '');
+    setAgreementSigneePhone(list.customFields?.phone || '');
+    setAgreementNotes('');
+    setAgreementSignature('');
+    setShowAgreementModal(true);
   };
 
-  const handleReturnRental = async () => {
+  const handleReturnRental = () => {
     if (!id || !list) return;
+    setAgreementType('dropoff');
+    setAgreementSigneeName(list.bookingClientName || list.recipientName || '');
+    setAgreementSigneeEmail(list.bookingClientEmail || list.recipientEmail || '');
+    setAgreementSigneePhone(list.customFields?.phone || '');
+    setAgreementNotes('');
+    setAgreementSignature('');
+    setShowAgreementModal(true);
+  };
+
+  const handleSubmitAgreement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !list) return;
+    if (!agreementSigneeName || !agreementSigneeEmail) {
+      toast.error("Please provide the signee's name and email.");
+      return;
+    }
+    if (!agreementSignature) {
+      toast.error("Please draw your signature to authorize the agreement.");
+      return;
+    }
+
+    setIsSubmittingAgreement(true);
     try {
-      // 1. Update the list state
+      const agreementsColRef = collection(db, 'packingLists', id, 'RentalAgreements');
+      const agreementPayload: RentalAgreement = {
+        packingListId: id,
+        type: agreementType,
+        signeeName: agreementSigneeName,
+        signeeEmail: agreementSigneeEmail,
+        signeePhone: agreementSigneePhone || undefined,
+        signatureUrl: agreementSignature,
+        termsAccepted: agreementType === 'pickup' ? [
+          "The equipment listed above has been visually verified & matches requested specifications",
+          "I accept 100% custody and strict liability for loss, damage, theft, or production delays",
+          "Return schedule must be completed prior to expiry due-dates without delays"
+        ] : [
+          "I certify that all checked-out payloads have been returned to stock or accounted for",
+          "Outstanding battery cells, brackets, or minor cables are in proper packaging containers",
+          "Returned units have been visually pre-inspected for physical defects & water intrusion"
+        ],
+        notes: agreementNotes || undefined,
+        signedAt: new Date().toISOString(),
+        agreementDate: new Date().toLocaleDateString(undefined, { dateStyle: 'medium' }),
+        itemsCaptured: items.map(item => ({
+          id: item.id,
+          name: item.name,
+          status: agreementType === 'pickup' ? 'packed' : 'returned',
+          condition: (item as any).condition || 'good',
+          assetTag: item.assetTag || ''
+        })),
+        witnessedByUid: user?.uid || undefined,
+        witnessedByName: user?.displayName || user?.email || undefined,
+        witnessedByEmail: user?.email || undefined
+      };
+
+      // 1. Add Agreement Document to RentalAgreements sub-collection
+      await addDoc(agreementsColRef, agreementPayload);
+
+      // 2. Set Packing List state
+      const targetStatus = agreementType === 'pickup' ? 'released' : 'returned';
       await updateDoc(doc(db, 'packingLists', id), {
-        rentalStatus: 'returned',
+        rentalStatus: targetStatus,
         updatedAt: new Date().toISOString()
       });
-      // 2. Batch update all items to 'returned' status (meaning checked in)
+
+      // 3. Batch update items
+      const targetItemStatus = agreementType === 'pickup' ? 'packed' : 'returned';
       const batchRef = writeBatch(db);
       for (const item of items) {
-        batchRef.update(doc(db, 'packingLists', id, 'items', item.id), { status: 'returned' });
+        batchRef.update(doc(db, 'packingLists', id, 'items', item.id), { status: targetItemStatus });
       }
       await batchRef.commit();
-      toast.success(`Successfully returned & checked in all rental items!`);
+
+      setShowAgreementModal(false);
+      toast.success(
+        agreementType === 'pickup'
+          ? `Successfully checked out & released equipment in secure "RentalAgreements" collection to ${agreementSigneeName}!`
+          : `Successfully checked in & resolved "RentalAgreements" return for ${agreementSigneeName}!`
+      );
     } catch (err) {
       console.error(err);
-      toast.error("Failed to return equipment.");
+      toast.error(`Failed to authorize and save rental agreement: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsSubmittingAgreement(false);
     }
   };
 
@@ -2443,6 +2623,120 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                   {list.bookingPaidAt && (
                     <span className="text-[9px] font-mono text-neutral-400 uppercase tracking-wider block pt-1">Cleared: {new Date(list.bookingPaidAt).toLocaleString()}</span>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Rental Agreements Log Sub-Collection */}
+            {agreements.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-neutral-150 text-left">
+                <div className="flex items-center gap-2 mb-4">
+                  <Shield size={14} className="text-[#0066cc]" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#0066cc] font-sans block">
+                    Legally Documented Rental Agreements Sub-Collection ({agreements.length})
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {agreements.map((agreement) => (
+                    <div 
+                      key={agreement.id} 
+                      className="bg-neutral-50 border border-neutral-200/80 rounded-2xl p-4 space-y-3 transition-all hover:bg-neutral-100/50 text-left"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-wider rounded border ${
+                          agreement.type === 'pickup' 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
+                            : 'bg-red-50 text-red-700 border-red-100'
+                        }`}>
+                          {agreement.type === 'pickup' ? '🏁 Pickup & Release' : '🛑 Dropoff & Return'}
+                        </span>
+                        <span className="text-[9px] text-neutral-400 font-mono font-bold">
+                          {agreement.agreementDate}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-xs font-extrabold text-neutral-800">
+                          Signee: {agreement.signeeName}
+                        </p>
+                        <p className="text-[9px] text-neutral-500 font-mono">
+                          📧 {agreement.signeeEmail} {agreement.signeePhone && `| 📞 ${agreement.signeePhone}`}
+                        </p>
+                      </div>
+
+                      {agreement.notes && (
+                        <div className="bg-neutral-105 text-neutral-600 rounded-lg p-2 text-[9px] leading-relaxed border border-neutral-200/20 italic">
+                          "{agreement.notes}"
+                        </div>
+                      )}
+
+                      <div className="space-y-1">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Accepted Terms & Indemnities</span>
+                        <ul className="space-y-1">
+                          {agreement.termsAccepted.map((term, tIdx) => (
+                            <li key={tIdx} className="text-[9px] text-neutral-600 flex items-start gap-1">
+                              <span className="text-emerald-500 shrink-0 font-extrabold font-mono">✓</span>
+                              <span className="font-semibold leading-tight">{term}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-1 border-t border-neutral-200/55 pt-2 flex items-center justify-between gap-3 text-[9px]">
+                        <div>
+                          <span className="text-[7px] font-bold uppercase tracking-wider text-neutral-400 block">Documented At</span>
+                          <span className="font-mono text-neutral-500 font-bold">
+                            {new Date(agreement.signedAt).toLocaleString()}
+                          </span>
+                        </div>
+                        {agreement.witnessedByName && (
+                          <div className="text-right">
+                            <span className="text-[7px] font-bold uppercase tracking-wider text-neutral-400 block">Witnessed By</span>
+                            <span className="text-neutral-500 font-extrabold">
+                              {agreement.witnessedByName}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-2 border border-neutral-200 bg-white rounded-xl p-2 flex items-center justify-center relative min-h-[50px]">
+                        <img 
+                          src={agreement.signatureUrl} 
+                          alt="Signature Verification" 
+                          className="max-h-[30px] object-contain select-none"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute right-2 bottom-1 text-[6px] text-neutral-450 font-black uppercase font-mono tracking-widest bg-neutral-50 px-1 py-0.5 rounded border border-neutral-250">
+                          Captured Digitally
+                        </div>
+                      </div>
+
+                      <div className="bg-white/90 p-2 rounded-xl border border-neutral-200/60 font-sans">
+                        <details className="cursor-pointer group">
+                          <summary className="text-[8px] font-black uppercase tracking-wider text-neutral-500 hover:text-neutral-700 flex items-center justify-between select-none">
+                            <span>Captured Asset Check ({agreement.itemsCaptured?.length || 0} items)</span>
+                            <span className="text-[8px] font-bold transition-transform group-open:rotate-180">▼</span>
+                          </summary>
+                          <div className="mt-2 text-[8px] space-y-1 font-mono text-neutral-500 max-h-32 overflow-y-auto">
+                            {agreement.itemsCaptured?.map((item) => (
+                              <div key={item.id} className="flex justify-between border-b border-neutral-100 py-0.5 last:border-0">
+                                <span className="font-semibold text-neutral-700 truncate max-w-[130px]">{item.name}</span>
+                                <div className="space-x-1.5 shrink-0 flex items-center">
+                                  {item.assetTag && <span className="text-[7px] bg-neutral-100 px-1 rounded text-neutral-600 font-black">{item.assetTag}</span>}
+                                  <span className={`text-[7px] uppercase tracking-wider font-extrabold px-1 py-0.2 rounded ${
+                                    item.status === 'packed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-blue-50 text-blue-600 border border-blue-100'
+                                  }`}>
+                                    {item.status}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -5287,6 +5581,181 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                   </button>
                 </form>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* NEW DIGITAL SIGNATURE & TERMS CAPTURE MODAL */}
+      <AnimatePresence>
+        {showAgreementModal && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-neutral-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              className="bg-neutral-900 border border-neutral-800 text-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col font-sans"
+            >
+              {/* Header banner */}
+              <div className="p-6 bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950 border-b border-neutral-800 relative text-left">
+                <button 
+                  onClick={() => setShowAgreementModal(false)}
+                  className="absolute top-4 right-4 text-neutral-400 hover:text-white transition cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+                
+                <div className="flex items-center gap-2 p-1">
+                  <span className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-widest rounded-full ${
+                    agreementType === 'pickup' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                  }`}>
+                    {agreementType === 'pickup' ? '🏁 Pickup Stage' : '🛑 Dropoff Stage'}
+                  </span>
+                </div>
+                <h3 className="text-base font-black uppercase tracking-tight mt-1 text-white leading-none">
+                  {agreementType === 'pickup' ? 'Rental Dispatch & Terms Signature' : 'Rental Check-In & Resolution Statement'}
+                </h3>
+                <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-widest mt-1.5 font-mono">
+                  Sub-Collection: packingLists/{id || 'ID'}/RentalAgreements
+                </p>
+              </div>
+
+              <form onSubmit={handleSubmitAgreement} className="p-6 space-y-4 overflow-y-auto max-h-[75vh] text-left">
+                {/* Witness Details */}
+                {user && (
+                  <div className="bg-neutral-950/60 p-2.5 rounded-xl border border-neutral-800 flex items-center gap-2 justify-between text-[10px] font-mono">
+                    <span className="text-neutral-400 font-bold uppercase">Authorized Witness:</span>
+                    <span className="text-neutral-200 font-black truncate max-w-[200px]" title={user.email}>
+                      {user.displayName || user.email}
+                    </span>
+                  </div>
+                )}
+
+                {/* Form fields */}
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">Signee Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Recipient or Operator display name"
+                      value={agreementSigneeName}
+                      onChange={(e) => setAgreementSigneeName(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary-light"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">Signee Email *</label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="name@company.com"
+                        value={agreementSigneeEmail}
+                        onChange={(e) => setAgreementSigneeEmail(e.target.value)}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary-light"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">Signee Phone (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="+679 / +1 contact number"
+                        value={agreementSigneePhone}
+                        onChange={(e) => setAgreementSigneePhone(e.target.value)}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">Official Dispatch Notes & Logs</label>
+                    <textarea
+                      placeholder="E.g. Batteries at 80% charge, custom flight case included, minor scratch on side."
+                      value={agreementNotes}
+                      onChange={(e) => setAgreementNotes(e.target.value)}
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white h-16 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+
+                {/* Terms text checklists */}
+                <div className="space-y-2 border-t border-b border-neutral-800 py-3 bg-neutral-950/25 px-2 rounded-xl text-left">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/90 block mb-1">Bound Terms and Warranties</span>
+                  <div className="space-y-1.5 text-[10px] leading-relaxed text-neutral-400 text-left">
+                    {agreementType === 'pickup' ? (
+                      <>
+                        <div className="flex items-start gap-2">
+                          <span className="text-emerald-500 font-bold">✓</span>
+                          <span>I confirm receipt of all listed equipment in clean, fully functional condition.</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-emerald-500 font-bold">✓</span>
+                          <span>I agree to verify all payload contents and return items on or before the due date.</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-emerald-500 font-bold">✓</span>
+                          <span>I accept full financial responsibility for loss, damage, theft, or wear outside normal operations.</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-start gap-2">
+                          <span className="text-emerald-500 font-bold">✓</span>
+                          <span>I confirm return of all listed equipment back to designated warehouse.</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-emerald-500 font-bold">✓</span>
+                          <span>I agree to undergo detailed technician inspection for states, condition and missing items.</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-emerald-500 font-bold">✓</span>
+                          <span>Outstanding battery cells, brackets, or minor cables are accounted for or billed.</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  {/* Draw Signature Pad */}
+                  <div className="bg-neutral-950 border border-neutral-850 rounded-2xl p-3">
+                    <InteractiveSignaturePad onSave={setAgreementSignature} />
+                  </div>
+                </div>
+
+                {/* Action Row */}
+                <div className="pt-2 flex items-center justify-end gap-3 border-t border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowAgreementModal(false)}
+                    className="py-2 px-4 bg-neutral-800 text-neutral-350 hover:text-white rounded-xl text-xs uppercase font-extrabold tracking-wider transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingAgreement}
+                    className={`py-2 px-5 bg-primary text-white hover:opacity-90 rounded-xl text-xs uppercase font-black tracking-wider transition flex items-center gap-1.5 shadow-lg shadow-primary/20 cursor-pointer ${
+                      isSubmittingAgreement ? 'opacity-40 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {isSubmittingAgreement ? (
+                      <>
+                        <Loader2 className="animate-spin" size={12} />
+                        Saving...
+                      </>
+                    ) : agreementType === 'pickup' ? (
+                      'Fulfill & Release'
+                    ) : (
+                      'Fulfill & Return'
+                    )}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

@@ -47,6 +47,7 @@ import ManualCheckoutModal from '../components/ManualCheckoutModal';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { db, handleFirestoreError, OperationType } from '../firebase';
+import { triggerGoogleChatAlert } from '../services/googleChat';
 import { UserProfile, GearItem, GearItemVersion, GearIncident, AdminSettings, Container, Organization, Department, Team } from '../types';
 import { logActivity } from '../services/activityLog';
 import { offlineSync, OfflineOperation } from '../services/offlineSync';
@@ -2021,6 +2022,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       }
 
       await addDoc(colRef, newGearPayload);
+      if (user.orgId) {
+        triggerGoogleChatAlert(
+          user.orgId, 
+          'gear_added', 
+          `🆕 *New Gear Registered*:\n• *Name*: ${newItem.name}\n• *Category*: ${newItem.category}\n• *Condition*: ${newItem.condition}\n• *By*: ${user.displayName || user.email || 'Team User'}`
+        ).catch(err => console.warn('Google Chat notification skipped:', err));
+      }
       await logActivity(
         user.uid,
         user.displayName || user.email || 'Platform User',

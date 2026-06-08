@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import UpgradeNowModal from '../components/UpgradeNowModal';
 import { Lock, Shield, Crown } from 'lucide-react';
+import PickupDropoffWidget, { PickupDropoffState } from '../components/PickupDropoffWidget';
 
 interface ListingsModuleProps {
   user: UserProfile;
@@ -42,6 +43,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
   const [activeSubTab, setActiveSubTab] = useState<'console' | 'bookings' | 'gear-bookings' | 'settings'>('console');
   const [lists, setLists] = useState<PackingList[]>([]);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [pickupDropoffState, setPickupDropoffState] = useState<PickupDropoffState | null>(null);
 
   // Gear Bookings and Reservation State
   const [gearBookings, setGearBookings] = useState<any[]>([]);
@@ -203,7 +205,21 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
         paymentStatus: reservationType === 'free' ? 'Free' : (depositPaid ? 'Deposit Paid' : 'Pending Deposit'),
         reservationType,
         customConditions: selectedBookingConditions,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        pickupDropoff: pickupDropoffState ? {
+          pickupType: pickupDropoffState.pickupType,
+          pickupLocationId: pickupDropoffState.pickupLocationId,
+          pickupCustomAddress: pickupDropoffState.pickupCustomAddress,
+          pickupTimeSlot: pickupDropoffState.pickupTimeSlot,
+          pickupNotes: pickupDropoffState.pickupNotes,
+          dropoffType: pickupDropoffState.dropoffType,
+          dropoffLocationId: pickupDropoffState.dropoffLocationId,
+          dropoffCustomAddress: pickupDropoffState.dropoffCustomAddress,
+          dropoffTimeSlot: pickupDropoffState.dropoffTimeSlot,
+          dropoffNotes: pickupDropoffState.dropoffNotes,
+          distanceKm: pickupDropoffState.distanceKm,
+          transitCost: pickupDropoffState.transitCost,
+        } : null
       };
 
       await addDoc(collection(db, 'gearBookings'), bookingData);
@@ -217,6 +233,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
       setEndDate("");
       setDepositPaid(false);
       setSelectedBookingConditions([]);
+      setPickupDropoffState(null);
       setIsReserveModalOpen(false);
 
       toast.success("Advance reservation booked and calendar locked!");
@@ -1011,6 +1028,45 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                 </p>
                               </div>
 
+                              {booking.pickupDropoff && (
+                                <div className="mt-2 p-3 bg-neutral-100 rounded-2xl border border-neutral-200/50 space-y-1.5 text-[11px] leading-tight text-neutral-700">
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-1.5 font-bold">
+                                        <span className="text-emerald-600">🏁 Pickup:</span>
+                                        <span className="text-neutral-800">
+                                          {booking.pickupDropoff.pickupType === 'preset' 
+                                            ? (booking.pickupDropoff.pickupLocationId === 'suva_depot' ? 'Suva Depot' : booking.pickupDropoff.pickupLocationId === 'nadi_airport' ? 'Nadi Airport' : 'Pacific Harbour Camera Lounge') 
+                                            : booking.pickupDropoff.pickupCustomAddress || 'Custom Place'}
+                                        </span>
+                                        <span className="text-[10px] text-neutral-450 uppercase font-black font-mono">({booking.pickupDropoff.pickupTimeSlot})</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 font-bold">
+                                        <span className="text-red-500">🛑 Dropoff:</span>
+                                        <span className="text-neutral-800">
+                                          {booking.pickupDropoff.dropoffType === 'preset' 
+                                            ? (booking.pickupDropoff.dropoffLocationId === 'suva_depot' ? 'Suva Depot' : booking.pickupDropoff.dropoffLocationId === 'nadi_airport' ? 'Nadi Airport' : 'Pacific Harbour Camera Lounge') 
+                                            : booking.pickupDropoff.dropoffCustomAddress || 'Custom Place'}
+                                        </span>
+                                        <span className="text-[10px] text-neutral-450 uppercase font-black font-mono">({booking.pickupDropoff.dropoffTimeSlot})</span>
+                                      </div>
+                                    </div>
+                                    <div className="text-left sm:text-right text-[10px] font-mono shrink-0">
+                                      <span className="text-[8px] text-neutral-400 font-bold block uppercase">Routing Hold</span>
+                                      <span className="font-extrabold text-[#0066cc] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 block mt-0.5">
+                                        {booking.pickupDropoff.distanceKm > 0 ? `${booking.pickupDropoff.distanceKm} km (Est. FJ$ ${booking.pickupDropoff.transitCost})` : 'Self-Serve Collect'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {(booking.pickupDropoff.pickupNotes || booking.pickupDropoff.dropoffNotes) && (
+                                    <div className="text-[9px] text-neutral-450 italic border-t border-neutral-200/50 pt-1">
+                                      {booking.pickupDropoff.pickupNotes && <div>• Pickup: {booking.pickupDropoff.pickupNotes}</div>}
+                                      {booking.pickupDropoff.dropoffNotes && <div>• Dropoff: {booking.pickupDropoff.dropoffNotes}</div>}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
                               {booking.customConditions && booking.customConditions.length > 0 && (
                                 <div className="flex flex-wrap gap-1 pt-1">
                                   {booking.customConditions.map((cond: string, cIdx: number) => (
@@ -1624,6 +1680,12 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                       className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-bold outline-none text-neutral-800 font-mono"
                     />
                   </div>
+                </div>
+
+                {/* Customizable Pickup and Dropoff Widget */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Dispatch Routing Logistics</label>
+                  <PickupDropoffWidget onChange={setPickupDropoffState} />
                 </div>
 
                 <div className="space-y-1 pb-1">

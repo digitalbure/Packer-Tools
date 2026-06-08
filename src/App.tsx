@@ -58,12 +58,14 @@ import CommunitySelector from './components/CommunitySelector';
 import { AdminSettings, Plan } from './types';
 import { isFeatureEnabled } from './lib/featureUtils';
 
-function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick, selectedCommunity }: { 
+function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick, selectedCommunity, landingView, setLandingView }: { 
   user: UserProfile | null, 
   setUser: (user: UserProfile | null) => void, 
   adminSettings: AdminSettings | null,
   onMenuClick: () => void,
-  selectedCommunity?: string | null
+  selectedCommunity?: string | null,
+  landingView?: string,
+  setLandingView?: (view: string) => void
 }) {
   const location = useLocation();
 
@@ -122,7 +124,7 @@ function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick, selectedCom
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <Routes location={location}>
-          <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate adminSettings={adminSettings} /> : (selectedCommunity === 'global' ? <LandingPage user={user} adminSettings={adminSettings} /> : <Marketplace user={user} adminSettings={adminSettings} />))} />
+          <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate adminSettings={adminSettings} /> : (selectedCommunity === 'global' ? <LandingPage user={user} adminSettings={adminSettings} landingView={landingView} setLandingView={setLandingView} /> : <Marketplace user={user} adminSettings={adminSettings} />))} />
           <Route path="/dashboard" element={user ? <Dashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
           <Route path="/list/:id" element={<PackingListDetail user={user} adminSettings={adminSettings} />} />
           <Route path="/p/:id" element={<PackingListBioView />} />
@@ -351,6 +353,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [landingView, setLandingView] = useState<string>('saas');
 
   const hasInitializedSidebarCollapse = useRef(false);
 
@@ -779,6 +782,8 @@ export default function App() {
                   onMenuClick={() => setIsMobileSidebarOpen(true)} 
                   selectedCommunity={selectedCommunity}
                   onOpenSelector={() => setIsCommunitySelectorOpen(true)}
+                  landingView={landingView}
+                  setLandingView={setLandingView}
                 />
               )}
               <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
@@ -793,6 +798,8 @@ export default function App() {
                     adminSettings={adminSettings} 
                     onMenuClick={() => setIsMobileSidebarOpen(true)} 
                     selectedCommunity={selectedCommunity}
+                    landingView={landingView}
+                    setLandingView={setLandingView}
                   />
                 </div>
                 {!isLayoutHidden && (

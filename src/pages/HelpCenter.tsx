@@ -334,9 +334,21 @@ interface HelpCenterProps {
 }
 
 export default function HelpCenter({ user }: HelpCenterProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get('category');
+
   const [activeTab, setActiveTab] = useState<'guides' | 'stories' | 'policies'>('guides');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGuideCat, setSelectedGuideCat] = useState<string | null>(null);
+  const [selectedGuideCat, setSelectedGuideCat] = useState<string | null>(categoryParam);
+
+  useEffect(() => {
+    if (categoryParam) {
+      setSelectedGuideCat(categoryParam);
+      setActiveTab('guides');
+    } else {
+      setSelectedGuideCat(null);
+    }
+  }, [categoryParam]);
   
   // Stories module states
   const [dbStories, setDbStories] = useState<any[]>([]);
@@ -517,7 +529,7 @@ export default function HelpCenter({ user }: HelpCenterProps) {
               <span>Guides & Manuals</span>
             </button>
             <button
-              onClick={() => { setActiveTab('stories'); setSearchQuery(''); }}
+              onClick={() => { setActiveTab('stories'); setSearchQuery(''); setSearchParams({}); }}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
                 activeTab === 'stories' 
                   ? 'bg-neutral-900 text-white shadow-lg' 
@@ -528,7 +540,7 @@ export default function HelpCenter({ user }: HelpCenterProps) {
               <span>Operator Stories</span>
             </button>
             <button
-              onClick={() => { setActiveTab('policies'); setSearchQuery(''); }}
+              onClick={() => { setActiveTab('policies'); setSearchQuery(''); setSearchParams({}); }}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
                 activeTab === 'policies' 
                   ? 'bg-neutral-900 text-white shadow-lg' 
@@ -575,7 +587,7 @@ export default function HelpCenter({ user }: HelpCenterProps) {
             {/* Category selection tag container */}
             <div className="flex flex-wrap items-center justify-center gap-2 py-2">
               <button
-                onClick={() => setSelectedGuideCat(null)}
+                onClick={() => setSearchParams({})}
                 className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
                   selectedGuideCat === null
                     ? 'bg-primary text-white shadow-sm'
@@ -587,7 +599,7 @@ export default function HelpCenter({ user }: HelpCenterProps) {
               {categories.map((cat) => (
                 <button
                   key={cat.id}
-                  onClick={() => setSelectedGuideCat(cat.id)}
+                  onClick={() => setSearchParams({ category: cat.id })}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
                     selectedGuideCat === cat.id
                       ? 'bg-primary text-white shadow-sm'

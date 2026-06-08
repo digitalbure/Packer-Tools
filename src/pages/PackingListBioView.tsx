@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { doc, getDoc, collection, query, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, getDocs, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { PackingList, PackingItem } from '../types';
+import { PackingList, PackingItem, RentalAgreement } from '../types';
 import { Package, Tag, Info, Check, CreditCard, ShieldCheck, XCircle, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -209,6 +209,36 @@ export default function PackingListBioView() {
           bookingPaidAt: new Date().toISOString(),
           status: 'Sent'
         });
+
+        // Push digital pre-agreement signature to the RentalAgreements sub-collection
+        try {
+          const agreementsColRef = collection(db, 'packingLists', id, 'RentalAgreements');
+          const agreementPayload: RentalAgreement = {
+            packingListId: id,
+            type: 'pickup',
+            signeeName: clientName,
+            signeeEmail: clientEmail,
+            signatureUrl: signatureData,
+            termsAccepted: [
+              "The equipment listed has been visually checked & verified during checkout",
+              "I accept 100% custody and liability for loss, damage, theft, or production delays",
+              "A authorized signature and pre-payment have been authorized through the secure checkout"
+            ],
+            notes: "Authorized Digitally via Secure Online Client Checkout page.",
+            signedAt: new Date().toISOString(),
+            agreementDate: new Date().toLocaleDateString(undefined, { dateStyle: 'medium' }),
+            itemsCaptured: items.map(item => ({
+              id: item.id,
+              name: item.name,
+              status: 'pending',
+              condition: 'good',
+              assetTag: item.assetTag || ''
+            }))
+          };
+          await addDoc(agreementsColRef, agreementPayload);
+        } catch (subErr) {
+          console.warn("Subcollection agreement write skipped or failed: ", subErr);
+        }
 
         setList(prev => prev ? {
           ...prev,

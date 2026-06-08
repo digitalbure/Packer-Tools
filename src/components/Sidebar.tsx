@@ -108,7 +108,17 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/kiosk', label: 'Gear Kiosk', icon: <QrCode size={20} />, feature: 'kioskMode' as FeatureKey },
     { to: '/library', label: getAdjustedLabel('library'), icon: <Package size={20} /> },
     { to: '/systems-builder', label: getAdjustedLabel('systems-builder'), icon: <Hammer size={20} /> },
-    { to: '/marketplace', label: 'Marketplace', icon: <ShoppingBag size={20} /> },
+    { 
+      to: '/marketplace', 
+      label: 'Marketplace', 
+      icon: <ShoppingBag size={20} />,
+      subItems: user.isSuperAdmin ? [
+        { to: '/marketplace', label: 'Browse Marketplace', icon: <ShoppingBag size={16} /> },
+        { to: '/admin?tab=listings', label: 'Moderate & Categories', icon: <ListChecks size={16} /> },
+        { to: '/admin?tab=landing', label: 'Marketplace Front', icon: <Layout size={16} /> },
+        { to: '/admin?tab=settings', label: 'Geo-Launch Settings', icon: <Settings size={16} /> },
+      ] : undefined
+    },
     { to: '/listings', label: 'Listings', icon: <ListChecks size={20} /> },
     { 
       to: '/lists', 

@@ -242,6 +242,30 @@ export interface PackingList {
   updatedAt: string;
 }
 
+export interface RentalAgreement {
+  id?: string;
+  packingListId: string;
+  type: 'pickup' | 'dropoff';
+  signeeName: string;
+  signeeEmail: string;
+  signeePhone?: string;
+  signatureUrl: string; // Base64 dataURL
+  termsAccepted: string[];
+  notes?: string;
+  signedAt: string; // ISO String
+  agreementDate: string; // Formatting date for display
+  itemsCaptured: Array<{
+    id: string;
+    name: string;
+    status: string;
+    condition?: string;
+    assetTag?: string;
+  }>;
+  witnessedByUid?: string;
+  witnessedByName?: string;
+  witnessedByEmail?: string;
+}
+
 export interface Rack {
   id: string;
   ownerId: string;
