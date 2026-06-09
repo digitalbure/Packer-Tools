@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, addDoc, query, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, addDoc, query, where, deleteDoc, writeBatch } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { UserProfile } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 
 // Components
 import Navbar from './components/Navbar';
@@ -188,6 +188,7 @@ export function getDefaultAdminSettings(): AdminSettings {
       id: 'pro',
       name: 'Pro', 
       price: 19, 
+      annualPrice: 180,
       features: ['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'kioskMode', 'inventoryManagement'], 
       aiTokenLimit: 500,
       maxPackingLists: 50,
@@ -198,12 +199,15 @@ export function getDefaultAdminSettings(): AdminSettings {
       maxOrganizations: 5,
       maxDepartments: 20,
       maxTeams: 50,
-      maxInventoryItems: 1000
+      maxInventoryItems: 1000,
+      trialDays: 14,
+      trialEnabled: true
     },
     { 
       id: 'enterprise',
       name: 'Enterprise', 
       price: 99, 
+      annualPrice: 948,
       features: ['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'branding', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'kioskMode', 'orgManagement', 'departments', 'teams', 'inventoryManagement'], 
       aiTokenLimit: 5000,
       maxPackingLists: 1000,
@@ -214,7 +218,9 @@ export function getDefaultAdminSettings(): AdminSettings {
       maxOrganizations: 50,
       maxDepartments: 500,
       maxTeams: 1000,
-      maxInventoryItems: 100000
+      maxInventoryItems: 100000,
+      trialDays: 14,
+      trialEnabled: true
     }
   ];
 
@@ -347,6 +353,157 @@ export function getDefaultAdminSettings(): AdminSettings {
   };
 }
 
+async function migrateDemoDataToUser(fromUid: string, toUid: string) {
+  try {
+    const fromUserRef = doc(db, 'users', fromUid);
+    const toUserRef = doc(db, 'users', toUid);
+    
+    const fromUserSnap = await getDoc(fromUserRef);
+    const fromUserData = fromUserSnap.exists() ? fromUserSnap.data() || {} : {};
+    const toUserSnap = await getDoc(toUserRef);
+    const toUserData = toUserSnap.exists() ? toUserSnap.data() : {};
+    
+    // helper to clean undefined fields
+    const cleanObject = (obj: any): any => {
+      const copy = { ...obj };
+      Object.keys(copy).forEach(key => {
+        if (copy[key] === undefined) {
+          delete copy[key];
+        } else if (copy[key] && typeof copy[key] === 'object' && !Array.isArray(copy[key]) && !(copy[key] instanceof Date)) {
+          copy[key] = cleanObject(copy[key]);
+        }
+      });
+      return copy;
+    };
+
+    // 1. Update ownerId in organizations and find a migrated org ID
+    const orgsCol = collection(db, 'organizations');
+    const orgsSnap = await getDocs(orgsCol);
+    let migratedOrgId = '';
+    if (!orgsSnap.empty) {
+      const batch = writeBatch(db);
+      let updatedCount = 0;
+      for (const d of orgsSnap.docs) {
+        const data = d.data();
+        if (data.ownerId === fromUid) {
+          const orgRef = doc(db, 'organizations', d.id);
+          batch.update(orgRef, { ownerId: toUid });
+          updatedCount++;
+          if (!migratedOrgId) migratedOrgId = d.id;
+        } else if (data.ownerId === toUid && !migratedOrgId) {
+          migratedOrgId = d.id;
+        }
+      }
+      if (updatedCount > 0) {
+        await batch.commit();
+        console.log(`[Migration] Updated ownership of ${updatedCount} organizations to ${toUid}`);
+      }
+    }
+
+    // 2. Link user profile fields and include the migrated org ID
+    const updatedToUser = {
+      ...toUserData,
+      orgId: toUserData.orgId || fromUserData.orgId || migratedOrgId || '',
+      onboardingCompleted: toUserData.onboardingCompleted !== undefined 
+        ? toUserData.onboardingCompleted 
+        : (fromUserData.onboardingCompleted || false),
+      role: toUserData.role || fromUserData.role || 'owner',
+      plan: toUserData.plan && toUserData.plan !== 'free' 
+        ? toUserData.plan 
+        : (fromUserData.plan || 'free'),
+      isSuperAdmin: toUserData.isSuperAdmin !== undefined 
+        ? toUserData.isSuperAdmin 
+        : (fromUserData.isSuperAdmin || false),
+    };
+    
+    await setDoc(toUserRef, updatedToUser, { merge: true });
+
+    // 3. Migrate gearLibrary subcollection
+    const fromGearCol = collection(db, 'users', fromUid, 'gearLibrary');
+    const toGearCol = collection(db, 'users', toUid, 'gearLibrary');
+    const gearSnap = await getDocs(fromGearCol);
+    
+    if (!gearSnap.empty) {
+      const batch = writeBatch(db);
+      let copiedCount = 0;
+      for (const d of gearSnap.docs) {
+        const destDocRef = doc(toGearCol, d.id);
+        batch.set(destDocRef, cleanObject(d.data()));
+        copiedCount++;
+      }
+      if (copiedCount > 0) {
+        await batch.commit();
+        console.log(`[Migration] Migrated ${copiedCount} gear items to ${toUid}`);
+      }
+    }
+
+    // 4. Migrate containers subcollection
+    const fromContainersCol = collection(db, 'users', fromUid, 'containers');
+    const toContainersCol = collection(db, 'users', toUid, 'containers');
+    const containersSnap = await getDocs(fromContainersCol);
+    
+    if (!containersSnap.empty) {
+      const batch = writeBatch(db);
+      let copiedCount = 0;
+      for (const d of containersSnap.docs) {
+        const destDocRef = doc(toContainersCol, d.id);
+        batch.set(destDocRef, cleanObject(d.data()));
+        copiedCount++;
+      }
+      if (copiedCount > 0) {
+        await batch.commit();
+        console.log(`[Migration] Migrated ${copiedCount} containers to ${toUid}`);
+      }
+    }
+
+    // 5. Update ownerId in inventories
+    const inventoriesCol = collection(db, 'inventories');
+    const inventoriesSnap = await getDocs(inventoriesCol);
+    if (!inventoriesSnap.empty) {
+      const batch = writeBatch(db);
+      let updatedCount = 0;
+      for (const d of inventoriesSnap.docs) {
+        const data = d.data();
+        if (data.ownerId === fromUid) {
+          const invRef = doc(db, 'inventories', d.id);
+          batch.update(invRef, { ownerId: toUid });
+          updatedCount++;
+        }
+      }
+      if (updatedCount > 0) {
+        await batch.commit();
+        console.log(`[Migration] Updated ownership of ${updatedCount} inventories to ${toUid}`);
+      }
+    }
+
+    // 6. Update ownerId in racks
+    const racksCol = collection(db, 'racks');
+    const racksSnap = await getDocs(racksCol);
+    if (!racksSnap.empty) {
+      const batch = writeBatch(db);
+      let updatedCount = 0;
+      for (const d of racksSnap.docs) {
+        const data = d.data();
+        if (data.ownerId === fromUid) {
+          const rackRef = doc(db, 'racks', d.id);
+          batch.update(rackRef, { ownerId: toUid });
+          updatedCount++;
+        }
+      }
+      if (updatedCount > 0) {
+        await batch.commit();
+        console.log(`[Migration] Updated ownership of ${updatedCount} racks to ${toUid}`);
+      }
+    }
+
+    // Delete the original demo user profile so we don't repeatedly migrate it
+    await deleteDoc(fromUserRef);
+    toast.success("Successfully linked and migrated your sandbox organization, inventory, and gear lists to your Google account!");
+  } catch (error) {
+    console.warn(`[Migration] Soft notice - Failed to migrate demo data:`, error);
+  }
+}
+
 export default function App() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [adminSettings, setAdminSettings] = useState<AdminSettings>(getDefaultAdminSettings());
@@ -373,7 +530,11 @@ export default function App() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(() => {
     return localStorage.getItem("packer_selected_community");
   });
-  const [isCommunitySelectorOpen, setIsCommunitySelectorOpen] = useState(false);
+  const [isCommunitySelectorOpen, setIsCommunitySelectorOpen] = useState(() => {
+    const selected = localStorage.getItem("packer_selected_community");
+    const dontShow = localStorage.getItem("packer_dont_show_community_selector") === "true";
+    return selected === null && !dontShow;
+  });
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -390,6 +551,46 @@ export default function App() {
   }, []);
 
   const isLayoutHidden = currentHash.startsWith('#/kiosk') || currentHash.includes('hideLayout=true') || currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/');
+
+  // Conditional routing and location detection for community selector
+  useEffect(() => {
+    if (!user) return;
+
+    // 1. First-time log-in detector
+    const loginKey = `packer_has_logged_in_${user.uid}`;
+    const hasLoggedInBefore = localStorage.getItem(loginKey);
+    if (!hasLoggedInBefore) {
+      localStorage.setItem(loginKey, "true");
+      setIsCommunitySelectorOpen(true);
+    }
+
+    // 2. Geolocation shift detector (if user moves to a new location)
+    const detectAndCheckLocationShift = async () => {
+      try {
+        const res = await fetch('https://freeipapi.app/api/json');
+        if (res.ok) {
+          const data = await res.json();
+          const code = data.countryCode; // e.g. "FJ", "AU", "NZ", "US"
+          if (code) {
+            const lastCode = localStorage.getItem('packer_last_known_location_country');
+            if (lastCode && lastCode.toUpperCase() !== code.toUpperCase()) {
+              console.log(`[Location Routing] Location shifted from ${lastCode} to ${code}`);
+              localStorage.setItem('packer_last_known_location_country', code);
+              // Clear Don't Show Again since they changed locations
+              localStorage.removeItem('packer_dont_show_community_selector');
+              setIsCommunitySelectorOpen(true);
+            } else if (!lastCode) {
+              localStorage.setItem('packer_last_known_location_country', code);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[Location Check] Background detection failed:", err);
+      }
+    };
+
+    detectAndCheckLocationShift();
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -519,6 +720,7 @@ export default function App() {
               id: 'pro',
               name: 'Pro', 
               price: 19, 
+              annualPrice: 180,
               features: ['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'kioskMode', 'inventoryManagement'], 
               aiTokenLimit: 500,
               maxPackingLists: 50,
@@ -537,6 +739,7 @@ export default function App() {
               id: 'enterprise',
               name: 'Enterprise', 
               price: 99, 
+              annualPrice: 948,
               features: ['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'branding', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'kioskMode', 'orgManagement', 'departments', 'teams', 'inventoryManagement'], 
               aiTokenLimit: 5000,
               maxPackingLists: 1000,
@@ -676,12 +879,44 @@ export default function App() {
 
     let unsubscribeUser: (() => void) | null = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
+        // Run migration check in the background asynchronously without blocking the profile snapshot initialization
+        (async () => {
+          try {
+            const [demoOrgs, demoGear, demoInvs] = await Promise.all([
+              getDocs(query(collection(db, 'organizations'), where('ownerId', '==', 'demo-super-admin'))),
+              getDocs(collection(db, 'users', 'demo-super-admin', 'gearLibrary')),
+              getDocs(query(collection(db, 'inventories'), where('ownerId', '==', 'demo-super-admin')))
+            ]);
+            
+            if (!demoOrgs.empty || !demoGear.empty || !demoInvs.empty) {
+              await migrateDemoDataToUser('demo-super-admin', firebaseUser.uid);
+            }
+          } catch (migrationError) {
+            console.warn("Migration check notice:", migrationError);
+          }
+        })();
+
         // Use onSnapshot for real-time profile updates
         unsubscribeUser = onSnapshot(doc(db, 'users', firebaseUser.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const userData = docSnap.data() as UserProfile;
+            
+            // Auto-heal empty orgId for existing users who own an organization
+            if (!userData.orgId) {
+              try {
+                const orgsSnap = await getDocs(query(collection(db, 'organizations'), where('ownerId', '==', firebaseUser.uid)));
+                if (!orgsSnap.empty) {
+                  const firstOrgId = orgsSnap.docs[0].id;
+                  await setDoc(doc(db, 'users', firebaseUser.uid), { orgId: firstOrgId }, { merge: true });
+                  console.log(`[Auto-Heal] Successfully linked empty orgId to owned organization: ${firstOrgId}`);
+                }
+              } catch (healError) {
+                console.warn("[Auto-Heal] Failed to auto-associate organization:", healError);
+              }
+            }
+
             // Ensure default admin has super admin privileges
             if (firebaseUser.email === 'jnakasamai@gmail.com' && firebaseUser.emailVerified && !userData.isSuperAdmin) {
               const updatedUser = { ...userData, isSuperAdmin: true, role: 'owner' as const };
@@ -691,11 +926,23 @@ export default function App() {
               setUser(userData);
             }
           } else {
+            // Find if there is an owned organization to link immediately for new users
+            let initialOrgId = '';
+            try {
+              const orgsSnap = await getDocs(query(collection(db, 'organizations'), where('ownerId', '==', firebaseUser.uid)));
+              if (!orgsSnap.empty) {
+                initialOrgId = orgsSnap.docs[0].id;
+              }
+            } catch (initialMatchError) {
+              console.warn("[Auto-Heal] Initial org match soft error:", initialMatchError);
+            }
+
             const newUser: UserProfile = {
               uid: firebaseUser.uid,
               email: firebaseUser.email || '',
               displayName: firebaseUser.displayName || 'User',
               photoURL: firebaseUser.photoURL || '',
+              orgId: initialOrgId,
               plan: 'free',
               isSuperAdmin: (firebaseUser.email === 'jnakasamai@gmail.com' && firebaseUser.emailVerified),
               role: (firebaseUser.email === 'jnakasamai@gmail.com' && firebaseUser.emailVerified) ? 'owner' : 'viewer',
@@ -816,7 +1063,7 @@ export default function App() {
             <CommunitySelector
               adminSettings={adminSettings}
               selectedCommunity={selectedCommunity}
-              isOpen={selectedCommunity === null || isCommunitySelectorOpen}
+              isOpen={isCommunitySelectorOpen}
               onSelect={(mId) => {
                 localStorage.setItem("packer_selected_community", mId);
                 setSelectedCommunity(mId);

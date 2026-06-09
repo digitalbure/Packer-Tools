@@ -54,6 +54,7 @@ import {
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, GearItem, Organization, Department, Team, AdminSettings } from '../types';
 import { toast } from 'sonner';
+import PhysicalLocationMap from '../components/PhysicalLocationMap';
 import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import * as PAPA from 'papaparse';
@@ -112,7 +113,7 @@ export interface InventoryItem {
 
 export default function InventoryModule({ user, adminSettings }: InventoryModuleProps) {
   // Global Active State & Mode switcher
-  const [activeTab, setActiveTab] = useState<'custom_inventories' | 'global_allocations'>('custom_inventories');
+  const [activeTab, setActiveTab] = useState<'custom_inventories' | 'global_allocations' | 'physical_map'>('custom_inventories');
   
   // Data Model states loaded from database
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -1361,7 +1362,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
         </div>
 
         {/* Dynamic Navigation Mode Tabs */}
-        <div className="flex bg-neutral-100 p-1.5 rounded-2xl border border-neutral-200 w-full md:w-auto self-start">
+        <div className="flex bg-neutral-100 p-1.5 rounded-2xl border border-neutral-200 w-full md:w-auto self-start flex-wrap gap-2 md:gap-0">
           <button 
             onClick={() => { setSelectedInventory(null); setActiveTab('custom_inventories'); }}
             className={`flex-1 md:flex-initial px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 ${activeTab === 'custom_inventories' ? 'bg-white text-black shadow-sm' : 'text-neutral-500 hover:text-black'}`}
@@ -1373,6 +1374,12 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
             className={`flex-1 md:flex-initial px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 ${activeTab === 'global_allocations' ? 'bg-white text-black shadow-sm' : 'text-neutral-500 hover:text-black'}`}
           >
             🌐 Asset Allocations
+          </button>
+          <button 
+            onClick={() => setActiveTab('physical_map')}
+            className={`flex-1 md:flex-initial px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 ${activeTab === 'physical_map' ? 'bg-white text-black shadow-sm' : 'text-neutral-500 hover:text-black'}`}
+          >
+            🗺️ Racks & Storage Map
           </button>
         </div>
       </header>
@@ -2556,7 +2563,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
             </div>
           )}
         </div>
-      ) : (
+      ) : activeTab === 'global_allocations' ? (
         // ==========================================
         // SYSTEM B: RETRO ACTIVE GLOBALLY ALLOCATED FLEET
         // ==========================================
@@ -2703,6 +2710,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
             </div>
           )}
         </div>
+      ) : (
+        <PhysicalLocationMap 
+          user={user} 
+          adminSettings={adminSettings} 
+          inventoryItems={inventoryItems as any} 
+          selectedInventory={selectedInventory} 
+          organizations={organizations} 
+          departments={departments} 
+          teams={teams} 
+        />
       )}
 
       {/* ==============================================

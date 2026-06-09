@@ -22,6 +22,18 @@ export default function CommunitySelector({
   const [checkingLocation, setCheckingLocation] = useState(false);
   const [detectedCountry, setDetectedCountry] = useState<{ name: string; code: string; isSupported: boolean } | null>(null);
   const [customSearchQuery, setCustomSearchQuery] = useState('');
+  const [dontShowAgain, setDontShowAgain] = useState(() => {
+    return localStorage.getItem('packer_dont_show_community_selector') === 'true';
+  });
+
+  const handleDontShowAgainChange = (checked: boolean) => {
+    setDontShowAgain(checked);
+    if (checked) {
+      localStorage.setItem('packer_dont_show_community_selector', 'true');
+    } else {
+      localStorage.removeItem('packer_dont_show_community_selector');
+    }
+  };
 
   // Default communities if none are set yet in database
   const activeCommunities = adminSettings?.communities || [
@@ -288,8 +300,20 @@ export default function CommunitySelector({
           </div>
         </div>
 
-        {/* Informative Footer banner */}
-        <div className="p-6 bg-neutral-50 border-t border-neutral-150 text-center shrink-0">
+        {/* Informative Footer banner with Don't Show Again option */}
+        <div className="p-6 bg-neutral-50 border-t border-neutral-150 shrink-0 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <label className="flex items-center gap-2.5 cursor-pointer group">
+            <input 
+              type="checkbox"
+              id="dont_show_again_checkbox"
+              checked={dontShowAgain}
+              onChange={(e) => handleDontShowAgainChange(e.target.checked)}
+              className="rounded border-neutral-300 text-primary focus:ring-primary h-4 w-4 transition cursor-pointer accent-orange-500"
+            />
+            <span className="text-xs font-semibold text-neutral-600 group-hover:text-neutral-900 transition font-sans">
+              Don't Show Again
+            </span>
+          </label>
           <p className="text-[10px] text-neutral-400 font-mono font-bold uppercase tracking-wider">
             🔒 Secured & Localized via Packer Tools Multi-Tenant Architecture
           </p>

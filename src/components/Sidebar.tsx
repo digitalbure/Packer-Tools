@@ -200,7 +200,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/travel-cases', label: 'Travel Cases', icon: <Briefcase size={18} />, feature: 'travelCases' as FeatureKey },
   ].filter(item => !item.feature || isFeatureEnabled(item.feature, user, adminSettings));
 
-  const currentPlan = adminSettings?.plans.find(p => p.id === user.plan);
+  const currentPlan = (adminSettings?.plans || []).find(p => p.id === user.plan);
   const maxLists = currentPlan?.maxPackingLists || 3;
 
   return (
@@ -606,10 +606,10 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                 <Link
                   to="/library?addGear=true"
                   onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center justify-center gap-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border border-neutral-200 px-3 py-3 rounded-xl font-bold shadow-sm hover:shadow hover:-translate-y-0.5 transition group`}
+                  className={`flex items-center justify-center gap-3 bg-neutral-900 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}
                   title={isCollapsed ? 'Add Gear' : ''}
                 >
-                  <Plus size={18} className="group-hover:scale-110 transition-transform shrink-0 text-neutral-600" />
+                  <Plus size={18} className="group-hover:scale-110 transition-transform shrink-0" />
                   {!isCollapsed && <span className="text-sm">Add Gear</span>}
                 </Link>
               </div>

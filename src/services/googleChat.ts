@@ -31,7 +31,7 @@ export const fetchGoogleChatSpaces = async (token: string): Promise<ChatSpace[]>
     const data = await response.json();
     return data.spaces || [];
   } catch (error) {
-    console.error('Error fetching Google Chat spaces:', error);
+    console.warn('Status notice - Fetching Google Chat spaces:', error);
     throw error;
   }
 };
@@ -52,7 +52,7 @@ export const sendGoogleChatMessage = async (token: string, spaceName: string, te
     }
     return await response.json();
   } catch (error) {
-    console.error('Error sending Google Chat message:', error);
+    console.warn('Status notice - Sending Google Chat message:', error);
     throw error;
   }
 };

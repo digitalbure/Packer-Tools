@@ -5,6 +5,7 @@ import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calend
 import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project, INDUSTRIES, BugReport } from '../types';
+import { getDefaultAdminSettings } from '../App';
 import { motion, AnimatePresence } from 'motion/react';
 import PagesManager from './PagesManager';
 import PackerLogo from '../components/PackerLogo';
@@ -147,6 +148,36 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [editingPlanUserId, setEditingPlanUserId] = useState<string | null>(null);
   const [manualPlanValue, setManualPlanValue] = useState('');
+
+  const getAssignablePlans = () => {
+    const plans: { id: string; name: string }[] = [];
+    const seen = new Set<string>();
+
+    if (settings?.plans && settings.plans.length > 0) {
+      settings.plans.forEach(p => {
+        if (!seen.has(p.id)) {
+          seen.add(p.id);
+          plans.push({ id: p.id, name: p.name });
+        }
+      });
+    }
+
+    // Always guarantee system default plans
+    const defaults = [
+      { id: 'free', name: 'Free' },
+      { id: 'pro', name: 'Pro' },
+      { id: 'enterprise', name: 'Enterprise' }
+    ];
+
+    defaults.forEach(d => {
+      if (!seen.has(d.id)) {
+        seen.add(d.id);
+        plans.push(d);
+      }
+    });
+
+    return plans;
+  };
 
   // Resource Monitor & Telemetry States
   const [simulatedLoadMultiplier, setSimulatedLoadMultiplier] = useState<number>(1.0);
@@ -383,8 +414,18 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     });
 
     const unsubscribeSettings = onSnapshot(doc(db, 'adminSettings', 'global'), (docSnap) => {
+      let data: AdminSettings;
       if (docSnap.exists()) {
-        const data = docSnap.data() as AdminSettings;
+        data = docSnap.data() as AdminSettings;
+      } else {
+        data = getDefaultAdminSettings();
+        // Safely write default settings to firestore so it's initialized
+        setDoc(doc(db, 'adminSettings', 'global'), data).catch(err => console.warn("Failed to auto-initialize adminSettings doc:", err));
+      }
+
+      if (!data.plans || data.plans.length === 0) {
+        data.plans = getDefaultAdminSettings().plans;
+      }
         if (!data.integrationConfig) {
           data.integrationConfig = {
             apiEnabled: false,
@@ -582,7 +623,6 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
         }
 
         setSettings(data);
-      }
     });
 
     const unsubscribeCheckouts = onSnapshot(collection(db, 'checkouts'), (snapshot) => {

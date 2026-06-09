@@ -15,33 +15,36 @@ import { toast } from 'sonner';
 
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with a more robust strategy for handling IndexedDB errors (common in sandboxed iframes)
+const dbId = (firebaseConfig as any).firestoreDatabaseId || "ai-studio-8af96458-c1d9-4cdf-9c9a-815dee7f9c70";
+
+// Initialize Firestore with memory cache to bypass persistent IndexedDB corruption errors inside sandboxed iframes
 let dbInstance;
 try {
-  // Use a safer initialization that explicitly handles potential failures in setting up persistence
-  dbInstance = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentSingleTabManager({})
-    })
-  }, (firebaseConfig as any).firestoreDatabaseId);
-} catch (e) {
-  console.warn("Primary Firestore initialization failed. Falling back to memory cache.", e);
   dbInstance = initializeFirestore(app, {
     localCache: memoryLocalCache()
-  }, (firebaseConfig as any).firestoreDatabaseId);
+  }, dbId);
+} catch (e) {
+  console.warn("Primary Firestore initialization failed. Falling back to default getFirestore.", e);
+  dbInstance = getFirestore(app, dbId);
 }
 
 export const db = dbInstance;
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/chat');
+googleProvider.addScope('https://www.googleapis.com/auth/chat.spaces');
+googleProvider.addScope('https://www.googleapis.com/auth/chat.messages.create');
 
 let isSigningIn = false;
-let cachedAccessToken: string | null = null;
+let cachedAccessToken: string | null = typeof window !== 'undefined' ? localStorage.getItem('packer_google_access_token') : null;
 
 export const getAccessToken = () => cachedAccessToken;
 export const setAccessToken = (token: string | null) => {
   cachedAccessToken = token;
+  if (token) {
+    localStorage.setItem('packer_google_access_token', token);
+  } else {
+    localStorage.removeItem('packer_google_access_token');
+  }
 };
 
 export const signInWithGoogle = async () => {
@@ -56,6 +59,7 @@ export const signInWithGoogle = async () => {
       const credential = GoogleAuthProvider.credentialFromResult(result);
       if (credential?.accessToken) {
         cachedAccessToken = credential.accessToken;
+        localStorage.setItem('packer_google_access_token', credential.accessToken);
       }
     }
     return result;
@@ -116,6 +120,7 @@ export const signInWithGoogle = async () => {
 
 export const logout = () => {
   localStorage.removeItem('packer_demo_bypass');
+  localStorage.removeItem('packer_google_access_token');
   cachedAccessToken = null;
   return signOut(auth);
 };

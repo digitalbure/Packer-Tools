@@ -102,6 +102,12 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
   const [isUpgradeNowModalOpen, setIsUpgradeNowModalOpen] = useState(false);
   const [restrictedFeature, setRestrictedFeature] = useState('Custom Organizational White-Label Branding');
 
+  // Deletion States
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteTargetType, setDeleteTargetType] = useState<'org' | 'dept' | 'team'>('org');
+  const [selectedDeptIdToDelete, setSelectedDeptIdToDelete] = useState<string>('');
+  const [selectedTeamIdToDelete, setSelectedTeamIdToDelete] = useState<string>('');
+
   // Sticker Designer States
   const [stickerShape, setStickerShape] = useState<'square' | 'rectangle' | 'rounded-square' | 'rounded-rectangle' | 'circle'>('rounded-rectangle');
   const [stickerSize, setStickerSize] = useState<number>(60); // percentage/pixels mapping
@@ -287,7 +293,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
     );
   };
 
-  const userPlan = useMemo(() => adminSettings?.plans.find(p => p.id === user?.plan), [user?.plan, adminSettings?.plans]);
+  const userPlan = useMemo(() => (adminSettings?.plans || []).find(p => p.id === user?.plan), [user?.plan, adminSettings?.plans]);
   const canManageOrgs = isFeatureEnabled('orgManagement', user, adminSettings);
   const canUseDepts = isFeatureEnabled('departments', user, adminSettings);
   const canUseTeams = isFeatureEnabled('teams', user, adminSettings);
@@ -445,6 +451,176 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
     }
   };
 
+  const handleRestoreFBCWorkspace = async () => {
+    if (!user) return;
+    const loadToastId = toast.loading("Restoring FBC, Creative Solution & Studio 69 Workspace...");
+    try {
+      // 1. Create Organization
+      const orgRef = await addDoc(collection(db, 'organizations'), {
+        name: "FBC",
+        slug: "fbc",
+        ownerId: user.uid,
+        status: 'active',
+        settings: {
+          branding: { primaryColor: '#bc002d' }, // Premium Crimson brand accent
+          kioskSettings: { requireSignature: false, allowManualSearch: true, autoLogoutMinutes: 5 }
+        },
+        subscriptionPlan: user.plan || 'free',
+        createdAt: serverTimestamp()
+      });
+      const orgId = orgRef.id;
+
+      // 2. Create Departments
+      const deptCreativeRef = await addDoc(collection(db, 'departments'), {
+        name: "Creative Solution",
+        orgId: orgId,
+        ownerUid: user.uid,
+        createdAt: serverTimestamp()
+      });
+      const deptCreativeId = deptCreativeRef.id;
+
+      const deptTechRef = await addDoc(collection(db, 'departments'), {
+        name: "Technical Operations",
+        orgId: orgId,
+        ownerUid: user.uid,
+        createdAt: serverTimestamp()
+      });
+      const deptTechId = deptTechRef.id;
+
+      // 3. Create Team under Creative Solution
+      const teamStudioRef = await addDoc(collection(db, 'teams'), {
+        name: "Studio 69",
+        orgId: orgId,
+        deptId: deptCreativeId,
+        ownerUid: user.uid,
+        createdAt: serverTimestamp()
+      });
+      const teamStudioId = teamStudioRef.id;
+
+      // 4. Update owner active organization ID and role
+      await updateDoc(doc(db, 'users', user.uid), { 
+        orgId: orgId,
+        role: 'owner'
+      });
+
+      // 5. Look for existing orphaned inventories to link, or provision and seed Studio 69 stock
+      const invQuery = await getDocs(query(collection(db, 'inventories'), where('ownerId', '==', user.uid)));
+      let targetInvId = "";
+      
+      const existingInv = invQuery.docs.find(docSnap => {
+        const nameText = (docSnap.data().name || "").toLowerCase();
+        return nameText.includes("studio") || nameText.includes("fbc") || nameText.includes("69");
+      });
+
+      if (existingInv) {
+        targetInvId = existingInv.id;
+        // Re-authenticate ownership and active org association
+        await updateDoc(doc(db, 'inventories', targetInvId), {
+          orgId: orgId,
+          visibility: { orgIds: [orgId] }
+        });
+        
+        // Re-assign item hierarchy values so they sync up properly in filters
+        const itemsSnap = await getDocs(collection(db, 'inventories', targetInvId, 'items'));
+        const batch = writeBatch(db);
+        itemsSnap.docs.forEach(itemDoc => {
+          batch.update(doc(db, 'inventories', targetInvId, 'items', itemDoc.id), {
+            orgId: orgId,
+            deptId: deptCreativeId,
+            teamId: teamStudioId
+          });
+        });
+        await batch.commit();
+      } else {
+        // Create an inventory container
+        const newInvRef = await addDoc(collection(db, 'inventories'), {
+          name: "Studio 69 Inventory",
+          ownerId: user.uid,
+          orgId: orgId,
+          visibility: { orgIds: [orgId] },
+          createdAt: new Date().toISOString()
+        });
+        targetInvId = newInvRef.id;
+
+        // Populate with pristine Pro Production gear items
+        const presetGears = [
+          { name: "Sony FX6 Cinema Camera Bundle", category: "Camera/Device", brand: "Sony", model: "ILME-FX6V", serialNumber: "FX6-9871A", status: "available" as const, quantity: 1, condition: "excellent" as const, notes: "Includes custom cage, V-mount plate, XLR top handle, and 160GB CFexpress Type A card." },
+          { name: "Sennheiser MKH416 Shotgun Microphone", category: "Audio/Sound", brand: "Sennheiser", model: "MKH 416-P48U3", serialNumber: "SEN-41103", status: "available" as const, quantity: 2, condition: "good" as const, notes: "RF condenser shotgun mic with superb directional patterns." },
+          { name: "Aputure Light Storm LS 600d Pro", category: "Lighting/Staging", brand: "Aputure", model: "LS 600d Pro", serialNumber: "AP-LS600-02", status: "available" as const, quantity: 2, condition: "good" as const, notes: "Weather-resistant 600W daylight COB LED fixture with rolling flight case." },
+          { name: "DJI Ronin RS 3 Pro Gimbal Stabilizer", category: "Camera/Device", brand: "DJI", model: "RS3 Pro", serialNumber: "DJI-RS3P-09", status: "available" as const, quantity: 1, condition: "excellent" as const, notes: "With LiDAR focusing motor, carrying pouch, and quick-release grip module." },
+          { name: "Blackmagic URSA Mini Pro 12K", category: "Camera/Device", brand: "Blackmagic Design", model: "URSA Mini Pro 12K", serialNumber: "BM-UR12K-98", status: "available" as const, quantity: 1, condition: "excellent" as const, notes: "Super 35 12K cinematic capture rig with PL lens mount adapter." }
+        ];
+
+        const batch = writeBatch(db);
+        for (const pg of presetGears) {
+          const itemRef = doc(collection(db, 'inventories', targetInvId, 'items'));
+          const gearRef = doc(collection(db, 'users', user.uid, 'gearLibrary'));
+          
+          const payload = {
+            ...pg,
+            id: itemRef.id,
+            orgId: orgId,
+            deptId: deptCreativeId,
+            teamId: teamStudioId,
+            createdAt: new Date().toISOString()
+          };
+          
+          batch.set(itemRef, payload);
+          batch.set(gearRef, {
+            name: pg.name,
+            description: pg.notes,
+            brand: pg.brand,
+            model: pg.model,
+            serial: pg.serialNumber,
+            condition: pg.condition,
+            status: pg.status,
+            quantity: pg.quantity,
+            orgId: orgId,
+            deptId: deptCreativeId,
+            teamId: teamStudioId,
+            photoUrls: ["https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=300"],
+            createdAt: serverTimestamp()
+          });
+        }
+        await batch.commit();
+      }
+
+      // 6. See if user has a Production Shoot packing list - if not, provide a ready production shoot manifest
+      const listQuery = await getDocs(query(collection(db, 'packingLists'), where('ownerId', '==', user.uid)));
+      const hasProducerList = listQuery.docs.some(d => {
+        const titleText = (d.data().title || "").toLowerCase();
+        return titleText.includes("studio 69") || titleText.includes("fbc");
+      });
+      
+      if (!hasProducerList) {
+        await addDoc(collection(db, 'packingLists'), {
+          title: "Studio 69 Ultimate Production List",
+          description: "Required cinematic production assets for upcoming Studio 69 video shoot.",
+          ownerId: user.uid,
+          orgId: orgId,
+          industry: "production",
+          items: [
+            { id: "p1", name: "Sony FX6 Cinema Camera Bundle", qty: 1, packed: true, category: "Camera/Device" },
+            { id: "p2", name: "Sennheiser MKH416 Shotgun Microphone", qty: 2, packed: false, category: "Audio/Sound" },
+            { id: "p3", name: "Aputure Light Storm LS 600d Pro", qty: 2, packed: false, category: "Lighting/Staging" },
+            { id: "p4", name: "DJI Ronin RS 3 Pro Gimbal Stabilizer", qty: 1, packed: true, category: "Camera Accessories" }
+          ],
+          createdAt: serverTimestamp()
+        });
+      }
+
+      toast.dismiss(loadToastId);
+      toast.success("FBC Operational Suite successfully restored!");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (e: any) {
+      toast.dismiss(loadToastId);
+      console.error("Workspace restoration failed:", e);
+      toast.error(`Workspace restoration failed: ${e.message || e}`);
+    }
+  };
+
   const handleUpdateBranding = async (color: string) => {
     if (!org || !user) return;
     try {
@@ -454,6 +630,80 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
       toast.success("Theme color updated");
     } catch (e) {
       toast.error("Failed to update theme");
+    }
+  };
+
+  const handleDeleteOrg = async () => {
+    if (!org) return;
+    try {
+      const orgIdToDelete = org.id;
+
+      // 1. Clear out any associated teams & depts first (so security rules can still find parent org for deletion permission verification)
+      const orgDepts = depts.filter(d => d.orgId === orgIdToDelete);
+      for (const d of orgDepts) {
+        await deleteDoc(doc(db, 'departments', d.id));
+      }
+      const orgTeams = teams.filter(t => t.orgId === orgIdToDelete);
+      for (const t of orgTeams) {
+        await deleteDoc(doc(db, 'teams', t.id));
+      }
+
+      // 2. Clear user's active orgId if they are owner
+      if (user) {
+        const remainingOrgs = myOrgs.filter(o => o.id !== orgIdToDelete);
+        const nextOrgId = remainingOrgs.length > 0 ? remainingOrgs[0].id : null;
+        await updateDoc(doc(db, 'users', user.uid), {
+          orgId: nextOrgId
+        });
+      }
+
+      // 3. Delete organization document itself last
+      await deleteDoc(doc(db, 'organizations', orgIdToDelete));
+
+      toast.success("Organization permanently deleted");
+      setIsDeleteModalOpen(false);
+      // reload to clear active context
+      window.location.reload();
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to delete organization");
+    }
+  };
+
+  const handleDeleteDept = async () => {
+    if (!selectedDeptIdToDelete) {
+      toast.error("Please select a department to delete.");
+      return;
+    }
+    const hasTeams = teams.some(t => t.deptId === selectedDeptIdToDelete);
+    if (hasTeams) {
+      toast.error("Please delete all child teams first before removing this department.");
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'departments', selectedDeptIdToDelete));
+      toast.success("Department permanently deleted");
+      setSelectedDeptIdToDelete('');
+      setIsDeleteModalOpen(false);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to delete department");
+    }
+  };
+
+  const handleDeleteTeam = async () => {
+    if (!selectedTeamIdToDelete) {
+      toast.error("Please select a team to delete.");
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'teams', selectedTeamIdToDelete));
+      toast.success("Team permanently deleted");
+      setSelectedTeamIdToDelete('');
+      setIsDeleteModalOpen(false);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to delete team");
     }
   };
 
@@ -943,14 +1193,44 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
       <div className="max-w-6xl mx-auto space-y-12 pb-24">
         <div className="text-center space-y-4">
           <h1 className="text-5xl font-black uppercase tracking-tighter leading-tight">
-            Select Your <br/><span className="text-primary italic">Workspace</span>
+            Select <span className="text-primary italic">Organization</span>
           </h1>
-          <p className="text-neutral-500 font-medium">Switch between your active organizations or initialize a new core.</p>
+          <p className="text-neutral-500 font-medium">Switch between your active organizations or add a new organization.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Main Selector Grid */}
           <div className="lg:col-span-8 space-y-6">
+            {!myOrgs.some(o => o.name.toLowerCase() === 'fbc') && (
+              <div className="bg-amber-50/70 border border-amber-200/50 p-8 rounded-[2.5rem] space-y-6 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-amber-500/15">
+                    <Activity size={24} />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-black uppercase tracking-tight text-neutral-900 text-lg">Looking for FBC &amp; Studio 69?</h4>
+                    <p className="text-xs text-neutral-500 font-medium leading-relaxed">
+                      If you recently deleted your sandbox organization, you can instantly recover or re-initialize the standard <strong className="text-neutral-800 font-bold">FBC</strong> organization suite, its departments (<strong className="text-neutral-800">Creative Solution</strong> &amp; <strong className="text-neutral-800 font-bold">Technical Operations</strong>), the <strong className="text-neutral-800 font-bold">Studio 69</strong> team context, and all standard gear inventories.
+                    </p>
+                    <ul className="text-xs text-neutral-500 font-medium list-disc list-inside space-y-1 pl-1 pt-1">
+                      <li>Organization: <strong className="text-neutral-700 font-semibold">FBC</strong></li>
+                      <li>Departments: <strong className="text-neutral-700 font-semibold">Creative Solution</strong> &amp; <strong className="text-neutral-700 font-semibold">Technical Operations</strong></li>
+                      <li>Team: <strong className="text-neutral-700 font-semibold">Studio 69</strong></li>
+                      <li>Inventory &amp; Gear: Re-assigned correctly or seeded with standard cinematic gear assets.</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="flex">
+                  <button 
+                    onClick={handleRestoreFBCWorkspace}
+                    className="px-6 py-3 bg-neutral-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider rounded-xl transition shadow-md whitespace-nowrap active:scale-95 transform"
+                  >
+                    Restore FBC Workspace &amp; Gear
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="grid sm:grid-cols-2 gap-4">
                {myOrgs.map(o => {
                   const isActive = user.orgId === o.id;
@@ -1022,7 +1302,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                  <div className="w-14 h-14 rounded-2xl bg-neutral-50 flex items-center justify-center group-hover:bg-neutral-100 transition">
                    <Plus size={24} />
                  </div>
-                 <span className="text-[10px] font-black uppercase tracking-widest">Create New Core</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest">Add Organization</span>
                </motion.button>
             </div>
           </div>
@@ -1123,7 +1403,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
           <button 
             onClick={() => setShowSelector(true)}
             className="w-12 h-12 bg-neutral-100 flex items-center justify-center rounded-2xl text-neutral-400 hover:text-neutral-900 transition shadow-sm active:scale-95 animate-fade-in shrink-0"
-            title="Switch Workspace"
+            title="Switch Organization"
           >
             <LayoutDashboard size={24} />
           </button>
@@ -1789,9 +2069,12 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
             
             <div className="p-8 bg-red-50 rounded-[2.5rem] border border-red-100 space-y-4">
                <h4 className="text-sm font-black uppercase tracking-widest text-red-500">Danger Zone</h4>
-               <p className="text-xs text-red-400 font-medium">Permanently dismantle this core organization. All data will be purged.</p>
-               <button className="px-6 py-3 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition shadow-lg shadow-red-500/20 uppercase tracking-widest text-[10px]">
-                  Dismantle Core
+               <p className="text-xs text-red-400 font-medium">Permanently delete an Organization, Department, or Team from the platform hierarchy.</p>
+               <button 
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="px-6 py-3 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition shadow-lg shadow-red-500/20 uppercase tracking-widest text-[10px]"
+               >
+                  Delete
                </button>
             </div>
           </motion.div>
@@ -3132,6 +3415,156 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
               </div>
             )}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Hierarchy Node Modal */}
+      <AnimatePresence>
+        {isDeleteModalOpen && (
+          <div id="delete_options_modal" className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-lg space-y-8"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 text-red-600">
+                  <Trash2 size={24} />
+                  <h3 className="text-2xl font-black uppercase tracking-tighter">Delete Panel</h3>
+                </div>
+                <button onClick={() => setIsDeleteModalOpen(false)} className="p-2 hover:bg-neutral-100 rounded-full transition">
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Target Selector Tabs */}
+              <div className="flex p-1 bg-neutral-100 rounded-2xl gap-2 font-sans">
+                {(['org', 'dept', 'team'] as const).map((type) => {
+                  const active = deleteTargetType === type;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setDeleteTargetType(type)}
+                      className={`flex-1 py-3 text-center rounded-xl text-xs font-black uppercase tracking-wider transition ${
+                        active 
+                          ? 'bg-white text-neutral-900 shadow-sm' 
+                          : 'text-neutral-500 hover:text-neutral-900'
+                      }`}
+                    >
+                      {type === 'org' ? 'Organization' : type === 'dept' ? 'Department' : 'Team'}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Delete Target Views */}
+              <div className="space-y-6">
+                {deleteTargetType === 'org' && (
+                  <div className="space-y-4">
+                    <div className="p-6 bg-red-50/50 border border-red-100 rounded-2xl space-y-2">
+                      <h4 className="font-black text-sm uppercase tracking-tight text-red-700">Delete Current Organization</h4>
+                      <p className="text-xs text-red-600 leading-relaxed font-semibold">
+                        This action permanently deletes the active organization <strong className="font-extrabold text-red-800">{org?.name || 'N/A'}</strong>. 
+                        All nested departments, teams, configurations, and general associations will be purged from the database.
+                      </p>
+                    </div>
+                    
+                    {org ? (
+                      <div className="space-y-1.5 p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Target Organization</span>
+                        <div className="font-bold text-neutral-700 text-sm leading-none flex items-center gap-2">
+                          <Building2 size={16} className="text-neutral-400" />
+                          {org.name}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-neutral-400 text-xs italic">No active organization context found.</p>
+                    )}
+
+                    <button
+                      onClick={handleDeleteOrg}
+                      disabled={!org}
+                      className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-red-700 transition shadow-lg shadow-red-600/20 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-95"
+                    >
+                      Confirm and Delete Organization
+                    </button>
+                  </div>
+                )}
+
+                {deleteTargetType === 'dept' && (
+                  <div className="space-y-4">
+                    <div className="p-6 bg-red-50/50 border border-red-100 rounded-2xl space-y-2">
+                      <h4 className="font-black text-sm uppercase tracking-tight text-red-700">Delete Department Node</h4>
+                      <p className="text-xs text-red-600 leading-relaxed font-semibold">
+                        Remove a department hierarchy block. You must delete or shift any child teams under the target department first.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-4 block">Select Department</label>
+                      <select
+                        value={selectedDeptIdToDelete}
+                        onChange={(e) => setSelectedDeptIdToDelete(e.target.value)}
+                        className="w-full px-6 py-4 bg-neutral-50 border border-neutral-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 text-sm"
+                      >
+                        <option value="">Choose department...</option>
+                        {depts.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={handleDeleteDept}
+                      disabled={!selectedDeptIdToDelete}
+                      className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-red-700 transition shadow-lg shadow-red-600/20 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-95"
+                    >
+                      Confirm and Delete Department
+                    </button>
+                  </div>
+                )}
+
+                {deleteTargetType === 'team' && (
+                  <div className="space-y-4">
+                    <div className="p-6 bg-red-50/50 border border-red-100 rounded-2xl space-y-2">
+                      <h4 className="font-black text-sm uppercase tracking-tight text-red-700">Delete Team Node</h4>
+                      <p className="text-xs text-red-600 leading-relaxed font-semibold">
+                        Remove a sub-hierarchical team node. Any assets assigned directly to this team will lose their primary team tag context.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-4 block">Select Team</label>
+                      <select
+                        value={selectedTeamIdToDelete}
+                        onChange={(e) => setSelectedTeamIdToDelete(e.target.value)}
+                        className="w-full px-6 py-4 bg-neutral-50 border border-neutral-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 text-sm"
+                      >
+                        <option value="">Choose team to delete...</option>
+                        {teams.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={handleDeleteTeam}
+                      disabled={!selectedTeamIdToDelete}
+                      className="w-full py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-red-700 transition shadow-lg shadow-red-600/20 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-95"
+                    >
+                      Confirm and Delete Team
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
