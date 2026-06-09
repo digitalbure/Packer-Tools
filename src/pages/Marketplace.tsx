@@ -75,6 +75,12 @@ interface ProductItem {
   featuredPriority?: number;
   isUserListing?: boolean;
   securityDeposit?: number;
+  pickupType?: 'preset' | 'custom';
+  pickupLocationId?: string;
+  pickupCustomAddress?: string;
+  dropoffType?: 'preset' | 'custom';
+  dropoffLocationId?: string;
+  dropoffCustomAddress?: string;
   addOns?: Array<{
     itemId?: string;
     name: string;
@@ -211,6 +217,12 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
           description: data.marketplaceDetails || data.description || '',
           securityDeposit: data.securityDeposit || 0,
           bookingClientName: data.bookingClientName || null,
+          pickupType: data.pickupType || 'preset',
+          pickupLocationId: data.pickupLocationId || 'suva_depot',
+          pickupCustomAddress: data.pickupCustomAddress || '',
+          dropoffType: data.dropoffType || 'preset',
+          dropoffLocationId: data.dropoffLocationId || 'suva_depot',
+          dropoffCustomAddress: data.dropoffCustomAddress || '',
         };
       }).filter(item => item.moderationStatus !== 'suspended');
       setUserListings(dbListings);
@@ -2188,7 +2200,17 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                     {/* Customizable Pickup and Dropoff Widget */}
                     <div className="space-y-1 text-left">
                       <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Dispatch Routing Logistics</label>
-                      <PickupDropoffWidget onChange={setPickupDropoffState} />
+                      <PickupDropoffWidget 
+                        onChange={setPickupDropoffState} 
+                        initialState={{
+                          pickupType: selectedProduct?.pickupType || 'preset',
+                          pickupLocationId: selectedProduct?.pickupLocationId || 'suva_depot',
+                          pickupCustomAddress: selectedProduct?.pickupCustomAddress || '',
+                          dropoffType: selectedProduct?.dropoffType || 'preset',
+                          dropoffLocationId: selectedProduct?.dropoffLocationId || 'suva_depot',
+                          dropoffCustomAddress: selectedProduct?.dropoffCustomAddress || '',
+                        }}
+                      />
                     </div>
 
                     {/* Optional Rental Add-ons Checklist */}

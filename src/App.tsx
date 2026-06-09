@@ -57,6 +57,7 @@ import Footer from './components/Footer';
 import CommunitySelector from './components/CommunitySelector';
 import { AdminSettings, Plan } from './types';
 import { isFeatureEnabled } from './lib/featureUtils';
+import { privacyPolicyMD, termsOfServiceMD, refundPolicyMD } from './lib/legalContent';
 
 function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick, selectedCommunity, landingView, setLandingView }: { 
   user: UserProfile | null, 
@@ -758,6 +759,8 @@ export default function App() {
           const defaultSettings: AdminSettings = {
             plans: defaultPlans,
             globalFeatures: {},
+            privacyContent: privacyPolicyMD,
+            termsContent: termsOfServiceMD,
             branding: {
               primaryColor: '#F27D26',
               logo: '',
@@ -868,6 +871,70 @@ export default function App() {
             await setDoc(settingsRef, defaultSettings);
           } catch (writeError) {
             console.warn("Unable to write global settings to Firebase (expected if not signed in as admin):", writeError);
+          }
+        } else {
+          // Check if parent settings documents need to be updated with correct Privacy / Terms values
+          const data = settingsSnap.data() || {};
+          if (!data.privacyContent || !data.termsContent) {
+            try {
+              await setDoc(settingsRef, {
+                privacyContent: data.privacyContent || privacyPolicyMD,
+                termsContent: data.termsContent || termsOfServiceMD
+              }, { merge: true });
+            } catch (err) {
+              console.warn("Unable to merge-update settings with privacy/terms content:", err);
+            }
+          }
+        }
+
+        // Seed Custom Pages inside Firestore dynamically
+        const nowStr = new Date().toISOString();
+        const pagesToSeed = [
+          {
+            slug: 'privacy-policy',
+            title: 'Privacy Policy',
+            content: privacyPolicyMD,
+            category: 'policy' as const,
+            status: 'published' as const,
+            isVisible: true,
+            createdAt: nowStr,
+            updatedAt: nowStr,
+            lastUpdatedBy: 'system'
+          },
+          {
+            slug: 'terms-of-service',
+            title: 'Terms of Service',
+            content: termsOfServiceMD,
+            category: 'legal' as const,
+            status: 'published' as const,
+            isVisible: true,
+            createdAt: nowStr,
+            updatedAt: nowStr,
+            lastUpdatedBy: 'system'
+          },
+          {
+            slug: 'refund-policy',
+            title: 'Refund Policy',
+            content: refundPolicyMD,
+            category: 'legal' as const,
+            status: 'published' as const,
+            isVisible: true,
+            createdAt: nowStr,
+            updatedAt: nowStr,
+            lastUpdatedBy: 'system'
+          }
+        ];
+
+        for (const pg of pagesToSeed) {
+          try {
+            const pageRef = doc(db, 'pages', pg.slug);
+            const pageSnap = await getDoc(pageRef);
+            if (!pageSnap.exists()) {
+              await setDoc(pageRef, pg);
+              console.log(`[Seeding] Custom Page created successfully: /pg/${pg.slug}`);
+            }
+          } catch (err) {
+            console.warn(`[Seeding] Custom page seeding failed for slug ${pg.slug}:`, err);
           }
         }
       } catch (error) {

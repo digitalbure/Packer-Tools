@@ -238,6 +238,12 @@ export interface PackingList {
   bookingClientEmail?: string; // Email of client checking out
   bookingPaidAt?: string; // Timestamp of cleared payment
   image?: string; // Primary image for listing
+  pickupType?: 'preset' | 'custom';
+  pickupLocationId?: string;
+  pickupCustomAddress?: string;
+  dropoffType?: 'preset' | 'custom';
+  dropoffLocationId?: string;
+  dropoffCustomAddress?: string;
   createdAt: string;
   updatedAt: string;
 }

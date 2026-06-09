@@ -163,9 +163,11 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
         <div className="flex flex-wrap items-center gap-2">
           <span>&copy; {currentYear} {companyName}. All rights reserved.</span>
           <span>&bull;</span>
-          <Link to="/privacy" className="hover:text-neutral-600 transition">Privacy Policy</Link>
+          <Link to="/pg/privacy-policy" className="hover:text-neutral-600 transition">Privacy Policy</Link>
           <span>&bull;</span>
-          <Link to="/terms" className="hover:text-neutral-600 transition">Terms of Use</Link>
+          <Link to="/pg/terms-of-service" className="hover:text-neutral-600 transition">Terms of Use</Link>
+          <span>&bull;</span>
+          <Link to="/pg/refund-policy" className="hover:text-neutral-600 transition">Refund Policy</Link>
         </div>
         <div className="flex items-center gap-1">
           <span>{currentComm ? `Community: ${currentComm.name}` : 'Global Site'} | App by Digital Bure</span>

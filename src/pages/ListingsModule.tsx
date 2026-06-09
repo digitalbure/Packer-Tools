@@ -83,6 +83,12 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
   const [newListDeposit, setNewListDeposit] = useState(150);
   const [newListCategory, setNewListCategory] = useState('cinema-cameras');
   const [newListTransactionType, setNewListTransactionType] = useState<'rent' | 'sale'>('rent');
+  const [newListPickupType, setNewListPickupType] = useState<'preset' | 'custom'>('preset');
+  const [newListPickupLocationId, setNewListPickupLocationId] = useState('suva_depot');
+  const [newListPickupCustomAddress, setNewListPickupCustomAddress] = useState('');
+  const [newListDropoffType, setNewListDropoffType] = useState<'preset' | 'custom'>('preset');
+  const [newListDropoffLocationId, setNewListDropoffLocationId] = useState('suva_depot');
+  const [newListDropoffCustomAddress, setNewListDropoffCustomAddress] = useState('');
 
   // Edit Price Form State
   const [editPrice, setEditPrice] = useState(0);
@@ -91,6 +97,12 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
   const [editCurrency, setEditCurrency] = useState('USD');
   const [editCategory, setEditCategory] = useState('cinema-cameras');
   const [editTransactionType, setEditTransactionType] = useState<'rent' | 'sale'>('rent');
+  const [editPickupType, setEditPickupType] = useState<'preset' | 'custom'>('preset');
+  const [editPickupLocationId, setEditPickupLocationId] = useState('suva_depot');
+  const [editPickupCustomAddress, setEditPickupCustomAddress] = useState('');
+  const [editDropoffType, setEditDropoffType] = useState<'preset' | 'custom'>('preset');
+  const [editDropoffLocationId, setEditDropoffLocationId] = useState('suva_depot');
+  const [editDropoffCustomAddress, setEditDropoffCustomAddress] = useState('');
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -326,7 +338,13 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
         securityDeposit: Number(newListDeposit),
         rentalStatus: 'awaiting_payment',
         category: newListCategory,
-        transactionType: newListTransactionType
+        transactionType: newListTransactionType,
+        pickupType: newListPickupType,
+        pickupLocationId: newListPickupLocationId,
+        pickupCustomAddress: newListPickupCustomAddress,
+        dropoffType: newListDropoffType,
+        dropoffLocationId: newListDropoffLocationId,
+        dropoffCustomAddress: newListDropoffCustomAddress
       });
 
       toast.success("Quick Marketplace Listing created successfully!");
@@ -345,13 +363,35 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
   // Convert regular Packing List to Marketplace Listing
   const handleToggleMarketplace = async (list: PackingList, enabled: boolean) => {
     try {
+      let mainImageUrl = "";
+      if (list.items && list.items.length > 0) {
+        const itemWithImg = list.items.find(it => it.photoUrls && it.photoUrls.length > 0);
+        if (itemWithImg) {
+          mainImageUrl = itemWithImg.photoUrls[0];
+        }
+      }
+      if (!mainImageUrl) {
+        try {
+          const itemsSnap = await getDocs(collection(db, 'packingLists', list.id, 'items'));
+          const firstWithPhoto = itemsSnap.docs
+            .map(d => d.data())
+            .find(item => item.photoUrls && item.photoUrls.length > 0);
+          if (firstWithPhoto && firstWithPhoto.photoUrls && firstWithPhoto.photoUrls.length > 0) {
+            mainImageUrl = firstWithPhoto.photoUrls[0];
+          }
+        } catch (e) {
+          console.warn("Could not fetch items to extract main image:", e);
+        }
+      }
+
       const listRef = doc(db, 'packingLists', list.id);
       await updateDoc(listRef, {
         marketplaceEnabled: enabled,
         marketplacePrice: list.marketplacePrice || 100,
         marketplaceCurrency: list.marketplaceCurrency || user.activeMarketplaceCurrencies?.[0] || 'USD',
         securityDeposit: list.securityDeposit || 120,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        ...(mainImageUrl ? { image: mainImageUrl } : {})
       });
       toast.success(enabled ? "Packing list is now live on the Marketplace!" : "Listing successfully removed from the Marketplace.");
     } catch (error) {
@@ -364,6 +404,27 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
   const handleSavePriceEdit = async () => {
     if (!showEditPriceModal) return;
     try {
+      let mainImageUrl = "";
+      if (showEditPriceModal.items && showEditPriceModal.items.length > 0) {
+        const itemWithImg = showEditPriceModal.items.find(it => it.photoUrls && it.photoUrls.length > 0);
+        if (itemWithImg) {
+          mainImageUrl = itemWithImg.photoUrls[0];
+        }
+      }
+      if (!mainImageUrl) {
+        try {
+          const itemsSnap = await getDocs(collection(db, 'packingLists', showEditPriceModal.id, 'items'));
+          const firstWithPhoto = itemsSnap.docs
+            .map(d => d.data())
+            .find(item => item.photoUrls && item.photoUrls.length > 0);
+          if (firstWithPhoto && firstWithPhoto.photoUrls && firstWithPhoto.photoUrls.length > 0) {
+            mainImageUrl = firstWithPhoto.photoUrls[0];
+          }
+        } catch (e) {
+          console.warn("Could not fetch items to extract main image during edit:", e);
+        }
+      }
+
       const listRef = doc(db, 'packingLists', showEditPriceModal.id);
       await updateDoc(listRef, {
         marketplacePrice: Number(editPrice),
@@ -372,9 +433,16 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
         marketplaceCurrency: editCurrency,
         category: editCategory,
         transactionType: editTransactionType,
-        updatedAt: new Date().toISOString()
+        pickupType: editPickupType,
+        pickupLocationId: editPickupLocationId,
+        pickupCustomAddress: editPickupCustomAddress,
+        dropoffType: editDropoffType,
+        dropoffLocationId: editDropoffLocationId,
+        dropoffCustomAddress: editDropoffCustomAddress,
+        updatedAt: new Date().toISOString(),
+        ...(mainImageUrl ? { image: mainImageUrl } : {})
       });
-      toast.success("Listing prices, details, categories and sync status updated successfully!");
+      toast.success("Listing prices, details, categories, pickup/drop-off settings, and sync status updated successfully!");
       setShowEditPriceModal(null);
     } catch (error) {
       console.error("Error saving price edit:", error);
@@ -648,7 +716,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
 
                             {/* Rent info snippet */}
                             {isMarketActive && (
-                              <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100 space-y-2">
+                              <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100 space-y-2 text-left">
                                 <div className="flex justify-between items-center">
                                   <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Rate</span>
                                   <span className="font-black text-neutral-900 text-base font-mono">
@@ -661,6 +729,22 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                   <span className="font-mono text-neutral-800">
                                     {getCurrencySymbol(list.marketplaceCurrency)}
                                     {list.securityDeposit || 150}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] text-neutral-400 font-semibold leading-none pt-1">
+                                  <span>Pickup Preference:</span>
+                                  <span className="text-neutral-800 font-bold max-w-[120px] truncate text-right">
+                                    {list.pickupType === 'custom' 
+                                      ? (list.pickupCustomAddress || 'Custom Site') 
+                                      : (list.pickupLocationId === 'suva_depot' ? 'Suva Depot' : list.pickupLocationId === 'nadi_airport' ? 'Nadi Airport' : list.pickupLocationId === 'pac_harbour' ? 'Pac Harbour' : 'Suva Depot')}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] text-neutral-400 font-semibold leading-none pt-1">
+                                  <span>Dropoff Preference:</span>
+                                  <span className="text-neutral-800 font-bold max-w-[120px] truncate text-right">
+                                    {list.dropoffType === 'custom' 
+                                      ? (list.dropoffCustomAddress || 'Custom Site') 
+                                      : (list.dropoffLocationId === 'suva_depot' ? 'Suva Depot' : list.dropoffLocationId === 'nadi_airport' ? 'Nadi Airport' : list.dropoffLocationId === 'pac_harbour' ? 'Pac Harbour' : 'Suva Depot')}
                                   </span>
                                 </div>
                               </div>
@@ -693,6 +777,12 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                   setEditCurrency(list.marketplaceCurrency || 'USD');
                                   setEditCategory(list.category || 'cinema-cameras');
                                   setEditTransactionType(list.transactionType === 'Sale' ? 'sale' : 'rent');
+                                  setEditPickupType(list.pickupType || 'preset');
+                                  setEditPickupLocationId(list.pickupLocationId || 'suva_depot');
+                                  setEditPickupCustomAddress(list.pickupCustomAddress || '');
+                                  setEditDropoffType(list.dropoffType || 'preset');
+                                  setEditDropoffLocationId(list.dropoffLocationId || 'suva_depot');
+                                  setEditDropoffCustomAddress(list.dropoffCustomAddress || '');
                                   setShowEditPriceModal(list);
                                 }}
                                 className="px-4 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow transition"
@@ -1403,6 +1493,93 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                   </div>
                 </div>
 
+                {/* Pickup Drop-off Preference Settings */}
+                <div className="border border-neutral-100 p-4 rounded-2xl bg-neutral-50/50 space-y-3">
+                  <h4 className="text-[10px] font-black uppercase tracking-wider text-neutral-800">Custom Pickup & Drop-off Config</h4>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-450">Pickup Preference</label>
+                      <select
+                        value={newListPickupType}
+                        onChange={(e) => setNewListPickupType(e.target.value as any)}
+                        className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-800"
+                      >
+                        <option value="preset">Preset Location Depot</option>
+                        <option value="custom">Custom Site Address</option>
+                      </select>
+                    </div>
+
+                    {newListPickupType === 'preset' ? (
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-450">Selected Pickup Depot</label>
+                        <select
+                          value={newListPickupLocationId}
+                          onChange={(e) => setNewListPickupLocationId(e.target.value)}
+                          className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-800"
+                        >
+                          <option value="suva_depot">Suva Film Studio Depot</option>
+                          <option value="nadi_airport">Nadi Aviation Terminal</option>
+                          <option value="pac_harbour">Pacific Harbour Lounge</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-450">Pickup Custom Site</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. 54 Beach Rd, Coral Coast"
+                          value={newListPickupCustomAddress}
+                          onChange={(e) => setNewListPickupCustomAddress(e.target.value)}
+                          className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-900"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-450">Dropoff Preference</label>
+                      <select
+                        value={newListDropoffType}
+                        onChange={(e) => setNewListDropoffType(e.target.value as any)}
+                        className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-800"
+                      >
+                        <option value="preset">Preset Location Depot</option>
+                        <option value="custom">Custom Site Address</option>
+                      </select>
+                    </div>
+
+                    {newListDropoffType === 'preset' ? (
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-450">Selected Dropoff Depot</label>
+                        <select
+                          value={newListDropoffLocationId}
+                          onChange={(e) => setNewListDropoffLocationId(e.target.value)}
+                          className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-800"
+                        >
+                          <option value="suva_depot">Suva Film Studio Depot</option>
+                          <option value="nadi_airport">Nadi Aviation Terminal</option>
+                          <option value="pac_harbour">Pacific Harbour Lounge</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-450">Dropoff Custom Site</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. 54 Beach Rd, Coral Coast"
+                          value={newListDropoffCustomAddress}
+                          onChange={(e) => setNewListDropoffCustomAddress(e.target.value)}
+                          className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-900"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Marketplace Details / Description</label>
                   <textarea
@@ -1544,6 +1721,93 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                       <option value="rent">Rent Out</option>
                       <option value="sale">Sell Outright</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* Editable Pickup Drop-off Preference Settings */}
+                <div className="border border-neutral-100 p-4 rounded-2xl bg-neutral-50/50 space-y-3">
+                  <h4 className="text-[10px] font-black uppercase tracking-wider text-neutral-800">Custom Pickup & Drop-off Config</h4>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-450">Pickup Preference</label>
+                      <select
+                        value={editPickupType}
+                        onChange={(e) => setEditPickupType(e.target.value as any)}
+                        className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-800"
+                      >
+                        <option value="preset">Preset Location Depot</option>
+                        <option value="custom">Custom Site Address</option>
+                      </select>
+                    </div>
+
+                    {editPickupType === 'preset' ? (
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-450">Selected Pickup Depot</label>
+                        <select
+                          value={editPickupLocationId}
+                          onChange={(e) => setEditPickupLocationId(e.target.value)}
+                          className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-800"
+                        >
+                          <option value="suva_depot">Suva Film Studio Depot</option>
+                          <option value="nadi_airport">Nadi Aviation Terminal</option>
+                          <option value="pac_harbour">Pacific Harbour Lounge</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-450">Pickup Custom Site</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. 54 Beach Rd, Coral Coast"
+                          value={editPickupCustomAddress}
+                          onChange={(e) => setEditPickupCustomAddress(e.target.value)}
+                          className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-900"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-450">Dropoff Preference</label>
+                      <select
+                        value={editDropoffType}
+                        onChange={(e) => setEditDropoffType(e.target.value as any)}
+                        className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-800"
+                      >
+                        <option value="preset">Preset Location Depot</option>
+                        <option value="custom">Custom Site Address</option>
+                      </select>
+                    </div>
+
+                    {editDropoffType === 'preset' ? (
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-450">Selected Dropoff Depot</label>
+                        <select
+                          value={editDropoffLocationId}
+                          onChange={(e) => setEditDropoffLocationId(e.target.value)}
+                          className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-800"
+                        >
+                          <option value="suva_depot">Suva Film Studio Depot</option>
+                          <option value="nadi_airport">Nadi Aviation Terminal</option>
+                          <option value="pac_harbour">Pacific Harbour Lounge</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-450">Dropoff Custom Site</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. 54 Beach Rd, Coral Coast"
+                          value={editDropoffCustomAddress}
+                          onChange={(e) => setEditDropoffCustomAddress(e.target.value)}
+                          className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-900"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
