@@ -383,9 +383,10 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const actualCostDetails = getActualBilling();
   const simulatedCost = getSimulatedCost();
   const billingTrendData = getBillingTrendData();
+  const hasActiveBugs = bugReports.some(b => b.status === 'open' || b.status === 'in_review');
 
   // Currency and payment gateway states
-  const [settingsSubTab, setSettingsSubTab] = useState<'branding' | 'billing' | 'multi_industry' | 'marketplace' | 'widgets'>('branding');
+  const [settingsSubTab, setSettingsSubTab] = useState<'branding' | 'billing' | 'multi_industry' | 'marketplace' | 'widgets' | 'bugs'>('branding');
   const [isAddingCurrency, setIsAddingCurrency] = useState(false);
   const [newCurrencyCode, setNewCurrencyCode] = useState('');
   const [newCurrencyName, setNewCurrencyName] = useState('');
@@ -5548,6 +5549,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               <option value="multi_industry">🏢 Multi-Industry Sandboxes</option>
               <option value="marketplace">🌍 Marketplace & regional launch</option>
               <option value="widgets">⚙️ Module Widget Configurations</option>
+              <option value="bugs">{hasActiveBugs ? "🐛 Beta Bug Reports Finder (🔴 Active Report!)" : "🐛 Beta Bug Reports Finder"}</option>
             </select>
           </div>
 
@@ -5641,6 +5643,40 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     <span className={`text-[8px] block mt-1 font-sans font-bold leading-none ${settingsSubTab === 'widgets' ? 'text-neutral-450' : 'text-neutral-355'}`}>AI threshold limits & scanners</span>
                   </div>
                 </button>
+
+                {/* Bug Reports Tab */}
+                <button
+                  type="button"
+                  onClick={() => setSettingsSubTab('bugs')}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all font-bold ${
+                    settingsSubTab === 'bugs' 
+                      ? 'bg-neutral-900 text-white shadow-xl shadow-neutral-900/10' 
+                      : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-950'
+                  }`}
+                >
+                  <div className="relative shrink-0">
+                    <Bug size={16} className={settingsSubTab === 'bugs' ? 'text-purple-600' : 'text-neutral-400'} />
+                    {hasActiveBugs && (
+                      <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-650"></span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 flex items-center justify-between gap-1">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-extrabold text-[11px] leading-none uppercase tracking-wider">Bug Finder</p>
+                      <span className={`text-[8px] block mt-1 font-sans font-bold leading-none ${settingsSubTab === 'bugs' ? 'text-neutral-450' : 'text-neutral-355'}`}>
+                        {hasActiveBugs ? "Outstanding beta issues" : "Beta issues & user reports"}
+                      </span>
+                    </div>
+                    {hasActiveBugs && (
+                      <span className="px-1.5 py-0.5 text-[8px] font-black uppercase text-red-700 bg-red-50 rounded-lg tracking-wider animate-pulse border border-red-200 shrink-0 select-none">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                </button>
               </div>
 
               {/* Action Save Quick Card */}
@@ -5678,28 +5714,296 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               {settingsSubTab === 'widgets' && (
                 <WidgetsSettingsTab settings={settings} setSettings={setSettings} />
               )}
+              {settingsSubTab === 'bugs' && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white p-6 md:p-10 rounded-[2.5rem] border border-neutral-105 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-6">
+                    <div className="space-y-1">
+                      <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2 text-neutral-900">
+                        <Bug className="text-purple-600 animate-pulse" size={24} />
+                        <span>Beta Bug Reports Finder</span>
+                      </h2>
+                      <p className="font-semibold text-neutral-500 text-xs">Review issues found by beta testers, assign states, and post resolutions directly back to their dashboard.</p>
+                    </div>
+                    <div className="bg-purple-150 text-purple-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border border-purple-200 self-start">
+                      <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse"></span>
+                      <span>Logged Bugs Tracked: {bugReports.length}</span>
+                    </div>
+                  </div>
+
+                  {/* Filtering Bar */}
+                  <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                    <div className="relative md:col-span-2">
+                      <Search className="absolute left-4 top-3.5 text-neutral-400" size={18} />
+                      <input
+                        type="text"
+                        placeholder="Search reporter, email, title, description or module..."
+                        value={bugSearchQuery}
+                        onChange={(e) => setBugSearchQuery(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition text-xs font-medium"
+                      />
+                    </div>
+
+                    <div className="w-full">
+                      <select
+                        value={bugStatusFilter}
+                        onChange={(e) => setBugStatusFilter(e.target.value as any)}
+                        className="w-full px-4 py-3 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="open">🔴 Open Bugs</option>
+                        <option value="in_review">🟡 In Review</option>
+                        <option value="resolved">🟢 Resolved Issues</option>
+                        <option value="fixed">🟢 Fixed Issues</option>
+                      </select>
+                    </div>
+
+                    <div className="w-full">
+                      <select
+                        value={bugSeverityFilter}
+                        onChange={(e) => setBugSeverityFilter(e.target.value as any)}
+                        className="w-full px-4 py-3 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold"
+                      >
+                        <option value="all">All Severities</option>
+                        <option value="critical">🚨 Critical</option>
+                        <option value="high">🟠 High</option>
+                        <option value="medium">🟡 Medium</option>
+                        <option value="low">🔵 Low</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Bugs Listings */}
+                  <div className="space-y-6">
+                    {bugReports.filter(b => {
+                      const matchedSearch = !bugSearchQuery ? true : (
+                        (b.title || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                        (b.description || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                        (b.userName || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                        (b.userEmail || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                        (b.module || '').toLowerCase().includes(bugSearchQuery.toLowerCase())
+                      );
+                      const matchedStatus = bugStatusFilter === 'all' || b.status === bugStatusFilter;
+                      const matchedSeverity = bugSeverityFilter === 'all' || b.severity === bugSeverityFilter;
+
+                      return matchedSearch && matchedStatus && matchedSeverity;
+                    }).length === 0 ? (
+                      <div className="bg-white p-16 rounded-3xl border border-neutral-100 text-center space-y-4">
+                        <div className="w-16 h-16 bg-neutral-105 text-neutral-400 rounded-full flex items-center justify-center mx-auto">
+                          <CheckCircle2 size={32} />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-neutral-800 text-lg">No Matching Bug Reports</h3>
+                          <p className="text-xs text-neutral-400 max-w-sm mx-auto mt-1">Excellent job! No active bugs matched your current filter criteria.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-6">
+                        {bugReports.filter(b => {
+                          const matchedSearch = !bugSearchQuery ? true : (
+                            (b.title || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                            (b.description || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                            (b.userName || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                            (b.userEmail || '').toLowerCase().includes(bugSearchQuery.toLowerCase()) ||
+                            (b.module || '').toLowerCase().includes(bugSearchQuery.toLowerCase())
+                          );
+                          const matchedStatus = bugStatusFilter === 'all' || b.status === bugStatusFilter;
+                          const matchedSeverity = bugSeverityFilter === 'all' || b.severity === bugSeverityFilter;
+
+                          return matchedSearch && matchedStatus && matchedSeverity;
+                        }).map(bug => {
+                          const severityConfig = {
+                            critical: { bg: 'bg-red-100 text-red-800 border-red-200', text: '🚨 Critical Severity' },
+                            high: { bg: 'bg-orange-100 text-orange-800 border-orange-200', text: '🟠 High Severity' },
+                            medium: { bg: 'bg-yellow-100 text-yellow-800 border-yellow-200', text: '🟡 Medium Severity' },
+                            low: { bg: 'bg-blue-100 text-blue-800 border-blue-200', text: '🔵 Low Severity' }
+                          }[bug.severity || 'low'] || { bg: 'bg-blue-100 text-blue-800 border-blue-200', text: '🔵 Low Severity' };
+
+                          const statusConfig = {
+                            open: { bg: 'bg-red-50 text-red-700 border-red-100', text: 'Open / Pending' },
+                            in_review: { bg: 'bg-amber-50 text-amber-700 border-amber-100', text: 'Staged / In Review' },
+                            resolved: { bg: 'bg-green-50 text-green-700 border-green-100', text: 'Fully Resolved' },
+                            fixed: { bg: 'bg-emerald-100 text-emerald-805 border-emerald-200', text: '🟢 Fixed & Crossed Out' }
+                          }[bug.status || 'open'] || { bg: 'bg-emerald-100 text-emerald-850 border-emerald-200', text: '🟢 Fixed' };
+
+                          const isFixed = bug.status === 'fixed' || bug.status === 'resolved';
+
+                          return (
+                            <div 
+                              key={bug.id}
+                              className={`rounded-3xl border shadow-sm overflow-hidden flex flex-col xl:flex-row transition hover:shadow-md relative ${
+                                isFixed 
+                                  ? 'border-emerald-100 bg-emerald-50/5' 
+                                  : bug.severity === 'critical'
+                                    ? 'bg-white border-red-200 ring-4 ring-red-50/50'
+                                    : 'bg-white border-neutral-200'
+                              }`}
+                            >
+                              {/* Left: Bug Info */}
+                              <div className="p-6 md:p-8 flex-1 space-y-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase border ${severityConfig.bg}`}>
+                                    {severityConfig.text}
+                                  </span>
+                                  <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase border ${statusConfig.bg}`}>
+                                    {statusConfig.text}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-neutral-400 uppercase font-black tracking-wider bg-neutral-100 px-2 py-1 rounded">
+                                    Module: {bug.module || 'General UI'}
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <h4 className={`text-lg font-bold leading-snug ${isFixed ? 'line-through text-neutral-400 decoration-neutral-400 decoration-2' : 'text-neutral-900'}`}>{bug.title}</h4>
+                                  <p className="text-xs text-neutral-500 font-medium">
+                                    Reported by <span className="font-bold text-neutral-800">{bug.userName}</span> ({bug.userEmail}) on {bug.createdAt ? new Date(bug.createdAt).toLocaleDateString() : 'Unknown Date'}
+                                  </p>
+                                </div>
+
+                                <div className={`p-4 rounded-2xl border text-xs font-medium whitespace-pre-wrap leading-relaxed ${isFixed ? 'line-through text-neutral-400/80 bg-neutral-50/50 border-neutral-150' : 'bg-neutral-50 border-neutral-100 text-neutral-600'}`}>
+                                  {bug.description}
+                                </div>
+
+                                {/* Screenshots display */}
+                                {bug.screenshots && bug.screenshots.length > 0 && (
+                                  <div className="space-y-1.5 mt-2">
+                                    <p className="text-[10px] uppercase font-black tracking-widest text-neutral-400">Reporter Attached Screenshots ({bug.screenshots.length}):</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {bug.screenshots.map((img: string, sci: number) => (
+                                        <div 
+                                          key={sci}
+                                          onClick={() => setAdminZoomedImage(img)}
+                                          className="w-20 h-14 rounded-xl border border-neutral-200 cursor-pointer overflow-hidden relative group hover:border-purple-500 transition shadow bg-neutral-100 flex items-center justify-center shrink-0"
+                                        >
+                                          <img src={img} alt="Screenshot attachment" className="object-cover w-full h-full" referrerPolicy="no-referrer" />
+                                          <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition" />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Admin comments */}
+                                {bug.adminNotes && (
+                                  <div className="p-4 bg-green-50/50 rounded-2xl border border-green-100 text-xs text-green-800 space-y-1">
+                                    <p className="font-bold text-[10px] uppercase tracking-wider text-green-600">Admin Resolution Response Note:</p>
+                                    <p className="font-medium leading-relaxed">{bug.adminNotes}</p>
+                                    {bug.adminNotesUpdatedAt && (
+                                      <p className="text-[9px] text-green-500 font-mono">Last adjusted: {new Date(bug.adminNotesUpdatedAt).toLocaleString()}</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Right: Quick resolution tool */}
+                              <div className="p-6 xl:p-8 bg-neutral-50/50 xl:border-l border-neutral-100 w-full xl:w-80 shrink-0 flex flex-col justify-between gap-4 bg-neutral-50">
+                                <div className="space-y-4">
+                                  <h5 className="text-xs font-black uppercase tracking-widest text-neutral-500">Bug Resolution Actions</h5>
+                                  
+                                  {/* Quick Status Select */}
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Set Progress state</label>
+                                    <select
+                                      value={editingBugReport?.id === bug.id ? bugStatusUpdate : bug.status}
+                                      onChange={(e) => {
+                                        setEditingBugReport(bug);
+                                        setBugStatusUpdate(e.target.value as any);
+                                        if (editingBugReport?.id !== bug.id) {
+                                          setBugAdminNotes(bug.adminNotes || '');
+                                        }
+                                      }}
+                                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold"
+                                    >
+                                      <option value="open">🔴 Open / Pending</option>
+                                      <option value="in_review">🟡 Staged / In Review</option>
+                                      <option value="resolved">🟢 Fully Resolved</option>
+                                      <option value="fixed">🟢 Fixed & Crossed Out</option>
+                                    </select>
+                                  </div>
+
+                                  {/* Response text arena */}
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Resolution Comment / notes</label>
+                                    <textarea
+                                      placeholder="Write steps taken or resolve notes here..."
+                                      rows={3}
+                                      value={editingBugReport?.id === bug.id ? bugAdminNotes : (bug.adminNotes || '')}
+                                      onFocus={() => {
+                                        if (editingBugReport?.id !== bug.id) {
+                                          setEditingBugReport(bug);
+                                          setBugAdminNotes(bug.adminNotes || '');
+                                          setBugStatusUpdate(bug.status);
+                                        }
+                                      }}
+                                      onChange={(e) => {
+                                        setBugAdminNotes(e.target.value);
+                                      }}
+                                      className="w-full p-3 bg-white border border-neutral-200 rounded-xl text-xs font-medium resize-none focus:ring-2 focus:ring-purple-500 outline-none transition"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Save Action trigger */}
+                                <button
+                                  onClick={async () => {
+                                    const bId = bug.id;
+                                    const notes = editingBugReport?.id === bId ? bugAdminNotes : (bug.adminNotes || '');
+                                    const stat = editingBugReport?.id === bId ? bugStatusUpdate : bug.status;
+
+                                    try {
+                                      await updateDoc(doc(db, 'bugs', bId), {
+                                        status: stat,
+                                        adminNotes: notes,
+                                        adminNotesUpdatedAt: new Date().toISOString()
+                                      });
+                                      setEditingBugReport(null);
+                                      toast.success("Bug report successfully updated!");
+                                    } catch (e) {
+                                      console.error(e);
+                                      toast.error("Failed to update bug report.");
+                                    }
+                                  }}
+                                  className={`w-full py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer ${
+                                    editingBugReport?.id === bug.id
+                                      ? 'bg-neutral-900 text-white hover:bg-black'
+                                      : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100 hover:text-neutral-950'
+                                  }`}
+                                >
+                                  <Save size={12} />
+                                  <span>{editingBugReport?.id === bug.id ? 'Save Progress Notes' : 'Modify Resolves'}</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* General Save changes bar */}
-              <div className="flex items-center justify-end pt-6 border-t border-neutral-100 bg-neutral-50/50 p-4 rounded-3xl mt-4">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (settings) {
-                      await updateDoc(doc(db, 'adminSettings', 'global'), settings as any);
-                      toast.success("All configurations synchronized successfully!");
-                    }
-                  }}
-                  className="w-full sm:w-auto px-10 py-3.5 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-primary/95 transition shadow shadow-primary/10 active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <Save size={16} />
-                  <span>Synchronize {
-                    settingsSubTab === 'branding' ? 'Branding' : 
-                    settingsSubTab === 'billing' ? 'Billing' : 
-                    settingsSubTab === 'multi_industry' ? 'Sandbox' : 
-                    settingsSubTab === 'marketplace' ? 'Marketplace' : 'Widget'
-                  } settings</span>
-                </button>
-              </div>
+              {settingsSubTab !== 'bugs' && (
+                <div className="flex items-center justify-end pt-6 border-t border-neutral-100 bg-neutral-50/50 p-4 rounded-3xl mt-4">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (settings) {
+                        await updateDoc(doc(db, 'adminSettings', 'global'), settings as any);
+                        toast.success("All configurations synchronized successfully!");
+                      }
+                    }}
+                    className="w-full sm:w-auto px-10 py-3.5 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-primary/95 transition shadow shadow-primary/10 active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <Save size={16} />
+                    <span>Synchronize {
+                      settingsSubTab === 'branding' ? 'Branding' : 
+                      settingsSubTab === 'billing' ? 'Billing' : 
+                      settingsSubTab === 'multi_industry' ? 'Sandbox' : 
+                      settingsSubTab === 'marketplace' ? 'Marketplace' : 'Widget'
+                    } settings</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

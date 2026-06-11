@@ -52,7 +52,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings, FeatureKey } from '../types';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import { logout, db } from '../firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection } from 'firebase/firestore';
 import PackerLogo from './PackerLogo';
 import { toast } from 'sonner';
 import OfflineSyncWidget from './OfflineSyncWidget';
@@ -74,6 +74,25 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
   const isProjectRoute = location.pathname.startsWith('/project/');
   const projectId = isProjectRoute ? location.pathname.split('/')[2] : null;
   const isHelpRoute = location.pathname.startsWith('/help');
+
+  const [hasActiveBugs, setHasActiveBugs] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!user || !user.isSuperAdmin) {
+      setHasActiveBugs(false);
+      return;
+    }
+    const unsubscribe = onSnapshot(collection(db, 'bugs'), (snapshot) => {
+      const active = snapshot.docs.some(doc => {
+        const data = doc.data();
+        return data.status === 'open' || data.status === 'in_review';
+      });
+      setHasActiveBugs(active);
+    }, (error) => {
+      console.warn("Sidebar: Error listening to bugs:", error);
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   useEffect(() => {
     if (!projectId) {
@@ -304,15 +323,32 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                     } ${isCollapsed ? 'justify-center' : ''}`}
                     title={isCollapsed ? item.label : ''}
                   >
-                    <div className="shrink-0 flex items-center justify-center w-6">{item.icon}</div>
+                    <div className="shrink-0 flex items-center justify-center w-6">
+                      <div className="relative">
+                        {item.icon}
+                        {hasActiveBugs && item.to === '/admin?tab=settings' && (
+                          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-650"></span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
                     {!isCollapsed && (
-                      <motion.span
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-xs uppercase tracking-tight"
-                      >
-                        {item.label}
-                      </motion.span>
+                      <div className="flex-1 flex items-center justify-between min-w-0">
+                        <motion.span
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="text-xs uppercase tracking-tight truncate pr-1"
+                        >
+                          {item.label}
+                        </motion.span>
+                        {hasActiveBugs && item.to === '/admin?tab=settings' && (
+                          <span className="px-1.5 py-0.5 text-[8px] font-black uppercase text-red-700 bg-red-50 rounded-lg tracking-wider animate-pulse border border-red-200 shrink-0">
+                            BUG
+                          </span>
+                        )}
+                      </div>
                     )}
                   </Link>
                 );
@@ -828,7 +864,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v4.8.0' : 'Version 4.8.0'}
+            {isCollapsed ? 'v4.9.0' : 'Version 4.9.0'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">

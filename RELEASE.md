@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.7.0`
+## Current Application Version: `v4.9.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -15,19 +15,38 @@ Below is the consolidated history of Packer Tools, tracing all production rollou
 
 ---
 
+### 🚀 Stable Release: v4.9.0 (System Settings Integration & Bug Finder Relaunch)
+*Released on: June 11, 2026*
+- **Settings Dashboard Consolidation**: Moved the **Bug Reports Finder** directly under **System Settings** to keep the left-hand panel uncluttered and organize core administrative tools cohesively.
+- **Real-Time Active Notification Lights**: Added responsive red glowing notification indicators to the System Settings navigation entry whenever a beta tester registers an unresolved issue (`open` or `in_review`) in Firestore.
+- **Unified Progression Resolves**: Retained the interactive, full-featured status modification controls allowing admins to update status, track screenshots, and publish resolutions instantly back to users.
+
+---
+
+### 🚀 Stable Release: v4.8.0 (Starters Navigation Customization)
+*Released on: June 11, 2026*
+- **Customizable Workspace Starters Settings**: Created a new control panel under the User Preferences tab permitting custom grouping of navigation elements.
+- **Dynamic Main-Panel Hiding**: Modules checked by the user migrate instantly into the collapsible "Starters" sidebar drawer and are cleanly hidden from the primary left drawer interface for space optimization.
+- **Enhanced Sidebar Versatility**: Synchronized responsive mobile drawers with user preferences, ensuring identical tidy layouts across small screen terminals.
+
+---
+
 ### 🚀 Stable Release: v4.7.0 (Select Mode & Multi-Asset Bulk Operations)
+*Released on: June 05, 2026*
 - **Checklist Select Toggle Mode**: Introduced a global toggle button for Select Mode inside the main view controller ribbon. This instantly formats assets with selectable checkboxes across all layouts (Grid, Compact, and Mobile Lists) for rapid operational dispatch.
 - **Robust Cloud Batch Operations Integration**: Interlinked multi-select arrays with complete Firestore atomic batch transaction handlers, facilitating bulk operations including **Move to Rack**, **Change Status**, and high-security transactional **Batch Deletes**.
 
 ---
 
 ### 🚀 Stable Release: v4.6.0 (Merchant Service Compliance & Custom Dispatch Routing)
+*Released on: May 25, 2026*
 - **Legal & Compliance Custom Pages Seeding**: Created high-quality compliance layouts for **Privacy Policy**, **Terms of Service**, and **Refund Policy** under custom routes (`/pg/privacy-policy`, etc.) based on requirements of major payment gateways (like Paddle). Seeded company metadata for Street Level Digital Engagement (SLEDIEN) Pte Ltd, Digital Bure, and Fiji registrations dynamically to Firestore.
 - **Custom Pickup & Drop-off Preference Logistics**: Integrated granular Dispatch Routing options directly into Listings and Marketplace order workflows. Users can now choose between Preset Depot Locations (e.g., Suva Film Studio, Nadi Aviation Terminal, Pacific Harbour Lounge) and Custom Address Sites, with instantaneous cost and distance propagation.
 
 ---
 
 ### 🚀 Stable Release: v4.5.0 (User Layout & Dashboard Customization)
+*Released on: May 12, 2026*
 - **Granular Dashboard Column & Widget Toggle**: Allowed operators to toggle individual landing page segments on their administrative homepage, including performance metric cards, live visualizer graphs, maintenance schedules, recent list rosters, kiosk terminal panels, safety consoles, and fleet dispatch trackers.
 - **Dynamic Quick Action Button Filter**: Empowered users in their settings to check/uncheck available quick access trigger cards. Unselected action buttons are automatically omitted from the dashboard layout.
 - **Boot-Up Sidebar Collapse Choice**: Tied a persistent layout preference to the main app layout, letting users choose whether the sidebar starts fully collapsed to maximize visual real-estate.
@@ -35,12 +54,14 @@ Below is the consolidated history of Packer Tools, tracing all production rollou
 ---
 
 ### 🚀 Stable Release: v4.4.0 (Diagnostics & Bug Reporting)
+*Released on: April 28, 2026*
 - **Interactive Screenshot Diagnostics**: Integrated an on-page diagnostics report system featuring client-side canvas snapshot scaling/cropping to fit under Firestore's 100KB limits.
 - **Admin Control Actions**: Built administrative dashboard views with crossout formatting indicating resolved tasks, backed by real-time status updates in Firestore.
 
 ---
 
 ### 🚀 Stable Release: v4.3.0 (Brand Shopfronts & Regional Currencies)
+*Released on: April 10, 2026*
 - **Dynamic Regional Currencies**: Designed admin configuration panels allowing instant workspace conversion among USD, FJD, AUD, NZD, GBP, CAD, or EUR with direct regional symbol swaps (e.g., `FJ$`).
 - **Brand Storefront Profiles**: Released public profiles (`#/shop/:uid`) designed to host professional seller bios, headers, and social accounts.
 - **Pro Tier Paywalls**: Enforced subscription paywall limits restricting marketplace catalog publishing to premium tier users.
@@ -48,19 +69,22 @@ Below is the consolidated history of Packer Tools, tracing all production rollou
 ---
 
 ### 🚀 Stable Release: v4.2.0 (Theme Preferences & Contrast Refinements)
+*Released on: March 24, 2026*
 - **Global Theme Engine**: Designed a secure Visual Theme Context allowing operators to alternate between Dark and Light Mode layout preferences with automatic `localStorage` caching.
 - **Tailwind Surface Overrides**: Fully optimized high-contrast dark styles to increase text readability under variable warehouse illumination.
 
 ---
 
 ### 🚀 Stable Release: v4.1.0 (Outdoors & Academy Edition)
+*Released on: March 08, 2026*
 - **Adventure Presets**: Preloaded dedicated workspace nomenclature configurations for Hiking, Marine Scuba, and Search & Rescue.
 - **Packer Tools Academy**: Initialized a specialized knowledge portal detailing legal dry payload limits, moisture audit tasks, and sub-zero battery storage.
 - **Adaptive Layout Refinements**: Redesigned main viewports containing multi-column headers into cleanly compressed mobile headers.
 
 ---
 
-### 🚀 Stable Release: v4.0.0 (Zero-Trust Privacy & Kiosk Mode)
+### 🚀 Stable Release: v4.0.0 (Zero-Zero Trust Privacy & Kiosk Mode)
+*Released on: February 15, 2026*
 - **Multi-Layer Privacy Modes**: Implemented fine-grained visibility rules (🔒 Private, 👥 Team, 🏢 Dept, 🏢 Org, 🌐 Public) across the entire Gear Library and custom inventory sheets.
 - **Kiosk Mode Terminal**: Rolled out the dedicated `/kiosk` terminal view featuring QR-code scanner triggers and 60-second automatic Firestore-synced PIN rotations.
 - **Industry Presets Swapping**: Added quick toggle ribbons to swap equipment nomenclatures across Cinema, Construction, Medical, and General Logistics.
@@ -68,6 +92,7 @@ Below is the consolidated history of Packer Tools, tracing all production rollou
 ---
 
 ### 🚀 Stable Release: v3.2.0 (AI Cargo Advisory & Dukey Assistant Upgrade)
+*Released on: January 25, 2026*
 - **Gemini API Integration**: Leveraged the `@google/genai` SDK on secure server-side proxy routes to analyze storage list payloads.
 - **Cargo Recommendation Cards**: Exposed actionable warnings during package allocation concerning heavy cargo payloads, dangerous materials, and safety requirements.
 - **Dukey Assistant Core**: Programmed automated descriptive copy generators resolving empty item specifications.
@@ -75,64 +100,75 @@ Below is the consolidated history of Packer Tools, tracing all production rollou
 ---
 
 ### 🚀 Stable Release: v3.1.0 (Encrypted DB Schema & Whitelisting)
+*Released on: January 08, 2026*
 - **DB Schema Spec v3.1.2**: Migrated database structures to enforce encrypted metadata constraints, preventing third-party listing exposure.
 - **Secured API Access**: Built standard JWT validation pipelines ensuring whitelisted endpoint validation.
 
 ---
 
 ### 🚀 Stable Release: v3.0.0 (Escrow Hires & Public Listings)
+*Released on: December 18, 2025*
 - **Rental Marketplace Core**: Added support for escrow payment tracking, hourly hire planners, and schedule validation engines.
 - **In-App Booking Forms**: Introduced modal rental calendar forms calculating booking fees and security deposits on-the-fly.
 
 ---
 
 ### 🚀 Stable Release: v2.4.0 (Stable Core Optimization)
+*Released on: November 24, 2025*
 - **Platform Build v2.4.9**: Greatly enhanced Firestore query performance by introducing responsive caching layers and localized snapshot synchronization.
 - **Cascade Cascading Selectors**: Handled multi-select associations dynamically cascading across Organization → Department → Team selectors.
 
 ---
 
 ### 🚀 Stable Release: v2.3.0 (Asset Barcode & QR Label Sheets)
+*Released on: November 10, 2025*
 - **Dynamic Dimension Presets**: Loaded physical template selectors for Dymo 30334, Brother TZe tape rolls, and standard Avery A4 sheets inside the label printer panel.
 - **Custom Scale Parameters**: Allowed operators to define manual width/height scaling grids to match non-standard labels.
 
 ---
 
 ### 🚀 Stable Release: v2.2.0 (Physical Shelf Racks & Storage Coordinates)
+*Released on: October 20, 2025*
 - **Shelf Mapping Visualizers**: Created a physical shelving grid component allowing warehouse operators to plot exact shelf bays (e.g., Aisle 2, Row B, Tray 4).
 - **Interactive Spot Highlights**: Linked inventory list components to coordinates, accelerating physical item retrieval.
 
 ---
 
 ### 🚀 Stable Release: v2.1.0 (Supply Chain & Lead-Time Analytics)
+*Released on: September 30, 2025*
 - **Lead-Time Estimator Algorithms**: Built reactive calculations flagging custom list elements that exceed standard shipping timeframes.
 - **Inventory Stock Alarms**: Added low physical stock warnings identifying gear shortages.
 
 ---
 
 ### 🚀 Stable Release: v2.0.0 (Departmental Custom Sheeting)
+*Released on: September 05, 2025*
 - **Custom Inventory Lists**: Deployed isolated, user-owned non-synchronized lists alongside the primary Gear library catalog.
 - **Spreadsheet AI Importers**: Embedded structured text-parsers matching uploaded spreadsheet rows to standardized schema attributes.
 
 ---
 
 ### 🚀 Stable Release: v1.3.0 (Recipient Contact Syncing)
+*Released on: August 18, 2025*
 - **Shared Direct Links**: Allowed users to generate secure, readable marketplace links to send to external recipients.
 - **Recipient Directories**: Designed an isolated contact workbook in Firebase tracking client contact details and phone references.
 
 ---
 
 ### 🚀 Stable Release: v1.2.0 (AI Scraper Engine Core)
+*Released on: July 30, 2025*
 - **AI Scraper Engine v1.2.6**: Connected the platform to server-side AI extractors to fetch item brand, weight, and model data.
 
 ---
 
 ### 🚀 Stable Release: v1.1.0 (Multi-Tenant Schema Migration)
+*Released on: July 12, 2025*
 - **Metadata Extension**: Migrated Firestore records to include dedicated security tags tracking organizational ownership.
 
 ---
 
 ### 🚀 Stable Release: v1.0.0 (Initial Cloud Run Container Deployment)
+*Released on: June 15, 2025*
 - **Container Architecture**: Successfully provisioned a Google Cloud Run container bound to internal routing ports.
 - **Locker Room Workspace**: Initialized the primary asset tracking module enabling remote teams to manage high-value production equipment.
 - **Firebase Database Setup**: Wired Firebase Firestore databases and cloud security rules for high-speed synchronization.
