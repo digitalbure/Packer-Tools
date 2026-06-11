@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { collection, addDoc, doc, getDocs, query, where, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, GearItem, PackingItem } from '../types';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import confetti from 'canvas-confetti';
 
 interface BulkScanModalProps {
@@ -19,6 +19,8 @@ interface BulkScanModalProps {
 export default function BulkScanModal({ isOpen, onClose, listId, user }: BulkScanModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const qrScannerRef = useRef<Html5Qrcode | null>(null);
+  const lastScannedQrRef = useRef<{ code: string; time: number } | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isIdentifying, setIsIdentifying] = useState(false);
@@ -251,25 +253,64 @@ export default function BulkScanModal({ isOpen, onClose, listId, user }: BulkSca
 
   // QR Real-time Camera Scanner Effect
   useEffect(() => {
-    let scanner: Html5QrcodeScanner | null = null;
+    let isSubscribed = true;
+    let timer: any = null;
+
     if (isOpen && activeMode === 'qr_pack') {
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         const element = document.getElementById("qr-bulk-scanner");
-        if (element) {
+        if (element && isSubscribed) {
           try {
-            scanner = new Html5QrcodeScanner(
-              "qr-bulk-scanner",
-              { fps: 10, qrbox: { width: 250, height: 250 } },
-              /* verbose= */ false
-            );
-            scanner.render(
-              (decodedText) => {
-                handleQRScanned(decodedText);
-              },
-              (err) => {
-                // Silently ignore camera frame search updates
+            const scanner = new Html5Qrcode("qr-bulk-scanner");
+            qrScannerRef.current = scanner;
+
+            const startQR = async () => {
+              try {
+                await scanner.start(
+                  { facingMode: "environment" },
+                  { fps: 10, qrbox: { width: 250, height: 250 } },
+                  (decodedText) => {
+                    const now = Date.now();
+                    if (
+                      lastScannedQrRef.current &&
+                      lastScannedQrRef.current.code === decodedText &&
+                      now - lastScannedQrRef.current.time < 2000
+                    ) {
+                      return;
+                    }
+                    lastScannedQrRef.current = { code: decodedText, time: now };
+                    handleQRScanned(decodedText);
+                  },
+                  () => {}
+                );
+              } catch (envError) {
+                console.warn("Back camera failed in bulk scan, trying front:", envError);
+                try {
+                  await scanner.start(
+                    { facingMode: "user" },
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (decodedText) => {
+                      const now = Date.now();
+                      if (
+                        lastScannedQrRef.current &&
+                        lastScannedQrRef.current.code === decodedText &&
+                        now - lastScannedQrRef.current.time < 2000
+                      ) {
+                        return;
+                      }
+                      lastScannedQrRef.current = { code: decodedText, time: now };
+                      handleQRScanned(decodedText);
+                    },
+                    () => {}
+                  );
+                } catch (genericError) {
+                  console.error("Camera failed completely in bulk scan:", genericError);
+                  toast.error("Could not activate camera for QR scanning.");
+                }
               }
-            );
+            };
+
+            startQR();
           } catch (err) {
             console.error("Failed to start HTML5 QR scanner on popup: ", err);
           }
@@ -277,13 +318,17 @@ export default function BulkScanModal({ isOpen, onClose, listId, user }: BulkSca
       }, 300);
 
       return () => {
+        isSubscribed = false;
         clearTimeout(timer);
-        if (scanner) {
+        if (qrScannerRef.current) {
           try {
-            scanner.clear().catch(e => console.log("Non-blocking context error clearing:", e));
+            if (qrScannerRef.current.isScanning) {
+              qrScannerRef.current.stop().catch(e => console.log("Non-blocking error stopping scanner:", e));
+            }
           } catch (e) {
             console.log("Cleanup exception ignored:", e);
           }
+          qrScannerRef.current = null;
         }
       };
     }

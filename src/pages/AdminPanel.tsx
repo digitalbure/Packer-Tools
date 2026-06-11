@@ -13,6 +13,7 @@ import AdminDocsTab from '../components/AdminDocsTab';
 import FirebaseMigrator from '../components/FirebaseMigrator';
 import BillingSettings from '../components/BillingSettings';
 import BillingDashboard from '../components/BillingDashboard';
+import { BrandingSettingsTab, BillingSettingsTab, MultiIndustrySettingsTab, MarketplaceSettingsTab, WidgetsSettingsTab } from '../components/AdminSettingsPages';
 import { AreaChart, Area, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cell, CartesianGrid } from 'recharts';
 
 export const MODULE_METADATA: {
@@ -384,6 +385,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const billingTrendData = getBillingTrendData();
 
   // Currency and payment gateway states
+  const [settingsSubTab, setSettingsSubTab] = useState<'branding' | 'billing' | 'multi_industry' | 'marketplace' | 'widgets'>('branding');
   const [isAddingCurrency, setIsAddingCurrency] = useState(false);
   const [newCurrencyCode, setNewCurrencyCode] = useState('');
   const [newCurrencyName, setNewCurrencyName] = useState('');
@@ -622,6 +624,102 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
           data.activeLanderId = 'lander-01';
           
           // Clean up old field if preferred, but keeping it for backward compatibility during transition
+        }
+
+        // Self-heal and sanitize landers to prevent any runtime TypeErrors
+        if (data.landers && Array.isArray(data.landers)) {
+          data.landers = data.landers.map((lander: any) => {
+            if (!lander || typeof lander !== 'object') return lander;
+            const content = lander.content || {};
+            
+            // 1. Header links
+            if (content.header) {
+              if (!Array.isArray(content.header.links)) {
+                content.header.links = [];
+              }
+            } else {
+              content.header = { logoText: 'Packer Tools', links: [] };
+            }
+
+            // 2. Ticker pairs
+            if (content.ticker) {
+              if (!Array.isArray(content.ticker.pairs)) {
+                content.ticker.pairs = [];
+              }
+            } else {
+              content.ticker = { title: 'Used By', pairs: [], isEnabled: true };
+            }
+
+            // 3. Features items
+            if (content.features) {
+              if (!Array.isArray(content.features.items)) {
+                // If it is an object with an items array inside
+                if (content.features.items && typeof content.features.items === 'object' && Array.isArray((content.features.items as any).items)) {
+                  content.features.items = (content.features.items as any).items;
+                } else if (Array.isArray((content.features as any).features)) {
+                  content.features.items = (content.features as any).features;
+                } else {
+                  content.features.items = [];
+                }
+              }
+            } else {
+              content.features = { title: 'Features', description: '', items: [], isEnabled: true };
+            }
+
+            // 4. Scenarios items
+            if (content.scenarios) {
+              if (!Array.isArray(content.scenarios.items)) {
+                if (content.scenarios.items && typeof content.scenarios.items === 'object' && Array.isArray((content.scenarios.items as any).items)) {
+                  content.scenarios.items = (content.scenarios.items as any).items;
+                } else {
+                  content.scenarios.items = [];
+                }
+              }
+            } else {
+              content.scenarios = { title: 'Scenarios', subtitle: '', items: [], isEnabled: true };
+            }
+
+            // 5. Stats items
+            if (content.stats) {
+              if (!Array.isArray(content.stats.items)) {
+                content.stats.items = [];
+              }
+            } else {
+              content.stats = { items: [], isEnabled: true };
+            }
+
+            // 6. Testimonials items
+            if (content.testimonials) {
+              if (!Array.isArray(content.testimonials.items)) {
+                content.testimonials.items = [];
+              }
+            } else {
+              content.testimonials = { title: '', subtitle: '', items: [], isEnabled: false };
+            }
+
+            // 7. FAQ items
+            if (content.faq) {
+              if (!Array.isArray(content.faq.items)) {
+                content.faq.items = [];
+              }
+            } else {
+              content.faq = { title: '', subtitle: '', items: [], isEnabled: false };
+            }
+
+            // 8. Footer links
+            if (content.footer) {
+              if (!Array.isArray(content.footer.links)) {
+                content.footer.links = [];
+              }
+            } else {
+              content.footer = { copyright: '© 2026 Packer Tools', links: [] };
+            }
+
+            return {
+              ...lander,
+              content
+            };
+          });
         }
 
         setSettings(data);
@@ -5413,2846 +5511,195 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
       {activeTab === 'settings' && (
         <div className="space-y-8">
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-8">
-              <h3 className="text-2xl font-bold flex items-center gap-2">
+          {/* Header Dashboard section */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-neutral-100">
+            <div>
+              <h2 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-2">
                 <Settings className="text-primary" />
-                <span>General Settings</span>
-              </h3>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Platform Name</label>
-                  <input
-                    type="text"
-                    value={settings?.branding?.companyName || ''}
-                    onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), companyName: e.target.value } } : null)}
-                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition font-bold text-neutral-800"
-                  />
-                </div>
-
-                <div className="space-y-3 p-4 bg-neutral-50 rounded-2xl border border-neutral-200/55">
-                  <label className="text-xs font-black uppercase text-neutral-500 tracking-wider block">Platform Logo Icon</label>
-                  <div className="flex flex-col sm:flex-row gap-4 items-center font-sans">
-                    <div className="w-16 h-16 rounded-xl bg-white border border-neutral-200/80 flex items-center justify-center overflow-hidden shrink-0 group relative">
-                      {settings?.branding?.logo ? (
-                        <>
-                          <img src={settings.branding.logo} className="w-full h-full object-contain p-1" alt="Logo preview" referrerPolicy="no-referrer" />
-                          <button
-                            type="button"
-                            onClick={() => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), logo: '' } } : null)}
-                            className="absolute inset-0 bg-red-900/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white text-[10px] font-black uppercase tracking-widest"
-                          >
-                            Remove
-                          </button>
-                        </>
-                      ) : (
-                        <PackerLogo variant="symbol-only" size={32} />
-                      )}
-                    </div>
-                    <div className="flex-1 w-full space-y-3">
-                      <div>
-                        <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block mb-1 font-mono">Direct Logo Link</span>
-                        <input 
-                          type="url"
-                          placeholder="Paste logo image URL (e.g. cloud asset, corporate url)..."
-                          value={settings?.branding?.logo || ''}
-                          onChange={(e) => {
-                            const val = e.target.value.trim();
-                            setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), logo: val } } : null);
-                          }}
-                          className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 placeholder-neutral-400"
-                        />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <label 
-                          className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary cursor-pointer hover:underline"
-                        >
-                          <Upload size={12} />
-                          <span>Upload Logo File</span>
-                          <input 
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              const reader = new FileReader();
-                              reader.onload = () => {
-                                const base64 = reader.result as string;
-                                setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), logo: base64 } } : null);
-                                toast.success("Draft logo image loaded");
-                              };
-                              reader.readAsDataURL(file);
-                            }}
-                          />
-                        </label>
-                        <span className="text-[9px] text-neutral-400 font-bold">• Inline optimization enabled</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Support Email</label>
-                  <input
-                    type="email"
-                    value={settings?.contactEmail || ''}
-                    onChange={(e) => setSettings(s => s ? { ...s, contactEmail: e.target.value } : null)}
-                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Support Phone</label>
-                  <input
-                    type="text"
-                    value={settings?.contactPhone || ''}
-                    onChange={(e) => setSettings(s => s ? { ...s, contactPhone: e.target.value } : null)}
-                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Office Address</label>
-                  <input
-                    type="text"
-                    value={settings?.contactAddress || ''}
-                    onChange={(e) => setSettings(s => s ? { ...s, contactAddress: e.target.value } : null)}
-                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
-                  />
-                </div>
-                <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
-                  <div className="space-y-0.5">
-                    <p className="font-bold">Enable Billing</p>
-                    <p className="text-xs text-neutral-400">Allow users to upgrade to Pro plans.</p>
-                  </div>
-                  <button 
-                    type="button"
-                    onClick={() => setSettings(s => s ? { ...s, billingEnabled: !s.billingEnabled } : null)}
-                    className={`w-12 h-6 rounded-full relative transition-colors ${settings?.billingEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.billingEnabled ? 'right-1' : 'left-1'}`}></div>
-                  </button>
-                </div>
-
-                {/* FOOTER & NAVIGATION SETTINGS */}
-                <div className="space-y-4 p-5 bg-neutral-50 border border-neutral-150 rounded-3xl mt-4">
-                  <div className="space-y-1">
-                    <p className="font-black text-xs uppercase tracking-wider text-neutral-800 flex items-center gap-2">
-                      <Settings size={16} className="text-primary shrink-0" />
-                      <span>Footer Navigation &amp; Centering Control</span>
-                    </p>
-                    <p className="text-[10px] text-neutral-400 font-bold uppercase">Configure bottom navigation shortcuts and responsive aesthetics.</p>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200">
-                    <div>
-                      <p className="text-xs font-black text-neutral-800 uppercase">Enable Navigation Footer</p>
-                      <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider">Show main hub shortcuts above footer meta info</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSettings(s => {
-                        if (!s) return null;
-                        const existing = s.footerNavConfig || { enabled: true, alignMobileCentred: true, links: [] };
-                        return {
-                          ...s,
-                          footerNavConfig: {
-                            ...existing,
-                            enabled: !existing.enabled
-                          }
-                        };
-                      })}
-                      className={`w-10 h-5 rounded-full relative transition-colors shrink-0 ${settings?.footerNavConfig?.enabled ?? true ? 'bg-primary' : 'bg-neutral-200'}`}
-                    >
-                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.footerNavConfig?.enabled ?? true ? 'right-0.5' : 'left-0.5'}`}></div>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200">
-                    <div>
-                      <p className="text-xs font-black text-neutral-800 uppercase">Center on Mobile Devices</p>
-                      <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider">Center-align text and branding on screens &lt; sm</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSettings(s => {
-                        if (!s) return null;
-                        const existing = s.footerNavConfig || { enabled: true, alignMobileCentred: true, links: [] };
-                        return {
-                          ...s,
-                          footerNavConfig: {
-                            ...existing,
-                            alignMobileCentred: !existing.alignMobileCentred
-                          }
-                        };
-                      })}
-                      className={`w-10 h-5 rounded-full relative transition-colors shrink-0 ${settings?.footerNavConfig?.alignMobileCentred ?? true ? 'bg-primary' : 'bg-neutral-200'}`}
-                    >
-                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.footerNavConfig?.alignMobileCentred ?? true ? 'right-0.5' : 'left-0.5'}`}></div>
-                    </button>
-                  </div>
-
-                  <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Footer Nav Links Override</span>
-                      <button
-                        type="button"
-                        onClick={() => setSettings(s => {
-                          if (!s) return null;
-                          const existing = s.footerNavConfig || { enabled: true, alignMobileCentred: true, links: [] };
-                          const currentLinks = existing.links || [
-                            { label: 'Workspaces', href: '/dashboard' },
-                            { label: 'Gear Library', href: '/library' },
-                            { label: 'Kiosk Terminal', href: '/kiosk' },
-                            { label: 'Client Booking', href: '/marketplace' },
-                            { label: 'Technical Help', href: '/help' }
-                          ];
-                          return {
-                            ...s,
-                            footerNavConfig: {
-                              ...existing,
-                              links: [...currentLinks, { label: 'New Link', href: '/dashboard' }]
-                            }
-                          };
-                        })}
-                        className="text-[9px] font-black uppercase tracking-wider text-primary hover:underline flex items-center gap-1 bg-white px-2 py-1 rounded-md border border-neutral-200"
-                      >
-                        <Plus size={10} />
-                        <span>Add Link</span>
-                      </button>
-                    </div>
-
-                    <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
-                      {((settings?.footerNavConfig?.links) || [
-                        { label: 'Workspaces', href: '/dashboard' },
-                        { label: 'Gear Library', href: '/library' },
-                        { label: 'Kiosk Terminal', href: '/kiosk' },
-                        { label: 'Client Booking', href: '/marketplace' },
-                        { label: 'Technical Help', href: '/help' }
-                      ]).map((link, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded-xl border border-neutral-100">
-                          <input
-                            type="text"
-                            value={link.label}
-                            placeholder="Label"
-                            onChange={(e) => setSettings(s => {
-                              if (!s) return null;
-                              const existing = s.footerNavConfig || { enabled: true, alignMobileCentred: true, links: [] };
-                              const newLinks = [...(existing.links || [
-                                { label: 'Workspaces', href: '/dashboard' },
-                                { label: 'Gear Library', href: '/library' },
-                                { label: 'Kiosk Terminal', href: '/kiosk' },
-                                { label: 'Client Booking', href: '/marketplace' },
-                                { label: 'Technical Help', href: '/help' }
-                              ])];
-                              if (newLinks[idx]) {
-                                newLinks[idx].label = e.target.value;
-                              } else {
-                                newLinks[idx] = { label: e.target.value, href: '' };
-                              }
-                              return { ...s, footerNavConfig: { ...existing, links: newLinks } };
-                            })}
-                            className="w-1/3 bg-neutral-50 px-2 py-1 text-xs border border-neutral-200 rounded font-bold"
-                          />
-                          <input
-                            type="text"
-                            value={link.href}
-                            placeholder="Relative or absolute URL"
-                            onChange={(e) => setSettings(s => {
-                              if (!s) return null;
-                              const existing = s.footerNavConfig || { enabled: true, alignMobileCentred: true, links: [] };
-                              const newLinks = [...(existing.links || [
-                                { label: 'Workspaces', href: '/dashboard' },
-                                { label: 'Gear Library', href: '/library' },
-                                { label: 'Kiosk Terminal', href: '/kiosk' },
-                                { label: 'Client Booking', href: '/marketplace' },
-                                { label: 'Technical Help', href: '/help' }
-                              ])];
-                              if (newLinks[idx]) {
-                                newLinks[idx].href = e.target.value;
-                              } else {
-                                newLinks[idx] = { label: '', href: e.target.value };
-                              }
-                              return { ...s, footerNavConfig: { ...existing, links: newLinks } };
-                            })}
-                            className="flex-1 bg-neutral-50 px-2 py-1 text-xs border border-neutral-200 rounded"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setSettings(s => {
-                              if (!s) return null;
-                              const existing = s.footerNavConfig || { enabled: true, alignMobileCentred: true, links: [] };
-                              const newLinks = (existing.links || [
-                                { label: 'Workspaces', href: '/dashboard' },
-                                { label: 'Gear Library', href: '/library' },
-                                { label: 'Kiosk Terminal', href: '/kiosk' },
-                                { label: 'Client Booking', href: '/marketplace' },
-                                { label: 'Technical Help', href: '/help' }
-                              ]).filter((_, i) => i !== idx);
-                              return { ...s, footerNavConfig: { ...existing, links: newLinks } };
-                            })}
-                            className="p-1 px-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 transition rounded-md text-sm font-black"
-                          >
-                            &times;
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* GLOBAL MULTI-INDUSTRY CONFIGURATION PANEL */}
-                <div className="space-y-6 pt-6 border-t border-neutral-150">
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800 flex items-center gap-2">
-                      <Layers size={16} className="text-primary shrink-0" />
-                      <span>Enterprise Multi-Industry Settings &amp; Custom Terms</span>
-                    </h4>
-                    <p className="text-xs text-neutral-500 font-medium leading-relaxed">
-                      Configure customizable industry sandboxes, active-state categorizations, and specify localized labels of asset-terms dynamically across the platform.
-                    </p>
-                  </div>
-
-                  {/* Enable Switch for Industries */}
-                  <div className="space-y-4 bg-neutral-50 p-4 border border-neutral-200 rounded-2xl">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Enabled Sandbox Categories</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {INDUSTRIES.map((ind) => {
-                        const isEnabled = settings?.multiIndustryConfig?.enabledIndustries?.includes(ind.id) ?? true;
-                        return (
-                          <div key={ind.id} className="flex items-center justify-between p-3 bg-white border border-neutral-200 rounded-xl">
-                            <div className="min-w-0 pr-2">
-                              <p className="text-xs font-black text-neutral-800 truncate">{ind.name}</p>
-                              <p className="text-[9px] text-neutral-400 capitalize truncate font-medium">{ind.gearLabelPlural} &amp; {ind.listLabelPlural}</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSettings((s: any) => {
-                                  if (!s) return null;
-                                  const currentEnabled = s.multiIndustryConfig?.enabledIndustries || INDUSTRIES.map(i => i.id);
-                                  const updatedEnabled = currentEnabled.includes(ind.id)
-                                    ? currentEnabled.filter((i: any) => i !== ind.id)
-                                    : [...currentEnabled, ind.id];
-                                  return {
-                                    ...s,
-                                    multiIndustryConfig: {
-                                      ...(s.multiIndustryConfig || {}),
-                                      enabledIndustries: updatedEnabled
-                                    }
-                                  };
-                                });
-                              }}
-                              className={`w-10 h-5 rounded-full relative transition-colors shrink-0 ${isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
-                            >
-                              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${isEnabled ? 'right-0.5' : 'left-0.5'}`} />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Custom Terms Edit Interface */}
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 font-sans">Customize Industry Specific Terms</p>
-                    <div className="space-y-4">
-                      {INDUSTRIES.map((ind) => {
-                        const currentTerm = settings?.multiIndustryConfig?.customTerms?.[ind.id] || {
-                          gearLabelSingular: ind.gearLabelSingular,
-                          gearLabelPlural: ind.gearLabelPlural,
-                          listLabelSingular: ind.listLabelSingular,
-                          listLabelPlural: ind.listLabelPlural,
-                          description: ind.description
-                        };
-                        return (
-                          <div key={ind.id} className="p-4 bg-white border border-neutral-200 rounded-2xl space-y-3 shadow-sm">
-                            <div className="flex items-center gap-2 border-b border-neutral-100 pb-2">
-                              <span className="text-xs font-black uppercase text-neutral-900 font-sans font-black">{ind.name} Settings</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-1">
-                                <label className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wider block">Single Item Label</label>
-                                <input
-                                  type="text"
-                                  value={currentTerm.gearLabelSingular}
-                                  onChange={(e) => {
-                                    setSettings((s: any) => {
-                                      if (!s) return null;
-                                      const oldTerms = s.multiIndustryConfig?.customTerms || {};
-                                      return {
-                                        ...s,
-                                        multiIndustryConfig: {
-                                          ...(s.multiIndustryConfig || {}),
-                                          customTerms: {
-                                            ...oldTerms,
-                                            [ind.id]: {
-                                              ...currentTerm,
-                                              gearLabelSingular: e.target.value
-                                            }
-                                          }
-                                        }
-                                      };
-                                    });
-                                  }}
-                                  className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-primary outline-none transition"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wider block">Plural Item Label</label>
-                                <input
-                                  type="text"
-                                  value={currentTerm.gearLabelPlural}
-                                  onChange={(e) => {
-                                    setSettings((s: any) => {
-                                      if (!s) return null;
-                                      const oldTerms = s.multiIndustryConfig?.customTerms || {};
-                                      return {
-                                        ...s,
-                                        multiIndustryConfig: {
-                                          ...(s.multiIndustryConfig || {}),
-                                          customTerms: {
-                                            ...oldTerms,
-                                            [ind.id]: {
-                                              ...currentTerm,
-                                              gearLabelPlural: e.target.value
-                                            }
-                                          }
-                                        }
-                                      };
-                                    });
-                                  }}
-                                  className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-primary outline-none transition"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wider block">Single List Label</label>
-                                <input
-                                  type="text"
-                                  value={currentTerm.listLabelSingular}
-                                  onChange={(e) => {
-                                    setSettings((s: any) => {
-                                      if (!s) return null;
-                                      const oldTerms = s.multiIndustryConfig?.customTerms || {};
-                                      return {
-                                        ...s,
-                                        multiIndustryConfig: {
-                                          ...(s.multiIndustryConfig || {}),
-                                          customTerms: {
-                                            ...oldTerms,
-                                            [ind.id]: {
-                                              ...currentTerm,
-                                              listLabelSingular: e.target.value
-                                            }
-                                          }
-                                        }
-                                      };
-                                    });
-                                  }}
-                                  className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-primary outline-none transition"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wider block">Plural List Label</label>
-                                <input
-                                  type="text"
-                                  value={currentTerm.listLabelPlural}
-                                  onChange={(e) => {
-                                    setSettings((s: any) => {
-                                      if (!s) return null;
-                                      const oldTerms = s.multiIndustryConfig?.customTerms || {};
-                                      return {
-                                        ...s,
-                                        multiIndustryConfig: {
-                                          ...(s.multiIndustryConfig || {}),
-                                          customTerms: {
-                                            ...oldTerms,
-                                            [ind.id]: {
-                                              ...currentTerm,
-                                              listLabelPlural: e.target.value
-                                            }
-                                          }
-                                        }
-                                      };
-                                    });
-                                  }}
-                                  className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-primary outline-none transition"
-                                />
-                              </div>
-                            </div>
-                            <div className="space-y-1 pt-1">
-                              <label className="text-[9px] font-semibold text-neutral-400 uppercase tracking-wider block">Landing Description</label>
-                              <input
-                                type="text"
-                                value={currentTerm.description}
-                                onChange={(e) => {
-                                  setSettings((s: any) => {
-                                    if (!s) return null;
-                                    const oldTerms = s.multiIndustryConfig?.customTerms || {};
-                                    return {
-                                        ...s,
-                                        multiIndustryConfig: {
-                                          ...(s.multiIndustryConfig || {}),
-                                          customTerms: {
-                                            ...oldTerms,
-                                            [ind.id]: {
-                                              ...currentTerm,
-                                              description: e.target.value
-                                            }
-                                          }
-                                        }
-                                      };
-                                    });
-                                  }}
-                                  className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-primary outline-none transition"
-                                />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-4 border-t border-neutral-100">
-                  <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider block">Marketplace Visibility Mode</label>
-                  <select
-                    value={settings?.marketplaceVisibility || 'public'}
-                    onChange={(e) => setSettings(s => s ? { ...s, marketplaceVisibility: e.target.value as 'signed-in' | 'public' } : null)}
-                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition font-semibold"
-                  >
-                    <option value="public">Public (Anyone with link can view listings)</option>
-                    <option value="signed-in">Signed-In Users Only (Requires platform login)</option>
-                  </select>
-                  <p className="text-[10px] text-neutral-400">Policy: Restrict shared visual inventory listings to authenticated users only or allow public access.</p>
-                </div>
-
-                <div className="space-y-2 pt-4 border-t border-neutral-100">
-                  <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider block">Checkout Duration Limit (Hours)</label>
-                  <input
-                    type="number"
-                    value={settings?.limits?.maxCheckoutDurationHours || 24}
-                    onChange={(e) => setSettings(s => s ? { ...s, limits: { ...(s.limits || {}), maxCheckoutDurationHours: parseInt(e.target.value) } } : null)}
-                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition"
-                  />
-                  <p className="text-[10px] text-neutral-400">Policy: Maximum time gear can be checked out before flagging.</p>
-                </div>
-
-                <div className="space-y-4 pt-4 border-t border-neutral-100">
-                  <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800 flex items-center gap-1.5">
-                    <Globe size={16} className="text-primary shrink-0" />
-                    <span>Marketplace Regional Launch Settings</span>
-                  </h4>
-                  <p className="text-[11px] text-neutral-450 text-neutral-500 font-semibold leading-relaxed uppercase">
-                    Configure active launch properties and territorial limits for visual gear marketplace interactions.
-                  </p>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Launch Country</label>
-                    <select
-                      value={settings?.marketplaceRegionConfig?.launchCountry || 'Fiji'}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSettings(s => {
-                          if (!s) return null;
-                          const cfg = s.marketplaceRegionConfig || { launchCountry: 'Fiji', availableCountries: ['Fiji'], restrictToAvailableCountries: false };
-                          return {
-                            ...s,
-                            marketplaceRegionConfig: { ...cfg, launchCountry: val }
-                          };
-                        });
-                      }}
-                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition font-semibold"
-                    >
-                      <option value="Fiji">Fiji (Launch Target Country)</option>
-                      <option value="United States">United States</option>
-                      <option value="Australia">Australia</option>
-                      <option value="New Zealand">New Zealand</option>
-                      <option value="United Kingdom">United Kingdom</option>
-                      <option value="Canada">Canada</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Default Marketplace Currency</label>
-                    <select
-                      value={settings?.marketplaceRegionConfig?.defaultCurrency || 'USD'}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSettings(s => {
-                          if (!s) return null;
-                          const cfg = s.marketplaceRegionConfig || { launchCountry: 'Fiji', availableCountries: ['Fiji'], restrictToAvailableCountries: false };
-                          return {
-                            ...s,
-                            marketplaceRegionConfig: { ...cfg, defaultCurrency: val }
-                          };
-                        });
-                      }}
-                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition font-semibold"
-                    >
-                      <option value="USD">USD (United States Dollar, $)</option>
-                      <option value="FJD">FJD (Fijian Dollar, FJ$)</option>
-                      <option value="AUD">AUD (Australian Dollar, A$)</option>
-                      <option value="NZD">NZD (New Zealand Dollar, NZ$)</option>
-                      <option value="GBP">GBP (British Pound, £)</option>
-                      <option value="CAD">CAD (Canadian Dollar, C$)</option>
-                      <option value="EUR">EUR (Euro, €)</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Packer Tools Available Countries List</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {['Fiji', 'United States', 'Australia', 'New Zealand', 'United Kingdom', 'Canada'].map((country) => {
-                        const isAvailable = (settings?.marketplaceRegionConfig?.availableCountries || ['Fiji']).includes(country);
-                        return (
-                          <button
-                            key={country}
-                            type="button"
-                            onClick={() => {
-                              setSettings(s => {
-                                if (!s) return null;
-                                const cfg = s.marketplaceRegionConfig || { launchCountry: 'Fiji', availableCountries: ['Fiji'], restrictToAvailableCountries: false };
-                                const list = cfg.availableCountries || [];
-                                const newList = list.includes(country) 
-                                  ? list.filter(c => c !== country) 
-                                  : [...list, country];
-                                return {
-                                  ...s,
-                                  marketplaceRegionConfig: { ...cfg, availableCountries: newList }
-                                };
-                              });
-                            }}
-                            className={`p-3 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all text-left flex items-center justify-between ${
-                              isAvailable
-                                ? 'bg-primary/10 text-primary border-primary shadow-inner'
-                                : 'bg-neutral-50 text-neutral-400 border-neutral-200/60 hover:border-neutral-300'
-                            }`}
-                          >
-                            <span>{country}</span>
-                            <div className={`w-2.5 h-2.5 rounded-full ${isAvailable ? 'bg-primary' : 'bg-neutral-200'}`} />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
-                    <div className="space-y-0.5">
-                      <p className="font-bold text-xs uppercase text-neutral-800">Restrict Marketplace to Available Countries</p>
-                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider leading-relaxed">Limit bookings and availability warnings strictly if users location is outside chosen countries.</p>
-                    </div>
-                    <button 
-                      type="button"
-                      onClick={() => setSettings(s => {
-                        if (!s) return null;
-                        const cfg = s.marketplaceRegionConfig || { launchCountry: 'Fiji', availableCountries: ['Fiji'], restrictToAvailableCountries: false };
-                        return {
-                          ...s,
-                          marketplaceRegionConfig: { ...cfg, restrictToAvailableCountries: !cfg.restrictToAvailableCountries }
-                        };
-                      })}
-                      className={`w-12 h-6 rounded-full relative transition-colors ${settings?.marketplaceRegionConfig?.restrictToAvailableCountries ? 'bg-primary' : 'bg-neutral-200'}`}
-                    >
-                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceRegionConfig?.restrictToAvailableCountries ? 'right-1' : 'left-1'}`}></div>
-                    </button>
-                  </div>
-
-                  {/* Fiji VAT & Global Country Taxes Customization */}
-                  <div className="space-y-4 pt-6 border-t border-neutral-100">
-                    <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800 flex items-center gap-1.5 flex-wrap">
-                      <Globe size={16} className="text-primary shrink-0" />
-                      <span>Fiji VAT & Global Country Taxes Customization</span>
-                    </h4>
-                    <p className="text-[11px] text-neutral-500 font-bold uppercase tracking-wider leading-relaxed">
-                      Configure custom target tax percentages and charge logic per country for the marketplace checkout totals.
-                    </p>
-
-                    <div className="p-5 bg-neutral-900 border border-neutral-800 rounded-2xl text-white space-y-4 shadow-xl">
-                      <div className="border-b border-neutral-800 pb-3 flex items-center justify-between">
-                        <div>
-                          <span className="text-[10px] uppercase tracking-wider text-primary font-black block">National VAT Settings (Fiji Centric)</span>
-                          <span className="text-[9px] text-neutral-400 font-semibold block">Choose custom VAT rates and whether it's VIP (Inclusive) or VEP (Exclusive)</span>
-                        </div>
-                        <span className="bg-[#ff4f3a] text-white text-[8px] font-black px-2 py-0.5 rounded tracking-widest uppercase shrink-0">FJ Config</span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest font-mono">Fiji VAT Percentage Rate (%)</label>
-                          <input
-                            type="number"
-                            step="0.5"
-                            placeholder="15"
-                            value={settings?.taxConfig?.fijiVatRate ?? 15}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              setSettings(s => {
-                                if (!s) return null;
-                                const tCfg = s.taxConfig || { fijiVatRate: 15, fijiVatType: 'VIP' };
-                                return {
-                                  ...s,
-                                  taxConfig: { ...tCfg, fijiVatRate: val }
-                                };
-                              });
-                            }}
-                            className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs font-bold text-white outline-none focus:border-primary"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest font-mono">Fiji VAT Display Type (VIP / VEP Toggle)</label>
-                          <div className="flex bg-neutral-950 p-1 rounded-xl border border-neutral-800 h-9.5 items-center">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSettings(s => {
-                                  if (!s) return null;
-                                  const tCfg = s.taxConfig || { fijiVatRate: 15, fijiVatType: 'VIP' };
-                                  return {
-                                    ...s,
-                                    taxConfig: { ...tCfg, fijiVatType: 'VIP' }
-                                  };
-                                });
-                              }}
-                              className={`flex-1 text-center py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all h-7.5 flex items-center justify-center gap-1 ${
-                                (settings?.taxConfig?.fijiVatType || 'VIP') === 'VIP'
-                                  ? 'bg-primary text-white shadow-sm font-black'
-                                  : 'text-neutral-400 hover:text-white'
-                              }`}
-                            >
-                              <span>VIP (VAT Inclusive)</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSettings(s => {
-                                  if (!s) return null;
-                                  const tCfg = s.taxConfig || { fijiVatRate: 15, fijiVatType: 'VIP' };
-                                  return {
-                                    ...s,
-                                    taxConfig: { ...tCfg, fijiVatType: 'VEP' }
-                                  };
-                                });
-                              }}
-                              className={`flex-1 text-center py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all h-7.5 flex items-center justify-center gap-1 ${
-                                (settings?.taxConfig?.fijiVatType || 'VIP') === 'VEP'
-                                  ? 'bg-[#ff4f3a] text-white shadow-sm font-black'
-                                  : 'text-neutral-400 hover:text-white'
-                              }`}
-                            >
-                              <span>VEP (VAT Exclusive)</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Other Countries Backend config */}
-                      <div className="border-t border-neutral-800 pt-4 space-y-3">
-                        <div>
-                          <span className="text-[10px] uppercase tracking-wider text-neutral-400 font-extrabold block">International Taxes Configurator</span>
-                          <span className="text-[9px] text-neutral-500 font-semibold block">Configured custom tax settings used globally for checkout on international orders</span>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                          {['United States', 'Australia', 'New Zealand', 'United Kingdom', 'Canada'].map((country) => {
-                            const config = settings?.taxConfig?.otherCountriesTaxRates?.[country] || { rate: 10, type: 'exclusive' };
-                            return (
-                              <div key={country} className="p-3 bg-neutral-950/70 rounded-xl border border-neutral-850 flex flex-col gap-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-black uppercase text-neutral-300">{country}</span>
-                                  <span className="text-[8px] font-mono text-neutral-500 uppercase">Custom Tax</span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="text-[7px] uppercase font-black tracking-widest text-neutral-500">Tax Rate %</span>
-                                    <input 
-                                      type="number"
-                                      step="0.1"
-                                      value={config.rate}
-                                      onChange={(e) => {
-                                        const r = parseFloat(e.target.value) || 0;
-                                        setSettings(s => {
-                                          if (!s) return null;
-                                          const tCfg = s.taxConfig || { fijiVatRate: 15, fijiVatType: 'VIP' };
-                                          const rates = tCfg.otherCountriesTaxRates || {};
-                                          return {
-                                            ...s,
-                                            taxConfig: {
-                                              ...tCfg,
-                                              otherCountriesTaxRates: {
-                                                ...rates,
-                                                [country]: { ...config, rate: r }
-                                              }
-                                            }
-                                          };
-                                        });
-                                      }}
-                                      className="w-full bg-neutral-900 border border-neutral-800 rounded px-1.5 py-0.5 text-[9px] text-white font-extrabold"
-                                    />
-                                  </div>
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="text-[7px] uppercase font-black tracking-widest text-neutral-500">Tax Type</span>
-                                    <select
-                                      value={config.type}
-                                      onChange={(e) => {
-                                        const ty = e.target.value as 'exclusive' | 'inclusive';
-                                        setSettings(s => {
-                                          if (!s) return null;
-                                          const tCfg = s.taxConfig || { fijiVatRate: 15, fijiVatType: 'VIP' };
-                                          const rates = tCfg.otherCountriesTaxRates || {};
-                                          return {
-                                            ...s,
-                                            taxConfig: {
-                                              ...tCfg,
-                                              otherCountriesTaxRates: {
-                                                ...rates,
-                                                [country]: { ...config, type: ty }
-                                              }
-                                            }
-                                          };
-                                        });
-                                      }}
-                                      className="w-full bg-neutral-900 border border-neutral-800 rounded px-1.5 py-0.5 text-[9px] text-white font-extrabold"
-                                    >
-                                      <option value="exclusive">Exclusive</option>
-                                      <option value="inclusive">Inclusive</option>
-                                    </select>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Marketplace Landing Page Copy & Core Visual Controls */}
-                  <div className="space-y-4 pt-6 border-t border-neutral-100">
-                    <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800 flex items-center gap-1.5">
-                      <Layout size={16} className="text-primary shrink-0" />
-                      <span>Marketplace Landing Page Customization</span>
-                    </h4>
-                    <p className="text-[11px] text-neutral-500 font-semibold leading-relaxed uppercase">
-                      Directly configure the visual copies, dual promos, verification options, and section display rules for the marketplace landing hub.
-                    </p>
-
-                    <div className="space-y-4 p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Hero Subtitle Badge Copy</label>
-                        <input
-                          type="text"
-                          value={settings?.marketplaceLandingPageConfig?.heroSubtitle || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, heroSubtitle: val } };
-                            });
-                          }}
-                          className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold outline-none"
-                          placeholder="Packer verified marketplace"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Hero Primary Headline Copy</label>
-                        <input
-                          type="text"
-                          value={settings?.marketplaceLandingPageConfig?.heroTitle || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, heroTitle: val } };
-                            });
-                          }}
-                          className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none font-sans"
-                          placeholder="The largest, most trusted camera sharing community"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Hero Description/Policy Block Copy</label>
-                        <textarea
-                          rows={2}
-                          value={settings?.marketplaceLandingPageConfig?.heroDescription || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, heroDescription: val } };
-                            });
-                          }}
-                          className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold outline-none resize-none font-sans"
-                          placeholder="Professional visual equipment hire & purchase marketplace..."
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Partner Logos Header text</label>
-                        <input
-                          type="text"
-                          value={settings?.marketplaceLandingPageConfig?.partnerLogosText || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, partnerLogosText: val } };
-                            });
-                          }}
-                          className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold outline-none"
-                          placeholder="Members of Packer Network"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Partner Logos list (Comma-separated)</label>
-                        <input
-                          type="text"
-                          value={settings?.marketplaceLandingPageConfig?.partnerLogosList?.join(', ') || ''}
-                          onChange={(e) => {
-                            const val = e.target.value.split(',').map(logo => logo.trim()).filter(Boolean);
-                            setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, partnerLogosList: val } };
-                            });
-                          }}
-                          className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold outline-none"
-                          placeholder="facebook, amazon studios, HBO, Disney"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      {/* Section Display Switches */}
-                      <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Granular Page Section Display Toggles</p>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
-                          <div>
-                            <p className="font-bold text-xs uppercase text-neutral-800">Show Dual Promos</p>
-                            <p className="text-[8.5px] text-neutral-450 uppercase">Insights & Student Banner block</p>
-                          </div>
-                          <button 
-                            type="button"
-                            onClick={() => setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showPromotions: cfg.showPromotions !== false ? false : true } };
-                            })}
-                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showPromotions !== false ? 'bg-primary' : 'bg-neutral-200'}`}
-                          >
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showPromotions !== false ? 'right-0.5' : 'left-0.5'}`}></div>
-                          </button>
-                        </div>
-
-                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
-                          <div>
-                            <p className="font-bold text-xs uppercase text-neutral-800">Show Staff Picks</p>
-                            <p className="text-[8.5px] text-neutral-450 uppercase">Handpicked products display</p>
-                          </div>
-                          <button 
-                            type="button"
-                            onClick={() => setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showStaffPicks: cfg.showStaffPicks !== false ? false : true } };
-                            })}
-                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showStaffPicks !== false ? 'bg-primary' : 'bg-neutral-200'}`}
-                          >
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showStaffPicks !== false ? 'right-0.5' : 'left-0.5'}`}></div>
-                          </button>
-                        </div>
-
-                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
-                          <div>
-                            <p className="font-bold text-xs uppercase text-neutral-800">Show Featured Listings</p>
-                            <p className="text-[8.5px] text-neutral-450 uppercase">Promoted spotlight listings</p>
-                          </div>
-                          <button 
-                            type="button"
-                            onClick={() => setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showFeatured: cfg.showFeatured !== false ? false : true } };
-                            })}
-                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showFeatured !== false ? 'bg-primary' : 'bg-neutral-200'}`}
-                          >
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showFeatured !== false ? 'right-0.5' : 'left-0.5'}`}></div>
-                          </button>
-                        </div>
-
-                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
-                          <div>
-                            <p className="font-bold text-xs uppercase text-neutral-800">Show Shipped To You</p>
-                            <p className="text-[8.5px] text-neutral-450 uppercase">Nationwide Shippable items</p>
-                          </div>
-                          <button 
-                            type="button"
-                            onClick={() => setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showShippedToYou: cfg.showShippedToYou !== false ? false : true } };
-                            })}
-                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showShippedToYou !== false ? 'bg-primary' : 'bg-neutral-200'}`}
-                          >
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showShippedToYou !== false ? 'right-0.5' : 'left-0.5'}`}></div>
-                          </button>
-                        </div>
-
-                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
-                          <div>
-                            <p className="font-bold text-xs uppercase text-neutral-800">Show Latest Gear</p>
-                            <p className="text-[8.5px] text-neutral-450 uppercase">Newly onboarded assets</p>
-                          </div>
-                          <button 
-                            type="button"
-                            onClick={() => setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showLatestGear: cfg.showLatestGear !== false ? false : true } };
-                            })}
-                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showLatestGear !== false ? 'bg-primary' : 'bg-neutral-200'}`}
-                          >
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showLatestGear !== false ? 'right-0.5' : 'left-0.5'}`}></div>
-                          </button>
-                        </div>
-
-                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
-                          <div>
-                            <p className="font-bold text-xs uppercase text-neutral-800">Show Popular Items</p>
-                            <p className="text-[8.5px] text-neutral-450 uppercase">High-viewcount dynamic listings</p>
-                          </div>
-                          <button 
-                            type="button"
-                            onClick={() => setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showPopularItems: cfg.showPopularItems !== false ? false : true } };
-                            })}
-                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showPopularItems !== false ? 'bg-primary' : 'bg-neutral-200'}`}
-                          >
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showPopularItems !== false ? 'right-0.5' : 'left-0.5'}`}></div>
-                          </button>
-                        </div>
-
-                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
-                          <div>
-                            <p className="font-bold text-xs uppercase text-neutral-800">Show Categories</p>
-                            <p className="text-[8.5px] text-neutral-450 uppercase">Horizontal Categories Slider</p>
-                          </div>
-                          <button 
-                            type="button"
-                            onClick={() => setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showCategories: cfg.showCategories !== false ? false : true } };
-                            })}
-                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showCategories !== false ? 'bg-primary' : 'bg-neutral-200'}`}
-                          >
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showCategories !== false ? 'right-0.5' : 'left-0.5'}`}></div>
-                          </button>
-                        </div>
-
-                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205">
-                          <div>
-                            <p className="font-bold text-xs uppercase text-neutral-800">Show Guarantees CTA</p>
-                            <p className="text-[8.5px] text-neutral-450 uppercase">List Your Gear & Guarantees section</p>
-                          </div>
-                          <button 
-                            type="button"
-                            onClick={() => setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, showGuarantees: cfg.showGuarantees !== false ? false : true } };
-                            })}
-                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.showGuarantees !== false ? 'bg-primary' : 'bg-neutral-200'}`}
-                          >
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.showGuarantees !== false ? 'right-0.5' : 'left-0.5'}`}></div>
-                          </button>
-                        </div>
-
-                        <div className="flex items-center justify-between p-3.5 bg-neutral-50 rounded-xl border border-neutral-205 md:col-span-2">
-                          <div>
-                            <p className="font-bold text-xs uppercase text-neutral-800">Enforce Operator Academics Verification</p>
-                            <p className="text-[8.5px] text-neutral-450 uppercase">Mandatory verification checks for claiming student promotions</p>
-                          </div>
-                          <button 
-                            type="button"
-                            onClick={() => setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.marketplaceLandingPageConfig || {};
-                              return { ...s, marketplaceLandingPageConfig: { ...cfg, requiresEduVerification: cfg.requiresEduVerification !== false ? false : true } };
-                            })}
-                            className={`w-10 h-5 rounded-full relative transition-colors ${settings?.marketplaceLandingPageConfig?.requiresEduVerification !== false ? 'bg-primary' : 'bg-neutral-200'}`}
-                          >
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.marketplaceLandingPageConfig?.requiresEduVerification !== false ? 'right-0.5' : 'left-0.5'}`}></div>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4 pt-4 border-t border-neutral-100">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Advertising Banner Content Customizer</p>
-                      
-                      {/* Banner A customization fields */}
-                      <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-100 space-y-3">
-                        <p className="text-[9.5px] font-black uppercase text-neutral-800 tracking-wide">Promotion Banner A (Left Block)</p>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner A Headline Copy</label>
-                            <input
-                              type="text"
-                              value={settings?.marketplaceLandingPageConfig?.bannerATitle || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setSettings(s => {
-                                  if (!s) return null;
-                                  const cfg = s.marketplaceLandingPageConfig || {};
-                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerATitle: val } };
-                                });
-                              }}
-                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none"
-                              placeholder="Packer Insights"
-                            />
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner A Button text</label>
-                            <input
-                              type="text"
-                              value={settings?.marketplaceLandingPageConfig?.bannerAButtonText || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setSettings(s => {
-                                  if (!s) return null;
-                                  const cfg = s.marketplaceLandingPageConfig || {};
-                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerAButtonText: val } };
-                                });
-                              }}
-                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none"
-                              placeholder="View Report"
-                            />
-                          </div>
-
-                          <div className="space-y-1 md:col-span-2">
-                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner A Subtitle description</label>
-                            <input
-                              type="text"
-                              value={settings?.marketplaceLandingPageConfig?.bannerASubtitle || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setSettings(s => {
-                                  if (!s) return null;
-                                  const cfg = s.marketplaceLandingPageConfig || {};
-                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerASubtitle: val } };
-                                });
-                              }}
-                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none"
-                              placeholder="Get the latest data on which products rented..."
-                            />
-                          </div>
-
-                          <div className="space-y-1 md:col-span-2">
-                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner A Visual image link (url)</label>
-                            <input
-                              type="text"
-                              value={settings?.marketplaceLandingPageConfig?.bannerAImage || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setSettings(s => {
-                                  if (!s) return null;
-                                  const cfg = s.marketplaceLandingPageConfig || {};
-                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerAImage: val } };
-                                });
-                              }}
-                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-[10px] font-semibold outline-none"
-                              placeholder="https://images.unsplash.com/..."
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Banner B customization fields */}
-                      <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-100 space-y-3">
-                        <p className="text-[9.5px] font-black uppercase text-neutral-800 tracking-wide">Promotion Banner B (Right Block)</p>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner B Headline Copy</label>
-                            <input
-                              type="text"
-                              value={settings?.marketplaceLandingPageConfig?.bannerBTitle || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setSettings(s => {
-                                  if (!s) return null;
-                                  const cfg = s.marketplaceLandingPageConfig || {};
-                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerBTitle: val } };
-                                });
-                              }}
-                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none"
-                              placeholder="Exclusive Student Discounts"
-                            />
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner B Button text</label>
-                            <input
-                              type="text"
-                              value={settings?.marketplaceLandingPageConfig?.bannerBButtonText || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setSettings(s => {
-                                  if (!s) return null;
-                                  const cfg = s.marketplaceLandingPageConfig || {};
-                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerBButtonText: val } };
-                                });
-                              }}
-                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none"
-                              placeholder="Claim Now"
-                            />
-                          </div>
-
-                          <div className="space-y-1 md:col-span-2">
-                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner B Subtitle description</label>
-                            <input
-                              type="text"
-                              value={settings?.marketplaceLandingPageConfig?.bannerBSubtitle || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setSettings(s => {
-                                  if (!s) return null;
-                                  const cfg = s.marketplaceLandingPageConfig || {};
-                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerBSubtitle: val } };
-                                });
-                              }}
-                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none"
-                              placeholder="Are you enrolled in film academy? Enjoy..."
-                            />
-                          </div>
-
-                          <div className="space-y-1 md:col-span-2">
-                            <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Banner B Visual image link (url)</label>
-                            <input
-                              type="text"
-                              value={settings?.marketplaceLandingPageConfig?.bannerBImage || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setSettings(s => {
-                                  if (!s) return null;
-                                  const cfg = s.marketplaceLandingPageConfig || {};
-                                  return { ...s, marketplaceLandingPageConfig: { ...cfg, bannerBImage: val } };
-                                });
-                              }}
-                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-[10px] font-semibold outline-none"
-                              placeholder="https://images.unsplash.com/..."
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Hire Commissions and Platform Service Fees Panel */}
-              <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-8 mt-8">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-primary/10 text-primary border border-primary/20 rounded-xl">
-                    <Percent size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-neutral-800 uppercase tracking-tight leading-none">Hire Commissions & Service Fees</h3>
-                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-1">Platform-level revenue share configuration</p>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  {/* Strategy Choice */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider block">Service Fee Strategy</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['percentage', 'amount', 'both'] as const).map((strategy) => (
-                        <button
-                          key={strategy}
-                          type="button"
-                          onClick={() => {
-                            setSettings(s => {
-                              if (!s) return null;
-                              const cfg = s.commissionConfig || { defaultPercentage: 5, defaultAmount: 1.5, strategy: 'percentage' };
-                              return {
-                                ...s,
-                                commissionConfig: { ...cfg, strategy }
-                              };
-                            });
-                          }}
-                          className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                            (settings?.commissionConfig?.strategy || 'percentage') === strategy
-                              ? 'bg-primary text-white border-primary shadow-md shadow-primary/10'
-                              : 'bg-neutral-50 text-neutral-400 border-neutral-200/60 hover:border-neutral-300'
-                          }`}
-                        >
-                          {strategy}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Default Rate (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={settings?.commissionConfig?.defaultPercentage ?? 5}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setSettings(s => {
-                            if (!s) return null;
-                            const cfg = s.commissionConfig || { defaultPercentage: 5, defaultAmount: 1.5, strategy: 'percentage' };
-                            return {
-                              ...s,
-                              commissionConfig: { ...cfg, defaultPercentage: val }
-                            };
-                          });
-                        }}
-                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition font-bold"
-                        placeholder="5"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Default Flat Fee ($)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={settings?.commissionConfig?.defaultAmount ?? 1.5}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setSettings(s => {
-                            if (!s) return null;
-                            const cfg = s.commissionConfig || { defaultPercentage: 5, defaultAmount: 1.5, strategy: 'percentage' };
-                            return {
-                              ...s,
-                              commissionConfig: { ...cfg, defaultAmount: val }
-                            };
-                          });
-                        }}
-                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition font-bold"
-                        placeholder="1.50"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Overrides Management UI */}
-                  <div className="pt-6 border-t border-neutral-100 space-y-4">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-400">Dynamic Commission Overrides</h4>
-                    <p className="text-[11px] text-neutral-400 leading-normal">
-                      Customize charges for high-demand asset categories, specific premium list templates, or asset tags.
-                    </p>
-
-                    {/* Category Overrides Section */}
-                    <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-3">
-                      <p className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">Category Overrides</p>
-                      
-                      {Object.entries(settings?.commissionConfig?.categoryOverrides || {}).length > 0 ? (
-                        <div className="space-y-2">
-                          {Object.entries(settings?.commissionConfig?.categoryOverrides || {}).map(([cat, fields]) => (
-                            <div key={cat} className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-neutral-100 font-semibold text-neutral-600">
-                              <span>
-                                <strong className="text-neutral-900">{cat}</strong> ({fields.strategy === 'percentage' ? `${fields.percentage}%` : fields.strategy === 'amount' ? `$${fields.amount}` : `${fields.percentage}% + $${fields.amount}`})
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSettings(s => {
-                                    if (!s || !s.commissionConfig) return null;
-                                    const nextOverrides = { ...(s.commissionConfig.categoryOverrides || {}) };
-                                    delete nextOverrides[cat];
-                                    return {
-                                      ...s,
-                                      commissionConfig: { ...s.commissionConfig, categoryOverrides: nextOverrides }
-                                    };
-                                  });
-                                }}
-                                className="text-red-500 hover:text-red-700 font-extrabold uppercase text-[9px] tracking-widest"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[10px] text-neutral-400 font-semibold italic">No category overrides created</p>
-                      )}
-
-                      {/* Quick Add Form Category */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const catName = prompt("Enter asset category (e.g., Camera, Audio, Lens):");
-                          if (!catName) return;
-                          const pct = Number(prompt("Enter commission percentage:", "8"));
-                          const amt = Number(prompt("Enter commission flat amount ($):", "2"));
-                          const strat = prompt("Enter strategy ('percentage' | 'amount' | 'both'):", "percentage") as any;
-
-                          setSettings(s => {
-                            if (!s) return null;
-                            const config = s.commissionConfig || { defaultPercentage: 5, defaultAmount: 1.5, strategy: 'percentage' };
-                            const overrides = config.categoryOverrides || {};
-                            return {
-                              ...s,
-                              commissionConfig: {
-                                ...config,
-                                categoryOverrides: {
-                                  ...overrides,
-                                  [catName]: { percentage: pct, amount: amt, strategy: strat || 'percentage' }
-                                }
-                              }
-                            };
-                          });
-                          toast.success(`Category override and rule saved for '${catName}'`);
-                        }}
-                        className="py-1.5 px-3 bg-white hover:bg-neutral-100 text-[10px] font-black uppercase text-primary tracking-widest rounded-lg border border-neutral-200"
-                      >
-                        + Add Category Override
-                      </button>
-                    </div>
-
-                    {/* List Overrides Section */}
-                    <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-3">
-                      <p className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">Packing List Overrides</p>
-                      
-                      {Object.entries(settings?.commissionConfig?.listOverrides || {}).length > 0 ? (
-                        <div className="space-y-2">
-                          {Object.entries(settings?.commissionConfig?.listOverrides || {}).map(([listId, fields]) => (
-                            <div key={listId} className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-neutral-100 font-semibold text-neutral-600">
-                              <span className="truncate max-w-[200px]">
-                                <code className="text-xs bg-neutral-100 px-1 py-0.5 rounded text-neutral-800">{listId}</code> : ({fields.strategy === 'percentage' ? `${fields.percentage}%` : fields.strategy === 'amount' ? `$${fields.amount}` : `${fields.percentage}% + $${fields.amount}`})
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSettings(s => {
-                                    if (!s || !s.commissionConfig) return null;
-                                    const nextOverrides = { ...(s.commissionConfig.listOverrides || {}) };
-                                    delete nextOverrides[listId];
-                                    return {
-                                      ...s,
-                                      commissionConfig: { ...s.commissionConfig, listOverrides: nextOverrides }
-                                    };
-                                  });
-                                }}
-                                className="text-red-500 hover:text-red-700 font-extrabold uppercase text-[9px] tracking-widest"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[10px] text-neutral-400 font-semibold italic">No packing list overrides created</p>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const listId = prompt("Enter specific Packing List ID:");
-                          if (!listId) return;
-                          const pct = Number(prompt("Enter commission percentage:", "12"));
-                          const amt = Number(prompt("Enter commission flat amount ($):", "5"));
-                          const strat = prompt("Enter strategy ('percentage' | 'amount' | 'both'):", "both") as any;
-
-                          setSettings(s => {
-                            if (!s) return null;
-                            const config = s.commissionConfig || { defaultPercentage: 5, defaultAmount: 1.5, strategy: 'percentage' };
-                            const overrides = config.listOverrides || {};
-                            return {
-                              ...s,
-                              commissionConfig: {
-                                ...config,
-                                listOverrides: {
-                                  ...overrides,
-                                  [listId]: { percentage: pct, amount: amt, strategy: strat || 'both' }
-                                }
-                              }
-                            };
-                          });
-                          toast.success(`Rule override saved for list '${listId}'`);
-                        }}
-                        className="py-1.5 px-3 bg-white hover:bg-neutral-100 text-[10px] font-black uppercase text-primary tracking-widest rounded-lg border border-neutral-200"
-                      >
-                        + Add List Override
-                      </button>
-                    </div>
-
-                    {/* Item Overrides Section */}
-                    <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-3">
-                      <p className="text-[10px] font-black text-neutral-500 uppercase tracking-wider">Individual Asset / Item Overrides</p>
-                      
-                      {Object.entries(settings?.commissionConfig?.itemOverrides || {}).length > 0 ? (
-                        <div className="space-y-2">
-                          {Object.entries(settings?.commissionConfig?.itemOverrides || {}).map(([itemId, fields]) => (
-                            <div key={itemId} className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-neutral-100 font-semibold text-neutral-600">
-                              <span>
-                                Item <code className="text-neutral-900 bg-neutral-100 px-1 py-0.5 rounded">{itemId}</code> : ({fields.strategy === 'percentage' ? `${fields.percentage}%` : fields.strategy === 'amount' ? `$${fields.amount}` : `${fields.percentage}% + $${fields.amount}`})
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSettings(s => {
-                                    if (!s || !s.commissionConfig) return null;
-                                    const nextOverrides = { ...(s.commissionConfig.itemOverrides || {}) };
-                                    delete nextOverrides[itemId];
-                                    return {
-                                      ...s,
-                                      commissionConfig: { ...s.commissionConfig, itemOverrides: nextOverrides }
-                                    };
-                                  });
-                                }}
-                                className="text-red-500 hover:text-red-700 font-extrabold uppercase text-[9px] tracking-widest"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[10px] text-neutral-400 font-semibold italic">No specific asset overrides created</p>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const itemId = prompt("Enter specific Asset ID or Gear Item ID:");
-                          if (!itemId) return;
-                          const pct = Number(prompt("Enter commission percentage:", "15"));
-                          const amt = Number(prompt("Enter commission flat amount ($):", "10"));
-                          const strat = prompt("Enter strategy ('percentage' | 'amount' | 'both'):", "percentage") as any;
-
-                          setSettings(s => {
-                            if (!s) return null;
-                            const config = s.commissionConfig || { defaultPercentage: 5, defaultAmount: 1.5, strategy: 'percentage' };
-                            const overrides = config.itemOverrides || {};
-                            return {
-                              ...s,
-                              commissionConfig: {
-                                ...config,
-                                itemOverrides: {
-                                  ...overrides,
-                                  [itemId]: { percentage: pct, amount: amt, strategy: strat || 'percentage' }
-                                }
-                              }
-                            };
-                          });
-                          toast.success(`Rule override saved for item '${itemId}'`);
-                        }}
-                        className="py-1.5 px-3 bg-white hover:bg-neutral-100 text-[10px] font-black uppercase text-primary tracking-widest rounded-lg border border-neutral-200"
-                      >
-                        + Add Item Override
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {/* End Hire Commissions Panel */}
-
-              <button 
-                onClick={async () => {
-                  if (settings) {
-                    await updateDoc(doc(db, 'adminSettings', 'global'), settings as any);
-                    toast.success("Settings saved!");
-                  }
-                }}
-                className="w-full py-4 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-neutral-800 transition shadow-lg"
-              >
-                Save Changes
-              </button>
+                <span>System Settings</span>
+              </h2>
+              <p className="text-neutral-500 text-sm">Configure branding, regional gateways, taxes, and granular component policies</p>
             </div>
+            
+            <button
+              onClick={async () => {
+                if (settings) {
+                  await updateDoc(doc(db, 'adminSettings', 'global'), settings as any);
+                  toast.success("All System Settings successfully synchronized!");
+                }
+              }}
+              className="px-6 py-3.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-2xl font-black uppercase text-xs tracking-widest transition flex items-center gap-2 shadow-lg active:scale-95"
+            >
+              <Save size={16} />
+              <span>Save System Settings</span>
+            </button>
+          </div>
 
-            {/* Unified Platform Logo Kit & Branding Profile */}
-            <div className="bg-[#0D0E10] text-[#E4E4E7] p-8 rounded-[2.5rem] border border-neutral-800/80 shadow-2xl space-y-8">
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 bg-neutral-900 rounded-xl flex items-center justify-center border border-neutral-800">
-                  <PackerLogo variant="symbol-only" size={28} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black uppercase tracking-tight text-white leading-none">Corporate Logo Kit</h3>
-                  <p className="text-[10px] text-[#FF5500] font-black uppercase tracking-widest mt-1.5">Official Branding Profiles Loaded</p>
-                </div>
-              </div>
+          {/* Submenu Tabs layout for Mobile Devices (Optimize for Mobile) */}
+          <div className="md:hidden block relative">
+            <span className="text-[10px] font-black uppercase text-neutral-400 tracking-widest block mb-1.5 font-mono">Select Category Dashboard</span>
+            <select
+              value={settingsSubTab}
+              onChange={(e) => setSettingsSubTab(e.target.value as any)}
+              className="w-full bg-white border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs font-black uppercase tracking-wider shadow-sm focus:ring-2 focus:ring-primary outline-none"
+            >
+              <option value="branding">🎨 Branding & Platform Identity</option>
+              <option value="billing">💳 Billing & Payment Gateways</option>
+              <option value="multi_industry">🏢 Multi-Industry Sandboxes</option>
+              <option value="marketplace">🌍 Marketplace & regional launch</option>
+              <option value="widgets">⚙️ Module Widget Configurations</option>
+            </select>
+          </div>
 
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-[#94A3B8]">1. Full Navigation Logotype (Standard View)</p>
-                  <div className="p-6 bg-[#060708] rounded-2xl border border-neutral-800/40 flex items-center justify-center">
-                    <PackerLogo variant="full" size={32} />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-[#94A3B8]">2. Brand Symbol</p>
-                    <div className="p-4 bg-[#060708] rounded-2xl border border-neutral-800/40 flex items-center justify-center min-h-[95px]">
-                      <PackerLogo variant="symbol-only" size={36} />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-[#94A3B8]">3. System App Icon</p>
-                    <div className="p-4 bg-[#060708] rounded-2xl border border-neutral-800/40 flex items-center justify-center min-h-[95px]">
-                      <PackerLogo variant="app-icon" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-[#94A3B8]">4. Brand Hierarchy Spec Sheets (#FF5500 Series)</p>
-                  <div className="grid grid-cols-3 gap-2.5 text-center text-[10px] font-mono leading-tight">
-                    <div className="p-3 bg-neutral-900/60 rounded-xl border border-neutral-800/60 space-y-1.5">
-                      <div className="w-5 h-5 bg-[#FF5500] rounded-lg mx-auto shadow-md" />
-                      <p className="font-extrabold text-white">#FF5500</p>
-                      <p className="text-[8px] text-neutral-500 font-sans uppercase font-bold">Haz Orange</p>
-                    </div>
-                    <div className="p-3 bg-neutral-900/60 rounded-xl border border-neutral-800/60 space-y-1.5">
-                      <div className="w-5 h-5 bg-[#CC4400] rounded-lg mx-auto shadow-md" />
-                      <p className="font-extrabold text-white font-mono">#CC4400</p>
-                      <p className="text-[8px] text-neutral-500 font-sans uppercase font-bold">Shadow</p>
-                    </div>
-                    <div className="p-3 bg-neutral-900/60 rounded-xl border border-neutral-800/60 space-y-1.5">
-                      <div className="w-5 h-5 bg-[#383A3F] rounded-lg mx-auto shadow-md" />
-                      <p className="font-extrabold text-white">#383A3F</p>
-                      <p className="text-[8px] text-neutral-500 font-sans uppercase font-bold">Slate Grey</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-[#FF5500]/5 border border-[#FF5500]/20 rounded-2xl text-[11px] text-neutral-300 leading-normal font-sans font-medium">
-                  <strong>Branding Directive:</strong> Change &quot;Platform Name&quot; in the form on the left to live-update the corporate footer metadata across all active client seats instantly.
-                </div>
-
-                {/* Progressive Web App (PWA) & Splash Settings */}
-                <div className="pt-6 border-t border-neutral-800/40 space-y-4">
-                  <div className="flex items-center gap-2.5">
-                    <Smartphone className="text-primary shrink-0" size={18} />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-white">Dynamic PWA &amp; Splash Settings</h4>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest block font-mono">PWA App Title</label>
-                      <input
-                        type="text"
-                        value={settings?.branding?.pwaName || ''}
-                        onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaName: e.target.value } } : null)}
-                        placeholder={settings?.branding?.companyName || 'Packer Tools'}
-                        className="w-full px-4 py-2 bg-[#060708] border border-neutral-800 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition text-white placeholder-neutral-500"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest block font-mono">PWA Short Name</label>
-                      <input
-                        type="text"
-                        value={settings?.branding?.pwaShortName || ''}
-                        onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaShortName: e.target.value } } : null)}
-                        placeholder={settings?.branding?.companyName ? settings.branding.companyName.substring(0, 12) : 'Packer'}
-                        className="w-full px-4 py-2 bg-[#060708] border border-neutral-800 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition text-white placeholder-neutral-500"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest block font-mono">Splash Background</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="color"
-                            value={settings?.branding?.pwaBgColor || '#0a0a0c'}
-                            onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaBgColor: e.target.value } } : null)}
-                            className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 outline-none overflow-hidden"
-                          />
-                          <input
-                            type="text"
-                            value={settings?.branding?.pwaBgColor || '#0a0a0c'}
-                            onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaBgColor: e.target.value } } : null)}
-                            className="flex-1 px-2.5 py-1.5 bg-[#060708] border border-neutral-800 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider text-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-widest block font-mono">Theme Color</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="color"
-                            value={settings?.branding?.pwaThemeColor || '#0a0a0c'}
-                            onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaThemeColor: e.target.value } } : null)}
-                            className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 outline-none overflow-hidden"
-                          />
-                          <input
-                            type="text"
-                            value={settings?.branding?.pwaThemeColor || '#0a0a0c'}
-                            onChange={(e) => setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaThemeColor: e.target.value } } : null)}
-                            className="flex-1 px-2.5 py-1.5 bg-[#060708] border border-neutral-800 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider text-white"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 p-4 bg-[#060708] rounded-2xl border border-neutral-800/40">
-                      <label className="text-[9px] font-black uppercase text-[#94A3B8] tracking-wider block font-mono">Custom PWA Brand Icons</label>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1 text-center bg-black/30 p-3 rounded-lg border border-neutral-800/50">
-                          <div className="w-12 h-12 bg-[#0D0E10] border border-neutral-800 rounded-lg mx-auto flex items-center justify-center overflow-hidden mb-1.5">
-                            <img 
-                              src={settings?.branding?.pwaIcon192Url || '/icon-192.png'} 
-                              className="w-full h-full object-contain p-1" 
-                              alt="PWA 192 icon" 
-                              referrerPolicy="no-referrer" 
-                            />
-                          </div>
-                          <span className="text-[8px] font-mono uppercase tracking-wider text-neutral-500 block mb-1">Web Icon (192px)</span>
-                          <label className="text-[8px] font-black uppercase tracking-wider text-primary cursor-pointer hover:underline block">
-                            <span>Upload PNG</span>
-                            <input 
-                              type="file" 
-                              accept="image/png" 
-                              className="hidden" 
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                  const base64 = reader.result as string;
-                                  setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaIcon192Url: base64 } } : null);
-                                  toast.success("Loaded 192px icon successfully");
-                                };
-                                reader.readAsDataURL(file);
-                              }}
-                            />
-                          </label>
-                        </div>
-
-                        <div className="space-y-1 text-center bg-black/30 p-3 rounded-lg border border-neutral-800/50">
-                          <div className="w-12 h-12 bg-[#0D0E10] border border-[#ff5500]/20 rounded-lg mx-auto flex items-center justify-center overflow-hidden mb-1.5">
-                            <img 
-                              src={settings?.branding?.pwaIcon512Url || '/icon-512.png'} 
-                              className="w-full h-full object-contain p-1" 
-                              alt="PWA 512 icon" 
-                              referrerPolicy="no-referrer" 
-                            />
-                          </div>
-                          <span className="text-[8px] font-mono uppercase tracking-wider text-neutral-500 block mb-1">Web Icon (512px)</span>
-                          <label className="text-[8px] font-black uppercase tracking-wider text-primary cursor-pointer hover:underline block">
-                            <span>Upload PNG</span>
-                            <input 
-                              type="file" 
-                              accept="image/png" 
-                              className="hidden" 
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                  const base64 = reader.result as string;
-                                  setSettings(s => s ? { ...s, branding: { ...(s.branding || {}), pwaIcon512Url: base64 } } : null);
-                                  toast.success("Loaded 512px icon successfully");
-                                };
-                                reader.readAsDataURL(file);
-                              }}
-                            />
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Unified Currencies and Gateways Hub */}
-            <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-8">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1 col-span-2">
-                  <h3 className="text-2xl font-black uppercase tracking-tight flex items-center gap-2">
-                    <Globe className="text-primary" />
-                    <span>Onboarded Currencies & Payment Gateways</span>
-                  </h3>
-                  <p className="text-xs text-neutral-500 font-medium">Configure active platform pricing currencies and customize payment methods (PayPal vs. Manual Transfers) per currency.</p>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-start">
+            {/* Left Submenu Sidebar (Desktop only) */}
+            <div className="hidden md:block col-span-1 space-y-2 sticky top-[100px]">
+              <div className="bg-white p-4 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
+                <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest px-3.5 py-1 mb-2 block font-mono">Admin Console</p>
+                
+                {/* Branding Tab */}
                 <button
                   type="button"
-                  onClick={() => setIsAddingCurrency(!isAddingCurrency)}
-                  className="px-4 py-2 bg-primary text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-primary/95 transition flex items-center gap-1.5 self-start sm:self-auto"
+                  onClick={() => setSettingsSubTab('branding')}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all font-bold ${
+                    settingsSubTab === 'branding' 
+                      ? 'bg-neutral-900 text-white shadow-xl shadow-neutral-900/10' 
+                      : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-950'
+                  }`}
                 >
-                  <Plus size={14} />
-                  <span>Onboard Currency</span>
+                  <Sparkles size={16} className={settingsSubTab === 'branding' ? 'text-primary animate-pulse' : 'text-neutral-400'} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-extrabold text-[11px] leading-none uppercase tracking-wider">Branding & Kit</p>
+                    <span className={`text-[8px] block mt-1 font-sans font-bold leading-none ${settingsSubTab === 'branding' ? 'text-neutral-400' : 'text-neutral-350'}`}>Logos, footer & launcher specs</span>
+                  </div>
+                </button>
+
+                {/* Billing Tab */}
+                <button
+                  type="button"
+                  onClick={() => setSettingsSubTab('billing')}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all font-bold ${
+                    settingsSubTab === 'billing' 
+                      ? 'bg-neutral-900 text-white shadow-xl shadow-neutral-900/10' 
+                      : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-950'
+                  }`}
+                >
+                  <CreditCard size={16} className={settingsSubTab === 'billing' ? 'text-primary' : 'text-neutral-400'} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-extrabold text-[11px] leading-none uppercase tracking-wider">Billing & money</p>
+                    <span className={`text-[8px] block mt-1 font-sans font-bold leading-none ${settingsSubTab === 'billing' ? 'text-neutral-450' : 'text-neutral-355'}`}>Currencies & commissions</span>
+                  </div>
+                </button>
+
+                {/* Multi Industry Tab */}
+                <button
+                  type="button"
+                  onClick={() => setSettingsSubTab('multi_industry')}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all font-bold ${
+                    settingsSubTab === 'multi_industry' 
+                      ? 'bg-neutral-900 text-white shadow-xl shadow-neutral-900/10' 
+                      : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-950'
+                  }`}
+                >
+                  <Building2 size={16} className={settingsSubTab === 'multi_industry' ? 'text-primary' : 'text-neutral-400'} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-extrabold text-[11px] leading-none uppercase tracking-wider">Multi Industry</p>
+                    <span className={`text-[8px] block mt-1 font-sans font-bold leading-none ${settingsSubTab === 'multi_industry' ? 'text-neutral-450' : 'text-neutral-355'}`}>Dynamic sandbox labels</span>
+                  </div>
+                </button>
+
+                {/* Marketplace Tab */}
+                <button
+                  type="button"
+                  onClick={() => setSettingsSubTab('marketplace')}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all font-bold ${
+                    settingsSubTab === 'marketplace' 
+                      ? 'bg-neutral-900 text-white shadow-xl shadow-neutral-900/10' 
+                      : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-950'
+                  }`}
+                >
+                  <ShoppingBag size={16} className={settingsSubTab === 'marketplace' ? 'text-primary' : 'text-neutral-400'} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-extrabold text-[11px] leading-none uppercase tracking-wider">Marketplace</p>
+                    <span className={`text-[8px] block mt-1 font-sans font-bold leading-none ${settingsSubTab === 'marketplace' ? 'text-neutral-450' : 'text-neutral-355'}`}>VAT tax grids, langing pages & policies</span>
+                  </div>
+                </button>
+
+                {/* Widgets Tab */}
+                <button
+                  type="button"
+                  onClick={() => setSettingsSubTab('widgets')}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all font-bold ${
+                    settingsSubTab === 'widgets' 
+                      ? 'bg-neutral-900 text-white shadow-xl shadow-neutral-900/10' 
+                      : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-950'
+                  }`}
+                >
+                  <Wrench size={16} className={settingsSubTab === 'widgets' ? 'text-primary animate-pulse' : 'text-neutral-400'} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-extrabold text-[11px] leading-none uppercase tracking-wider">Widget modules</p>
+                    <span className={`text-[8px] block mt-1 font-sans font-bold leading-none ${settingsSubTab === 'widgets' ? 'text-neutral-450' : 'text-neutral-355'}`}>AI threshold limits & scanners</span>
+                  </div>
                 </button>
               </div>
 
-              {/* Form to Add New Currency */}
-              {isAddingCurrency && (
-                <div className="p-6 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-4">
-                  <div className="flex justify-between items-center border-b border-neutral-200/60 pb-2">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-700">Onboard New Currency</h4>
-                    <button type="button" onClick={() => setIsAddingCurrency(false)} className="text-neutral-400 hover:text-neutral-600">
-                      <X size={16} />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">ISO Code (e.g. AUD)</label>
-                      <input
-                        type="text"
-                        placeholder="AUD"
-                        value={newCurrencyCode}
-                        onChange={(e) => setNewCurrencyCode(e.target.value.toUpperCase())}
-                        className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm uppercase font-bold text-neutral-800 outline-none"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Name (e.g. Australian Dollar)</label>
-                      <input
-                        type="text"
-                        placeholder="Australian Dollar"
-                        value={newCurrencyName}
-                        onChange={(e) => setNewCurrencyName(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-bold text-neutral-800 outline-none"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Symbol (e.g. A$)</label>
-                      <input
-                        type="text"
-                        placeholder="A$"
-                        value={newCurrencySymbol}
-                        onChange={(e) => setNewCurrencySymbol(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-bold text-neutral-800 outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2 text-xs font-bold uppercase tracking-widest">
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingCurrency(false)}
-                      className="px-4 py-2 bg-neutral-200 text-neutral-600 rounded-lg hover:bg-neutral-300 transition"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!newCurrencyCode || !newCurrencyName || !newCurrencySymbol) {
-                          toast.error("Please fill in standard currency code, name, and symbol.");
-                          return;
-                        }
-                        const currentCurrencies = settings?.onboardedCurrencies || [
-                          {
-                            code: 'USD',
-                            name: 'US Dollar',
-                            symbol: '$',
-                            isActive: true,
-                            paymentMethods: [
-                              { gateway: 'paypal', name: 'PayPal Checkout Gateway', enabled: true, paypalClientId: settings?.integrationConfig?.paypalClientId || '' },
-                              { gateway: 'manual', name: 'USD Bank Transfer', instructions: 'Transfer USD payment to Chase Bank Account #1234-5678, Routing #111000025. Set Reference ID to your email.', enabled: true }
-                            ]
-                          },
-                          {
-                            code: 'FJD',
-                            name: 'Fijian Dollar',
-                            symbol: 'FJ$',
-                            isActive: true,
-                            paymentMethods: [
-                              { gateway: 'manual', name: 'BSP Direct Transfer', instructions: 'Directly deposit Fiji Dollars (FJD) to BSP Fiji Account: 9081223412, Branch Code: Suva Main. Add your account email in direct payment memo.', enabled: true }
-                            ]
-                          }
-                        ];
-                        const exists = currentCurrencies.some(c => c.code === newCurrencyCode);
-                        if (exists) {
-                          toast.error(`Currency ${newCurrencyCode} is already onboarded.`);
-                          return;
-                        }
-                        const updated = [
-                          ...currentCurrencies,
-                          {
-                            code: newCurrencyCode,
-                            name: newCurrencyName,
-                            symbol: newCurrencySymbol,
-                            isActive: true,
-                            paymentMethods: []
-                          }
-                        ];
-                        setSettings(s => s ? { ...s, onboardedCurrencies: updated } : null);
-                        setIsAddingCurrency(false);
-                        setNewCurrencyCode('');
-                        setNewCurrencyName('');
-                        setNewCurrencySymbol('');
-                        toast.success(`${newCurrencyCode} onboarded successfully! Add payment methods below.`);
-                      }}
-                      className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition"
-                    >
-                      Add Currency
-                    </button>
-                  </div>
-                </div>
+              {/* Action Save Quick Card */}
+              <div className="p-5 bg-neutral-900/5 text-neutral-800 rounded-3xl border border-neutral-100 flex flex-col gap-3">
+                <span className="text-[9px] font-black uppercase text-neutral-400 tracking-wider">Status Overview</span>
+                <p className="text-[10px] text-neutral-500 leading-normal font-sans font-bold">Draft configurations are live instantly across the entire platform upon synchronization.</p>
+                <button
+                  onClick={async () => {
+                    if (settings) {
+                      await updateDoc(doc(db, 'adminSettings', 'global'), settings as any);
+                      toast.success("Settings synchronized successfully!");
+                    }
+                  }}
+                  className="w-full py-2.5 bg-neutral-950 text-white text-[10px] font-black uppercase tracking-widest hover:bg-black rounded-xl transition shadow active:scale-95"
+                >
+                  Apply All Changes
+                </button>
+              </div>
+            </div>
+
+            {/* Submenu Tab Content Pages */}
+            <div className="col-span-1 md:col-span-3 space-y-6">
+              {settingsSubTab === 'branding' && (
+                <BrandingSettingsTab settings={settings} setSettings={setSettings} />
+              )}
+              {settingsSubTab === 'billing' && (
+                <BillingSettingsTab settings={settings} setSettings={setSettings} />
+              )}
+              {settingsSubTab === 'multi_industry' && (
+                <MultiIndustrySettingsTab settings={settings} setSettings={setSettings} />
+              )}
+              {settingsSubTab === 'marketplace' && (
+                <MarketplaceSettingsTab settings={settings} setSettings={setSettings} />
+              )}
+              {settingsSubTab === 'widgets' && (
+                <WidgetsSettingsTab settings={settings} setSettings={setSettings} />
               )}
 
-              {/* Currencies Grid / Lists */}
-              <div className="space-y-4">
-                {(settings?.onboardedCurrencies || [
-                  {
-                    code: 'USD',
-                    name: 'US Dollar',
-                    symbol: '$',
-                    isActive: true,
-                    paymentMethods: [
-                      { gateway: 'paypal', name: 'PayPal Checkout Gateway', enabled: true, paypalClientId: settings?.integrationConfig?.paypalClientId || '' },
-                      { gateway: 'manual', name: 'USD Bank Transfer', instructions: 'Transfer USD payment to Chase Bank Account #1234-5678, Routing #111000025. Set Reference ID to your email.', enabled: true }
-                    ]
-                  },
-                  {
-                    code: 'FJD',
-                    name: 'Fijian Dollar',
-                    symbol: 'FJ$',
-                    isActive: true,
-                    paymentMethods: [
-                      { gateway: 'manual', name: 'BSP Direct Transfer', instructions: 'Directly deposit Fiji Dollars (FJD) to BSP Fiji Account: 9081223412, Branch Code: Suva Main. Add your account email in direct payment memo.', enabled: true }
-                    ]
-                  }
-                ]).map((currency) => {
-                  const isExpanded = expandedCurrencyCode === currency.code;
-                  return (
-                    <div key={currency.code} className="border border-neutral-200/60 rounded-2xl bg-white overflow-hidden shadow-sm hover:shadow-md transition">
-                      <div className="p-5 flex flex-wrap items-center justify-between gap-4 bg-neutral-51/60 border-b border-neutral-100">
-                        <div className="flex items-center gap-3">
-                          <span className="p-2.5 bg-primary/10 text-primary font-black rounded-lg text-sm">
-                            {currency.symbol}
-                          </span>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-extrabold text-neutral-800 tracking-tight">{currency.code}</span>
-                              <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">— {currency.name}</span>
-                            </div>
-                            <span className="text-[10px] text-neutral-500 font-medium">
-                              {currency.paymentMethods?.filter(p => p.enabled).length || 0} active gateways
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const currentList = settings?.onboardedCurrencies || [];
-                              const updated = currentList.map(c => 
-                                c.code === currency.code ? { ...c, isActive: !c.isActive } : c
-                              );
-                              setSettings(s => s ? { ...s, onboardedCurrencies: updated } : null);
-                              toast.info(`${currency.code} active state toggled.`);
-                            }}
-                            className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border transition ${
-                              currency.isActive ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-neutral-100 text-neutral-450 border-neutral-200'
-                            }`}
-                          >
-                            {currency.isActive ? 'Active' : 'Disabled'}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setExpandedCurrencyCode(isExpanded ? null : currency.code)}
-                            className="p-1 px-3 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-xs font-bold uppercase tracking-wider rounded-lg transition"
-                          >
-                            {isExpanded ? 'Collapse' : 'Configure Gateways'}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (window.confirm(`Delete onboarded currency ${currency.code}?`)) {
-                                const currentList = settings?.onboardedCurrencies || [];
-                                const updated = currentList.filter(c => c.code !== currency.code);
-                                setSettings(s => s ? { ...s, onboardedCurrencies: updated } : null);
-                                toast.success(`${currency.code} removed.`);
-                              }
-                            }}
-                            className="p-2 text-rose-550 hover:bg-rose-50 rounded-lg transition"
-                            title="Delete Currency"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Expanded Section for Payment Gateways */}
-                      {isExpanded && (
-                        <div className="p-6 bg-white space-y-6">
-                          <div className="flex justify-between items-center border-b border-neutral-100 pb-3">
-                            <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500">
-                              Payment Gateways for {currency.code} ({currency.name})
-                            </h4>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsAddingGateway(!isAddingGateway);
-                                if (currency.code === 'FJD') {
-                                  setNewGatewayType('manual');
-                                  setNewGatewayName('BSP Direct Transfer');
-                                } else {
-                                  setNewGatewayType('paypal');
-                                  setNewGatewayName('PayPal Gateway');
-                                }
-                              }}
-                              className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-[10px] font-bold uppercase tracking-widest text-neutral-700 rounded-lg transition flex items-center gap-1"
-                            >
-                              <Plus size={12} />
-                              <span>Add Gateway</span>
-                            </button>
-                          </div>
-
-                          {/* Form to Add Gateway */}
-                          {isAddingGateway && (
-                            <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-200/80 space-y-4">
-                              <h5 className="text-[10px] font-black uppercase tracking-widest text-primary">New Gateway Configurator</h5>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Gateway Type</label>
-                                  {currency.code === 'FJD' ? (
-                                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-700 flex items-center gap-2">
-                                      <AlertCircle size={14} className="shrink-0" />
-                                      <span>PayPal is restricted for FJD. Forces Manual Transfer.</span>
-                                    </div>
-                                  ) : (
-                                    <select
-                                      value={newGatewayType}
-                                      onChange={(e) => {
-                                        const val = e.target.value as 'paypal' | 'manual';
-                                        setNewGatewayType(val);
-                                        setNewGatewayName(val === 'paypal' ? 'PayPal Gateway' : 'Bank Direct Deposit');
-                                      }}
-                                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-bold text-neutral-800 outline-none"
-                                    >
-                                      <option value="paypal">PayPal Gateway</option>
-                                      <option value="manual">Manual Direct Transfer</option>
-                                    </select>
-                                  )}
-                                </div>
-
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Display Name (e.g. BSP Direct Transfer)</label>
-                                  <input
-                                    type="text"
-                                    placeholder="e.g. BSP Fiji Deposit"
-                                    value={newGatewayName}
-                                    onChange={(e) => setNewGatewayName(e.target.value)}
-                                    className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-bold text-neutral-800 outline-none"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Form Inputs based on Gateway Type */}
-                              {((currency.code !== 'FJD' && newGatewayType === 'paypal')) ? (
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">PayPal Client ID</label>
-                                  <input
-                                    type="text"
-                                    placeholder="Enter PayPal client ID"
-                                    value={newGatewayPaypalClientId}
-                                    onChange={(e) => setNewGatewayPaypalClientId(e.target.value)}
-                                    className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-bold text-neutral-800 font-mono outline-none"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-black">Bank Payment & Instruction Manual</label>
-                                  <textarea
-                                    rows={3}
-                                    placeholder="Enter bank transfer instructions, branch codes, Swifts, reference steps..."
-                                    value={newGatewayInstructions}
-                                    onChange={(e) => setNewGatewayInstructions(e.target.value)}
-                                    className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-medium text-neutral-700 outline-none resize-none"
-                                  />
-                                </div>
-                              )}
-
-                              <div className="flex justify-end gap-2 text-xs font-bold uppercase tracking-widest pt-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setIsAddingGateway(false)}
-                                  className="px-4 py-2 bg-neutral-200 text-neutral-600 rounded-lg hover:bg-neutral-300 transition"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (!newGatewayName) {
-                                      toast.error("Gateway name is required");
-                                      return;
-                                    }
-                                    const gwType = currency.code === 'FJD' ? 'manual' : newGatewayType;
-                                    const newMethod = {
-                                      gateway: gwType,
-                                      name: newGatewayName,
-                                      enabled: true,
-                                      instructions: gwType === 'manual' ? newGatewayInstructions : '',
-                                      paypalClientId: gwType === 'paypal' ? newGatewayPaypalClientId : ''
-                                    };
-                                    const currentList = settings?.onboardedCurrencies || [];
-                                    const updated = currentList.map(c => {
-                                      if (c.code === currency.code) {
-                                        return {
-                                          ...c,
-                                          paymentMethods: [...(c.paymentMethods || []), newMethod]
-                                        };
-                                      }
-                                      return c;
-                                    });
-                                    setSettings(s => s ? { ...s, onboardedCurrencies: updated } : null);
-                                    setIsAddingGateway(false);
-                                    setNewGatewayInstructions('');
-                                    setNewGatewayPaypalClientId('');
-                                    toast.success(`Gateway "${newGatewayName}" added successfully to ${currency.code}!`);
-                                  }}
-                                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/95 transition"
-                                >
-                                  Submit Gateway
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Gateways List */}
-                          <div className="space-y-3">
-                            {(!currency.paymentMethods || currency.paymentMethods.length === 0) ? (
-                              <p className="text-xs text-neutral-400 italic">No gateways added yet for this currency.</p>
-                            ) : (
-                              currency.paymentMethods.map((method, methodIdx) => (
-                                <div key={methodIdx} className="p-4 rounded-xl border border-neutral-100 bg-neutral-50/50 flex flex-col sm:flex-row justify-between gap-4">
-                                  <div className="space-y-1">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-xs font-bold text-neutral-800">{method.name}</span>
-                                      <span className="text-[8px] bg-primary/10 text-primary font-black uppercase tracking-wider px-2 py-0.5 rounded">
-                                        {method.gateway === 'paypal' ? 'PayPal API' : 'Manual Transfer'}
-                                      </span>
-                                    </div>
-                                    {method.gateway === 'paypal' ? (
-                                      <p className="text-[10px] text-neutral-400 font-mono italic">
-                                        Client ID: {method.paypalClientId || "(Using Global default)"}
-                                      </p>
-                                    ) : (
-                                      <p className="text-[10px] text-neutral-500 font-medium whitespace-pre-line leading-relaxed">
-                                        <strong>Instructions:</strong> {method.instructions || "None configured"}
-                                      </p>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center gap-3 shrink-0 self-start sm:self-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const currentList = settings?.onboardedCurrencies || [];
-                                        const updated = currentList.map(c => {
-                                          if (c.code === currency.code) {
-                                            const updatedMethods = [...(c.paymentMethods || [])];
-                                            updatedMethods[methodIdx] = { ...method, enabled: !method.enabled };
-                                            return { ...c, paymentMethods: updatedMethods };
-                                          }
-                                          return c;
-                                        });
-                                        setSettings(s => s ? { ...s, onboardedCurrencies: updated } : null);
-                                        toast.info(`Gateway toggled.`);
-                                      }}
-                                      className={`px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-full border transition ${
-                                        method.enabled ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-neutral-100 text-neutral-455 border-neutral-200'
-                                      }`}
-                                    >
-                                      {method.enabled ? 'Enabled' : 'Disabled'}
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (window.confirm("Remove this payment method?")) {
-                                          const currentList = settings?.onboardedCurrencies || [];
-                                          const updated = currentList.map(c => {
-                                            if (c.code === currency.code) {
-                                              const updatedMethods = (c.paymentMethods || []).filter((_, idx) => idx !== methodIdx);
-                                              return { ...c, paymentMethods: updatedMethods };
-                                            }
-                                            return c;
-                                          });
-                                          setSettings(s => s ? { ...s, onboardedCurrencies: updated } : null);
-                                          toast.success("Payment gateway deleted.");
-                                        }
-                                      }}
-                                      className="p-1 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-lg text-[9px] font-bold uppercase transition"
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              {/* General Save changes bar */}
+              <div className="flex items-center justify-end pt-6 border-t border-neutral-100 bg-neutral-50/50 p-4 rounded-3xl mt-4">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (settings) {
+                      await updateDoc(doc(db, 'adminSettings', 'global'), settings as any);
+                      toast.success("All configurations synchronized successfully!");
+                    }
+                  }}
+                  className="w-full sm:w-auto px-10 py-3.5 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-primary/95 transition shadow shadow-primary/10 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Save size={16} />
+                  <span>Synchronize {
+                    settingsSubTab === 'branding' ? 'Branding' : 
+                    settingsSubTab === 'billing' ? 'Billing' : 
+                    settingsSubTab === 'multi_industry' ? 'Sandbox' : 
+                    settingsSubTab === 'marketplace' ? 'Marketplace' : 'Widget'
+                  } settings</span>
+                </button>
               </div>
-            </div>
-
-            <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-8">
-              <h3 className="text-2xl font-bold flex items-center gap-2">
-                <Zap className="text-yellow-500" />
-                <span>AI Configuration</span>
-              </h3>
-              <div className="space-y-6">
-                <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
-                  <div className="space-y-0.5">
-                    <p className="font-bold">Enable AI Features</p>
-                    <p className="text-xs text-neutral-400">Global toggle for all Smart Packer features.</p>
-                  </div>
-                  <button 
-                    onClick={() => setSettings(s => s ? { ...s, aiConfig: { ...s.aiConfig, enabled: !s.aiConfig.enabled } } : null)}
-                    className={`w-12 h-6 rounded-full relative transition-colors ${settings?.aiConfig?.enabled ? 'bg-primary' : 'bg-neutral-200'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.aiConfig?.enabled ? 'right-1' : 'left-1'}`}></div>
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Assistant Name</label>
-                  <input
-                    type="text"
-                    value={settings?.aiConfig?.smartPackerName || ''}
-                    onChange={(e) => setSettings(s => s ? { ...s, aiConfig: { ...s.aiConfig, smartPackerName: e.target.value } } : null)}
-                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition"
-                    placeholder="e.g. Smart Packer"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Model Selection</label>
-                  <select 
-                    value={settings?.aiConfig?.model || ''}
-                    onChange={(e) => setSettings(s => s ? { ...s, aiConfig: { ...s.aiConfig, model: e.target.value } } : null)}
-                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition"
-                  >
-                    <option value="gemini-3-flash-preview">Gemini 3 Flash (Fast & Efficient)</option>
-                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Advanced Reasoning)</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Global Monthly Limit</label>
-                    <input
-                      type="number"
-                      value={settings?.aiConfig?.monthlyGlobalLimit || 0}
-                      onChange={(e) => setSettings(s => s ? { ...s, aiConfig: { ...s.aiConfig, monthlyGlobalLimit: parseInt(e.target.value) } } : null)}
-                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">Max Tokens/Req</label>
-                    <input
-                      type="number"
-                      value={settings?.aiConfig?.maxTokensPerRequest || 0}
-                      onChange={(e) => setSettings(s => s ? { ...s, aiConfig: { ...s.aiConfig, maxTokensPerRequest: parseInt(e.target.value) } } : null)}
-                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
-                  <div className="space-y-0.5">
-                    <p className="font-bold">Enable Caching</p>
-                    <p className="text-xs text-neutral-400">Avoid redundant AI calls for known items.</p>
-                  </div>
-                  <button 
-                    onClick={() => setSettings(s => s ? { ...s, aiConfig: { ...s.aiConfig, cachingEnabled: !s.aiConfig.cachingEnabled } } : null)}
-                    className={`w-12 h-6 rounded-full relative transition-colors ${settings?.aiConfig?.cachingEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.aiConfig?.cachingEnabled ? 'right-1' : 'left-1'}`}></div>
-                  </button>
-                </div>
-
-                <div className="p-4 bg-neutral-50 text-neutral-800 rounded-2xl border border-neutral-100 text-sm leading-relaxed">
-                  <strong>Current Usage:</strong> {settings?.aiConfig?.currentMonthlyUsage || 0} / {settings?.aiConfig?.monthlyGlobalLimit || 0} requests this month.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
-              <h3 className="text-2xl font-bold flex items-center gap-2">
-                <ShieldCheck className="text-primary" />
-                <span>Privacy Policy (Markdown)</span>
-              </h3>
-              <textarea
-                value={settings?.privacyContent || ''}
-                onChange={(e) => setSettings(s => s ? { ...s, privacyContent: e.target.value } : null)}
-                rows={12}
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition font-mono text-sm"
-                placeholder="# Privacy Policy..."
-              />
-            </div>
-
-            <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
-              <h3 className="text-2xl font-bold flex items-center gap-2">
-                <FileText className="text-primary" />
-                <span>Terms of Service (Markdown)</span>
-              </h3>
-              <textarea
-                value={settings?.termsContent || ''}
-                onChange={(e) => setSettings(s => s ? { ...s, termsContent: e.target.value } : null)}
-                rows={12}
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition font-mono text-sm"
-                placeholder="# Terms of Service..."
-              />
-            </div>
-          </div>
-
-          {/* Module-level and Widget-level Configurations */}
-          <div className="bg-white p-8 sm:p-12 rounded-[2.5rem] border border-neutral-150/65 shadow-sm space-y-8 mt-8">
-            <div className="space-y-2">
-              <h3 className="text-2xl sm:text-3xl font-black flex items-center gap-2.5">
-                <Wrench className="text-primary" />
-                <span>Module & Granular Widget Settings</span>
-              </h3>
-              <p className="text-neutral-500 text-xs sm:text-sm italic">
-                Control individual component parameters, target calculation methods, automated status translation rules, and metrics thresholds platform-wide.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Project Cost Calculator Widget Config */}
-              <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-200/60 hover:shadow-md transition space-y-5">
-                <span className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-neutral-700">
-                  <Coins size={16} className="text-primary animate-pulse" />
-                  Project Cost Calculator
-                </span>
-                <p className="text-[11px] text-neutral-400 font-medium leading-normal italic">
-                  Manage the analytical cost projection ratios and active algorithms used globally by Project dashboards.
-                </p>
-                <div className="space-y-4 pt-1">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Default Margin Target (%)</label>
-                    <input
-                      type="number"
-                      value={settings?.moduleWidgetConfigs?.projectCost?.defaultMarginTarget ?? 30}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            projectCost: { ...s.moduleWidgetConfigs?.projectCost!, defaultMarginTarget: val }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Alarm Margin Deviation (%)</label>
-                    <input
-                      type="number"
-                      value={settings?.moduleWidgetConfigs?.projectCost?.costAlarmThreshold ?? 15}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            projectCost: { ...s.moduleWidgetConfigs?.projectCost!, costAlarmThreshold: val }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Markup Formula Strategy </label>
-                    <select
-                      value={settings?.moduleWidgetConfigs?.projectCost?.markupStrategy ?? 'percentage'}
-                      onChange={(e) => {
-                        const val = e.target.value as any;
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            projectCost: { ...s.moduleWidgetConfigs?.projectCost!, markupStrategy: val }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="percentage">Cost + Percentage Markup (%)</option>
-                      <option value="fixed">Cost + Fixed License Markup ($)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Supplier CRM & Procurement Widget Config */}
-              <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-200/60 hover:shadow-md transition space-y-5">
-                <span className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-neutral-700">
-                  <Activity size={16} className="text-primary" />
-                  Supplier & Procurement CRM
-                </span>
-                <p className="text-[11px] text-neutral-400 font-medium leading-normal italic">
-                  Configure supplier record rules and threshold triggers for critical machinery procurement.
-                </p>
-                <div className="space-y-4 pt-1">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Purchase Order Prefix</label>
-                    <input
-                      type="text"
-                      value={settings?.moduleWidgetConfigs?.supplierManagement?.poPrefix ?? 'PO-'}
-                      onChange={(e) => {
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            supplierManagement: { ...s.moduleWidgetConfigs?.supplierManagement!, poPrefix: e.target.value }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Default Supplier Payment Terms</label>
-                    <input
-                      type="text"
-                      value={settings?.moduleWidgetConfigs?.supplierManagement?.preferredTerms ?? 'Net 30'}
-                      onChange={(e) => {
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            supplierManagement: { ...s.moduleWidgetConfigs?.supplierManagement!, preferredTerms: e.target.value }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-neutral-200 mt-2">
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold text-neutral-600 block">Automatic Reordering</span>
-                      <p className="text-[9px] text-neutral-400 block leading-none">Email supplier on low-limit</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            supplierManagement: { ...s.moduleWidgetConfigs?.supplierManagement!, automaticReorder: !s.moduleWidgetConfigs?.supplierManagement?.automaticReorder }
-                          }
-                        }: null);
-                      }}
-                      className={`w-9 h-5 rounded-full relative transition-colors ${settings?.moduleWidgetConfigs?.supplierManagement?.automaticReorder ? 'bg-primary' : 'bg-neutral-200'}`}
-                    >
-                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.moduleWidgetConfigs?.supplierManagement?.automaticReorder ? 'right-0.5' : 'left-0.5'}`}></div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bill of Materials (BOM) Config Widget */}
-              <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-200/60 hover:shadow-md transition space-y-5">
-                <span className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-neutral-700">
-                  <Layers size={16} className="text-primary" />
-                  Bill of Materials (BOM) Composer
-                </span>
-                <p className="text-[11px] text-neutral-400 font-medium leading-normal italic">
-                  Define structural BOM catalog parameters, minimum allowed markup and automatic system depreciation index.
-                </p>
-                <div className="space-y-4 pt-1">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Allowed BOM Markup Limit (%)</label>
-                    <input
-                      type="number"
-                      value={settings?.moduleWidgetConfigs?.bomManagement?.minBOMMarkup ?? 15}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            bomManagement: { ...s.moduleWidgetConfigs?.bomManagement!, minBOMMarkup: val }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Asset Annual Depreciation (%)</label>
-                    <input
-                      type="number"
-                      value={settings?.moduleWidgetConfigs?.bomManagement?.autoDepreciationFactor ?? 5}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            bomManagement: { ...s.moduleWidgetConfigs?.bomManagement!, autoDepreciationFactor: val }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Export CSV Column Strategy</label>
-                    <input
-                      type="text"
-                      value={settings?.moduleWidgetConfigs?.bomManagement?.columnsToShow?.join(', ') ?? 'Item, Brand, Model, Qty, Unit Cost, Total'}
-                      onChange={(e) => {
-                        const splitCols = e.target.value.split(',').map(item => item.trim()).filter(Boolean);
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            bomManagement: { ...s.moduleWidgetConfigs?.bomManagement!, columnsToShow: splitCols }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-semibold outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="Comma-separated column headers"
-                    />
-                    <p className="text-[8px] text-neutral-400 leading-normal font-medium mt-1">Headers mapped to BOM composer tables on spreadsheet export.</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* AI Assistant Wizard Widget Config */}
-              <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-200/60 hover:shadow-md transition space-y-5">
-                <span className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-neutral-700">
-                  <Cpu size={16} className="text-primary" />
-                  AI Wizard & Autolabeling
-                </span>
-                <p className="text-[11px] text-neutral-400 font-medium leading-normal italic">
-                  Setup limits and model constraints for active neural processing of equipment names.
-                </p>
-                <div className="space-y-4 pt-1">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Active LLM Router Target</label>
-                    <select
-                      value={settings?.moduleWidgetConfigs?.aiWizard?.activeModel ?? 'gemini-3.5-flash'}
-                      onChange={(e) => {
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            aiWizard: { ...s.moduleWidgetConfigs?.aiWizard!, activeModel: e.target.value }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="gemini-3.5-flash">Gemini 3.5 Flash (Default)</option>
-                      <option value="gemini-3.5-pro">Gemini 3.5 Pro (Precision)</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Max Output Token Threshold</label>
-                    <input
-                      type="number"
-                      value={settings?.moduleWidgetConfigs?.aiWizard?.maxTokens ?? 2048}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            aiWizard: { ...s.moduleWidgetConfigs?.aiWizard!, maxTokens: val }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Smart Classification Confidence (%)</label>
-                    <input
-                      type="number"
-                      value={settings?.moduleWidgetConfigs?.aiWizard?.confidenceThreshold ?? 80}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            aiWizard: { ...s.moduleWidgetConfigs?.aiWizard!, confidenceThreshold: val }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Logistics & Moving Relocation Dashboards */}
-              <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-200/60 hover:shadow-md transition space-y-5">
-                <span className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-neutral-700">
-                  <Truck size={16} className="text-primary" />
-                  Logistics & Moving Dashboards
-                </span>
-                <p className="text-[11px] text-neutral-400 font-medium leading-normal italic">
-                  Control dispatch formulas, standard vehicle mileage multipliers, and dispatch safety-interval timers.
-                </p>
-                <div className="space-y-4 pt-1">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Mileage Subsidized rate ($/mi)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={settings?.moduleWidgetConfigs?.logisticsDashboard?.mileageRate ?? 0.65}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            logisticsDashboard: { ...s.moduleWidgetConfigs?.logisticsDashboard!, mileageRate: val }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Transit Security Margin Buffer (%)</label>
-                    <input
-                      type="number"
-                      value={settings?.moduleWidgetConfigs?.logisticsDashboard?.transitBufferPercent ?? 10}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            logisticsDashboard: { ...s.moduleWidgetConfigs?.logisticsDashboard!, transitBufferPercent: val }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Dispatch Ingress Timeout (Hours)</label>
-                    <input
-                      type="number"
-                      value={settings?.moduleWidgetConfigs?.logisticsDashboard?.dispatchTimeoutHours ?? 48}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            logisticsDashboard: { ...s.moduleWidgetConfigs?.logisticsDashboard!, dispatchTimeoutHours: val }
-                          }
-                        }: null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Gear Library Settings Card */}
-              <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-200/60 hover:shadow-md transition space-y-5">
-                <span className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-neutral-700">
-                  <Wrench size={16} className="text-primary animate-pulse" />
-                  Gear Library Rules
-                </span>
-                <p className="text-[11px] text-neutral-400 font-medium leading-normal italic">
-                  Manage duplication thresholds, preferred default currency units, and default equipment statuses.
-                </p>
-                <div className="space-y-4 pt-1">
-                  <div className="space-y-1.5 flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200/60">
-                    <div>
-                      <span className="text-xs font-bold text-neutral-700 block">Strict Duplicate Prevention</span>
-                      <p className="text-[9px] text-neutral-400">Alert on matching model files</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            gearLibrary: {
-                              ...s.moduleWidgetConfigs?.gearLibrary!,
-                              enableDupCheck: !s.moduleWidgetConfigs?.gearLibrary?.enableDupCheck
-                            }
-                          }
-                        } : null);
-                      }}
-                      className={`w-9 h-5 rounded-full relative transition-colors ${settings?.moduleWidgetConfigs?.gearLibrary?.enableDupCheck ? 'bg-primary' : 'bg-neutral-200'}`}
-                    >
-                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.moduleWidgetConfigs?.gearLibrary?.enableDupCheck ? 'right-0.5' : 'left-0.5'}`}></div>
-                    </button>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Default Item Currency</label>
-                    <select
-                      value={settings?.moduleWidgetConfigs?.gearLibrary?.defaultCurrency ?? '$'}
-                      onChange={(e) => {
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            gearLibrary: {
-                              ...s.moduleWidgetConfigs?.gearLibrary!,
-                              defaultCurrency: e.target.value
-                            }
-                          }
-                        } : null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs"
-                    >
-                      <option value="$">USD ($)</option>
-                      <option value="€">EUR (€)</option>
-                      <option value="£">GBP (£)</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Default Equipment Condition</label>
-                    <select
-                      value={settings?.moduleWidgetConfigs?.gearLibrary?.defaultCondition ?? 'good'}
-                      onChange={(e) => {
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            gearLibrary: {
-                              ...s.moduleWidgetConfigs?.gearLibrary!,
-                              defaultCondition: e.target.value
-                            }
-                          }
-                        } : null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs capitalize"
-                    >
-                      <option value="mint">Mint</option>
-                      <option value="good">Good</option>
-                      <option value="fair">Fair</option>
-                      <option value="poor">Poor</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Kiosk Mode Settings Card */}
-              <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-200/60 hover:shadow-md transition space-y-5">
-                <span className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-neutral-700">
-                  <QrCode size={16} className="text-primary animate-pulse" />
-                  Kiosk & Terminal Limits
-                </span>
-                <p className="text-[11px] text-neutral-400 font-medium leading-normal italic">
-                  Govern standard terminal sessions, screen savers, and checkout approval guardrails.
-                </p>
-                <div className="space-y-4 pt-1">
-                  <div className="space-y-1.5 flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200/60">
-                    <div>
-                      <span className="text-xs font-bold text-neutral-700 block">Supervisor Signature</span>
-                      <p className="text-[9px] text-neutral-400">Force manual admin verification</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            kioskMode: {
-                              ...s.moduleWidgetConfigs?.kioskMode!,
-                              enforceSupervisorApproval: !s.moduleWidgetConfigs?.kioskMode?.enforceSupervisorApproval
-                            }
-                          }
-                        } : null);
-                      }}
-                      className={`w-9 h-5 rounded-full relative transition-colors ${settings?.moduleWidgetConfigs?.kioskMode?.enforceSupervisorApproval ? 'bg-primary' : 'bg-neutral-200'}`}
-                    >
-                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.moduleWidgetConfigs?.kioskMode?.enforceSupervisorApproval ? 'right-0.5' : 'left-0.5'}`}></div>
-                    </button>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Session Expiry Timeout (Min)</label>
-                    <input
-                      type="number"
-                      value={settings?.moduleWidgetConfigs?.kioskMode?.sessionTimeoutMinutes ?? 5}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 1;
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            kioskMode: { ...s.moduleWidgetConfigs?.kioskMode!, sessionTimeoutMinutes: val }
-                          }
-                        } : null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block font-mono">Idle Screen Saver Timer (Sec)</label>
-                    <input
-                      type="number"
-                      value={settings?.moduleWidgetConfigs?.kioskMode?.idleTimerSeconds ?? 30}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 5;
-                        setSettings(s => s ? {
-                          ...s,
-                          moduleWidgetConfigs: {
-                            ...s.moduleWidgetConfigs,
-                            kioskMode: { ...s.moduleWidgetConfigs?.kioskMode!, idleTimerSeconds: val }
-                          }
-                        } : null);
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-4 border-t border-neutral-100">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (settings) {
-                    await updateDoc(doc(db, 'adminSettings', 'global'), settings as any);
-                    toast.success("Module and Widget level configurations updated successfully!");
-                  }
-                }}
-                className="w-full sm:w-auto px-10 py-3.5 bg-neutral-900 border border-neutral-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-black transition shadow-md active:scale-95"
-              >
-                Save Module & Widget Policies
-              </button>
             </div>
           </div>
         </div>

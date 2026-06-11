@@ -139,6 +139,150 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
     payment_cleared: true,
   });
 
+  // Invitation States
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'technician' | 'viewer'>('technician');
+  const [inviteDeptId, setInviteDeptId] = useState('');
+  const [inviteTeamId, setInviteTeamId] = useState('');
+  const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+  const [myInvitations, setMyInvitations] = useState<any[]>([]);
+
+  // Synchronize incoming invitations for current user's email
+  useEffect(() => {
+    if (!user?.email) return;
+    const q = query(
+      collection(db, 'invitations'),
+      where('email', '==', user.email.toLowerCase().trim()),
+      where('status', '==', 'pending')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setMyInvitations(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Error loading my invitations:", error);
+    });
+    return () => unsub();
+  }, [user?.email]);
+
+  // Synchronize pending invitations sent by this organization
+  useEffect(() => {
+    if (!user?.orgId) return;
+    const q = query(
+      collection(db, 'invitations'),
+      where('orgId', '==', user.orgId),
+      where('status', '==', 'pending')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setPendingInvites(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Error loading pending invites:", error);
+    });
+    return () => unsub();
+  }, [user?.orgId]);
+
+  const handleSendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    try {
+      const emailLower = inviteEmail.toLowerCase().trim();
+      
+      // Let's check if they are already in members
+      if (members.some(m => m.email?.toLowerCase().trim() === emailLower)) {
+        toast.error("User is already a member of this organization.");
+        return;
+      }
+
+      // Check if we already have a pending invite for this email
+      if (pendingInvites.some(i => i.email === emailLower)) {
+        toast.error("An invitation is already pending for this email.");
+        return;
+      }
+
+      const deptName = depts.find(d => d.id === inviteDeptId)?.name || '';
+      const teamName = teams.find(t => t.id === inviteTeamId)?.name || '';
+
+      const inviteData = {
+        email: emailLower,
+        orgId: user?.orgId || '',
+        orgName: org?.name || 'Your Organization',
+        deptId: inviteDeptId || null,
+        deptName: deptName || null,
+        teamId: inviteTeamId || null,
+        teamName: teamName || null,
+        role: inviteRole,
+        status: 'pending',
+        invitedBy: user?.displayName || user?.email || 'Administrator',
+        createdAt: new Date().toISOString()
+      };
+
+      await addDoc(collection(db, 'invitations'), inviteData);
+      toast.success(`Successfully invited ${emailLower}!`);
+      
+      // reset forms
+      setInviteEmail('');
+      setInviteDeptId('');
+      setInviteTeamId('');
+      setInviteRole('technician');
+      setIsInviteModalOpen(false);
+    } catch (error) {
+      console.error("Error creating invitation:", error);
+      toast.error("Failed to send invitation.");
+    }
+  };
+
+  const handleRevokeInvite = async (inviteId: string) => {
+    try {
+      await deleteDoc(doc(db, 'invitations', inviteId));
+      toast.success("Invitation revoked successfully");
+    } catch (err) {
+      console.error("Error revoking invite:", err);
+      toast.error("Failed to revoke invitation");
+    }
+  };
+
+  const handleAcceptInvite = async (invite: any) => {
+    if (!user) return;
+    try {
+      // 1. Update user profile details
+      await updateDoc(doc(db, 'users', user.uid), {
+        orgId: invite.orgId,
+        deptId: invite.deptId || null,
+        teamId: invite.teamId || null,
+        role: invite.role || 'viewer'
+      });
+
+      // 2. Mark invitation as accepted
+      await updateDoc(doc(db, 'invitations', invite.id), {
+        status: 'accepted'
+      });
+
+      toast.success(`Successfully joined "${invite.orgName}"!`);
+      
+      // Reload page state or let firestore listener do its magic
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (err) {
+      console.error("Error accepting invite:", err);
+      toast.error("Failed to join organization.");
+    }
+  };
+
+  const handleDeclineInvite = async (inviteId: string) => {
+    try {
+      await updateDoc(doc(db, 'invitations', inviteId), {
+        status: 'declined'
+      });
+      toast.success("Invitation declined");
+    } catch (err) {
+      console.error("Error declining invite:", err);
+      toast.error("Failed to decline invitation");
+    }
+  };
+
   // Track token mount
   useEffect(() => {
     const token = getAccessToken();
@@ -1201,6 +1345,57 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Main Selector Grid */}
           <div className="lg:col-span-8 space-y-6">
+            {/* Incoming Invitations Box */}
+            {myInvitations.length > 0 && (
+              <div className="bg-blue-50/50 border-2 border-blue-200/50 p-8 rounded-[2.5rem] space-y-6 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-[#2563eb] rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-blue-500/15">
+                    <UserPlus size={24} />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-black uppercase tracking-tight text-neutral-900 text-lg">Incoming Workspace invitations</h4>
+                    <p className="text-xs text-neutral-500 font-medium">
+                      You have been invited to join the following workspaces:
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {myInvitations.map(invite => (
+                    <div key={invite.id} className="bg-white border border-neutral-100 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+                      <div className="space-y-1">
+                        <div className="font-extrabold text-neutral-800 uppercase tracking-tight text-sm">
+                          {invite.orgName}
+                        </div>
+                        <p className="text-xs text-neutral-400 font-medium leading-normal">
+                          Invited By: <strong className="text-neutral-600 font-bold">{invite.invitedBy}</strong> <br/>
+                          Assigned Role: <strong className="text-neutral-500 capitalize">{invite.role}</strong> 
+                          {invite.deptName && ` • Dept: ${invite.deptName}`} 
+                          {invite.teamName && ` • Team: ${invite.teamName}`}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleDeclineInvite(invite.id)}
+                          className="px-4 py-2 hover:bg-neutral-100 text-neutral-500 font-bold text-[10px] uppercase tracking-widest rounded-xl transition"
+                        >
+                          Decline
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAcceptInvite(invite)}
+                          className="px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition shadow-md"
+                        >
+                          Accept &amp; Join
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {!myOrgs.some(o => o.name.toLowerCase() === 'fbc') && (
               <div className="bg-amber-50/70 border border-amber-200/50 p-8 rounded-[2.5rem] space-y-6 shadow-sm">
                 <div className="flex items-start gap-4">
@@ -2873,7 +3068,16 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
           >
             <div className="p-8 border-b border-neutral-50 flex items-center justify-between">
               <h2 className="text-2xl font-black uppercase tracking-tight">Organization Roster</h2>
-              <button className="flex items-center gap-2 px-6 py-3 bg-neutral-100 text-neutral-600 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-neutral-200 transition">
+              <button 
+                onClick={() => {
+                  if (!canManageOrgs) {
+                    setIsUpgradeNowModalOpen(true);
+                  } else {
+                    setIsInviteModalOpen(true);
+                  }
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-neutral-900 hover:bg-neutral-850 text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:scale-102 transition duration-200"
+              >
                 <UserPlus size={16} />
                 <span>Invite Member</span>
               </button>
@@ -2926,6 +3130,32 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                 </tbody>
               </table>
             </div>
+
+            {/* Pending Invitations list */}
+            {pendingInvites.length > 0 && (
+              <div className="p-8 border-t border-neutral-100 bg-neutral-50/50">
+                <h3 className="text-sm font-black uppercase tracking-widest text-[#ff4f3a] mb-4">Pending Outbound Invitations</h3>
+                <div className="space-y-3">
+                  {pendingInvites.map(invite => (
+                    <div key={invite.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white border border-neutral-100/60 rounded-2xl shadow-sm gap-4">
+                      <div className="flex flex-col">
+                        <span className="font-extrabold text-neutral-800 text-sm">{invite.email}</span>
+                        <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">
+                          Role: <span className="text-neutral-600">{invite.role}</span> • Dept: <span className="text-neutral-600">{invite.deptName || 'Direct'}</span> • Team: <span className="text-neutral-600">{invite.teamName || 'None'}</span>
+                        </span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => handleRevokeInvite(invite.id)}
+                        className="px-4 py-2 bg-neutral-100 hover:bg-rose-50 hover:text-[#ff4f3a] text-neutral-500 rounded-xl font-bold text-[10px] uppercase tracking-widest transition"
+                      >
+                        Revoke Invitation
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -3576,6 +3806,113 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
         restrictedFeatureName={restrictedFeature}
         onSuccess={() => {}}
       />
+
+      {/* Invite Member Modal */}
+      <AnimatePresence>
+        {isInviteModalOpen && (
+          <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white p-8 sm:p-10 rounded-[3rem] shadow-2xl w-full max-w-xl space-y-6 text-neutral-900"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <UserPlus size={24} className="text-primary" />
+                  <h3 className="text-2.5xl font-black uppercase tracking-tighter">Invite New Member</h3>
+                </div>
+                <button onClick={() => setIsInviteModalOpen(false)} className="p-2 hover:bg-neutral-100 rounded-full transition text-neutral-400 hover:text-neutral-900">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSendInvite} className="space-y-6">
+                <div className="space-y-1.5 text-left">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[#ff4f3a] block ml-1">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="member@company.com"
+                    className="w-full bg-neutral-50 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-primary transition font-semibold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Assigned Role</label>
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value as any)}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-primary transition font-bold text-xs uppercase"
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="manager">Manager</option>
+                      <option value="technician">Technician</option>
+                      <option value="viewer">Viewer</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Department (Optional)</label>
+                    <select
+                      value={inviteDeptId}
+                      onChange={(e) => {
+                        setInviteDeptId(e.target.value);
+                        setInviteTeamId(''); // reset team
+                      }}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-primary transition font-bold text-xs"
+                    >
+                      <option value="">Direct to Organization</option>
+                      {depts.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {inviteDeptId && (
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Sub-Team (Optional)</label>
+                    <select
+                      value={inviteTeamId}
+                      onChange={(e) => setInviteTeamId(e.target.value)}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-5 py-4 focus:ring-2 focus:ring-primary transition font-bold text-xs"
+                    >
+                      <option value="">None / Dept Direct</option>
+                      {teams.filter(t => t.deptId === inviteDeptId).map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <p className="text-[9px] text-neutral-400 uppercase tracking-tight font-bold italic">
+                  * Invited members will automatically synchronize setup and join keys when they accept the incoming card.
+                </p>
+
+                <div className="pt-4 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsInviteModalOpen(false)}
+                    className="flex-1 py-4 border-2 border-neutral-100 hover:bg-neutral-50 rounded-2xl text-[10px] uppercase font-black tracking-widest text-neutral-500 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-4 bg-neutral-900 hover:bg-neutral-800 text-white rounded-2xl text-[10px] uppercase font-black tracking-widest shadow-lg transition"
+                  >
+                    Send Invitation
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

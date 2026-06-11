@@ -109,6 +109,7 @@ export interface UserProfile {
   createdAt: string;
   extraSeats?: number;
   isProfilePublic?: boolean;
+  selectedStarters?: string[];
   activeMarketplaceCurrencies?: string[]; // Currencies activated for renting equipment in marketplace
   defaultBookingFee?: number; // User custom default booking fee % or amount
   defaultSecurityDeposit?: number; // User custom default fixed security deposit
@@ -521,6 +522,7 @@ export interface Project {
   listIds: string[]; // References to PackingList IDs
   rackIds?: string[]; // References to Rack IDs
   isBuildMode?: boolean;
+  imageUrl?: string;
   createdAt: string;
   updatedAt: string;
 }

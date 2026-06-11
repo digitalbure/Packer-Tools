@@ -40,6 +40,37 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
   const [addStep, setAddStep] = useState(1);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortBy, setBy] = useState<'newest' | 'oldest' | 'name' | 'status'>('newest');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [projectAutoImages, setProjectAutoImages] = useState<Record<string, string>>({});
+
+  // Background loader scan to find any physical item image inside project linked lists
+  useEffect(() => {
+    if (projects.length === 0) return;
+    projects.forEach(async (project) => {
+      if (project.imageUrl) return; // Custom URL already exists
+      if (projectAutoImages[project.id]) return; // Already resolved
+
+      if (project.listIds && project.listIds.length > 0) {
+        for (const listId of project.listIds) {
+          try {
+            const itemsSnap = await getDocs(collection(db, 'packingLists', listId, 'items'));
+            for (const itemDoc of itemsSnap.docs) {
+              const data = itemDoc.data();
+              if (data.imageUrl || data.photoURL) {
+                setProjectAutoImages(prev => ({
+                  ...prev,
+                  [project.id]: data.imageUrl || data.photoURL
+                }));
+                return; // Stop scanning on first match
+              }
+            }
+          } catch (err) {
+            console.error("Error auto-fetching image for project:", project.id, err);
+          }
+        }
+      }
+    });
+  }, [projects, projectAutoImages]);
 
   const handleCancelAddingAll = () => {
     setIsAdding(false);
@@ -59,6 +90,7 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
     orgUnit: string;
     stage: 'proposed' | 'actual';
     isBuildMode: boolean;
+    imageUrl: string;
   }>({
     name: '',
     description: '',
@@ -68,7 +100,8 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
     location: '',
     orgUnit: '',
     stage: 'proposed',
-    isBuildMode: false
+    isBuildMode: false,
+    imageUrl: ''
   });
 
   const TOTAL_STEPS = 3;
@@ -153,7 +186,8 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
         location: '',
         orgUnit: '',
         stage: 'proposed',
-        isBuildMode: false
+        isBuildMode: false,
+        imageUrl: ''
       });
       toast.success("Project created successfully!");
       navigate(`/project/${docRef.id}`);
@@ -176,6 +210,7 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
         category: editingProject.category,
         location: editingProject.location,
         orgUnit: editingProject.orgUnit,
+        imageUrl: editingProject.imageUrl || '',
         updatedAt: serverTimestamp()
       });
       setEditingProject(null);
@@ -203,8 +238,12 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
   };
 
   const filteredProjects = projects.filter(p => {
-    if (filterStatus === 'all') return true;
-    return (p.status || 'planning') === filterStatus;
+    const matchesStatus = filterStatus === 'all' || (p.status || 'planning') === filterStatus;
+    const matchesSearch = searchQuery.trim() === '' || 
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (p.description || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (p.location || '').toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
   }).sort((a, b) => {
     if (sortBy === 'newest') {
       const dateA = (a.createdAt as any)?.seconds || (typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() / 1000 : 0);
@@ -286,6 +325,47 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
         </div>
       </div>
 
+      {/* Search & Sort utility bar */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-4 rounded-[2rem] border border-neutral-100 shadow-sm">
+        {/* Search Input */}
+        <div className="relative w-full md:max-w-md">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search projects by name, goals, details..."
+            className="w-full bg-neutral-50/50 border border-neutral-100 rounded-xl pl-10 pr-4 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
+          />
+          <div className="absolute left-3.5 top-3 text-neutral-400">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3.5 top-2.5 text-neutral-400 hover:text-neutral-600 font-bold text-[10px] uppercase tracking-widest"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Sort selector */}
+        <div className="flex items-center gap-2 self-stretch md:self-auto justify-end">
+          <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Sort By</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setBy(e.target.value as any)}
+            className="bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-2 text-xs font-bold text-neutral-700 focus:ring-2 focus:ring-primary outline-none cursor-pointer"
+          >
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="name">Alphabetical</option>
+          </select>
+        </div>
+      </div>
+
       {/* Projects List/Grid/Icon Section */}
       {filteredProjects.length === 0 ? (
         <div className="py-32 text-center space-y-6 bg-white rounded-[3rem] border border-neutral-100 shadow-sm max-w-2xl mx-auto">
@@ -306,19 +386,33 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="group bg-white rounded-[2.5rem] p-6 sm:p-8 border border-neutral-100 shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 flex flex-col justify-between h-auto min-h-[240px] hover:border-primary/20 relative"
+              className="group bg-white rounded-[2.5rem] p-6 sm:p-8 border border-neutral-100 shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 flex flex-col justify-between h-auto min-h-[340px] hover:border-primary/20 relative overflow-hidden"
             >
+              {/* Card Cover Image */}
+              <div className="h-36 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-6 bg-neutral-100 relative overflow-hidden border-b border-neutral-100/50 shrink-0">
+                <img 
+                  src={project.imageUrl || projectAutoImages[project.id] || "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&q=80&w=300"} 
+                  alt={project.name}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/60 via-transparent to-transparent"></div>
+                <div className="absolute bottom-3 left-4 text-white text-[9px] font-black uppercase tracking-widest bg-[#ff4f3a] px-2.5 py-1 rounded-full shadow-md">
+                  {project.category || 'other'}
+                </div>
+              </div>
+
               {/* Status & Stage Badges */}
               <div className="flex items-center justify-between gap-2 mb-4 w-full">
-                <div className="w-12 h-12 bg-neutral-100/80 rounded-2xl flex items-center justify-center text-primary group-hover:scale-105 group-hover:bg-primary group-hover:text-white transition-all duration-300 shadow-sm shrink-0">
-                  {project.category === 'production' ? <Camera size={20} /> : 
-                   project.category === 'event' ? <Layers size={20} /> : 
-                   project.category === 'logistics' ? <Truck size={20} /> :
-                   project.category === 'technical' ? <Shield size={20} /> : <Briefcase size={20} />}
+                <div className="w-10 h-10 bg-neutral-50 rounded-xl flex items-center justify-center text-primary group-hover:scale-105 group-hover:bg-primary group-hover:text-white transition-all duration-300 shadow-sm shrink-0">
+                  {project.category === 'production' ? <Camera size={18} /> : 
+                   project.category === 'event' ? <Layers size={18} /> : 
+                   project.category === 'logistics' ? <Truck size={18} /> :
+                   project.category === 'technical' ? <Shield size={18} /> : <Briefcase size={18} />}
                 </div>
 
                 <div className="flex flex-col items-end gap-1.5">
-                  <div className="flex items-center gap-1 px-2.5 py-1 bg-neutral-50 rounded-full border border-neutral-100/50">
+                  <div className="flex items-center gap-1 px-2 py-0.5 bg-neutral-50 rounded-full border border-neutral-150">
                     <div className={`w-1.5 h-1.5 rounded-full ${
                       project.status === 'active' ? 'bg-emerald-500 animate-pulse' : 
                       project.status === 'completed' ? 'bg-blue-500' : 'bg-amber-500'
@@ -326,12 +420,12 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
                     <span className="text-[8px] font-black uppercase tracking-widest text-neutral-500">{project.status || 'planning'}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${
+                    <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${
                       project.stage === 'actual' ? 'bg-green-500 text-white' : 'bg-neutral-100 text-neutral-400'
                     }`}>
                       {project.stage || 'proposed'}
                     </span>
-                    <span className="text-[8px] font-bold text-neutral-300">v{project.version || 1}</span>
+                    <span className="text-[8px] font-bold text-neutral-300 font-mono">v{project.version || 1}</span>
                   </div>
                 </div>
               </div>
@@ -414,12 +508,20 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
               className="group bg-white rounded-3xl p-4 sm:p-6 border border-neutral-100 shadow-sm hover:shadow-lg hover:border-primary/20 transition-all duration-300 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4"
             >
               <div className="flex items-center gap-4 flex-1 min-w-0">
-                {/* Visual Category Icon */}
-                <div className="w-12 h-12 bg-neutral-50 rounded-2xl flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300 shrink-0 shadow-sm">
-                  {project.category === 'production' ? <Camera size={20} /> : 
-                   project.category === 'event' ? <Layers size={20} /> : 
-                   project.category === 'logistics' ? <Truck size={20} /> :
-                   project.category === 'technical' ? <Shield size={20} /> : <Briefcase size={20} />}
+                {/* Visual Thumbnail / Icon */}
+                <div className="w-16 h-16 bg-neutral-100 rounded-xl overflow-hidden relative shrink-0 shadow-sm border border-neutral-100">
+                  <img 
+                    src={project.imageUrl || projectAutoImages[project.id] || "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&q=80&w=150"} 
+                    alt={project.name}
+                    className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute bottom-1 right-1 w-6 h-6 bg-white/95 text-primary rounded-lg flex items-center justify-center shadow-md">
+                    {project.category === 'production' ? <Camera size={11} /> : 
+                     project.category === 'event' ? <Layers size={11} /> : 
+                     project.category === 'logistics' ? <Truck size={11} /> :
+                     project.category === 'technical' ? <Shield size={11} /> : <Briefcase size={11} />}
+                  </div>
                 </div>
 
                 <div className="min-w-0 flex-1 space-y-1">
@@ -518,12 +620,20 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
                 }`} title={project.status || 'planning'} />
               </div>
 
-              {/* Large Central Icon */}
-              <div className="mt-6 w-16 h-16 bg-neutral-100/70 rounded-[1.50rem] flex items-center justify-center text-primary group-hover:scale-110 group-hover:bg-primary group-hover:text-white transition-all duration-500 shadow-sm">
-                {project.category === 'production' ? <Camera size={28} /> : 
-                 project.category === 'event' ? <Layers size={28} /> : 
-                 project.category === 'logistics' ? <Truck size={28} /> :
-                 project.category === 'technical' ? <Shield size={28} /> : <Briefcase size={28} />}
+              {/* Central Thumbnail Cover */}
+              <div className="mt-6 w-16 h-16 bg-neutral-100 rounded-[1.25rem] overflow-hidden relative shrink-0 shadow-sm border border-neutral-100/50 group-hover:scale-110 transition-all duration-500">
+                <img 
+                  src={project.imageUrl || projectAutoImages[project.id] || "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&q=80&w=150"} 
+                  alt={project.name}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute bottom-1 right-1 w-5 h-5 bg-white/95 text-primary rounded-md flex items-center justify-center shadow-lg">
+                  {project.category === 'production' ? <Camera size={9} /> : 
+                   project.category === 'event' ? <Layers size={9} /> : 
+                   project.category === 'logistics' ? <Truck size={9} /> :
+                   project.category === 'technical' ? <Shield size={9} /> : <Briefcase size={9} />}
+                </div>
               </div>
 
               <div className="space-y-1.5 w-full px-2 mt-4">
@@ -606,6 +716,20 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
                         onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
                         className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-primary transition h-24 resize-none text-sm"
                       />
+                    </div>
+
+                    <div className="space-y-2 text-left">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1 font-extrabold">Project Cover Image</label>
+                      <input
+                        type="text"
+                        value={editingProject.imageUrl || ''}
+                        onChange={(e) => setEditingProject({ ...editingProject, imageUrl: e.target.value })}
+                        placeholder="e.g. https://images.unsplash.com/photo-1511578314322-379afb476865"
+                        className="w-full bg-neutral-50 border border-neutral-100 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-primary transition text-xs font-semibold"
+                      />
+                      <p className="text-[8px] text-neutral-400 uppercase tracking-tight font-bold italic ml-1 mt-0.5">
+                        * Input custom URL or keep empty for automatic resolution of images linked to the project's lists.
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -747,6 +871,20 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
                             placeholder="Project goals, equipment requirements..."
                             className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-primary transition h-32 sm:h-24 resize-none text-sm"
                           />
+                        </div>
+
+                        <div className="space-y-2 text-left">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1 font-extrabold">Project Cover Image (Optional)</label>
+                          <input
+                            type="text"
+                            value={newProject.imageUrl || ''}
+                            onChange={(e) => setNewProject({ ...newProject, imageUrl: e.target.value })}
+                            placeholder="e.g. https://images.unsplash.com/photo-1511578314322-379afb476865"
+                            className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-primary transition text-xs font-semibold"
+                          />
+                          <p className="text-[8px] text-neutral-400 uppercase tracking-tight font-black block ml-1 mt-0.5 italic">
+                            * Provide an image URL, or leave blank to auto-use any equipment's image in the project lists.
+                          </p>
                         </div>
                       </motion.div>
                     )}

@@ -60,6 +60,18 @@ const articles = [
     tips: ["Active Academy members can customize their storefront with advanced social handles (Instagram, LinkedIn, Twitter, Facebook) to boost trust!"]
   },
   {
+    id: 'starters-navigation-setup',
+    title: "How to customize Sidebar Starters & Main Navigation",
+    description: "Take control of your sidebar. Consolidate less-used modules into the collapsible Starters section and hide them from the main left panel.",
+    category: 'getting-started',
+    steps: [
+      { title: "Open Preferences Tab", description: "Go to your 'Profile' page and click on the 'Layout & Density' tab under Workspace Settings." },
+      { title: "Configure Starters Settings", description: "Scroll down to 'Workspace Starters Settings' where all of the available platform modules are listed." },
+      { title: "Toggle Modules", description: "Tap any module button to toggle its home. Checked modules immediately migrate to the collapsible 'Starters' section of the sidebar and hide from the main left navigation board for a clean workspace vibe." }
+    ],
+    tips: ["Use this configuration to keep your daily primary tools visible in the main drawer, and move secondary reference modules (like Traveller or Scenario Builder) into Starters!"]
+  },
+  {
     id: 'setup-profile',
     title: "How to set up your Profile & Theme",
     description: "Your profile is your digital ID and control hub. Customize bio, marketplace, and visual environments.",

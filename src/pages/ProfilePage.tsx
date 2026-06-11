@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import { motion } from 'motion/react';
+import { useIndustry } from '../context/IndustryContext';
 import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award, Sun, Moon, Smartphone, Download } from 'lucide-react';
 import { getUsage } from '../lib/limitUtils';
 import PaymentModal from '../components/PaymentModal';
@@ -21,6 +22,7 @@ interface ProfilePageProps {
 
 export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePageProps) {
   const location = useLocation();
+  const { getAdjustedLabel } = useIndustry();
   const searchParams = new URLSearchParams(location.search);
   const activeTab = searchParams.get('tab') || 'about';
 
@@ -1118,6 +1120,83 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                     {user.plan === 'free' && (
                       <p className="text-[9px] text-[#FF5500] font-bold uppercase tracking-widest">🔒 Upgrade to Pro to customize default Security Deposit (currently locked to $150)</p>
                     )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Customizable Workspace Starters Modules Settings */}
+              <div className="pt-8 border-t border-neutral-100 space-y-6">
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-tight text-neutral-800">Workspace Starters Settings</h4>
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-1">
+                    Choose which modules are aggregated into the "Starters" collapsible sidebar section. Items selected below will be hidden from your main left-panel drawer.
+                  </p>
+                </div>
+
+                <div className="bg-neutral-50 p-5 rounded-3xl border border-neutral-150 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {[
+                      { to: '/organization', name: 'Organization' },
+                      { to: '/projects', name: 'Projects' },
+                      { to: '/kiosk', name: 'Gear Kiosk' },
+                      { to: '/library', name: getAdjustedLabel('library') },
+                      { to: '/systems-builder', name: getAdjustedLabel('systems-builder') },
+                      { to: '/marketplace', name: 'Marketplace' },
+                      { to: '/listings', name: 'Listings' },
+                      { to: '/lists', name: getAdjustedLabel('lists') },
+                      { to: '/racks', name: getAdjustedLabel('racks') },
+                      { to: '/logistics', name: getAdjustedLabel('logistics') },
+                      { to: '/inventory', name: getAdjustedLabel('inventory') },
+                      { to: '/contacts', name: 'Contacts' },
+                      { to: '/ai-wizard', name: 'AI Wizard' },
+                      { to: '/scenario-builder', name: 'Scenario Builder' },
+                      { to: '/traveller', name: 'Traveller Module' },
+                      { to: '/tooling', name: 'Tooling Lists' },
+                      { to: '/organizer', name: 'Organizer' },
+                      { to: '/travel-cases', name: 'Travel Cases' }
+                    ].map((module) => {
+                      const selectedStarters = user.selectedStarters !== undefined ? user.selectedStarters : ['/tooling', '/organizer', '/travel-cases'];
+                      const isChecked = selectedStarters.includes(module.to);
+                      
+                      return (
+                        <button
+                          key={module.to}
+                          type="button"
+                          onClick={async () => {
+                            let updatedStarters: string[];
+                            if (isChecked) {
+                              updatedStarters = selectedStarters.filter(path => path !== module.to);
+                            } else {
+                              updatedStarters = [...selectedStarters, module.to];
+                            }
+                            try {
+                              const userRef = doc(db, 'users', user.uid);
+                              await updateDoc(userRef, { selectedStarters: updatedStarters });
+                              onUpdate({ ...user, selectedStarters: updatedStarters });
+                              toast.success(`Module "${module.name}" toggled successfully!`);
+                            } catch (err) {
+                              console.error(err);
+                              toast.error("Failed to update starters preferences.");
+                            }
+                          }}
+                          className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between gap-3 ${
+                            isChecked 
+                              ? 'bg-neutral-900 border-neutral-900 text-white shadow-lg shadow-neutral-900/10' 
+                              : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 shadow-sm'
+                          }`}
+                        >
+                          <div className="min-w-0 pr-2">
+                            <span className="font-extrabold block text-xs tracking-tight truncate">{module.name}</span>
+                            <span className={`text-[8px] opacity-75 block font-bold uppercase tracking-wider ${isChecked ? 'text-neutral-300' : 'text-neutral-400'}`}>
+                              {isChecked ? '🌟 In Starters' : '📄 Main Nav'}
+                            </span>
+                          </div>
+                          <div className={`p-1.5 rounded-full shrink-0 ${isChecked ? 'bg-white text-neutral-900' : 'bg-neutral-100 text-neutral-500'}`}>
+                            {isChecked ? <Check size={12} className="stroke-[3]" /> : <Plus size={12} className="stroke-[3]" />}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

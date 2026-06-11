@@ -25,7 +25,10 @@ import {
   Heart,
   Share2,
   Lock,
-  Compass
+  Compass,
+  MessageCircle,
+  X,
+  Copy
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -36,6 +39,7 @@ export default function ShopPage() {
   const [listings, setListings] = useState<PackingList[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'rent' | 'sale'>('all');
   const [globalCurrency, setGlobalCurrency] = useState('USD');
 
@@ -249,12 +253,13 @@ export default function ShopPage() {
 
             {/* Inquire Instant Button */}
             <div className="w-full sm:w-auto shrink-0 self-stretch sm:self-auto flex items-end sm:items-center">
-              <a 
-                href={`mailto:${shopOwner.storeEmail || shopOwner.email}`}
-                className="w-full sm:w-auto text-center px-8 py-4 bg-[#ff4f3a] text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-[#e03d28] transition shadow-lg active:scale-95 whitespace-nowrap block"
+              <button 
+                type="button"
+                onClick={() => setIsContactModalOpen(true)}
+                className="w-full sm:w-auto text-center px-8 py-4 bg-[#ff4f3a] text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-[#e03d28] transition shadow-lg active:scale-95 whitespace-nowrap block cursor-pointer"
               >
                 Inquire Directly
-              </a>
+              </button>
             </div>
           </div>
 
@@ -490,6 +495,112 @@ export default function ShopPage() {
           )}
         </div>
       </div>
+
+      {/* Contact Options Card Modal */}
+      <AnimatePresence>
+        {isContactModalOpen && (
+          <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white p-8 sm:p-10 rounded-[3rem] shadow-2xl w-full max-w-md space-y-8 text-neutral-900 border border-neutral-100"
+            >
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <h3 className="text-2xl font-black uppercase tracking-tighter">Contact Inquiries</h3>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Reach out to {shopOwner.storeName || shopOwner.displayName}</p>
+                </div>
+                <button 
+                  onClick={() => setIsContactModalOpen(false)}
+                  className="p-2 sm:p-3 hover:bg-neutral-50 rounded-full transition text-neutral-400 hover:text-neutral-900"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* 1. WhatsApp Action */}
+                {shopOwner.storePhone ? (
+                  <a
+                    href={`https://wa.me/${shopOwner.storePhone.replace(/[^0-9]/g, '')}?text=Hi%20there!%20I%20saw%20your%2520gear%20listings%20on%20Packer%20Tools%20and%2520wanted%20to%20inquire.`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-4 p-5 bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-100 rounded-2xl group transition"
+                  >
+                    <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-emerald-500/10">
+                      <MessageCircle size={22} />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <span className="text-[8px] font-black tracking-widest uppercase text-emerald-600 block">WhatsApp Chat</span>
+                      <span className="font-extrabold text-neutral-800 text-sm">Send Instant Message</span>
+                    </div>
+                    <ExternalLink size={16} className="text-emerald-400 group-hover:translate-x-0.5 transition" />
+                  </a>
+                ) : null}
+
+                {/* 2. Direct Email Action */}
+                <div className="flex items-center gap-4 p-5 bg-rose-50/30 hover:bg-rose-50/70 border border-rose-100 rounded-2xl group transition relative">
+                  <a
+                    href={`mailto:${shopOwner.storeEmail || shopOwner.email}`}
+                    className="absolute inset-0 z-0"
+                  />
+                  <div className="w-12 h-12 bg-[#ff4f3a] text-white rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-rose-500/10 z-10">
+                    <Mail size={22} />
+                  </div>
+                  <div className="flex-1 text-left z-10">
+                    <span className="text-[8px] font-black tracking-widest uppercase text-[#ff4f3a] block">Email Inbox</span>
+                    <span className="font-extrabold text-neutral-800 text-xs truncate block max-w-[180px]">{shopOwner.storeEmail || shopOwner.email || "No email listed"}</span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(shopOwner.storeEmail || shopOwner.email || '');
+                      toast.success("Email copied to clipboard!");
+                    }}
+                    className="p-2 hover:bg-white text-neutral-400 hover:text-neutral-600 rounded-lg transition z-20"
+                    title="Copy Email Address"
+                  >
+                    <Copy size={16} />
+                  </button>
+                </div>
+
+                {/* 3. Direct Phone Call Action */}
+                {(shopOwner.storePhone) ? (
+                  <div className="flex items-center gap-4 p-5 bg-neutral-50 hover:bg-neutral-100/70 border border-neutral-200/50 rounded-2xl group transition relative">
+                    <a
+                      href={`tel:${shopOwner.storePhone}`}
+                      className="absolute inset-0 z-0"
+                    />
+                    <div className="w-12 h-12 bg-neutral-900 text-white rounded-xl flex items-center justify-center shrink-0 shadow-md z-10">
+                      <Phone size={22} />
+                    </div>
+                    <div className="flex-1 text-left z-10">
+                      <span className="text-[8px] font-black tracking-widest uppercase text-neutral-500 block">Phone call</span>
+                      <span className="font-extrabold text-neutral-800 text-sm truncate block max-w-[180px]">{shopOwner.storePhone}</span>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(shopOwner.storePhone || '');
+                        toast.success("Phone number copied to clipboard!");
+                      }}
+                      className="p-2 hover:bg-white text-neutral-400 hover:text-neutral-600 rounded-lg transition z-20"
+                      title="Copy Phone Number"
+                    >
+                      <Copy size={16} />
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              <p className="text-[8.5px] uppercase font-bold tracking-tight text-neutral-400 italic text-center">
+                * Please state that you found their inventory on Packer Tools when contacting.
+              </p>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

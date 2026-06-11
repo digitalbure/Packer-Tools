@@ -27,7 +27,7 @@ import {
   Share2,
   ShoppingBag
 } from 'lucide-react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import SignatureCanvas from 'react-signature-canvas';
 import { QRCodeCanvas } from 'qrcode.react';
 import { collection, query, where, getDocs, getDoc, addDoc, serverTimestamp, doc, updateDoc, onSnapshot, limit, arrayUnion } from 'firebase/firestore';
@@ -193,7 +193,8 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   }, [pairingCode]);
 
   const sigCanvas = useRef<SignatureCanvas>(null);
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const lastScannedKioskQrRef = useRef<{ code: string; time: number } | null>(null);
 
   // Synchronically load organizations, departments, teams, custom inventories
   useEffect(() => {
@@ -534,7 +535,6 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       }
 
       let isSubscribed = true;
-      let scannerImg: any = null;
       let retryCount = 0;
 
       const initScanner = () => {
@@ -557,24 +557,82 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
             return;
           }
 
-          const scanner = new Html5QrcodeScanner(
-            "kiosk-scanner",
-            { fps: 10, qrbox: { width: 300, height: 300 } },
-            /* verbose= */ false
-          );
-          
-          scanner.render((decodedText) => {
-            handleScanSuccess(decodedText);
-            try {
-              scanner.clear();
-            } catch (err) {
-              // ignore
-            }
-          }, (err) => {
-            // console.warn(err);
-          });
-
+          const scanner = new Html5Qrcode("kiosk-scanner");
           scannerRef.current = scanner;
+
+          const startKioskQR = async () => {
+            try {
+              await scanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 300, height: 300 } },
+                (decodedText) => {
+                  const now = Date.now();
+                  if (
+                    lastScannedKioskQrRef.current &&
+                    lastScannedKioskQrRef.current.code === decodedText &&
+                    now - lastScannedKioskQrRef.current.time < 2000
+                  ) {
+                    return;
+                  }
+                  lastScannedKioskQrRef.current = { code: decodedText, time: now };
+                  handleScanSuccess(decodedText);
+                },
+                () => {}
+              );
+            } catch (envError) {
+              console.warn("Back camera failed in kiosk mode, trying front/any camera:", envError);
+              try {
+                await scanner.start(
+                  { facingMode: "user" },
+                  { fps: 10, qrbox: { width: 300, height: 300 } },
+                  (decodedText) => {
+                    const now = Date.now();
+                    if (
+                      lastScannedKioskQrRef.current &&
+                      lastScannedKioskQrRef.current.code === decodedText &&
+                      now - lastScannedKioskQrRef.current.time < 2000
+                    ) {
+                      return;
+                    }
+                    lastScannedKioskQrRef.current = { code: decodedText, time: now };
+                    handleScanSuccess(decodedText);
+                  },
+                  () => {}
+                );
+              } catch (userError) {
+                console.warn("Front camera failed, trying first available device id:", userError);
+                try {
+                  const devices = await Html5Qrcode.getCameras();
+                  if (devices && devices.length > 0) {
+                    await scanner.start(
+                      devices[0].id,
+                      { fps: 10, qrbox: { width: 300, height: 300 } },
+                      (decodedText) => {
+                        const now = Date.now();
+                        if (
+                          lastScannedKioskQrRef.current &&
+                          lastScannedKioskQrRef.current.code === decodedText &&
+                          now - lastScannedKioskQrRef.current.time < 2000
+                        ) {
+                          return;
+                        }
+                        lastScannedKioskQrRef.current = { code: decodedText, time: now };
+                        handleScanSuccess(decodedText);
+                      },
+                      () => {}
+                    );
+                  } else {
+                    toast.error("No camera devices detected. Please verify connectivity or check system permissions.");
+                  }
+                } catch (genericError) {
+                  console.error("Camera startup failed completely in kiosk mode:", genericError);
+                  toast.error("Could not activate camera for QR scanning.");
+                }
+              }
+            }
+          };
+
+          startKioskQR();
         } catch (e) {
           console.error("Failed to initialize scanner", e);
         }
@@ -586,9 +644,11 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
         isSubscribed = false;
         if (scannerRef.current) {
           try {
-            scannerRef.current.clear();
+            if (scannerRef.current.isScanning) {
+              scannerRef.current.stop().catch(e => console.log("Non-blocking error stopping scanner:", e));
+            }
           } catch (e) {
-            // ignore
+            console.log("Cleanup exception ignored:", e);
           }
           scannerRef.current = null;
         }

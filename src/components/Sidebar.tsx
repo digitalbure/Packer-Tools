@@ -102,7 +102,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
 
   if (!user) return null;
 
-  const navItems = getAdjustedNav([
+  const allAvailableModules = [
     { to: '/organization', label: 'Organization', icon: <Building2 size={20} /> },
     { to: '/projects', label: 'Projects', icon: <Briefcase size={20} /> },
     { to: '/kiosk', label: 'Gear Kiosk', icon: <QrCode size={20} />, feature: 'kioskMode' as FeatureKey },
@@ -149,10 +149,19 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     },
     { to: '/scenario-builder', label: 'Scenario Builder', icon: <Sparkles size={20} /> },
     { to: '/traveller', label: 'Traveller Module', icon: <Compass size={20} /> },
-  ].filter(item => {
-    if (item.feature === 'kioskMode') return true;
+    { to: '/tooling', label: 'Tooling Lists', icon: <Wrench size={20} />, feature: 'toolingLists' as FeatureKey },
+    { to: '/organizer', label: 'Organizer', icon: <Layers size={20} />, feature: 'organizer' as FeatureKey },
+    { to: '/travel-cases', label: 'Travel Cases', icon: <Briefcase size={20} />, feature: 'travelCases' as FeatureKey },
+  ];
+
+  const allowedModules = allAvailableModules.filter(item => {
+    if (item.to === '/kiosk') return true;
     return !item.feature || isFeatureEnabled(item.feature, user, adminSettings);
-  }));
+  });
+
+  const selectedStarters = user.selectedStarters !== undefined ? user.selectedStarters : ['/tooling', '/organizer', '/travel-cases'];
+
+  const navItems = getAdjustedNav(allowedModules.filter(item => !selectedStarters.includes(item.to)));
 
   const adminNavItems = [
     { to: '/admin?tab=analytics', label: 'Platform Analytics', icon: <BarChart3 size={20} /> },
@@ -194,11 +203,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { id: 'device', label: 'Mobile App (PWA)', section: 'Developer', icon: <Smartphone size={18} /> },
   ];
 
-  const projectStarters = [
-    { to: '/tooling', label: 'Tooling Lists', icon: <Wrench size={18} />, feature: 'toolingLists' as FeatureKey },
-    { to: '/organizer', label: 'Organizer', icon: <Layers size={18} />, feature: 'organizer' as FeatureKey },
-    { to: '/travel-cases', label: 'Travel Cases', icon: <Briefcase size={18} />, feature: 'travelCases' as FeatureKey },
-  ].filter(item => !item.feature || isFeatureEnabled(item.feature, user, adminSettings));
+  const projectStarters = allowedModules.filter(item => selectedStarters.includes(item.to));
 
   const currentPlan = (adminSettings?.plans || []).find(p => p.id === user.plan);
   const maxLists = currentPlan?.maxPackingLists || 3;
@@ -732,7 +737,12 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                           onClick={() => setIsMobileOpen(false)}
                           className="group w-full flex items-center gap-3 px-3 py-2 rounded-xl text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 transition-all border-none focus:outline-none"
                         >
-                          <span className="text-neutral-400 group-hover:text-primary transition-colors shrink-0 flex items-center justify-center w-6">{item.icon}</span>
+                          <span className="text-neutral-400 group-hover:text-primary transition-colors shrink-0 flex items-center justify-center w-6">
+                            {React.isValidElement(item.icon)
+                              ? React.cloneElement(item.icon as React.ReactElement, { size: 18 })
+                              : item.icon
+                            }
+                          </span>
                           <span className="font-bold text-[11px] whitespace-nowrap">{item.label}</span>
                         </Link>
                       ))}
@@ -818,7 +828,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v4.7.0' : 'Version 4.7.0'}
+            {isCollapsed ? 'v4.8.0' : 'Version 4.8.0'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">

@@ -401,6 +401,24 @@
         "image": { "type": "string" }
       },
       "required": ["name"]
+    },
+    "Invitation": {
+      "title": "Invitation",
+      "description": "Invitation to join an organization.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "orgId": { "type": "string" },
+        "deptId": { "type": "string" },
+        "teamId": { "type": "string" },
+        "role": { "type": "string", "enum": ["owner", "admin", "manager", "technician", "viewer"] },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+        "invitedBy": { "type": "string" },
+        "orgName": { "type": "string" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["email", "orgId", "role", "status"]
     }
   },
   "firestore": {
@@ -519,6 +537,10 @@
     "/marketplaceCategories/{categoryId}": {
       "schema": "MarketplaceCategory",
       "description": "Marketplace gear categories."
+    },
+    "/invitations/{inviteId}": {
+      "schema": "Invitation",
+      "description": "System invitations to join an organization, department or team."
     }
   }
 }

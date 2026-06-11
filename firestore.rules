@@ -336,6 +336,10 @@ service cloud.firestore {
       allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.ownerId == request.auth.uid);
     }
 
+    match /invitations/{inviteId} {
+      allow read, create, update, delete: if isAuthenticated();
+    }
+
     match /organizations/{orgId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
