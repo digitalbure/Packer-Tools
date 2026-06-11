@@ -5,6 +5,8 @@ import { fileURLToPath } from "url";
 import axios from "axios";
 import dotenv from "dotenv";
 import { GoogleGenAI, Type } from "@google/genai";
+import admin from "firebase-admin";
+import crypto from "crypto";
 
 dotenv.config();
 
@@ -45,6 +47,238 @@ const getPayPalAccessToken = async () => {
   return response.data.access_token;
 };
 
+// Initialize Firebase Admin
+if (!admin.apps.length) {
+  admin.initializeApp({
+    projectId: process.env.VITE_FIREBASE_PROJECT_ID || "ai-studio-8af96458-c1d9-4cdf-9c9a-815dee7f9c70"
+  });
+}
+const dbAdmin = admin.firestore();
+
+// Authentication middleware using ID token verification
+const authenticateUser = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Unauthorized. Missing authentication token." });
+  }
+
+  const token = authHeader.split("Bearer ")[1];
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    (req as any).user = decodedToken;
+    next();
+  } catch (error: any) {
+    console.error("[Auth Middleware] ID Token verification failed:", error.message);
+    return res.status(401).json({ error: "Unauthorized. Invalid authentication token." });
+  }
+};
+
+/**
+ * Verify Paddle Webhook cryptographic signatures using custom HMAC-SHA256
+ */
+function verifyPaddleSignature(req: express.Request, rawBody: string, secret: string): boolean {
+  const signatureHeader = req.headers['paddle-signature'] as string || '';
+  if (!signatureHeader) return false;
+
+  const parts = signatureHeader.split(';');
+  let ts = '';
+  let h1 = '';
+  for (const part of parts) {
+    const [key, val] = part.split('=');
+    if (key === 'ts') ts = val;
+    if (key === 'h1') h1 = val;
+  }
+
+  if (!ts || !h1) return false;
+
+  const message = `${ts}:${rawBody}`;
+  const computedHash = crypto
+    .createHmac('sha256', secret)
+    .update(message)
+    .digest('hex');
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(computedHash, 'hex'),
+      Buffer.from(h1, 'hex')
+    );
+  } catch {
+    return false;
+  }
+}
+
+// -------------------------------------------------------------
+// PADDLE WEBHOOK GATEWAY ENDPOINT (100% Secure Server-Side)
+// -------------------------------------------------------------
+app.post(["/api/webhook", "/api/webhooks/paddle"], express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    // We capture raw buffer payload for exact signature mapping verification
+    const rawBodyBuf = req.body as Buffer;
+    const rawBody = rawBodyBuf instanceof Buffer ? rawBodyBuf.toString('utf8') : JSON.stringify(req.body);
+
+    const secret = process.env.PADDLE_WEBHOOK_SECRET;
+    if (secret) {
+      const isValid = verifyPaddleSignature(req, rawBody, secret);
+      if (!isValid) {
+        console.warn("[Paddle Webhook] Cryptographic signature check FAILED.");
+        return res.status(401).json({ error: "Invalid webhook signature." });
+      }
+    } else {
+      console.warn("[Paddle Webhook] WARNING: PADDLE_WEBHOOK_SECRET is not configured. Webhook running without signature check.");
+    }
+
+    const payload = JSON.parse(rawBody);
+    const { event_type, data } = payload;
+    const userUid = data?.custom_data?.userUid;
+    const email = data?.custom_data?.email;
+
+    console.log(`[Paddle Webhook] Processing event "${event_type}" for sub id "${data?.id}"`);
+
+    // Target User Resolution
+    let targetUid = userUid;
+    if (!targetUid && email) {
+      const usersSnap = await dbAdmin.collection('users').where('email', '==', email).limit(1).get();
+      if (!usersSnap.empty) {
+        targetUid = usersSnap.docs[0].id;
+        console.log(`[Paddle Webhook] Mapped email "${email}" to uid "${targetUid}"`);
+      }
+    }
+
+    if (!targetUid) {
+      return res.status(400).json({ error: "Unresolved user target mapping." });
+    }
+
+    const userRef = dbAdmin.collection('users').doc(targetUid);
+
+    // Mapped Plan Detection helper
+    let mappedPlan: 'free' | 'pro' | 'enterprise' = 'free';
+    const priceId = data?.items?.[0]?.price?.id || '';
+    const productId = data?.items?.[0]?.price?.product?.id || '';
+
+    const searchableSku = (productId + " " + priceId).toLowerCase();
+    if (searchableSku.includes('enterprise') || searchableSku.includes('ent')) {
+      mappedPlan = 'enterprise';
+    } else if (searchableSku.includes('pro')) {
+      mappedPlan = 'pro';
+    }
+
+    switch (event_type) {
+      case 'subscription.created': {
+        const isTrial = data?.status === 'trialing';
+        await userRef.update({
+          plan: mappedPlan,
+          subscriptionStatus: data?.status,
+          paddleSubscriptionId: data?.id,
+          paddleCustomerId: data?.customer_id,
+          planActivatedAt: new Date().toISOString(),
+          trialActive: isTrial,
+          trialEndsAt: isTrial ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() : null,
+          updatedAt: new Date().toISOString()
+        });
+        break;
+      }
+      case 'subscription.updated': {
+        await userRef.update({
+          plan: mappedPlan,
+          subscriptionStatus: data?.status,
+          paddleSubscriptionId: data?.id,
+          planLastRenewedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        break;
+      }
+      case 'subscription.canceled': {
+        await userRef.update({
+          plan: 'free',
+          subscriptionStatus: 'canceled',
+          planCanceledAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        break;
+      }
+      default:
+        console.log(`[Paddle Webhook] unhandled event: ${event_type}`);
+    }
+
+    return res.json({ success: true, message: "Webhook processed successfully." });
+  } catch (err: any) {
+    console.error("[Paddle Webhook Error]", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// SECURE BILLING/PLAN CONFIGURATION ENDPOINTS (Auth Gated)
+// -------------------------------------------------------------
+app.post("/api/billing/activate-free", authenticateUser, async (req: any, res) => {
+  try {
+    const uid = req.user.uid;
+    await dbAdmin.collection("users").doc(uid).update({
+      plan: 'free',
+      extraSeats: 0,
+      subscriptionStatus: 'active',
+      trialActive: false,
+      manualPaymentPending: false,
+      updatedAt: new Date().toISOString()
+    });
+    return res.json({ success: true, plan: 'free' });
+  } catch (err: any) {
+    console.error("Free activation failed:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/billing/activate-trial", authenticateUser, async (req: any, res) => {
+  try {
+    const { planId, trialDays } = req.body;
+    const uid = req.user.uid;
+    
+    const userDoc = await dbAdmin.collection("users").doc(uid).get();
+    const userData = userDoc.data();
+    if (userData?.hasHadTrial) {
+      return res.status(400).json({ error: "Trial registration key already claimed or expired." });
+    }
+
+    const days = trialDays || 14;
+    const trialStartDate = new Date().toISOString();
+    const trialEndDate = new Date(Date.now() + (days * 24 * 60 * 60 * 1000)).toISOString();
+
+    await dbAdmin.collection("users").doc(uid).update({
+      plan: planId,
+      subscriptionStatus: 'trialing',
+      trialStartDate,
+      trialEndDate,
+      trialActive: true,
+      hasHadTrial: true,
+      updatedAt: new Date().toISOString()
+    });
+
+    return res.json({ success: true, plan: planId, subscriptionStatus: 'trialing' });
+  } catch (err: any) {
+    console.error("Trial activation failed:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/billing/activate-manual", authenticateUser, async (req: any, res) => {
+  try {
+    const { planId, referenceId } = req.body;
+    const uid = req.user.uid;
+    await dbAdmin.collection("users").doc(uid).update({
+      plan: planId,
+      manualPaymentPending: true,
+      manualPaymentReference: referenceId || '',
+      subscriptionStatus: 'pending',
+      updatedAt: new Date().toISOString()
+    });
+    return res.json({ success: true, plan: planId, subscriptionStatus: 'pending' });
+  } catch (err: any) {
+    console.error("Manual activation failed:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+
 // API routes
 
 // Heuristic Fallback Check Helper
@@ -55,7 +289,7 @@ const isQuotaError = (error: any): boolean => {
   return status === 429 || message.includes("quota") || message.includes("resource_exhausted") || message.includes("limit exceeded") || message.includes("429");
 };
 
-app.post("/api/analyze-item", async (req, res) => {
+app.post("/api/analyze-item", authenticateUser, async (req, res) => {
   const { url, productName } = req.body;
   try {
     let webpageTextContent = "";
@@ -181,7 +415,7 @@ app.post("/api/analyze-item", async (req, res) => {
   }
 });
 
-app.post("/api/url-to-base64", async (req, res) => {
+app.post("/api/url-to-base64", authenticateUser, async (req, res) => {
   const { url } = req.body;
   if (!url) {
     return res.status(400).json({ error: "URL is required" });
@@ -197,7 +431,7 @@ app.post("/api/url-to-base64", async (req, res) => {
   }
 });
 
-app.post("/api/map-inventory", async (req, res) => {
+app.post("/api/map-inventory", authenticateUser, async (req, res) => {
   const { headers, sampleData } = req.body;
   try {
     const response = await ai.models.generateContent({
@@ -317,7 +551,7 @@ app.post("/api/map-inventory", async (req, res) => {
   }
 });
 
-app.post("/api/register-serial-model", async (req, res) => {
+app.post("/api/register-serial-model", authenticateUser, async (req, res) => {
   const { productName, textContext, photoBase64 } = req.body;
   try {
     const parts: any[] = [];
@@ -413,7 +647,7 @@ app.post("/api/register-serial-model", async (req, res) => {
   }
 });
 
-app.post("/api/dukey-chat", async (req, res) => {
+app.post("/api/dukey-chat", authenticateUser, async (req, res) => {
   const { message, history, gear, packingLists, customInventories, containers, userProfile, recentViews } = req.body;
   try {
     // 1. Classify use-case dynamically based on gear list & container metrics
@@ -557,7 +791,7 @@ Here is your live workspace audit telemetry:
   }
 });
 
-app.post("/api/check-compatibility", async (req, res) => {
+app.post("/api/check-compatibility", authenticateUser, async (req, res) => {
   const { items } = req.body;
   try {
     const response = await ai.models.generateContent({
@@ -649,7 +883,7 @@ app.post("/api/check-compatibility", async (req, res) => {
   }
 });
 
-app.post("/api/compare-items", async (req, res) => {
+app.post("/api/compare-items", authenticateUser, async (req, res) => {
   const { itemA, itemB } = req.body;
   try {
     const response = await ai.models.generateContent({
@@ -708,7 +942,7 @@ app.post("/api/compare-items", async (req, res) => {
   }
 });
 
-app.post("/api/generate-description", async (req, res) => {
+app.post("/api/generate-description", authenticateUser, async (req, res) => {
   const { name, brand, model, description, isKit, childItems } = req.body;
   try {
     let prompt = `You are an expert equipment inventory cataloging assistant. Your job is to draft or refine a professional, concise product description for a gear inventory item or custom equipment kit.
@@ -762,7 +996,7 @@ ${childItems.map((item: any) => `  * ${item.name || item} (Brand: ${item.brand |
   }
 });
 
-app.post("/api/estimate-weight", async (req, res) => {
+app.post("/api/estimate-weight", authenticateUser, async (req, res) => {
   const { name, brand, model, description } = req.body;
   try {
     const prompt = `You are an expert equipment cataloging and logistics assistant. Your job is to search for or calculate the physical weight of an item based on its name, brand, model, and description. Do not guess wildly, but provide realistic or exact specifications.
@@ -842,7 +1076,7 @@ app.post("/api/estimate-weight", async (req, res) => {
 });
 
 // Scenario Builder Suggestion Endpoint
-app.post("/api/generate-scenario-list", async (req, res) => {
+app.post("/api/generate-scenario-list", authenticateUser, async (req, res) => {
   const { brief, gear } = req.body;
   try {
     const gearSummary = Array.isArray(gear)
@@ -1052,7 +1286,7 @@ app.post("/api/generate-scenario-list", async (req, res) => {
 });
 
 // Traveller Module Itinerary Suggester Endpoint
-app.post("/api/generate-travel-itinerary", async (req, res) => {
+app.post("/api/generate-travel-itinerary", authenticateUser, async (req, res) => {
   const { destination, startDate, endDate, purpose, climate, transport } = req.body;
   try {
     const prompt = `You are a luxury travel helper and professional flight itinerary planner.
@@ -1191,7 +1425,7 @@ app.post("/api/generate-travel-itinerary", async (req, res) => {
   }
 });
 
-app.post("/api/paypal/create-order", async (req, res) => {
+app.post("/api/paypal/create-order", authenticateUser, async (req, res) => {
   try {
     const { planId, amount } = req.body;
     const accessToken = await getPayPalAccessToken();
@@ -1225,9 +1459,9 @@ app.post("/api/paypal/create-order", async (req, res) => {
   }
 });
 
-app.post("/api/paypal/capture-order", async (req, res) => {
+app.post("/api/paypal/capture-order", authenticateUser, async (req: any, res) => {
   try {
-    const { orderID } = req.body;
+    const { orderID, planId, extraSeats } = req.body;
     const accessToken = await getPayPalAccessToken();
 
     const response = await axios.post(
@@ -1241,6 +1475,18 @@ app.post("/api/paypal/capture-order", async (req, res) => {
       }
     );
 
+    if (response.data.status === 'COMPLETED') {
+      const uid = req.user.uid;
+      await dbAdmin.collection("users").doc(uid).update({
+        plan: planId || 'pro',
+        extraSeats: extraSeats || 0,
+        subscriptionStatus: 'active',
+        trialActive: false,
+        updatedAt: new Date().toISOString()
+      });
+      console.log(`[PayPal] Successfully validated and upgraded user ${uid} to plan ${planId}`);
+    }
+
     res.json(response.data);
   } catch (error: any) {
     console.error("PayPal Capture Order Error:", error.response?.data || error.message);
@@ -1248,7 +1494,7 @@ app.post("/api/paypal/capture-order", async (req, res) => {
   }
 });
 
-app.post("/api/send-email", async (req, res) => {
+app.post("/api/send-email", authenticateUser, async (req, res) => {
   const { to, orderNumber, actionType, userName, items, timestamp } = req.body;
   
   if (!to) {
@@ -1394,7 +1640,7 @@ app.post("/api/send-email", async (req, res) => {
   }
 });
 
-app.post("/api/send-welcome-email", async (req, res) => {
+app.post("/api/send-welcome-email", authenticateUser, async (req, res) => {
   const { to, displayName, subPlan = "Free Starter" } = req.body;
 
   if (!to) {
@@ -1520,7 +1766,7 @@ app.post("/api/send-welcome-email", async (req, res) => {
   }
 });
 
-app.post("/api/send-contact-email", async (req, res) => {
+app.post("/api/send-contact-email", authenticateUser, async (req, res) => {
   const { firstName, lastName, email, message, timestamp } = req.body;
 
   if (!email || !message) {
@@ -1625,7 +1871,7 @@ app.post("/api/send-contact-email", async (req, res) => {
   }
 });
 
-app.get("/api/gcp-pricing", async (req, res) => {
+app.get("/api/gcp-pricing", authenticateUser, async (req, res) => {
   const defaultRates = {
     cloudRun: {
       cpuSecond: 0.000024,
@@ -1785,7 +2031,7 @@ app.get("/api/gcp-pricing", async (req, res) => {
 // -------------------------------------------------------------
 // Supplier Scan / Web Scraper Endpoint
 // -------------------------------------------------------------
-app.post("/api/services/suppliers", async (req, res) => {
+app.post("/api/services/suppliers", authenticateUser, async (req, res) => {
   const { query: searchQuery, isEnabled, modelName } = req.body;
   
   const MOCK_SUPPLIERS_CATALOG = [
@@ -1863,7 +2109,7 @@ app.post("/api/services/suppliers", async (req, res) => {
 // -------------------------------------------------------------
 // BOM Lead Time & Supply Chain Risk Analyzer Endpoint
 // -------------------------------------------------------------
-app.post("/api/services/analyze-leads", async (req, res) => {
+app.post("/api/services/analyze-leads", authenticateUser, async (req, res) => {
   const { items, isEnabled, riskThreshold } = req.body;
   const thresholdValue = riskThreshold || 7;
 
@@ -2115,6 +2361,12 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
+    
+    // Explicitly return 404 for missing static assets instead of serving index.html
+    app.use("/assets", (req, res) => {
+      res.status(404).send("Asset not found");
+    });
+
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });

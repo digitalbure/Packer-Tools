@@ -28,13 +28,19 @@ import {
   ShoppingBag,
   Sliders,
   CheckSquare,
-  Tv
+  Tv,
+  Pencil,
+  FileDown,
+  Smartphone,
+  Sparkles,
+  Check,
+  Volume2
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import SignatureCanvas from 'react-signature-canvas';
 import { QRCodeCanvas } from 'qrcode.react';
 import { collection, query, where, getDocs, getDoc, addDoc, deleteDoc, serverTimestamp, doc, updateDoc, onSnapshot, limit, arrayUnion } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, handleFirestoreError, OperationType, signInWithGoogle } from '../firebase';
 import { triggerGoogleChatAlert } from '../services/googleChat';
 import { GearItem, UserProfile, CheckoutRecord, AdminSettings, Container } from '../types';
 import PackerLogo from '../components/PackerLogo';
@@ -57,13 +63,14 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   const [checkingPlan, setCheckingPlan] = useState<boolean>(false);
   const [step, setStep] = useState<KioskStep>('welcome');
   const [escapeTaps, setEscapeTaps] = useState(0);
+  const [cameraAccessError, setCameraAccessError] = useState<string | null>(null);
 
   // Active Terminal Source Configuration
   const [activeSourceType, setActiveSourceType] = useState<'gearLibrary' | 'customInventory'>('gearLibrary');
   const [terminalInventoryId, setTerminalInventoryId] = useState<string | null>(null);
 
   // administrative states for Kiosk Controller Hub
-  const [adminTab, setAdminTab] = useState<'hub' | 'devices' | 'scanner'>('hub');
+  const [adminTab, setAdminTab] = useState<'hub' | 'devices' | 'scanner' | 'downloads'>('hub');
   const [terminalsList, setTerminalsList] = useState<any[]>([]);
   
   // Customization preferences in state with persistent memory
@@ -88,6 +95,48 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   const [showTimestampSetting, setShowTimestampSetting] = useState<boolean>(
     localStorage.getItem('kiosk_show_timestamp') !== 'false'
   );
+
+  const [editingTerminalId, setEditingTerminalId] = useState<string | null>(null);
+
+  const [isScannerApp, setIsScannerApp] = useState<boolean>(
+    window.location.hash.includes('scannerApp=true') || window.location.search.includes('scannerApp=true')
+  );
+
+  useEffect(() => {
+    const handleHash = () => {
+      setIsScannerApp(
+        window.location.hash.includes('scannerApp=true') || window.location.search.includes('scannerApp=true')
+      );
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  // PWA Scanner focused states
+  const [pwaMode, setPwaMode] = useState<'checkout' | 'checkin' | 'lookup'>('checkout');
+  const [pwaScannerActive, setPwaScannerActive] = useState<boolean>(false);
+  const [pwaLatestScannedItem, setPwaLatestScannedItem] = useState<GearItem | null>(null);
+  const [pwaManualInput, setPwaManualInput] = useState<string>('');
+  const [pwaSessionLogs, setPwaSessionLogs] = useState<{
+    id: string;
+    itemName: string;
+    brand: string;
+    action: 'in' | 'out' | 'lookup';
+    assignee?: string;
+    timestamp: Date;
+    assetTag: string;
+  }[]>([]);
+
+  // PWA Install prompt trigger state
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any | null>(null);
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
   
   // Terminal creation & list states
   const [showAddTerminalModal, setShowAddTerminalModal] = useState<boolean>(false);
@@ -136,6 +185,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
 
   useEffect(() => {
     if (!isInstantScannerActive || adminTab !== 'scanner') {
+      setCameraAccessError(null);
       if (instantScannerRef.current) {
         try {
           if (instantScannerRef.current.isScanning) {
@@ -153,6 +203,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     let retryCount = 0;
 
     const startInstantScanner = () => {
+      setCameraAccessError(null);
       const el = document.getElementById("gear-instant-scanner");
       if (!el) {
         if (isSubscribed && retryCount < 40) {
@@ -201,10 +252,16 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
               handleInstantScanSuccess(decodedText);
             },
             () => {}
-          ).catch(e => console.error("Camera access failed:", e));
+          ).catch(e => {
+            console.error("Camera access failed:", e);
+            if (isSubscribed) {
+              setCameraAccessError(e.message || String(e));
+            }
+          });
         });
       } catch (err) {
         console.error("Instant barcode scanner failed startup", err);
+        setCameraAccessError(String(err));
       }
     };
 
@@ -224,6 +281,324 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       }
     };
   }, [isInstantScannerActive, adminTab]);
+
+  const playScanChime = (type: 'success' | 'double' | 'error' = 'success') => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (type === 'success') {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.14);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.14);
+      } else if (type === 'double') {
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.frequency.setValueAtTime(1100, ctx.currentTime);
+        gain1.gain.setValueAtTime(0.08, ctx.currentTime);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start();
+        osc1.stop(ctx.currentTime + 0.05);
+
+        setTimeout(() => {
+          const osc2 = ctx.createOscillator();
+          const gain2 = ctx.createGain();
+          osc2.frequency.setValueAtTime(1400, ctx.currentTime);
+          gain2.gain.setValueAtTime(0.08, ctx.currentTime);
+          osc2.connect(gain2);
+          gain2.connect(ctx.destination);
+          osc2.start();
+          osc2.stop(ctx.currentTime + 0.05);
+        }, 60);
+      } else {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, ctx.currentTime);
+        gain.gain.setValueAtTime(0.16, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.28);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.28);
+      }
+    } catch (err) {
+      console.warn("Audio chime block:", err);
+    }
+  };
+
+  const triggerPwaInstall = async () => {
+    if (!deferredInstallPrompt) {
+      toast.info("Install prompt isn't armed yet. Please use browser's Share/Settings overlay and select 'Add to Home Screen'!");
+      return;
+    }
+    try {
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        toast.success("Successfully installed Packer Tools Scanner App!");
+      }
+      setDeferredInstallPrompt(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const pwaScannerRef = useRef<Html5Qrcode | null>(null);
+
+  useEffect(() => {
+    if (!pwaScannerActive || !isScannerApp) {
+      setCameraAccessError(null);
+      if (pwaScannerRef.current) {
+        try {
+          if (pwaScannerRef.current.isScanning) {
+            pwaScannerRef.current.stop().catch(e => console.log(e));
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+        pwaScannerRef.current = null;
+      }
+      return;
+    }
+
+    let isSubscribed = true;
+    let retryCount = 0;
+
+    const startPwaScanner = () => {
+      setCameraAccessError(null);
+      const el = document.getElementById("pwa-scanner-viewport");
+      if (!el) {
+        if (isSubscribed && retryCount < 45) {
+          retryCount++;
+          setTimeout(startPwaScanner, 120);
+        }
+        return;
+      }
+
+      try {
+        const scanner = new Html5Qrcode("pwa-scanner-viewport");
+        pwaScannerRef.current = scanner;
+
+        scanner.start(
+          { facingMode: "environment" },
+          { fps: 12, qrbox: { width: 260, height: 260 } },
+          (decodedText) => {
+            const now = Date.now();
+            if (
+              lastInstantScannedRef.current &&
+              lastInstantScannedRef.current.code === decodedText &&
+              now - lastInstantScannedRef.current.time < 2200
+            ) {
+              return;
+            }
+            lastInstantScannedRef.current = { code: decodedText, time: now };
+            playScanChime('success');
+            handlePwaScan(decodedText);
+          },
+          () => {}
+        ).catch(() => {
+          if (!isSubscribed) return;
+          scanner.start(
+            { facingMode: "user" },
+            { fps: 12, qrbox: { width: 260, height: 260 } },
+            (decodedText) => {
+              const now = Date.now();
+              if (
+                lastInstantScannedRef.current &&
+                lastInstantScannedRef.current.code === decodedText &&
+                now - lastInstantScannedRef.current.time < 2200
+              ) {
+                return;
+              }
+              lastInstantScannedRef.current = { code: decodedText, time: now };
+              playScanChime('success');
+              handlePwaScan(decodedText);
+            },
+            () => {}
+          ).catch(e => {
+            console.error("PWA Cam start fail:", e);
+            if (isSubscribed) {
+              setCameraAccessError(e.message || String(e));
+            }
+          });
+        });
+      } catch (err) {
+        console.error("HTML5Qrcode setup error in PWA mode:", err);
+        setCameraAccessError(String(err));
+      }
+    };
+
+    startPwaScanner();
+
+    return () => {
+      isSubscribed = false;
+      if (pwaScannerRef.current) {
+        try {
+          if (pwaScannerRef.current.isScanning) {
+            pwaScannerRef.current.stop().catch(e => console.log(e));
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+        pwaScannerRef.current = null;
+      }
+    };
+  }, [pwaScannerActive, isScannerApp, pwaMode]);
+
+  const handlePwaScan = async (scannedValue: string) => {
+    const targetUid = initialUser?.uid;
+    if (!targetUid) {
+      toast.error("Please authentication register in this app first.");
+      return;
+    }
+
+    let decodedValue = scannedValue.trim();
+    if (decodedValue.includes('/gear/')) {
+      try {
+        const urlObj = new URL(decodedValue);
+        const pathParts = urlObj.pathname.split('/');
+        const gearIdx = pathParts.indexOf('gear');
+        if (gearIdx !== -1 && pathParts[gearIdx + 1]) {
+          decodedValue = pathParts[gearIdx + 1];
+        }
+      } catch (e) {
+        const parts = decodedValue.split('/gear/');
+        if (parts[1]) {
+          decodedValue = parts[1].split('?')[0];
+        }
+      }
+    }
+
+    try {
+      let foundItem: GearItem | null = null;
+      const directRef = doc(db, 'users', targetUid, 'gearLibrary', decodedValue);
+      const directSnap = await getDoc(directRef);
+      if (directSnap.exists()) {
+        foundItem = { id: directSnap.id, ...directSnap.data() } as GearItem;
+      } else {
+        const qTag = query(
+          collection(db, 'users', targetUid, 'gearLibrary'),
+          where('assetTag', '==', decodedValue),
+          limit(1)
+        );
+        const tagSnap = await getDocs(qTag);
+        if (!tagSnap.empty) {
+          foundItem = { id: tagSnap.docs[0].id, ...tagSnap.docs[0].data() } as GearItem;
+        } else {
+          const qRawTag = query(
+            collection(db, 'users', targetUid, 'gearLibrary'),
+            where('assetTag', '==', scannedValue),
+            limit(1)
+          );
+          const rawTagSnap = await getDocs(qRawTag);
+          if (!rawTagSnap.empty) {
+            foundItem = { id: rawTagSnap.docs[0].id, ...rawTagSnap.docs[0].data() } as GearItem;
+          }
+        }
+      }
+
+      if (!foundItem) {
+        playScanChime('error');
+        toast.error(`No equipment matches asset tag "${decodedValue}"`);
+        return;
+      }
+
+      setPwaLatestScannedItem(foundItem);
+
+      const userGearRef = doc(db, 'users', targetUid, 'gearLibrary', foundItem.id);
+
+      if (pwaMode === 'checkin') {
+        await updateDoc(userGearRef, {
+          status: 'available',
+          currentHolder: "",
+          lastCheckedIn: serverTimestamp()
+        });
+
+        await addDoc(collection(db, 'checkouts'), {
+          assetId: foundItem.id,
+          assetName: foundItem.name,
+          assetType: 'item',
+          userId: targetUid,
+          userName: foundItem.currentHolder || 'Assigned Holder',
+          userEmail: '',
+          checkInTime: serverTimestamp(),
+          status: 'returned',
+          notes: `Checked-in securely via PWA Scanner App`
+        });
+
+        setPwaSessionLogs(prev => [
+          {
+            id: Math.random().toString(),
+            itemName: foundItem!.name,
+            brand: foundItem!.brand || '',
+            action: 'in',
+            timestamp: new Date(),
+            assetTag: foundItem!.assetTag || foundItem!.id
+          },
+          ...prev
+        ]);
+        toast.success(`✓ Checked IN: ${foundItem.name}`);
+      } else if (pwaMode === 'checkout') {
+        const holderName = scannerAssignee.trim() || initialUser?.displayName || 'PWA Scanner Operator';
+        await updateDoc(userGearRef, {
+          status: 'in_use',
+          currentHolder: holderName,
+          lastCheckedOut: serverTimestamp()
+        });
+
+        await addDoc(collection(db, 'checkouts'), {
+          assetId: foundItem.id,
+          assetName: foundItem.name,
+          assetType: 'item',
+          userId: targetUid,
+          userName: holderName,
+          userEmail: scannerAssigneeEmail || '',
+          checkOutTime: serverTimestamp(),
+          status: 'checked_out',
+          notes: `Checked-out securely via PWA Scanner App to ${holderName}`
+        });
+
+        setPwaSessionLogs(prev => [
+          {
+            id: Math.random().toString(),
+            itemName: foundItem!.name,
+            brand: foundItem!.brand || '',
+            action: 'out',
+            assignee: holderName,
+            timestamp: new Date(),
+            assetTag: foundItem!.assetTag || foundItem!.id
+          },
+          ...prev
+        ]);
+        toast.success(`➜ Checked OUT: ${foundItem.name} to ${holderName}`);
+      } else {
+        // Spec Board / Lookup
+        setPwaSessionLogs(prev => [
+          {
+            id: Math.random().toString(),
+            itemName: foundItem!.name,
+            brand: foundItem!.brand || '',
+            action: 'lookup',
+            timestamp: new Date(),
+            assetTag: foundItem!.assetTag || foundItem!.id
+          },
+          ...prev
+        ]);
+        toast.success(`🔍 Resolved specs for "${foundItem.name}"`);
+      }
+    } catch (err) {
+      console.error("PWA Scan execution error:", err);
+      playScanChime('error');
+      toast.error("Handheld transition failed.");
+    }
+  };
 
   const processAutoCheckInOut = async (scannedValue: string) => {
     const targetUid = initialUser?.uid;
@@ -1642,6 +2017,18 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
           >
             Gear Scanner (Auto-Check)
           </button>
+          <button
+            onClick={() => {
+              setAdminTab('downloads');
+              setIsInstantScannerActive(false);
+            }}
+            className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-205 cursor-pointer flex items-center gap-1.5 ${
+              adminTab === 'downloads' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+          >
+            <FileDown size={14} />
+            <span>Downloads</span>
+          </button>
         </div>
 
         {/* Tab Content Panels */}
@@ -1877,8 +2264,52 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                       <div key={terminal.id} className="bg-white rounded-3xl border border-neutral-200 p-6 flex flex-col justify-between shadow-sm space-y-6">
                         <div className="space-y-4">
                           <div className="flex items-start justify-between">
-                            <div className="space-y-0.5">
-                              <h4 className="text-sm font-black uppercase tracking-wide text-neutral-900">{terminal.deviceName}</h4>
+                            <div className="space-y-0.5 flex-1 mr-2">
+                              {editingTerminalId === terminal.id ? (
+                                <input
+                                  type="text"
+                                  defaultValue={terminal.deviceName}
+                                  autoFocus
+                                  onBlur={async (e) => {
+                                    const val = e.target.value.trim();
+                                    setEditingTerminalId(null);
+                                    if (val && val !== terminal.deviceName) {
+                                      try {
+                                        await updateDoc(doc(db, 'terminals', terminal.id), { deviceName: val });
+                                        toast.success(`Kiosk name updated to "${val}"`);
+                                      } catch (err) {
+                                        toast.error("Failed to update Kiosk name");
+                                      }
+                                    }
+                                  }}
+                                  onKeyDown={async (e) => {
+                                    if (e.key === 'Enter') {
+                                      const val = (e.target as HTMLInputElement).value.trim();
+                                      setEditingTerminalId(null);
+                                      if (val && val !== terminal.deviceName) {
+                                        try {
+                                          await updateDoc(doc(db, 'terminals', terminal.id), { deviceName: val });
+                                          toast.success(`Kiosk name updated to "${val}"`);
+                                        } catch (err) {
+                                          toast.error("Failed to update Kiosk name");
+                                        }
+                                      }
+                                    } else if (e.key === 'Escape') {
+                                      setEditingTerminalId(null);
+                                    }
+                                  }}
+                                  className="text-sm font-black uppercase tracking-wide text-neutral-900 border-b border-neutral-300 focus:outline-none focus:border-neutral-500 bg-transparent py-0 w-full"
+                                />
+                              ) : (
+                                <h4 
+                                  onDoubleClick={() => setEditingTerminalId(terminal.id)}
+                                  title="Double click to edit custom Kiosk label"
+                                  className="text-sm font-black uppercase tracking-wide text-neutral-900 cursor-pointer hover:opacity-80 transition flex items-center gap-1 group/label"
+                                >
+                                  <span>{terminal.deviceName}</span>
+                                  <Pencil size={11} className="text-neutral-300 group-hover/label:text-neutral-500 transition-colors shrink-0 ml-1" />
+                                </h4>
+                              )}
                               <p className="text-[10px] text-neutral-400 font-mono uppercase tracking-widest font-bold">Terminal ID: {terminal.id.substring(0, 8)}</p>
                             </div>
                             <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border leading-none ${statusBadge}`}>
@@ -1970,7 +2401,40 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                 {/* Live Scanner Placeholder/Viewport */}
                 <div className="relative aspect-video rounded-2xl bg-neutral-950 overflow-hidden border border-neutral-300 m-auto max-w-lg flex flex-col justify-center items-center text-center">
                   {isInstantScannerActive ? (
-                    <div id="gear-instant-scanner" className="w-full h-full object-cover relative select-none" />
+                    cameraAccessError ? (
+                      <div className="p-4 text-center max-w-md mx-auto space-y-3 text-neutral-200">
+                        <div className="w-8 h-8 rounded-full bg-rose-900/20 text-rose-500 font-extrabold flex items-center justify-center mx-auto text-sm">
+                          ⚠️
+                        </div>
+                        <div className="space-y-1 text-xs text-rose-300">
+                          <h5 className="font-extrabold uppercase tracking-wider text-[10px]">IFrame Camera Restricted</h5>
+                          <p className="normal-case leading-relaxed font-sans text-[10px] text-neutral-400">
+                            The sandboxed preview iframe blocked browser camera permissions (<code className="font-mono bg-neutral-900 px-1 py-0.5 rounded text-neutral-300 text-[9px]">{cameraAccessError}</code>).
+                          </p>
+                        </div>
+                        <div className="flex gap-2 shrink-0 justify-center">
+                          <button
+                            onClick={() => {
+                              window.open(window.location.origin + window.location.pathname + window.location.hash, '_blank');
+                            }}
+                            className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition cursor-pointer"
+                          >
+                            Open in New Tab
+                          </button>
+                          <button
+                            onClick={() => {
+                              setCameraAccessError(null);
+                              setIsInstantScannerActive(false);
+                            }}
+                            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition cursor-pointer"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div id="gear-instant-scanner" className="w-full h-full object-cover relative select-none" />
+                    )
                   ) : (
                     <div className="p-6 space-y-4">
                       <div className="w-14 h-14 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mx-auto text-neutral-400">
@@ -1984,7 +2448,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                       </div>
                     </div>
                   )}
-                  {isInstantScannerActive && (
+                  {isInstantScannerActive && !cameraAccessError && (
                     <div className="absolute inset-0 border-2 border-[#F27D26]/20 pointer-events-none flex items-center justify-center">
                       <div className="w-56 h-56 border-2 border-dashed border-[#F27D26]/60 rounded-3xl animate-pulse" />
                     </div>
@@ -2099,6 +2563,169 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
               </div>
             </motion.div>
           )}
+
+          {adminTab === 'downloads' && (
+            <motion.div
+              key="tab-downloads"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="grid lg:grid-cols-12 gap-8 text-neutral-900 animate-fadeIn"
+            >
+              {/* Launcher Card */}
+              <div className="lg:col-span-7 bg-white rounded-[2rem] border border-neutral-200 p-6 sm:p-8 space-y-6 shadow-sm">
+                <div className="space-y-1 border-b border-neutral-100 pb-4">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#F27D26]/10 text-[#F27D26] rounded-full text-[10px] font-black uppercase tracking-widest mb-2">
+                    <Sparkles size={11} className="animate-pulse" />
+                    <span>Next-Gen Enterprise scanning</span>
+                  </div>
+                  <h3 className="text-xl font-black uppercase tracking-tight text-neutral-900">Packer Tools Dedicated Scanner App</h3>
+                  <p className="text-sm text-neutral-500 font-medium font-sans">
+                    Convert any iOS or Android smartphone into a dedicated full-screen barcode & QR code scanning terminal.
+                  </p>
+                </div>
+
+                <div className="space-y-4 text-xs font-semibold leading-relaxed text-neutral-500 uppercase">
+                  <p className="font-sans normal-case leading-relaxed text-neutral-500">
+                    Unlike default web dashboards, the **Packer Tools Scanner App** is a specialized, light-weight, high-frequency scan terminal client. When launched as an installed Progressive Web App (PWA):
+                  </p>
+                  
+                  <ul className="space-y-2 border-l-2 border-neutral-200 pl-4 py-1">
+                    <li className="flex items-start gap-2 normal-case font-sans">
+                      <Check size={14} className="text-[#F27D26] shrink-0 mt-0.5" />
+                      <span>**Distraction Free Layout**: Completely strips standard app menus, wrappers, sidebars and headers for a pristine native utility appearance.</span>
+                    </li>
+                    <li className="flex items-start gap-2 normal-case font-sans">
+                      <Check size={14} className="text-[#F27D26] shrink-0 mt-0.5" />
+                      <span>**Integrated single Sign-On (SSO)**: Operates securely on behalf of your standard logged-in user profile.</span>
+                    </li>
+                    <li className="flex items-start gap-2 normal-case font-sans">
+                      <Check size={14} className="text-[#F27D26] shrink-0 mt-0.5" />
+                      <span>**Acoustic Synthesizer feedback**: Emits high-quality audio chirps and buzzing status cues to prevent visual lookup fatigue in rugged field/warehouse spaces.</span>
+                    </li>
+                  </ul>
+
+                  <div className="bg-neutral-50 border border-neutral-150 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 border-solid">
+                    <div className="text-center md:text-left font-sans normal-case">
+                      <h4 className="font-black uppercase text-neutral-800 tracking-wider text-[11px]">Instant Desktop Sandbox</h4>
+                      <p className="text-[10px] text-neutral-450 leading-relaxed font-semibold uppercase font-mono mt-0.5">Test drive the mobile scanner module inside your current screen layout</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        window.location.hash = '#/kiosk?scannerApp=true&hideLayout=true';
+                        playScanChime('double');
+                      }}
+                      className="px-5 py-3 bg-[#F27D26] hover:bg-[#F27D15] text-white text-xs font-black uppercase tracking-widest rounded-xl transition flex items-center justify-center gap-1.5 shrink-0 shadow-md shadow-[#F27D26]/20 cursor-pointer text-center"
+                    >
+                      <Scan size={14} />
+                      <span>Launch Preview Mode</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Progressive Web App Install Instruction grid */}
+                <div className="border-t border-neutral-100 pt-6 space-y-4">
+                  <h4 className="text-xs font-black uppercase tracking-wide text-neutral-900 flex items-center gap-2">
+                    <Smartphone size={16} className="text-neutral-500" />
+                    How to Download & Save to Home Screen
+                  </h4>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="bg-neutral-50 border border-neutral-150 p-4 rounded-2xl space-y-2 border-solid">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold">🍏</span>
+                        <span className="text-xs font-black uppercase tracking-wider text-neutral-800">Apple iOS Guide (Safari)</span>
+                      </div>
+                      <ol className="text-[10px] leading-relaxed text-neutral-500 list-decimal pl-4 font-semibold uppercase font-sans space-y-1">
+                        <li>Scan the on-screen QR code to open the launcher link in Safari</li>
+                        <li>Tap the **"Share"** icon (square with arrow) on bottom navbar</li>
+                        <li>Scroll down and select **"Add to Home Screen"** option</li>
+                        <li>Give it a title (e.g. Packer Scanner) and tap **"Add"**!</li>
+                      </ol>
+                    </div>
+
+                    <div className="bg-neutral-50 border border-neutral-150 p-4 rounded-2xl space-y-2 border-solid">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold">🤖</span>
+                        <span className="text-xs font-black uppercase tracking-wider text-neutral-800">Android Guide (Chrome)</span>
+                      </div>
+                      <ol className="text-[10px] leading-relaxed text-neutral-500 list-decimal pl-4 font-semibold uppercase font-sans space-y-1">
+                        <li>Scan the on-screen QR code to load the app inside Chrome</li>
+                        <li>Tap the **3-dots menu** on Chrome's upper title bar</li>
+                        <li>Select **"Install App"** / **"Add to Home Screen"** option</li>
+                        <li>Confirm the Google Chrome popup to finish installing!</li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* QR Code and install box */}
+              <div className="lg:col-span-5 flex flex-col gap-6">
+                {/* Visual Phone Frame with QR Code */}
+                <div className="bg-neutral-900 text-white rounded-[2rem] p-6 text-center space-y-6 flex flex-col items-center justify-between border border-neutral-800 shadow-md relative overflow-hidden min-h-[440px] border-solid">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#F27D26]/10 rounded-full blur-3xl pointer-events-none" />
+                  
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-black uppercase tracking-tighter text-white leading-none">Instant Handheld QR Pairing</h3>
+                    <p className="text-neutral-550 text-[9px] font-black uppercase tracking-widest block pt-1">Scan using phone camera to pair and install</p>
+                  </div>
+
+                  {/* QR Code Canvas */}
+                  <div className="bg-white p-4.5 rounded-3xl border-4 border-solid border-neutral-800 shadow-xl inline-block">
+                    <QRCodeCanvas
+                      value={`${window.location.protocol}//${window.location.host}${window.location.pathname}#/kiosk?scannerApp=true&hideLayout=true`}
+                      size={175}
+                      level="H"
+                      includeMargin={false}
+                    />
+                  </div>
+
+                  <div className="space-y-2 bg-black/40 p-3.5 rounded-2xl border border-white/5 w-full text-left font-mono text-[9px] border-solid">
+                    <div className="flex justify-between items-center">
+                      <span className="text-neutral-550 uppercase font-bold">Target PWA URL:</span>
+                      <span className="text-neutral-200 font-bold max-w-[150px] truncate leading-none">
+                        {window.location.host}/#/kiosk
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-neutral-550 uppercase font-bold">Query Flag:</span>
+                      <span className="text-amber-500 font-extrabold uppercase flex items-center leading-none">
+                        scannerApp=true
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-neutral-550 uppercase font-bold">Layout Layer:</span>
+                      <span className="text-emerald-500 font-extrabold uppercase flex items-center leading-none">
+                        hideLayout=true
+                      </span>
+                    </div>
+                  </div>
+
+                  {deferredInstallPrompt && (
+                    <button
+                      onClick={triggerPwaInstall}
+                      className="w-full py-3 bg-white hover:bg-neutral-200 text-neutral-900 font-black text-xs uppercase tracking-widest rounded-xl transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Smartphone size={14} />
+                      <span>Install App Prompt</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Additional tips card */}
+                <div className="bg-white border border-neutral-200 rounded-[2rem] p-6 space-y-3.5 shadow-sm border-solid">
+                  <h4 className="text-xs font-black uppercase tracking-wide text-neutral-900 flex items-center gap-1.5">
+                    <Volume2 size={16} className="text-neutral-400 font-black animate-pulse" />
+                    Operator Audio Tuning
+                  </h4>
+                  <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wide leading-relaxed font-sans normal-case">
+                    The handheld PWA includes high-performance synthesizers to duplicate industrial laser gun audio alerts. Ensure your device sound bell ring is unmuted to receive real-time checkout success sound indicators.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
 
         {/* Modal: Register New Kiosk device */}
@@ -2167,6 +2794,330 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
             </div>
           )}
         </AnimatePresence>
+      </div>
+    );
+  }
+
+  if (isScannerApp) {
+    if (!initialUser) {
+      return (
+        <div className="min-h-screen bg-[#0D0D0D] text-white flex flex-col justify-center items-center p-6 font-sans">
+          <div className="max-w-md w-full bg-neutral-900 border border-neutral-800 p-8 rounded-[2rem] text-center space-y-6 shadow-2xl relative overflow-hidden border-solid">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#F27D26]/5 rounded-full blur-3xl" />
+            
+            <div className="w-16 h-16 bg-[#F27D26]/10 text-[#F27D26] rounded-2xl flex items-center justify-center mx-auto border border-[#F27D26]/20">
+              <Scan size={32} className="animate-pulse" />
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black uppercase tracking-tight text-white">Packer Tools</h2>
+              <h3 className="text-sm font-bold uppercase tracking-widest text-[#F27D26]">Dedicated Scanner App</h3>
+              <p className="text-xs text-neutral-400 leading-relaxed font-sans normal-case pt-2">
+                This is a secure enterprise scanning client. Authorized operators must sign in with their corporate credentials to begin tracking custody, auditing dispatches, or checking gear.
+              </p>
+            </div>
+
+            <button
+              onClick={async () => {
+                try {
+                  await signInWithGoogle();
+                } catch (e) {
+                  toast.error("Google Authentication authentication failed.");
+                }
+              }}
+              className="w-full py-4 bg-[#F27D26] hover:bg-[#F27D15] text-white rounded-2xl text-xs font-black uppercase tracking-widest transition shadow-lg shadow-[#F27D26]/20 flex items-center justify-center gap-2 cursor-pointer border-none"
+            >
+              <User size={16} />
+              <span>Operator Authenticate</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-[#0D0D0D] text-white flex flex-col font-sans select-none overflow-x-hidden">
+        {/* PWA App Titlebar */}
+        <header className="px-5 py-4 bg-neutral-950 border-b border-neutral-850 flex items-center justify-between shrink-0 border-solid">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#F27D26]/10 border border-[#F27D26]/20 flex items-center justify-center shrink-0">
+              <Scan size={18} className="text-[#F27D26]" />
+            </div>
+            <div>
+              <h1 className="text-xs font-black uppercase tracking-wider text-white leading-none">Packer Scanner</h1>
+              <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest block pt-0.5">Standalone Handheld</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex flex-col items-end text-right font-mono text-[9px] mr-1">
+              <span className="text-neutral-300 font-bold uppercase truncate max-w-[120px]">{initialUser.displayName}</span>
+              <span className="text-neutral-500 font-medium truncate max-w-[120px]">{initialUser.email}</span>
+            </div>
+            
+            <button
+              onClick={() => {
+                window.location.hash = '#/kiosk';
+                setIsScannerApp(false);
+              }}
+              className="px-3 py-1.5 bg-neutral-900 border border-neutral-800 hover:bg-[#F27D15] hover:text-white hover:border-[#F27D15] rounded-xl text-[9px] font-black uppercase tracking-wider transition cursor-pointer text-center"
+            >
+              Exit PWA
+            </button>
+          </div>
+        </header>
+
+        {/* Core content grid */}
+        <main className="flex-1 p-4 md:p-6 max-w-lg mx-auto w-full flex flex-col justify-start gap-4 h-full overflow-y-auto">
+          {/* Scanning Mode toggle */}
+          <div className="bg-neutral-950 border border-neutral-850 p-1 rounded-2xl flex gap-1 border-solid shrink-0">
+            {(['checkout', 'checkin', 'lookup'] as const).map((mode) => {
+              const label = mode === 'checkout' ? 'Check OUT' : mode === 'checkin' ? 'Check IN' : 'L-up Spec';
+              const activeBg = mode === 'checkout' 
+                ? 'bg-blue-600 text-white font-extrabold' 
+                : mode === 'checkin' 
+                  ? 'bg-green-600 text-white font-extrabold' 
+                  : 'bg-neutral-800 text-white font-extrabold';
+              
+              return (
+                <button
+                  key={mode}
+                  onClick={() => {
+                    setPwaMode(mode);
+                    playScanChime('double');
+                  }}
+                  className={`flex-1 py-3.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer border-none ${
+                    pwaMode === mode ? activeBg : 'text-neutral-500 hover:text-neutral-300 bg-transparent'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Scanner view port */}
+          <div className="bg-neutral-950 border border-neutral-850 rounded-[2rem] p-5 text-center flex flex-col items-center justify-center gap-4 border-solid min-h-[355px] relative overflow-hidden shrink-0">
+            <div className="absolute top-2 left-3 flex items-center gap-1">
+              <span className={`w-2 h-2 rounded-full ${pwaScannerActive ? 'bg-red-500 animate-pulse' : 'bg-neutral-600'}`} />
+              <span className="text-[8px] font-mono text-neutral-500 uppercase font-bold tracking-widest leading-none">
+                {pwaScannerActive ? 'Camera Live' : 'Camera Standby'}
+              </span>
+            </div>
+
+            {pwaScannerActive ? (
+              cameraAccessError ? (
+                <div className="w-full relative shrink-0">
+                  <div className="p-5 text-center bg-rose-950/20 border border-rose-800/40 rounded-2xl max-w-md mx-auto space-y-3.5 my-2 animate-fadeIn text-neutral-200">
+                    <div className="w-10 h-10 rounded-full bg-rose-900/20 text-rose-500 font-extrabold flex items-center justify-center mx-auto">
+                      ⚠️
+                    </div>
+                    <div className="space-y-1.5 text-xs text-rose-300">
+                      <h5 className="font-extrabold uppercase tracking-wider">Browser Blocked Camera Permissions</h5>
+                      <p className="normal-case leading-relaxed font-sans font-medium text-neutral-350">
+                        The browser rejected access to the camera system (specifically: <code className="font-mono bg-neutral-900 px-1 py-0.5 rounded text-neutral-200">{cameraAccessError}</code>).
+                      </p>
+                    </div>
+                    <div className="space-y-2 text-[11px] font-sans normal-case text-neutral-450 text-left bg-neutral-950/40 p-3.5 rounded-xl border border-neutral-850">
+                      <p className="font-black text-rose-300 uppercase text-[9px] tracking-wider mb-1">💡 Troubleshooting Steps:</p>
+                      <ul className="list-disc pl-4 space-y-1 text-xs text-neutral-300">
+                        <li>
+                          <strong>Open in New Tab:</strong> Sandboxed iframes block native camera hooks. Press <strong>"Open in New Tab"</strong> or copy-paste the URL above directly.
+                        </li>
+                        <li>
+                          <strong>Browser Permission Bar:</strong> Check address bar padlock icon or settings cog to grant <strong>Camera streams and access</strong> toggle.
+                        </li>
+                        <li>
+                          <strong>Force Reload:</strong> Refresh browser page state once camera permission is authorized.
+                        </li>
+                      </ul>
+                    </div>
+                    <div className="flex gap-2.5 pt-1.5 shrink-0 justify-center">
+                      <button
+                        onClick={() => {
+                          window.open(window.location.origin + window.location.pathname + window.location.hash, '_blank');
+                        }}
+                        className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition cursor-pointer"
+                      >
+                        Open in New Tab
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCameraAccessError(null);
+                          setPwaScannerActive(false);
+                        }}
+                        className="px-4 py-2 bg-rose-600 hover:bg-[#F27D26] text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition cursor-pointer"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full relative shrink-0">
+                  {/* Visual Viewfinder bracket overlay */}
+                  <div className="absolute inset-0 pointer-events-none z-10 p-8">
+                    <div className="w-full h-full border-2 border-dashed border-[#F27D26]/40 rounded-3xl relative">
+                      {/* Laser line effect */}
+                      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500/80 shadow-md shadow-red-500 animate-bounce" />
+                    </div>
+                  </div>
+
+                  <div 
+                    id="pwa-scanner-viewport" 
+                    className="w-full aspect-square max-w-[285px] mx-auto rounded-3xl overflow-hidden border border-neutral-800 bg-black relative"
+                  />
+
+                  <button
+                    onClick={() => {
+                      setPwaScannerActive(false);
+                      playScanChime('error');
+                    }}
+                    className="mt-4 px-6 py-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-500 border border-red-500/20 text-[10px] font-black uppercase tracking-widest rounded-xl transition cursor-pointer"
+                  >
+                    Stop Camera
+                  </button>
+                </div>
+              )
+            ) : (
+              <div className="space-y-6 py-4 flex flex-col items-center">
+                <div className="w-20 h-20 bg-neutral-905 border border-neutral-800 rounded-3xl flex items-center justify-center relative">
+                  <Scan size={36} className="text-neutral-600 animate-pulse" />
+                </div>
+                
+                <div className="space-y-1.5 max-w-xs mx-auto">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-neutral-400">Camera Lens Offline</h4>
+                  <p className="text-[10px] text-neutral-550 leading-relaxed font-semibold uppercase font-sans normal-case">
+                    Arm your host handset camera stream to scan equipment asset barcode symbols.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2 w-full max-w-xs">
+                  <button
+                    onClick={() => {
+                      setPwaScannerActive(true);
+                      playScanChime('double');
+                    }}
+                    className="w-full py-4 bg-[#F27D26] hover:bg-[#F27D15] text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition flex items-center justify-center gap-2 cursor-pointer border-none shadow-lg shadow-[#F27D26]/10"
+                  >
+                    <Scan size={14} />
+                    <span>Start Scanner Lens</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Fallback code inputs */}
+          <div className="bg-neutral-950 border border-neutral-850 p-4.5 rounded-[2rem] space-y-3.5 border-solid shrink-0">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#F27D26] leading-none">Damaged Serial/Barcode Fallback</h4>
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const v = pwaManualInput.trim();
+                if (v) {
+                  setPwaManualInput('');
+                  playScanChime('success');
+                  await handlePwaScan(v);
+                }
+              }}
+              className="flex gap-2"
+            >
+              <input
+                type="text"
+                value={pwaManualInput}
+                onChange={(e) => setPwaManualInput(e.target.value)}
+                placeholder="INPUT BARCODE OR ID NUM..."
+                className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-xs font-mono font-bold text-white uppercase outline-none focus:border-[#F27D26]"
+              />
+              <button
+                type="submit"
+                className="px-5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition cursor-pointer border-none"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+
+          {/* Last item scanned panel card */}
+          {pwaLatestScannedItem && (
+            <div className="bg-neutral-950 border border-[#F27D26]/30 p-5 rounded-[2rem] space-y-3.5 border-solid shrink-0 animate-fadeIn">
+              <div className="flex items-center justify-between border-b border-neutral-850 pb-3">
+                <span className="text-[9px] font-mono font-black text-neutral-500 uppercase tracking-widest">Active Scan Focus</span>
+                <span className="text-[9px] font-mono px-2 py-0.5 bg-neutral-900 rounded border border-neutral-800 text-neutral-300 font-bold uppercase">
+                  {pwaLatestScannedItem.assetTag || 'NO TAG'}
+                </span>
+              </div>
+
+              <div className="flex items-start gap-3.5">
+                <div className="w-12 h-12 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center justify-center shrink-0">
+                  <Package size={22} className="text-[#F27D26]" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-tight text-white leading-tight">{pwaLatestScannedItem.brand ? `${pwaLatestScannedItem.brand} ` : ''}{pwaLatestScannedItem.name}</h3>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-2 font-mono text-[9px] text-neutral-450 uppercase font-semibold">
+                    <span>Cond: <span className="text-white font-black">{pwaLatestScannedItem.condition || 'good'}</span></span>
+                    <span>Status: <span className="text-white font-black">{pwaLatestScannedItem.status}</span></span>
+                    {pwaLatestScannedItem.currentHolder && (
+                      <span>Holder: <span className="text-white font-bold">{pwaLatestScannedItem.currentHolder}</span></span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Operations session Logs */}
+          <div className="bg-neutral-950 border border-neutral-850 rounded-[2rem] p-5 flex flex-col h-[320px] border-solid shrink-0">
+            <div className="border-b border-neutral-850 pb-3 mb-3 flex items-center justify-between shrink-0">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-[#F27D26] leading-none">Session Audit Stream</h4>
+              <span className="text-[9px] bg-neutral-900 px-2 py-0.5 rounded border border-neutral-800 text-neutral-500 font-mono font-bold uppercase leading-none">
+                {pwaSessionLogs.length} LOGS
+              </span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 text-xs">
+              {pwaSessionLogs.length === 0 ? (
+                <div className="h-full flex flex-col justify-center items-center text-center text-neutral-600 shrink-0">
+                  <Clock size={20} className="mb-2" />
+                  <span className="text-[9px] font-mono font-black uppercase tracking-wider">Awaiting dynamic scans...</span>
+                </div>
+              ) : (
+                pwaSessionLogs.map((log) => {
+                  const isIn = log.action === 'in';
+                  const isOut = log.action === 'out';
+                  const badge = isIn 
+                    ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                    : isOut 
+                      ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' 
+                      : 'bg-neutral-800 text-neutral-400 border-neutral-705';
+
+                  return (
+                    <div key={log.id} className="p-3 bg-neutral-900/60 rounded-xl border border-neutral-850 flex justify-between items-start border-solid">
+                      <div className="space-y-1 leading-none">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider border leading-none ${badge}`}>
+                            {log.action.toUpperCase()}
+                          </span>
+                          <span className="text-[8px] font-mono text-neutral-550">
+                            {log.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </span>
+                        </div>
+                        <h5 className="text-[10px] font-black uppercase tracking-tight text-white leading-tight mt-1">{log.brand ? `${log.brand} ` : ''}{log.itemName}</h5>
+                        {isOut && log.assignee && (
+                          <span className="text-[8px] text-neutral-400 font-bold block capitalize pt-0.5">Signed out to: <span className="text-white">{log.assignee}</span></span>
+                        )}
+                      </div>
+                      <span className="text-[7.5px] font-mono bg-neutral-950 px-1.5 py-0.5 rounded text-neutral-450 border border-neutral-850 font-bold uppercase leading-none">
+                        {log.assetTag}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </main>
       </div>
     );
   }

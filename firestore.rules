@@ -2,42 +2,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    // Collection: users
-    // Fields: uid, email, displayName, photoURL, plan, createdAt
-    //
-    // Collection: packingLists
-    // Fields: id, ownerId, name, description, isTemplate, shareToken, recipientId, transactionType, price, currency, status, marketplaceEnabled, receivedAt, createdAt, updatedAt
-    //
-    // Collection: contacts
-    // Fields: id, ownerId, name, email, phone, type, notes, createdAt, updatedAt
-    //
-    // Collection: packingLists/{listId}/items
-    // Fields: id, listId, name, photoUrls, assetTag, status, aiLabel, createdAt
-    //
-    // Collection: adminSettings
-    // Fields: branding, frontPageCopy, billingEnabled, aiConfig, integrationConfig
-    //
-    // Collection: racks
-    // Fields: id, ownerId, name, description, totalUnits, createdAt, updatedAt
-    //
-    // Collection: racks/{rackId}/items
-    // Fields: id, rackId, name, photoUrls, assetTag, uPosition, uHeight, status, createdAt
-    //
-    // Collection: movingProjects
-    // Fields: id, ownerId, name, description, moveDate, status, listIds, createdAt, updatedAt
-    //
-    // Collection: reminders
-    // Fields: id, ownerId, listId, itemId, itemName, type, dueDate, status, createdAt
-    //
-    // Collection: helpArticles
-    // Fields: id, title, content, category, updatedAt
+    // Assumed Data Model (Secured)
     // ===============================================================
 
     // Helper Functions
     function isAuthenticated() {
       return request.auth != null;
+    }
+
+    function isSignedIn() {
+      return isAuthenticated();
     }
 
     function isOwner(userId) {
@@ -62,6 +36,15 @@ service cloud.firestore {
       );
     }
 
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isUnchanged(key) {
+      return !(key in request.resource.data) || request.resource.data[key] == resource.data[key];
+    }
+
+    // Schema Validation Helpers
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'email', 'plan']) &&
              data.uid is string &&
@@ -168,168 +151,335 @@ service cloud.firestore {
              data.metadata is map;
     }
 
-    // Rules
-    match /users/{userId} {
-      allow read, write: if true;
+    function isValidBookingCondition(data) {
+      return data.keys().hasAll(['name']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 200;
+    }
 
+    function isValidGearBooking(data) {
+      return data.keys().hasAll(['gearId', 'ownerId', 'clientName', 'startDate', 'endDate']) &&
+             data.gearId is string &&
+             data.ownerId is string &&
+             data.clientName is string && data.clientName.size() > 0 && data.clientName.size() < 100 &&
+             data.startDate is string &&
+             data.endDate is string;
+    }
+
+    function isValidOrganization(data) {
+      return data.keys().hasAll(['name', 'slug']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.slug is string && data.slug.size() > 0 && data.slug.size() < 100;
+    }
+
+    function isValidMovingProject(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'status']) &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.status in ['planning', 'packing', 'moving', 'completed', 'active', 'on-hold'];
+    }
+
+    function isValidTerminal(data) {
+      return data.keys().hasAll(['pairingCode', 'status']) &&
+             data.pairingCode is string &&
+             data.status in ['pending', 'active'];
+    }
+
+    function isValidBuildItem(data) {
+      return data.keys().hasAll(['projectId', 'ownerId', 'name']) &&
+             data.projectId is string &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+
+    // ===============================================================
+    // Rules Configuration (Secured Paths)
+    // ===============================================================
+
+    // 1. User Profiles & Subcollections
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().plan == 'free' && (!('role' in incoming()) || incoming().role == 'user');
+      allow update: if isOwner(userId) && (
+        isAdmin() || (
+          isUnchanged('plan') &&
+          isUnchanged('role') &&
+          isUnchanged('isSuperAdmin') &&
+          isUnchanged('extraSeats') &&
+          isUnchanged('manualPaymentPending')
+        )
+      );
+      allow delete: if isAdmin();
+
+      // Nested Gear Library
       match /gearLibrary/{itemId} {
-        allow read, write: if true;
+        allow read: if isSignedIn();
+        allow create: if isOwner(userId) && isValidGearItem(incoming());
+        allow update: if isOwner(userId) && isValidGearItem(incoming());
+        allow delete: if isOwner(userId);
 
         match /versions/{versionId} {
-          allow read, write: if true;
+          allow read: if isSignedIn();
+          allow write: if isOwner(userId);
         }
 
         match /incidents/{incidentId} {
-          allow read, write: if true;
+          allow read: if isSignedIn();
+          allow write: if isOwner(userId);
         }
       }
 
+      // Reusable Containers
       match /containers/{containerId} {
-        allow read, write: if true;
+        allow read: if isSignedIn();
+        allow create, update: if isOwner(userId) && isValidContainer(incoming());
+        allow delete: if isOwner(userId);
       }
 
+      // Booking Conditions
       match /bookingConditions/{conditionId} {
-        allow read, write: if true;
+        allow read: if isSignedIn();
+        allow create, update: if isOwner(userId) && isValidBookingCondition(incoming());
+        allow delete: if isOwner(userId);
+      }
+
+      // Maintenance Logs
+      match /maintenanceLogs/{logId} {
+        allow read: if isSignedIn();
+        allow write: if isOwner(userId);
       }
     }
 
-    // Collection Group for Gear
+    // 2. Collection Group Rules
     match /{path=**}/gearLibrary/{itemId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (
+        request.auth.uid == resource.data.ownerId || request.auth.uid == request.resource.data.ownerId
+      );
     }
 
-    // Collection Group for Items
     match /{path=**}/items/{itemId} {
-      allow read, write: if true;
+      // Unused collection group locked down
+      allow read, write: if false;
     }
 
+    // 3. User Contacts
     match /contacts/{contactId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidContact(incoming());
+      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidContact(incoming());
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
+    // 4. Packing Lists & Subcollections (Items, Versions)
     match /packingLists/{listId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isCollaborator(listId) || resource.data.marketplaceEnabled == true || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidPackingList(incoming());
+      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isCollaborator(listId)) && (resource.data.ownerId == incoming().ownerId) && isValidPackingList(incoming());
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
 
       match /items/{itemId} {
-        allow read, write: if true;
+        allow read: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin());
+        allow write: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin());
       }
 
       match /versions/{versionId} {
-        allow read, write: if true;
+        allow read: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin());
+        allow write: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isAdmin());
       }
     }
 
+    // 5. Global Admin Settings
     match /adminSettings/{settingId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
+    // 6. Subscription plans
     match /plans/{planId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
+    // 7. Marketplace Categories
     match /marketplaceCategories/{categoryId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
+    // 8. Custom Compliance Pages
     match /pages/{pageId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
+    // 9. Equipment Racks
     match /racks/{rackId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidRack(incoming());
+      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidRack(incoming());
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
 
       match /items/{itemId} {
-        allow read, write: if true;
+        allow read, write: if isSignedIn() && (get(/databases/$(database)/documents/racks/$(rackId)).data.ownerId == request.auth.uid || isAdmin());
       }
     }
 
+    // 10. AV Build/Sandbox Projects
     match /projects/{projectId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidProject(incoming());
+      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidProject(incoming());
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
+    // 11. Build Sandbox Items
     match /buildItems/{itemId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidBuildItem(incoming());
+      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidBuildItem(incoming());
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
+    // 12. Sandbox Item Suppliers
     match /suppliers/{supplierId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidSupplier(incoming());
+      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidSupplier(incoming());
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
+    // 13. Financial Project Costs
     match /projectCosts/{costId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidCost(incoming());
+      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidCost(incoming());
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
+    // 14. Household Moving Projects
     match /movingProjects/{projectId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidMovingProject(incoming());
+      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidMovingProject(incoming());
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
+    // 15. Active User Reminders
     match /reminders/{reminderId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId;
+      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId;
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
+    // 16. Help & Documentation Articles
     match /helpArticles/{articleId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
+    // 17. Interactive Kiosk Terminals
     match /terminals/{terminalId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerUid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerUid && isValidTerminal(incoming());
+      allow update: if isSignedIn() && resource.data.ownerUid == request.auth.uid && request.auth.uid == incoming().ownerUid && isValidTerminal(incoming());
+      allow delete: if isSignedIn() && (resource.data.ownerUid == request.auth.uid || isAdmin());
     }
 
+    // 18. Checked out gear
     match /checkouts/{checkoutId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
     }
 
+    // 19. Terminal / Guest orders
     match /orders/{orderId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().userId;
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
     }
 
+    // 20. Organization Invites
     match /invitations/{inviteId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.email == request.auth.token.email || resource.data.invitedBy == request.auth.uid || isAdmin());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (resource.data.email == request.auth.token.email || resource.data.invitedBy == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.invitedBy == request.auth.uid || isAdmin());
     }
 
+    // 21. Master Organizations
     match /organizations/{orgId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || resource.id == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidOrganization(incoming());
+      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidOrganization(incoming());
+      allow delete: if isAdmin();
     }
 
+    // 22. Org Departments
+    match /departments/{deptId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isAdmin() || resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId);
+      allow delete: if isAdmin();
+    }
+
+    // 23. Dept Teams
+    match /teams/{teamId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (isAdmin() || resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId);
+      allow delete: if isAdmin();
+    }
+
+    // 24. Sheet Inventories & Subcollections (Items)
     match /inventories/{inventoryId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId;
+      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
 
       match /items/{itemId} {
-        allow read, write: if true;
+        allow read, write: if isSignedIn() && (
+          get(/databases/$(database)/documents/inventories/$(inventoryId)).data.ownerId == request.auth.uid ||
+          get(/databases/$(database)/documents/inventories/$(inventoryId)).data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId ||
+          isAdmin()
+        );
       }
     }
 
-    match /departments/{deptId} {
-      allow read, write: if true;
-    }
-
-    match /teams/{teamId} {
-      allow read, write: if true;
-    }
-
-    // Rules for stories collection
+    // 25. Community Shared Stories / Case Studies
     match /stories/{storyId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
-    // Rules for bugs collection
+    // 26. Bug Reports
     match /bugs/{bugId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().userId && isValidBugReport(incoming());
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
     }
 
-    // Rules for gearBookings collection
+    // 27. Marketplace Bookings / Rentals
     match /gearBookings/{bookingId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || resource.data.clientEmail == request.auth.token.email || isAdmin());
+      allow create: if isSignedIn() && isValidGearBooking(incoming());
+      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
-    // Rules for activityLogs collection
+    // 28. Platform Audit Activity Logs
     match /activityLogs/{logId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().userId && isValidActivityLog(incoming());
+      allow update, delete: if isAdmin();
     }
-
-    match /users/{userId}/maintenanceLogs/{logId} {
-      allow read, write: if true;
-    }
-
   }
 }

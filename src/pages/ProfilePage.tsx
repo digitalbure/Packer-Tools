@@ -13,6 +13,7 @@ import UpgradeNowModal from '../components/UpgradeNowModal';
 import AITokenUsageChart from '../components/AITokenUsageChart';
 import { useTheme } from '../context/ThemeContext';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { authenticatedFetch } from '../lib/api';
 
 interface ProfilePageProps {
   user: UserProfile;
@@ -971,6 +972,39 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                       >
                         <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${
                           (user.layoutPreferences?.showQuickActionGrid !== false) ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* Widget Toggle: Real-time System Pulse Telemetry */}
+                    <div className="flex items-center justify-between p-3.5 bg-white border border-neutral-100 rounded-2xl">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-black uppercase tracking-tight text-neutral-800 block">System Pulse Telemetry</span>
+                        <p className="text-[9px] text-neutral-400 font-bold uppercase block">Live terminal online ratio & real-time Firestore sync/ping metrics</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const current = user.layoutPreferences || {};
+                          const updated = {
+                            ...current,
+                            enableSystemPulseTelemetry: current.enableSystemPulseTelemetry === false ? true : false
+                          };
+                          try {
+                            const userRef = doc(db, 'users', user.uid);
+                            await updateDoc(userRef, { layoutPreferences: updated });
+                            onUpdate({ ...user, layoutPreferences: updated });
+                            toast.success("System Pulse real-time telemetry preference updated!");
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className={`w-11 h-6 rounded-full p-1 transition-colors duration-200 outline-none shrink-0 border ${
+                          (user.layoutPreferences?.enableSystemPulseTelemetry !== false) ? 'bg-[#ff4f3a] border-[#ff4f3a]' : 'bg-neutral-200 border-neutral-300'
+                        }`}
+                      >
+                        <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${
+                          (user.layoutPreferences?.enableSystemPulseTelemetry !== false) ? 'translate-x-5' : 'translate-x-0'
                         }`} />
                       </button>
                     </div>

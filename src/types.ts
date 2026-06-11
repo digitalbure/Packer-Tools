@@ -125,6 +125,7 @@ export interface UserProfile {
     showKioskTerminal?: boolean;
     showSafetyConsole?: boolean;
     showFleetDispatch?: boolean;
+    enableSystemPulseTelemetry?: boolean;
     visibleQuickActions?: string[]; // e.g. ['packing_list', 'inventory', 'rack', 'system_build', 'listing']
     sidebarCollapsedInitially?: boolean;
   };

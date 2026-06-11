@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc
 import { db } from '../firebase';
 import { Project, UserProfile } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { authenticatedFetch } from '../lib/api';
 import { 
   Building2, 
   Search, 
@@ -101,7 +102,7 @@ export default function SupplierWidget({ project, user }: SupplierWidgetProps) {
     const fetchCatalog = async () => {
       setIsSearchingCatalog(true);
       try {
-        const res = await fetch("/api/services/suppliers", {
+        const res = await authenticatedFetch("/api/services/suppliers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

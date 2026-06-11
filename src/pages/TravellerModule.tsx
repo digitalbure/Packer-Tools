@@ -21,6 +21,7 @@ import {
 import { db } from '../firebase';
 import { UserProfile, AdminSettings, Reminder } from '../types';
 import { toast } from 'sonner';
+import { authenticatedFetch } from '../lib/api';
 
 interface TravellerModuleProps {
   user: UserProfile;
@@ -114,7 +115,7 @@ export default function TravellerModule({ user, adminSettings }: TravellerModule
     setReminders([]);
 
     try {
-      const response = await fetch('/api/generate-travel-itinerary', {
+      const response = await authenticatedFetch('/api/generate-travel-itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

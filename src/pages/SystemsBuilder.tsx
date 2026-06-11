@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc
 import { db } from '../firebase';
 import { UserProfile, GearItem, BuildItem } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { authenticatedFetch } from '../lib/api';
 import { 
   Wrench, 
   Plus, 
@@ -427,7 +428,7 @@ export default function SystemsBuilder({ user }: { user: UserProfile }) {
     if (!aiInput.trim()) return;
     setIsAiAnalyzing(true);
     try {
-      const res = await fetch('/api/analyze-item', {
+      const res = await authenticatedFetch('/api/analyze-item', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

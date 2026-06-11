@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc
 import { db } from '../firebase';
 import { Project, BuildItem, UserProfile, GearItem } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { authenticatedFetch } from '../lib/api';
 import { 
   Hammer, 
   Plus, 
@@ -82,7 +83,7 @@ export default function BuildModule({ project, user }: BuildModuleProps) {
     if (!sourceInput) return;
     setIsAnalyzing(true);
     try {
-      const res = await fetch('/api/analyze-item', {
+      const res = await authenticatedFetch('/api/analyze-item', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Phone, MapPin, ArrowLeft, Send, CheckCircle2, Eye, Code } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { authenticatedFetch } from '../lib/api';
 
 export default function ContactPage() {
   const [settings, setSettings] = useState<AdminSettings | null>(null);
@@ -50,7 +51,7 @@ export default function ContactPage() {
     setSimulationResult(null);
 
     try {
-      const response = await fetch('/api/send-contact-email', {
+      const response = await authenticatedFetch('/api/send-contact-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

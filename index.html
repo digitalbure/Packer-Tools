@@ -18,41 +18,74 @@
 
       // Defensive error handling for Vite chunk/module loading failures common on mobile caching
       window.addEventListener('error', function(e) {
-        var isChunkError = e.message && (
+        var isChunkError = false;
+        if (e.message && (
           e.message.indexOf('Failed to fetch dynamically imported module') > -1 || 
           e.message.indexOf('Importing a module script failed') > -1 ||
           e.message.indexOf('chunk') > -1
-        );
+        )) {
+          isChunkError = true;
+        } else if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+          var src = e.target.src || e.target.href || '';
+          if (src && (src.indexOf('/assets/') > -1 || src.indexOf('vendor-') > -1)) {
+            isChunkError = true;
+          }
+        }
+
         if (isChunkError) {
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-              for (var i = 0; i < registrations.length; i++) {
-                registrations[i].unregister();
-              }
+          console.warn('Packer Tools: Detected missing build asset or chunk loading error. Cleaning PWA cache & reloading...');
+          // Prevent infinite reload loop
+          var reloadKey = 'packer_last_chunk_reload';
+          var lastReload = localStorage.getItem(reloadKey);
+          var now = Date.now();
+          if (!lastReload || (now - parseInt(lastReload, 10)) > 8000) {
+            localStorage.setItem(reloadKey, now.toString());
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for (var i = 0; i < registrations.length; i++) {
+                  registrations[i].unregister();
+                }
+                window.location.reload();
+              }).catch(function() {
+                window.location.reload();
+              });
+            } else {
               window.location.reload();
-            });
-          } else {
-            window.location.reload();
+            }
           }
         }
       }, true);
 
       window.addEventListener('unhandledrejection', function(e) {
-        var isChunkError = e.reason && e.reason.message && (
-          e.reason.message.indexOf('Failed to fetch dynamically imported module') > -1 ||
-          e.reason.message.indexOf('Importing a module script failed') > -1 ||
-          e.reason.message.indexOf('chunk') > -1
-        );
+        var isChunkError = false;
+        var msg = e.reason && e.reason.message ? e.reason.message : '';
+        if (msg && (
+          msg.indexOf('Failed to fetch dynamically imported module') > -1 ||
+          msg.indexOf('Importing a module script failed') > -1 ||
+          msg.indexOf('chunk') > -1
+        )) {
+          isChunkError = true;
+        }
+
         if (isChunkError) {
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-              for (var i = 0; i < registrations.length; i++) {
-                registrations[i].unregister();
-              }
+          console.warn('Packer Tools: Detected promise chunk loading failure. Cleaning PWA cache & reloading...');
+          var reloadKey = 'packer_last_chunk_reload';
+          var lastReload = localStorage.getItem(reloadKey);
+          var now = Date.now();
+          if (!lastReload || (now - parseInt(lastReload, 10)) > 8000) {
+            localStorage.setItem(reloadKey, now.toString());
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for (var i = 0; i < registrations.length; i++) {
+                  registrations[i].unregister();
+                }
+                window.location.reload();
+              }).catch(function() {
+                window.location.reload();
+              });
+            } else {
               window.location.reload();
-            });
-          } else {
-            window.location.reload();
+            }
           }
         }
       });

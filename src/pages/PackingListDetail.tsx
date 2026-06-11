@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, query, onSnapshot, deleteDoc, updateDoc, addDoc, getDocs, writeBatch, where, orderBy, arrayUnion } from 'firebase/firestore';
-import { Plus, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield } from 'lucide-react';
+import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Reorder, AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, PackingList, PackingItem, PackingListVersion, AdminSettings, Contact, GearItem, Project, RentalAgreement } from '../types';
+import { authenticatedFetch } from '../lib/api';
 import ReminderModal from '../components/ReminderModal';
 import BulkScanModal from '../components/BulkScanModal';
 import { identifyItem, suggestItemMetadata } from '../services/geminiService';
@@ -137,6 +138,10 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'grid' | 'gallery'>('list');
+  const [isPrintView, setIsPrintView] = useState(false);
+  const [printWithPhotos, setPrintWithPhotos] = useState(true);
+  const [printCompact, setPrintCompact] = useState(false);
+  const [printGrouping, setPrintGrouping] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareCaption, setShareCaption] = useState('');
   const [showMarketplaceModal, setShowMarketplaceModal] = useState(false);
@@ -989,7 +994,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     if (!sourceInput || !id) return;
     setIsAnalyzing(true);
     try {
-      const res = await fetch('/api/analyze-item', {
+      const res = await authenticatedFetch('/api/analyze-item', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -1038,7 +1043,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     setIsCrawling(true);
     setCrawledResult(null);
     try {
-      const res = await fetch('/api/analyze-item', {
+      const res = await authenticatedFetch('/api/analyze-item', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -1168,7 +1173,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     setIsPullingDetails(true);
     setPullError('');
     try {
-      const response = await fetch('/api/analyze-item', {
+      const response = await authenticatedFetch('/api/analyze-item', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: editSourceUrl, productName: editName }),
@@ -1798,6 +1803,346 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
   if (!list) return null;
 
+  if (isPrintView) {
+    const activeItems = filteredItems;
+    const totalWeightInKg = totalWeight;
+    const statsTotal = activeItems.length;
+    const statsPacked = activeItems.filter(i => i.status === 'packed').length;
+    const statsPercent = statsTotal > 0 ? Math.round((statsPacked / statsTotal) * 100) : 0;
+    
+    const printGroups = (printGrouping 
+      ? Object.entries(
+          activeItems.reduce<{ [key: string]: PackingItem[] }>((acc, item) => {
+            const grp = item.aiLabel || 'Uncategorized';
+            if (!acc[grp]) acc[grp] = [];
+            acc[grp].push(item);
+            return acc;
+          }, {})
+        )
+      : [['All Items', activeItems]]) as [string, PackingItem[]][];
+
+    return (
+      <div className="min-h-screen bg-neutral-900 text-neutral-100 flex flex-col font-sans">
+        <style>{`
+          @media print {
+            body {
+              background: white !important;
+              color: text-neutral-900 !important;
+            }
+            nav, .navbar, .sidebar, footer, .no-print, button, aside, header, #hubspot-messages-iframe-container {
+              display: none !important;
+            }
+            body * {
+              visibility: hidden;
+            }
+            #print-area, #print-area * {
+              visibility: visible;
+            }
+            #print-area {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100%;
+              margin: 0 !important;
+              padding: 0 !important;
+              box-shadow: none !important;
+              border: none !important;
+              background: white !important;
+              color: black !important;
+            }
+            tr {
+              page-break-inside: avoid !important;
+            }
+            .text-print-black {
+              color: #000000 !important;
+            }
+            .border-print-gray {
+              border-color: #d1d5db !important;
+            }
+          }
+        `}</style>
+        
+        <div className="no-print bg-neutral-950 border-b border-neutral-800 p-4 sticky top-0 z-50 shadow-xl flex flex-wrap justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsPrintView(false)}
+              className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold transition duration-200 cursor-pointer"
+            >
+              <ChevronLeft size={16} />
+              <span>Back to Editor</span>
+            </button>
+            <div className="h-4 w-px bg-neutral-800" />
+            <h2 className="text-sm font-extrabold uppercase tracking-wider text-neutral-300">
+              Print Manifest Preview
+            </h2>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={printWithPhotos}
+                onChange={(e) => setPrintWithPhotos(e.target.checked)}
+                className="rounded border-neutral-700 bg-neutral-900 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+              />
+              <span>Include Photos</span>
+            </label>
+            
+            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={printCompact}
+                onChange={(e) => setPrintCompact(e.target.checked)}
+                className="rounded border-neutral-700 bg-neutral-900 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+              />
+              <span>Compact Row Spacing</span>
+            </label>
+
+            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={printGrouping}
+                onChange={(e) => setPrintGrouping(e.target.checked)}
+                className="rounded border-neutral-700 bg-neutral-900 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+              />
+              <span>Group by Category</span>
+            </label>
+
+            <div className="h-4 w-px bg-neutral-800" />
+
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-2 px-5 py-2 bg-[#F27D26] hover:bg-[#F27D26]/90 text-white rounded-xl text-xs font-black uppercase tracking-wider transition duration-200 shadow-md shadow-primary/20 cursor-pointer"
+            >
+              <Printer size={16} />
+              <span>Print Manifest</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 bg-neutral-900 overflow-y-auto py-8 px-4 no-print flex justify-center">
+          <div
+            id="print-area"
+            className="w-full max-w-4xl bg-white text-neutral-900 p-10 shadow-2xl rounded-2xl border border-neutral-200 font-sans print:shadow-none print:border-none"
+          >
+            <div className="space-y-6 text-print-black">
+              <div className="flex justify-between items-start border-b-2 border-neutral-900 pb-5">
+                <div className="space-y-1">
+                  {list.brandName ? (
+                    <div className="flex items-center gap-2 mb-2">
+                      {list.brandLogo && (
+                        <img 
+                          src={list.brandLogo} 
+                          alt="Logo" 
+                          className="h-8 max-w-[120px] object-contain" 
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+                      <h3 className="text-sm font-black uppercase tracking-wider text-neutral-800">{list.brandName}</h3>
+                    </div>
+                  ) : (
+                    <h3 className="text-xs font-mono uppercase tracking-widest text-neutral-400 font-black">Packer Tools Manifest</h3>
+                  )}
+                  <h1 className="text-2xl font-black uppercase tracking-tight text-neutral-950">
+                    {list.name}
+                  </h1>
+                  {list.description && (
+                    <p className="text-xs text-neutral-600 font-medium font-sans leading-relaxed max-w-xl">
+                      {list.description}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="text-right space-y-1.5 font-mono text-[10px] text-neutral-500">
+                  <div><strong>REF ID:</strong> {list.id}</div>
+                  <div><strong>GENERATED:</strong> {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                  {list.jobType && (
+                    <div><strong>STAGE/JOB TYPE:</strong> <span className="uppercase text-neutral-900 font-bold">{list.jobType}</span></div>
+                  )}
+                  {list.stage && (
+                    <div><strong>STATUS LEVEL:</strong> <span className="uppercase text-neutral-900 font-black">{list.stage}</span></div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-4 bg-neutral-50 p-4 rounded-xl border border-neutral-200">
+                <div className="space-y-0.5">
+                  <div className="text-[9px] uppercase tracking-wider font-extrabold text-neutral-400 font-mono">Progress Summary</div>
+                  <div className="text-lg font-black font-mono text-neutral-800">{statsPacked} / {statsTotal} Items</div>
+                </div>
+                <div className="space-y-0.5">
+                  <div className="text-[9px] uppercase tracking-wider font-extrabold text-neutral-400 font-mono">Ready Ratio</div>
+                  <div className="text-lg font-black font-mono text-neutral-800">{statsPercent}% Wrapped</div>
+                </div>
+                <div className="space-y-0.5">
+                  <div className="text-[9px] uppercase tracking-wider font-extrabold text-neutral-400 font-mono">Total Estimated Weight</div>
+                  <div className="text-lg font-black font-mono text-neutral-800">
+                    {totalWeightInKg > 0 ? `${totalWeightInKg.toFixed(2)} kg` : 'N/A'}
+                  </div>
+                </div>
+                <div className="space-y-0.5">
+                  <div className="text-[9px] uppercase tracking-wider font-extrabold text-neutral-400 font-mono font-bold">Category Count</div>
+                  <div className="text-lg font-black font-mono text-neutral-800">{Object.keys(groupedItems).length} Pools</div>
+                </div>
+              </div>
+
+              <div className="space-y-8 pt-2">
+                {printGroups.map(([groupName, groupItems]) => {
+                  if (groupItems.length === 0) return null;
+                  return (
+                    <div key={groupName} className="space-y-3">
+                      <h2 className="text-sm font-black uppercase tracking-widest text-neutral-900 border-b border-neutral-300 pb-1 flex justify-between items-center bg-neutral-50 px-2.5 py-1.5 rounded-lg border-l-4 border-l-[#F27D26]/60">
+                        <span>{groupName}</span>
+                        <span className="text-[10px] font-mono text-neutral-500 font-bold">({groupItems.length} items)</span>
+                      </h2>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs text-neutral-700 min-w-full">
+                          <thead>
+                            <tr className="border-b border-neutral-300 text-neutral-500 text-[10px] uppercase font-mono font-bold tracking-wider">
+                              <th className="py-2 w-10 text-center">Chk</th>
+                              {printWithPhotos && <th className="py-2 w-16">Visual</th>}
+                              <th className="py-2 px-3">Item Details</th>
+                              <th className="py-2 px-3 w-32">Asset Tag</th>
+                              <th className="py-2 px-3 w-20 text-center">Priority</th>
+                              <th className="py-2 px-3 w-20 text-right">Weight</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-200">
+                            {groupItems.map((item) => {
+                              const isPacked = item.status === 'packed';
+                              return (
+                                <tr key={item.id} className="hover:bg-neutral-50/50 transition tr-print">
+                                  <td className={`text-center align-middle ${printCompact ? 'py-1.5' : 'py-3'}`}>
+                                    <div className="flex justify-center">
+                                      {isPacked ? (
+                                        <div className="w-5 h-5 rounded-md border-2 border-neutral-900 bg-neutral-950 flex items-center justify-center text-white print:-webkit-print-color-adjust">
+                                          <span className="text-[10px] font-black">✓</span>
+                                        </div>
+                                      ) : (
+                                        <div className="w-5 h-5 rounded-md border-2 border-neutral-400 bg-white" />
+                                      )}
+                                    </div>
+                                  </td>
+                                  
+                                  {printWithPhotos && (
+                                    <td className={`align-middle ${printCompact ? 'py-1.5' : 'py-3'}`}>
+                                      {item.photoUrls && item.photoUrls.length > 0 ? (
+                                        <div className="w-12 h-12 bg-neutral-100 rounded-lg overflow-hidden border border-neutral-200">
+                                          <img
+                                            src={item.photoUrls[0]}
+                                            alt={item.name}
+                                            className="w-full h-full object-cover"
+                                            referrerPolicy="no-referrer"
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div className="w-12 h-12 rounded-lg bg-neutral-100 border border-neutral-200 flex items-center justify-center text-[8px] font-mono text-neutral-400 uppercase">
+                                          No Pic
+                                        </div>
+                                      )}
+                                    </td>
+                                  )}
+
+                                  <td className={`px-3 align-middle space-y-0.5 ${printCompact ? 'py-1.5' : 'py-3'}`}>
+                                    <div className="font-extrabold text-neutral-900 text-sm tracking-tight">{item.name}</div>
+                                    {(item.description || item.notes) && (
+                                      <div className="text-[11px] text-neutral-500 font-medium font-sans max-w-md line-clamp-2">
+                                        {[item.description, item.notes].filter(Boolean).join(' - ')}
+                                      </div>
+                                    )}
+                                    {(item as any).status === 'in_use' && (
+                                      <div className="text-[10px] font-bold text-amber-600 uppercase font-mono tracking-wider">
+                                        OUT (Holder: {(item as any).currentHolder || 'Assigned'})
+                                      </div>
+                                    )}
+                                  </td>
+
+                                  <td className={`px-3 align-middle ${printCompact ? 'py-1.5' : 'py-3'}`}>
+                                    <code className="bg-neutral-100 px-1.5 py-1 rounded text-[10px] font-mono font-black text-neutral-700 tracking-wider">
+                                      {item.assetTag || 'NO-TAG'}
+                                    </code>
+                                  </td>
+
+                                  <td className={`px-3 align-middle text-center ${printCompact ? 'py-1.5' : 'py-3'}`}>
+                                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                      item.priority === 'High' 
+                                        ? 'bg-red-50 text-red-700 border border-red-200' 
+                                        : item.priority === 'Low'
+                                          ? 'bg-neutral-50 text-neutral-500 border border-neutral-200'
+                                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    }`}>
+                                      {item.priority || 'Medium'}
+                                    </span>
+                                  </td>
+
+                                  <td className={`px-3 align-middle text-right font-mono text-[11px] text-neutral-600 ${printCompact ? 'py-1.5' : 'py-3'}`}>
+                                    {item.weight ? `${item.weight} ${item.weightUnit || 'g'}` : '-'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="border-t-2 border-neutral-900 pt-8 mt-12 space-y-6">
+                <div className="flex justify-between items-start gap-8">
+                  <div className="space-y-1 max-w-md">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-neutral-900">Visual Manifest & Handover Verification</h3>
+                    <p className="text-[10px] text-neutral-500 leading-relaxed font-sans mt-1">
+                      All equipment items detailed above have been verified visually and packed according to requirements. By signing below, the reviewer accepts custody and accuracy of the inventory sheet.
+                    </p>
+                  </div>
+                  
+                  {agreements && agreements.length > 0 ? (
+                    <div className="space-y-2 text-xs border border-neutral-200 bg-neutral-50 p-3 rounded-xl max-w-sm">
+                      <div className="text-[8px] font-black uppercase tracking-widest text-[#2563eb] font-mono">Latest Verification Records</div>
+                      {agreements.slice(0, 1).map((agr) => (
+                        <div key={agr.id} className="space-y-1.5">
+                          <div className="font-mono text-[10px]"><strong>Signee:</strong> {agr.signeeName} ({agr.signeeEmail})</div>
+                          <div className="font-mono text-[10px]"><strong>Date Locked:</strong> {new Date(agr.signedAt).toLocaleString()}</div>
+                          {agr.signatureUrl && (
+                            <div className="pt-1.5 border-t border-neutral-200 flex flex-col gap-1">
+                              <img src={agr.signatureUrl} alt="Sign" className="h-[40px] max-w-[150px] object-contain invert" referrerPolicy="no-referrer" />
+                              <span className="text-[8px] font-mono text-neutral-400">Electronic Hash Auth Logged</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-6 w-full max-w-md">
+                      <div className="space-y-1.5">
+                        <div className="text-[9px] uppercase tracking-wider text-neutral-400 font-extrabold font-mono">Packer / Custodian Signature</div>
+                        <div className="h-10 border-b-2 border-neutral-300" />
+                        <div className="text-[10px] text-neutral-600 font-medium">Date: ________________________</div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="text-[9px] uppercase tracking-wider text-neutral-400 font-extrabold font-mono">Receiver / Client Reviewer Signature</div>
+                        <div className="h-10 border-b-2 border-neutral-300" />
+                        <div className="text-[10px] text-neutral-600 font-medium">Print Name: _________________</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-between items-center text-[9px] text-neutral-400 pt-4 border-t border-neutral-100 font-mono">
+                  <span>Manifest Generated via Packer Tools Service</span>
+                  <span>Document Hash: {list.id.substring(0, 8).toUpperCase()}-{(totalWeightInKg || 0).toFixed().padStart(5, '0')}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pb-24">
       <div className={`grid grid-cols-1 ${isSidebarCollapsed ? 'xl:grid-cols-[72px_1fr]' : 'xl:grid-cols-[320px_1fr]'} gap-6 items-start pt-4 transition-all duration-300`}>
@@ -2354,6 +2699,19 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     title="Print Asset Tags"
                   >
                     <Tag size={18} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!canExportList) {
+                        toast.error("Permission denied: You do not have 'Export' permissions to generate print layouts or PDFs.");
+                        return;
+                      }
+                      setIsPrintView(true);
+                    }}
+                    className="p-2.5 bg-white border border-neutral-200 rounded-xl font-bold hover:bg-neutral-50 transition shadow-sm text-neutral-400 hover:text-primary shrink-0 animate-pulse bg-primary/5 hover:bg-primary/10 border-primary/20 hover:text-primary"
+                    title="Print List / PDF View"
+                  >
+                    <Printer size={18} className="text-[#F27D26]" />
                   </button>
                   <button
                     onClick={() => setShowHistoryModal(true)}

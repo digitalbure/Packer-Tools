@@ -42,6 +42,7 @@ import {
 import { db } from '../firebase';
 import { UserProfile, GearItem, AdminSettings } from '../types';
 import { toast } from 'sonner';
+import { authenticatedFetch } from '../lib/api';
 
 interface ScenarioBuilderProps {
   user: UserProfile;
@@ -398,7 +399,7 @@ export default function ScenarioBuilder({ user, adminSettings }: ScenarioBuilder
     setAiWarningMessage('');
 
     try {
-      const response = await fetch('/api/generate-scenario-list', {
+      const response = await authenticatedFetch('/api/generate-scenario-list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ brief, gear: gearLibrary })

@@ -21,6 +21,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { UserProfile, INDUSTRIES } from '../types';
 import { toast } from 'sonner';
+import { authenticatedFetch } from '../lib/api';
 
 interface OnboardingProps {
   user: UserProfile;
@@ -115,7 +116,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
       });
       
       // Asynchronously release welcome onboarding packet 
-      fetch('/api/send-welcome-email', {
+      authenticatedFetch('/api/send-welcome-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

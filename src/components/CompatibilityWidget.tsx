@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Project, UserProfile, BuildItem } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { authenticatedFetch } from '../lib/api';
 import { 
   Zap, 
   ShieldCheck, 
@@ -87,7 +88,7 @@ export default function CompatibilityWidget({ project, user, items: passedItems 
     }
     setIsAnalyzing(true);
     try {
-      const res = await fetch('/api/check-compatibility', {
+      const res = await authenticatedFetch('/api/check-compatibility', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items })
@@ -106,7 +107,7 @@ export default function CompatibilityWidget({ project, user, items: passedItems 
     if (!itemA || !itemB) return;
     setIsComparing(true);
     try {
-      const res = await fetch('/api/compare-items', {
+      const res = await authenticatedFetch('/api/compare-items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ itemA, itemB })

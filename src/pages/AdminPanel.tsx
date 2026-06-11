@@ -7,6 +7,7 @@ import { db } from '../firebase';
 import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project, INDUSTRIES, BugReport } from '../types';
 import { getDefaultAdminSettings } from '../App';
 import { motion, AnimatePresence } from 'motion/react';
+import { authenticatedFetch } from '../lib/api';
 import PagesManager from './PagesManager';
 import PackerLogo from '../components/PackerLogo';
 import AdminDocsTab from '../components/AdminDocsTab';
@@ -225,7 +226,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const fetchGcpPricing = async () => {
     try {
       setIsGcpPricingLoading(true);
-      const res = await fetch('/api/gcp-pricing');
+      const res = await authenticatedFetch('/api/gcp-pricing');
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const data = await res.json();
       setGcpPricingData(data);

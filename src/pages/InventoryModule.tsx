@@ -59,6 +59,7 @@ import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import * as PAPA from 'papaparse';
 import * as XLSX from 'xlsx';
+import { authenticatedFetch } from '../lib/api';
 
 interface InventoryModuleProps {
   user: UserProfile | null;
@@ -178,7 +179,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
         quantity: item.quantity || 1
       }));
 
-      const res = await fetch("/api/services/analyze-leads", {
+      const res = await authenticatedFetch("/api/services/analyze-leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -864,7 +865,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   const runAiMapping = async (headers: string[], samples: any[][]) => {
     setIsMappingLoading(true);
     try {
-      const res = await fetch('/api/map-inventory', {
+      const res = await authenticatedFetch('/api/map-inventory', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

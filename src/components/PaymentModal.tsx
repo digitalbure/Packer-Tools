@@ -6,6 +6,7 @@ import { Plan, UserProfile, AdminSettings } from '../types';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
+import { authenticatedFetch } from '../lib/api';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -78,28 +79,20 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
     }
     setIsProcessing(true);
     try {
-      const userRef = doc(db, 'users', user.uid);
-      const isTrial = selectedPlan?.trialEnabled && selectedPlan?.trialDays;
-      await updateDoc(userRef, {
-        plan: selectedPlan?.id,
-        extraSeats: extraSeatsCount,
-        subscriptionStatus: isTrial ? 'trialing' : 'active',
-        trialStartDate: isTrial ? new Date().toISOString() : null,
-        trialEndDate: isTrial 
-          ? new Date(Date.now() + ((selectedPlan?.trialDays || 14) * 24 * 60 * 60 * 1000)).toISOString()
-          : null,
-        trialActive: isTrial ? true : false,
-        manualPaymentPending: true,
-        manualPaymentReference: manualReferenceId,
-        updatedAt: new Date().toISOString()
+      const res = await authenticatedFetch('/api/billing/activate-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: selectedPlan?.id, referenceId: manualReferenceId })
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Manual request failed.");
 
       toast.success(`Successfully requested upgrade to ${selectedPlan?.name}! Manual payment queued for verification.`);
       onSuccess(selectedPlan!.id);
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast.error("Manual payment update failed. Try again.");
+      toast.error(e.message || "Manual payment update failed. Try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -108,21 +101,18 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
   const handleFreeActivation = async () => {
     setIsProcessing(true);
     try {
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        plan: 'free',
-        extraSeats: 0,
-        subscriptionStatus: 'active',
-        trialActive: false,
-        manualPaymentPending: false,
-        updatedAt: new Date().toISOString()
+      const res = await authenticatedFetch('/api/billing/activate-free', {
+        method: 'POST'
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Activation failed.");
+
       toast.success("Successfully upgraded to Free layout catalog!");
       onSuccess('free');
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast.error("Free activation failed. Please try again.");
+      toast.error(e.message || "Free activation failed. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -131,28 +121,21 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
   const handleTrialActivation = async () => {
     setIsProcessing(true);
     try {
-      const userRef = doc(db, 'users', user.uid);
       const trialDays = selectedPlan?.trialDays || 14;
-      const trialStartDate = new Date().toISOString();
-      const trialEndDate = new Date(Date.now() + (trialDays * 24 * 60 * 60 * 1000)).toISOString();
-
-      await updateDoc(userRef, {
-        plan: selectedPlan?.id,
-        subscriptionStatus: 'trialing',
-        trialStartDate,
-        trialEndDate,
-        trialActive: true,
-        extraSeats: extraSeatsCount,
-        manualPaymentPending: false,
-        updatedAt: new Date().toISOString()
+      const res = await authenticatedFetch('/api/billing/activate-trial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: selectedPlan?.id, trialDays })
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Trial activation failed.");
 
       toast.success(`Successfully activated your ${trialDays}-day free trial for ${selectedPlan?.name}!`);
       onSuccess(selectedPlan!.id);
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast.error("Trial activation failed. Please try again.");
+      toast.error(e.message || "Trial activation failed. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -180,33 +163,28 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
   const handleApprove = async (orderID: string) => {
     setIsProcessing(true);
     try {
-      const response = await fetch('/api/paypal/capture-order', {
+      const response = await authenticatedFetch('/api/paypal/capture-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderID })
+        body: JSON.stringify({ 
+          orderID,
+          planId: selectedPlan?.id,
+          extraSeats: extraSeatsCount
+        })
       });
 
       const data = await response.json();
 
-      if (data.status === 'COMPLETED') {
-        const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, {
-          plan: selectedPlan?.id,
-          extraSeats: extraSeatsCount,
-          subscriptionStatus: 'active',
-          trialActive: false,
-          updatedAt: new Date().toISOString()
-        });
-
+      if (response.ok && data.status === 'COMPLETED') {
         toast.success(`Successfully upgraded to ${selectedPlan?.name}!`);
         onSuccess(selectedPlan!.id);
         onClose();
       } else {
-        throw new Error('Payment not completed');
+        throw new Error(data.error || 'Payment not completed');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Payment Error:', error);
-      toast.error('Payment failed. Please try again.');
+      toast.error(error.message || 'Payment failed. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -545,7 +523,7 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                                 style={{ layout: "vertical", shape: "pill", label: "pay" }}
                                 createOrder={async () => {
                                   const amount = getActivePrice(selectedPlan);
-                                  const response = await fetch('/api/paypal/create-order', {
+                                  const response = await authenticatedFetch('/api/paypal/create-order', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ planId: selectedPlan.id, amount, billingCycle })

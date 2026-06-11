@@ -18,6 +18,7 @@ import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestor
 import { db } from '../firebase';
 import { UserProfile } from '../types';
 import Markdown from 'react-markdown';
+import { authenticatedFetch } from '../lib/api';
 
 interface Message {
   id: string;
@@ -183,7 +184,7 @@ I understand equipment integration, camera rigs, power management, storage compl
         text: msg.text
       }));
 
-      const res = await fetch('/api/dukey-chat', {
+      const res = await authenticatedFetch('/api/dukey-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

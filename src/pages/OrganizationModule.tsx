@@ -44,7 +44,7 @@ import {
   FileDown,
   Activity
 } from 'lucide-react';
-import { collection, query, where, onSnapshot, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, writeBatch, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, writeBatch, collectionGroup, limit, onSnapshotsInSync } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, Organization, Department, Team, UserRole, Terminal, AdminSettings } from '../types';
 import { toast } from 'sonner';
@@ -69,6 +69,14 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
   const [gear, setGear] = useState<any[]>([]);
   const [terminals, setTerminals] = useState<Terminal[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'structure' | 'members' | 'permissions' | 'api' | 'terminals' | 'stickers' | 'settings' | 'googlechat'>('structure');
+  
+  // Real-time Telemetry States
+  const [dbLatency, setDbLatency] = useState<number | null>(null);
+  const [dbLastSync, setDbLastSync] = useState<Date | null>(new Date());
+  const [dbSyncState, setDbSyncState] = useState<'synced' | 'syncing' | 'offline'>('synced');
+  const [isPinging, setIsPinging] = useState(false);
+  const [editingTerminalId, setEditingTerminalId] = useState<string | null>(null);
+
   const [inventories, setInventories] = useState<any[]>([]);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
   const [isLoading, setIsLoading] = useState(true);
@@ -536,6 +544,58 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
       unsubInventories();
     };
   }, [user?.orgId]);
+
+  const runDbPing = async () => {
+    if (isPinging) return;
+    setIsPinging(true);
+    const startTime = performance.now();
+    try {
+      await getDocs(query(collection(db, 'organizations'), limit(1)));
+      const endTime = performance.now();
+      setDbLatency(Math.round(endTime - startTime));
+      setDbSyncState(navigator.onLine ? 'synced' : 'offline');
+    } catch (error) {
+      console.error("Database ping failed:", error);
+      setDbSyncState('offline');
+    } finally {
+      setIsPinging(false);
+    }
+  };
+
+  useEffect(() => {
+    runDbPing();
+    const intervalId = setInterval(() => {
+      runDbPing();
+    }, 20000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Monitor window connectivity
+  useEffect(() => {
+    const handleOnline = () => {
+      setDbSyncState('synced');
+      runDbPing();
+    };
+    const handleOffline = () => {
+      setDbSyncState('offline');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Sync state tracking with Firestore
+  useEffect(() => {
+    const unsubInSync = onSnapshotsInSync(db, () => {
+      setDbLastSync(new Date());
+    });
+    return () => unsubInSync();
+  }, []);
 
   const handleCreateOrg = async () => {
     if (!user) return;
@@ -1598,6 +1658,15 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
     );
   }
 
+  const activeTerminals = terminals.filter(t => t.status === 'active');
+  const onlineTerminalsCount = activeTerminals.filter(t => {
+    if (!t.lastActive) return false;
+    const diff = Date.now() - new Date(t.lastActive).getTime();
+    return diff < 5 * 60 * 1000;
+  }).length;
+  const offlineTerminalsCount = activeTerminals.length - onlineTerminalsCount;
+  const terminalRatioPercentage = activeTerminals.length > 0 ? Math.round((onlineTerminalsCount / activeTerminals.length) * 100) : 0;
+
   const orgColor = org?.settings?.branding?.primaryColor || '#2563eb';
 
   return (
@@ -1713,26 +1782,110 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                 </div>
             </div>
             
-            <div className="lg:col-span-1 bg-neutral-900 rounded-[3rem] p-8 text-white flex flex-col justify-between">
-               <div className="space-y-2">
-                  <h3 className="text-xl font-black uppercase tracking-tighter">System Pulse</h3>
-                  <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest">Global Status</p>
+            <div className="lg:col-span-1 bg-neutral-900 rounded-[3rem] p-8 text-white flex flex-col justify-between min-h-[360px]">
+               <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-black uppercase tracking-tighter">System Pulse</h3>
+                      <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest">
+                        {user.layoutPreferences?.enableSystemPulseTelemetry !== false ? 'Live Telemetry' : 'Global Status'}
+                      </p>
+                    </div>
+                    {user.layoutPreferences?.enableSystemPulseTelemetry !== false && (
+                      <button 
+                        onClick={runDbPing}
+                        disabled={isPinging}
+                        className={`text-[10px] bg-white/10 hover:bg-white/20 active:scale-95 text-neutral-300 font-extrabold px-2.5 py-1 rounded-full uppercase tracking-widest transition flex items-center gap-1 ${isPinging ? 'animate-pulse' : ''}`}
+                      >
+                        <Activity size={10} className={isPinging ? 'animate-spin' : ''} />
+                        <span>Ping</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {user.layoutPreferences?.enableSystemPulseTelemetry !== false ? (
+                    // REAL-TIME SYSTEM TELEMETRY
+                    <div className="space-y-6 pt-2">
+                      {/* 1. Terminal Status */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest">
+                          <span className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${onlineTerminalsCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-pulse'}`} />
+                            Terminals Online
+                          </span>
+                          <span className="text-neutral-400 font-mono">
+                            {onlineTerminalsCount}/{activeTerminals.length} ({terminalRatioPercentage}%)
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${activeTerminals.length > 0 ? terminalRatioPercentage : 0}%` }}
+                            className="h-full bg-amber-500"
+                          />
+                        </div>
+                        <div className="flex justify-between text-[9px] font-bold text-neutral-500 uppercase tracking-widest">
+                          <span>{offlineTerminalsCount} offline</span>
+                          {terminals.some(t => t.status === 'pending') && (
+                            <span className="text-amber-400">
+                              {terminals.filter(t => t.status === 'pending').length} pairing
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 2. Database Health */}
+                      <div className="space-y-2 pt-1 border-t border-white/5">
+                        <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest pt-2">
+                          <span className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${dbSyncState === 'synced' ? 'bg-emerald-500 animate-pulse' : dbSyncState === 'syncing' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500 animate-pulse'}`} />
+                            Database Link
+                          </span>
+                          <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${dbSyncState === 'synced' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                            {dbSyncState === 'offline' ? 'Offline' : 'Connected'}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 pt-2 text-[10px] font-mono text-neutral-400">
+                          <div className="bg-white/5 p-2.5 rounded-xl border border-white/5 flex flex-col justify-between">
+                            <span className="text-[8px] text-neutral-500 uppercase tracking-widest font-black block mb-0.5">Latency</span>
+                            <span className="font-bold text-white text-xs block">
+                              {dbLatency !== null ? `${dbLatency} ms` : 'N/A'}
+                            </span>
+                          </div>
+                          <div className="bg-white/5 p-2.5 rounded-xl border border-white/5 flex flex-col justify-between">
+                            <span className="text-[8px] text-neutral-500 uppercase tracking-widest font-black block mb-0.5">Last Sync</span>
+                            <span className="font-bold text-white text-[11px] truncate block">
+                              {dbLastSync ? dbLastSync.toLocaleTimeString() : 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // STATIC PRESENTATION (PREFERENCE=OFF)
+                    <div className="space-y-6 pt-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-xs font-black uppercase tracking-widest">Core Online</span>
+                      </div>
+                      <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: '85%' }}
+                          className="h-full bg-primary"
+                        />
+                      </div>
+                    </div>
+                  )}
                </div>
-               <div className="space-y-6">
-                 <div className="flex items-center gap-3">
-                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                   <span className="text-xs font-black uppercase tracking-widest">Core Online</span>
+               
+               {user.layoutPreferences?.enableSystemPulseTelemetry !== false && (
+                 <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[8px] font-bold text-neutral-500 uppercase tracking-widest">
+                   <span>Firestore Sync: OK</span>
+                   <span>Ver 1.11</span>
                  </div>
-                 <div 
-                   className="h-1 bg-white/10 rounded-full overflow-hidden"
-                 >
-                   <motion.div 
-                     initial={{ width: 0 }}
-                     animate={{ width: '85%' }}
-                     className="h-full bg-primary"
-                   />
-                 </div>
-               </div>
+               )}
             </div>
           </motion.div>
         )}
@@ -3024,8 +3177,52 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                         <div className="w-14 h-14 bg-neutral-100 rounded-2xl flex items-center justify-center text-neutral-900 shadow-inner">
                           <LayoutGrid size={28} />
                         </div>
-                        <div>
-                          <h4 className="text-xl font-black uppercase tracking-tighter">{terminal.deviceName}</h4>
+                        <div className="flex-1 min-w-0">
+                          {editingTerminalId === terminal.id ? (
+                            <input
+                              type="text"
+                              defaultValue={terminal.deviceName}
+                              autoFocus
+                              onBlur={async (e) => {
+                                const val = e.target.value.trim();
+                                setEditingTerminalId(null);
+                                if (val && val !== terminal.deviceName) {
+                                  try {
+                                    await updateDoc(doc(db, 'terminals', terminal.id), { deviceName: val });
+                                    toast.success(`Kiosk name updated to "${val}"`);
+                                  } catch (err) {
+                                    toast.error("Failed to update Kiosk name");
+                                  }
+                                }
+                              }}
+                              onKeyDown={async (e) => {
+                                if (e.key === 'Enter') {
+                                  const val = (e.target as HTMLInputElement).value.trim();
+                                  setEditingTerminalId(null);
+                                  if (val && val !== terminal.deviceName) {
+                                    try {
+                                      await updateDoc(doc(db, 'terminals', terminal.id), { deviceName: val });
+                                      toast.success(`Kiosk name updated to "${val}"`);
+                                    } catch (err) {
+                                      toast.error("Failed to update Kiosk name");
+                                    }
+                                  }
+                                } else if (e.key === 'Escape') {
+                                  setEditingTerminalId(null);
+                                }
+                              }}
+                              className="text-lg font-black uppercase tracking-tighter text-neutral-900 border-b border-neutral-300 focus:outline-none focus:border-neutral-500 bg-transparent py-0 w-full"
+                            />
+                          ) : (
+                            <h4 
+                              onDoubleClick={() => setEditingTerminalId(terminal.id)}
+                              title="Double click to edit custom Kiosk label"
+                              className="text-xl font-black uppercase tracking-tighter text-neutral-900 cursor-pointer hover:opacity-85 transition flex items-center gap-1 group/label"
+                            >
+                              <span>{terminal.deviceName}</span>
+                              <Edit2 size={12} className="text-neutral-300 group-hover/label:text-neutral-500 transition-colors shrink-0 ml-1" />
+                            </h4>
+                          )}
                           <span className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest text-emerald-500">
                              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                              Online

@@ -6,6 +6,7 @@ import { UserProfile, GearItem } from '../types';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
+import { authenticatedFetch } from '../lib/api';
 import { 
   X, Plus, Camera, Sparkles, Wand2, QrCode, ClipboardCheck, 
   Search, ShieldCheck, DollarSign, Wrench, Package, ListPlus, 
@@ -175,7 +176,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     setScanning(true);
     const toastId = toast.loading("Fetching image from link...");
     try {
-      const res = await fetch("/api/url-to-base64", {
+      const res = await authenticatedFetch("/api/url-to-base64", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
