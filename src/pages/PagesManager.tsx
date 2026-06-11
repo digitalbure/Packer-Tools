@@ -27,7 +27,7 @@ import {
   doc,
   serverTimestamp
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { CustomPage, UserProfile } from '../types';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
@@ -60,6 +60,9 @@ const PagesManager: React.FC<PagesManagerProps> = ({ user }) => {
         ...doc.data()
       })) as CustomPage[];
       setPages(pagesList);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'pages');
       setLoading(false);
     });
 

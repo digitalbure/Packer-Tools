@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { 
   X, 
@@ -9,7 +9,8 @@ import {
   ExternalLink, 
   Package, 
   Layers, 
-  Info 
+  Info,
+  QrCode
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -21,6 +22,7 @@ interface ShareModalProps {
 }
 
 export default function ShareModal({ type, data, onClose, user }: ShareModalProps) {
+  const [showQr, setShowQr] = useState(false);
   if (!data) return null;
 
   // Determine item specifics
@@ -241,38 +243,94 @@ export default function ShareModal({ type, data, onClose, user }: ShareModalProp
           </div>
         </div>
 
-        {/* EXPLICIT SHARE CHANNELS (WhatsApp, Copy Link, Share on Email) */}
+        {/* EXPLICIT SHARE CHANNELS (WhatsApp, Copy Link, Share on Email, QR Code) */}
         <div className="pt-2">
-          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block mb-2 text-center">Share directly via</label>
-          <div className="grid grid-cols-3 gap-2.5">
+          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block mb-2 text-center" id="lbl-share-channels">Share directly via</label>
+          <div className="grid grid-cols-4 gap-2">
             <button
               type="button"
               onClick={handleShareWhatsApp}
-              className="flex flex-col items-center justify-center p-3.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] rounded-2xl border border-[#25D366]/20 transition-all duration-200 cursor-pointer hover:shadow-md group"
+              className="flex flex-col items-center justify-center p-2.5 bg-[#25D366]/5 hover:bg-[#25D366]/10 text-[#128C7E] rounded-2xl border border-[#25D366]/10 transition-all duration-200 cursor-pointer hover:shadow-md group"
+              title="Share via WhatsApp"
+              id="btn-whatsapp-share"
             >
-              <MessageCircle size={22} className="text-[#25D366] group-hover:scale-110 transition shrink-0 mb-1" />
-              <span className="text-[10px] font-black uppercase tracking-wider">WhatsApp</span>
+              <MessageCircle size={20} className="text-[#25D366] group-hover:scale-110 transition shrink-0 mb-1" />
+              <span className="text-[9px] font-black uppercase tracking-wider">WhatsApp</span>
             </button>
 
             <button
               type="button"
               onClick={handleCopyLink}
-              className="flex flex-col items-center justify-center p-3.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-800 rounded-2xl border border-neutral-200 transition-all duration-200 cursor-pointer hover:shadow-md group"
+              className="flex flex-col items-center justify-center p-2.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-800 rounded-2xl border border-neutral-200 transition-all duration-200 cursor-pointer hover:shadow-md group"
+              title="Copy link to clipboard"
+              id="btn-copy-share"
             >
-              <Copy size={22} className="text-neutral-500 group-hover:scale-110 transition shrink-0 mb-1" />
-              <span className="text-[10px] font-black uppercase tracking-wider">Copy Link</span>
+              <Copy size={20} className="text-neutral-500 group-hover:scale-110 transition shrink-0 mb-1" />
+              <span className="text-[9px] font-black uppercase tracking-wider">Copy Link</span>
             </button>
 
             <button
               type="button"
               onClick={handleShareEmail}
-              className="flex flex-col items-center justify-center p-3.5 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-2xl border border-blue-100 transition-all duration-200 cursor-pointer hover:shadow-md group"
+              className="flex flex-col items-center justify-center p-2.5 bg-blue-50/50 hover:bg-blue-100/70 text-blue-900 rounded-2xl border border-blue-100 transition-all duration-200 cursor-pointer hover:shadow-md group"
+              title="Share via Email"
+              id="btn-email-share"
             >
-              <Mail size={22} className="text-blue-500 group-hover:scale-110 transition shrink-0 mb-1" />
-              <span className="text-[10px] font-black uppercase tracking-wider">Email</span>
+              <Mail size={20} className="text-blue-500 group-hover:scale-110 transition shrink-0 mb-1" />
+              <span className="text-[9px] font-black uppercase tracking-wider">Email</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowQr(!showQr);
+                if (!showQr) toast.success("QR Code generated successfully!");
+              }}
+              className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border transition-all duration-200 cursor-pointer hover:shadow-md group ${
+                showQr 
+                  ? 'bg-primary/20 border-primary text-primary' 
+                  : 'bg-indigo-50/50 hover:bg-indigo-100 border-indigo-150 text-indigo-950'
+              }`}
+              title="Toggle QR Code display"
+              id="btn-qr-share"
+            >
+              <QrCode size={20} className={`${showQr ? 'text-primary' : 'text-indigo-650'} group-hover:scale-110 transition shrink-0 mb-1`} />
+              <span className="text-[9px] font-black uppercase tracking-wider">QR Code</span>
             </button>
           </div>
         </div>
+
+        {/* INTERACTIVE QR CODE SCREEN */}
+        {showQr && (
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-5 bg-neutral-50 rounded-3xl border border-neutral-200/50 flex flex-col items-center text-center space-y-4"
+            id="qr-view-container"
+          >
+            <div className="relative p-4 bg-white rounded-2xl shadow-md border border-neutral-100 flex items-center justify-center">
+              {/* QR scanner camera corners */}
+              <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-primary rounded-tl-md"></div>
+              <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-primary rounded-tr-md"></div>
+              <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-primary rounded-bl-md"></div>
+              <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-primary rounded-br-md"></div>
+
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(shareUrl)}`}
+                alt="QR Code Scan Target"
+                className="w-40 h-40 object-contain"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            
+            <div className="space-y-1">
+              <h5 className="text-[10px] font-black uppercase tracking-widest text-neutral-800">Scan to View Info</h5>
+              <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wide max-w-[280px]">
+                Open your device camera or scanner app to load this shared {type === 'kit' ? 'gear kit' : type === 'gear' ? 'equipment' : 'packing list'} instantly.
+              </p>
+            </div>
+          </motion.div>
+        )}
 
         {/* Footer closes */}
         <div className="pt-2 border-t border-neutral-100 flex justify-end">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, PackingList, Contact, AdminSettings } from '../types';
 import { 
   Package, 
@@ -35,6 +35,8 @@ export default function LogisticsDashboard({ user, adminSettings }: { user: User
       const fetchedLists = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as PackingList[];
       // Only keep lists that are assigned to a recipient (distributions)
       setLists(fetchedLists.filter(l => l.recipientId));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'packingLists (Logistics)');
     });
 
     // Fetch contacts to map recipient names
@@ -42,6 +44,9 @@ export default function LogisticsDashboard({ user, adminSettings }: { user: User
     const unsubscribeContacts = onSnapshot(qContacts, (snapshot) => {
       const fetchedContacts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Contact[];
       setContacts(fetchedContacts);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'contacts (Logistics)');
       setLoading(false);
     });
 

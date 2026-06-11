@@ -45,7 +45,7 @@ import {
   Activity
 } from 'lucide-react';
 import { collection, query, where, onSnapshot, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, writeBatch, collectionGroup } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, Organization, Department, Team, UserRole, Terminal, AdminSettings } from '../types';
 import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
@@ -464,6 +464,8 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
     const q = query(collection(db, 'organizations'), where('ownerId', '==', user.uid));
     const unsub = onSnapshot(q, (snap) => {
       setMyOrgs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Organization)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'organizations (owned)');
     });
     return () => unsub();
   }, [user?.uid]);
@@ -477,26 +479,38 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
 
     const unsubOrg = onSnapshot(doc(db, 'organizations', user.orgId), (snap) => {
       if (snap.exists()) setOrg({ id: snap.id, ...snap.data() } as Organization);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `organizations/${user.orgId}`);
     });
 
     const unsubDepts = onSnapshot(query(collection(db, 'departments'), where('orgId', '==', user.orgId)), (snap) => {
       setDepts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Department)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'departments');
     });
 
     const unsubTeams = onSnapshot(query(collection(db, 'teams'), where('orgId', '==', user.orgId)), (snap) => {
       setTeams(snap.docs.map(t => ({ id: t.id, ...t.data() } as Team)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'teams');
     });
 
     const unsubMembers = onSnapshot(query(collection(db, 'users'), where('orgId', '==', user.orgId)), (snap) => {
       setMembers(snap.docs.map(m => m.data() as UserProfile));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users (members)');
     });
 
     const unsubGear = onSnapshot(query(collectionGroup(db, 'gearLibrary'), where('orgId', '==', user.orgId)), (snap) => {
       setGear(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'gearLibrary (collectionGroup)');
     });
 
     const unsubTerminals = onSnapshot(query(collection(db, 'terminals'), where('ownerUid', '==', user.uid)), (snap) => {
       setTerminals(snap.docs.map(d => ({ id: d.id, ...d.data() } as Terminal)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'terminals');
     });
 
     const unsubInventories = onSnapshot(collection(db, 'inventories'), (snap) => {
@@ -506,6 +520,8 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
         (inv.visibility?.orgIds && inv.visibility.orgIds.includes(user.orgId))
       );
       setInventories(orgInvs);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'inventories');
     });
 
     setIsLoading(false);

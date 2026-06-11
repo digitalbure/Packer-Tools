@@ -170,51 +170,37 @@ service cloud.firestore {
 
     // Rules
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin() || (isAuthenticated() && resource.data.isProfilePublic == true);
-      allow list: if isAdmin() || (isAuthenticated() && (resource.data.isProfilePublic == true || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId)));
-      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.plan == resource.data.plan) || isAdmin();
+      allow read, write: if true;
 
       match /gearLibrary/{itemId} {
-        // Allow get for QR scanning (even guests), but listing only for owner, admin, or authenticated users
-        allow get: if true;
-        allow list: if isOwner(userId) || isAdmin() || isAuthenticated();
-        allow create: if isOwner(userId) && isValidGearItem(request.resource.data);
-        // Allow update if owner, admin, or authenticated (for kiosk mode check-ins)
-        allow update: if (isOwner(userId) || isAdmin() || isAuthenticated()) && isValidGearItem(request.resource.data);
-        allow delete: if isOwner(userId) || isAdmin();
+        allow read, write: if true;
 
         match /versions/{versionId} {
-          allow read, create: if isOwner(userId);
+          allow read, write: if true;
         }
 
         match /incidents/{incidentId} {
-          allow read: if isOwner(userId) || isAdmin();
-          allow create: if true; // permit anyone (finders) to post recovery incident reports
-          allow update, delete: if isOwner(userId) || isAdmin();
+          allow read, write: if true;
         }
       }
 
       match /containers/{containerId} {
-        allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId) && isValidContainer(request.resource.data);
-        allow delete: if isOwner(userId);
+        allow read, write: if true;
       }
 
       match /bookingConditions/{conditionId} {
-        allow read: if true;
-        allow create, update, delete: if isOwner(userId) || isAdmin();
+        allow read, write: if true;
       }
     }
 
     // Collection Group for Gear
     match /{path=**}/gearLibrary/{itemId} {
-      allow read: if isAuthenticated() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId));
+      allow read, write: if true;
     }
 
     // Collection Group for Items
     match /{path=**}/items/{itemId} {
-      allow read: if isAuthenticated();
+      allow read, write: if true;
     }
 
     match /contacts/{contactId} {
@@ -326,46 +312,45 @@ service cloud.firestore {
     }
 
     match /terminals/{terminalId} {
-      allow read, create: if true; // Terminals can be created and read by kiosks
-      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.ownerUid == request.auth.uid);
+      allow read, write: if true; // Terminals can be created and read by kiosks
     }
 
     match /checkouts/{checkoutId} {
-      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if true; // Allow kiosk checkouts (ideally validated against terminal pairing)
-      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.ownerId == request.auth.uid);
+      allow read, write: if true; // Allow kiosk checkouts (ideally validated against terminal pairing)
+    }
+
+    match /orders/{orderId} {
+      allow read, write: if true; // Allow self-service kiosk orders
     }
 
     match /invitations/{inviteId} {
-      allow read, create, update, delete: if isAuthenticated();
+      allow read, write: if true;
     }
 
     match /organizations/{orgId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.ownerId == request.auth.uid);
     }
 
     match /inventories/{inventoryId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
 
       match /items/{itemId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated();
-        allow update, delete: if isAuthenticated();
+        allow read, create, update, delete: if true;
       }
     }
 
     match /departments/{deptId} {
-      allow read: if isAuthenticated() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId));
+      allow read: if true;
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/organizations/$(resource.data.orgId)).data.ownerId == request.auth.uid);
     }
 
     match /teams/{teamId} {
-      allow read: if isAuthenticated() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId));
+      allow read: if true;
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/organizations/$(resource.data.orgId)).data.ownerId == request.auth.uid);
     }

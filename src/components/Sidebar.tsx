@@ -775,7 +775,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                         >
                           <span className="text-neutral-400 group-hover:text-primary transition-colors shrink-0 flex items-center justify-center w-6">
                             {React.isValidElement(item.icon)
-                              ? React.cloneElement(item.icon as React.ReactElement, { size: 18 })
+                              ? React.cloneElement(item.icon as any, { size: 18 })
                               : item.icon
                             }
                           </span>

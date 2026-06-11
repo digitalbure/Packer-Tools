@@ -94,6 +94,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [orgsList, setOrgsList] = useState<Organization[]>([]);
   const [isDirectoriesLoading, setIsDirectoriesLoading] = useState(true);
+  const [directoryType, setDirectoryType] = useState<'orgs' | 'users'>('orgs');
   
   // Search, Sort, Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -2397,89 +2398,92 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                   />
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Organizations Column */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-2">
-                  <Building2 size={20} className="text-primary" />
-                  <h3 className="text-base font-black uppercase tracking-tight text-neutral-700">Organizations ({orgsList.length})</h3>
-                </div>
-                
-                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                  {orgsList.filter(o => o.name?.toLowerCase().includes(searchQuery.toLowerCase()) || o.slug?.toLowerCase().includes(searchQuery.toLowerCase())).map((org) => (
-                    <div key={org.id} className="bg-white p-6 rounded-2xl border border-neutral-150/60 shadow-sm space-y-4 hover:border-neutral-300 transition duration-150">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-1 min-w-0">
-                          <h4 className="font-extrabold text-neutral-900 truncate text-sm">{org.name}</h4>
-                          <span className="inline-block px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded text-[9px] font-mono tracking-widest uppercase">
-                            /{org.slug}
-                          </span>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${org.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                          {org.status}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-[10px] font-bold text-neutral-400 uppercase tracking-wider pt-2 border-t border-neutral-100">
-                        <span>Plan: {org.subscriptionPlan || 'Free Tier'}</span>
-                        <span className="text-neutral-500 font-black">ID: {org.id.slice(0, 8)}...</span>
-                      </div>
-                    </div>
-                  ))}
-                  {orgsList.length === 0 && (
-                    <p className="text-neutral-400 text-xs font-bold uppercase tracking-wider italic text-center py-10 bg-white rounded-2xl border border-dashed border-neutral-200">
-                      No organizations available in system.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Public Users Column */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-2">
-                  <Users size={20} className="text-[#ff4f3a]" />
-                  <h3 className="text-base font-black uppercase tracking-tight text-neutral-700">Public User Profiles ({usersList.length})</h3>
-                </div>
-
-                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                  {usersList.filter(u => u.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) || (u.company || '').toLowerCase().includes(searchQuery.toLowerCase()) || (u.bio || '').toLowerCase().includes(searchQuery.toLowerCase())).map((pubUser) => (
-                    <div key={pubUser.uid} className="bg-white p-6 rounded-2xl border border-neutral-150/60 shadow-sm hover:border-neutral-300 transition duration-150 flex items-start gap-4">
-                      <img
-                        src={pubUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'}
-                        alt={pubUser.displayName}
-                        className="w-12 h-12 rounded-xl object-cover border border-neutral-100 mt-1 shrink-0"
-                      />
-                      <div className="space-y-2 flex-1 min-w-0 font-sans">
-                        <div className="space-y-0.5">
-                          <h4 className="font-extrabold text-neutral-900 truncate text-sm">{pubUser.displayName}</h4>
-                          <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider truncate">
-                            {pubUser.company || 'Independent Contractor'} • {pubUser.location || 'Suva, Fiji'}
-                          </p>
-                        </div>
-                        {pubUser.bio && (
-                          <p className="text-xs text-neutral-500 leading-relaxed font-semibold italic line-clamp-2">
-                            "{pubUser.bio}"
-                          </p>
-                        )}
-                        <div className="flex items-center gap-4 text-[10px] font-bold text-neutral-400 uppercase tracking-wider pt-2 border-t border-neutral-100">
-                          <span className="flex items-center gap-1">
-                            <Mail size={12} className="text-neutral-450 shrink-0" />
-                            {pubUser.email}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {usersList.length === 0 && (
-                    <p className="text-neutral-400 text-xs font-bold uppercase tracking-wider italic text-center py-10 bg-white rounded-2xl border border-dashed border-neutral-200">
-                      No public user profiles are currently listed. Go to Profile Settings to make yours public!
-                    </p>
-                  )}
+              {/* Directories Toggle */}
+              <div className="flex justify-center pt-2">
+                <div className="bg-neutral-100 p-1 rounded-2xl flex gap-1 border border-neutral-200/40">
+                  <button
+                    type="button"
+                    onClick={() => setDirectoryType('orgs')}
+                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
+                      directoryType === 'orgs' ? 'bg-neutral-900 text-white shadow-md' : 'text-neutral-500 hover:text-neutral-900'
+                    }`}
+                  >
+                    <Building2 size={14} />
+                    <span>Organizations ({orgsList.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDirectoryType('users')}
+                    className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
+                      directoryType === 'users' ? 'bg-neutral-900 text-white shadow-md' : 'text-neutral-500 hover:text-neutral-900'
+                    }`}
+                  >
+                    <Users size={14} />
+                    <span>Users ({usersList.length})</span>
+                  </button>
                 </div>
               </div>
             </div>
+
+            {/* Directory Cards Grid */}
+            {directoryType === 'orgs' ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                  {orgsList.filter(o => o.name?.toLowerCase().includes(searchQuery.toLowerCase()) || o.slug?.toLowerCase().includes(searchQuery.toLowerCase())).map((org) => {
+                    const orgLogo = org.settings?.branding?.logo || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=150';
+                    return (
+                      <div key={org.id} className="bg-white p-6 rounded-[2rem] border border-neutral-100 hover:border-neutral-250 hover:border-neutral-300 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center text-center group gap-3">
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border border-neutral-100 bg-neutral-50 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-300">
+                          <img
+                            src={orgLogo}
+                            alt={org.name}
+                            className="w-full h-full object-cover animate-in fade-in"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                        <h4 className="font-extrabold text-neutral-900 text-xs uppercase tracking-tight line-clamp-2 leading-tight">
+                          {org.name}
+                        </h4>
+                      </div>
+                    );
+                  })}
+                </div>
+                {orgsList.length === 0 && (
+                  <p className="text-neutral-400 text-xs font-bold uppercase tracking-wider italic text-center py-12 bg-white rounded-[2.5rem] border border-dashed border-neutral-200">
+                    No organizations available in system.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                  {usersList.filter(u => u.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) || (u.company || '').toLowerCase().includes(searchQuery.toLowerCase()) || (u.bio || '').toLowerCase().includes(searchQuery.toLowerCase())).map((pubUser) => {
+                    const profileImg = pubUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150';
+                    return (
+                      <div key={pubUser.uid} className="bg-white p-6 rounded-[2rem] border border-neutral-100 hover:border-neutral-250 hover:border-neutral-300 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center text-center group gap-3">
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border border-neutral-100 bg-neutral-50 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-300">
+                          <img
+                            src={profileImg}
+                            alt={pubUser.displayName}
+                            className="w-full h-full object-cover animate-in fade-in"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                        <h4 className="font-extrabold text-neutral-900 text-xs uppercase tracking-tight line-clamp-2 leading-tight">
+                          {pubUser.displayName}
+                        </h4>
+                      </div>
+                    );
+                  })}
+                </div>
+                {usersList.length === 0 && (
+                  <p className="text-neutral-400 text-xs font-bold uppercase tracking-wider italic text-center py-12 bg-white rounded-[2.5rem] border border-dashed border-neutral-200">
+                    No public user profiles are currently listed.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

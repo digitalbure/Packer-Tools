@@ -25,12 +25,15 @@ import {
   Printer,
   Mail,
   Share2,
-  ShoppingBag
+  ShoppingBag,
+  Sliders,
+  CheckSquare,
+  Tv
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import SignatureCanvas from 'react-signature-canvas';
 import { QRCodeCanvas } from 'qrcode.react';
-import { collection, query, where, getDocs, getDoc, addDoc, serverTimestamp, doc, updateDoc, onSnapshot, limit, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, addDoc, deleteDoc, serverTimestamp, doc, updateDoc, onSnapshot, limit, arrayUnion } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { triggerGoogleChatAlert } from '../services/googleChat';
 import { GearItem, UserProfile, CheckoutRecord, AdminSettings, Container } from '../types';
@@ -58,6 +61,376 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   // Active Terminal Source Configuration
   const [activeSourceType, setActiveSourceType] = useState<'gearLibrary' | 'customInventory'>('gearLibrary');
   const [terminalInventoryId, setTerminalInventoryId] = useState<string | null>(null);
+
+  // administrative states for Kiosk Controller Hub
+  const [adminTab, setAdminTab] = useState<'hub' | 'devices' | 'scanner'>('hub');
+  const [terminalsList, setTerminalsList] = useState<any[]>([]);
+  
+  // Customization preferences in state with persistent memory
+  const [kioskWelcomeMessage, setKioskWelcomeMessage] = useState<string>(
+    localStorage.getItem('kiosk_welcome_message') || 'Welcome to the Gear Command Terminal'
+  );
+  const [showBrandSetting, setShowBrandSetting] = useState<boolean>(
+    localStorage.getItem('kiosk_show_brand') !== 'false'
+  );
+  const [showConditionSetting, setShowConditionSetting] = useState<boolean>(
+    localStorage.getItem('kiosk_show_condition') !== 'false'
+  );
+  const [showHolderSetting, setShowHolderSetting] = useState<boolean>(
+    localStorage.getItem('kiosk_show_holder') !== 'false'
+  );
+  const [showCategorySetting, setShowCategorySetting] = useState<boolean>(
+    localStorage.getItem('kiosk_show_category') !== 'false'
+  );
+  const [showQRSetting, setShowQRSetting] = useState<boolean>(
+    localStorage.getItem('kiosk_show_qr') !== 'false'
+  );
+  const [showTimestampSetting, setShowTimestampSetting] = useState<boolean>(
+    localStorage.getItem('kiosk_show_timestamp') !== 'false'
+  );
+  
+  // Terminal creation & list states
+  const [showAddTerminalModal, setShowAddTerminalModal] = useState<boolean>(false);
+  const [newTerminalName, setNewTerminalName] = useState<string>('');
+  const [newTerminalMode, setNewTerminalMode] = useState<'both' | 'checkout' | 'checkin'>('both');
+
+  // Scanner state for instant checkin/out
+  const [isInstantScannerActive, setIsInstantScannerActive] = useState<boolean>(false);
+  const [scannerAssignee, setScannerAssignee] = useState<string>(initialUser?.displayName || 'Terminal Guest');
+  const [scannerAssigneeEmail, setScannerAssigneeEmail] = useState<string>(initialUser?.email || 'guest@terminal.local');
+  const [instantManualInput, setInstantManualInput] = useState<string>('');
+  const [autoScanLogs, setAutoScanLogs] = useState<{
+    id: string;
+    itemName: string;
+    brand: string;
+    action: 'in' | 'out';
+    assignee?: string;
+    timestamp: Date;
+    assetTag: string;
+  }[]>([]);
+
+  // Real-time terminals synchronization
+  useEffect(() => {
+    if (!initialUser?.uid) return;
+    const q = query(collection(db, 'terminals'), where('ownerUid', '==', initialUser.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      setTerminalsList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => console.error("Error loading terminals for PIN management:", err));
+    return () => unsub();
+  }, [initialUser?.uid]);
+
+  // Persists local customizations
+  useEffect(() => {
+    localStorage.setItem('kiosk_welcome_message', kioskWelcomeMessage);
+    localStorage.setItem('kiosk_show_brand', String(showBrandSetting));
+    localStorage.setItem('kiosk_show_condition', String(showConditionSetting));
+    localStorage.setItem('kiosk_show_holder', String(showHolderSetting));
+    localStorage.setItem('kiosk_show_category', String(showCategorySetting));
+    localStorage.setItem('kiosk_show_qr', String(showQRSetting));
+    localStorage.setItem('kiosk_show_timestamp', String(showTimestampSetting));
+  }, [kioskWelcomeMessage, showBrandSetting, showConditionSetting, showHolderSetting, showCategorySetting, showQRSetting, showTimestampSetting]);
+
+  // Scanner hook for administrative tab auto check-in/out
+  const instantScannerRef = useRef<Html5Qrcode | null>(null);
+  const lastInstantScannedRef = useRef<{ code: string; time: number } | null>(null);
+
+  useEffect(() => {
+    if (!isInstantScannerActive || adminTab !== 'scanner') {
+      if (instantScannerRef.current) {
+        try {
+          if (instantScannerRef.current.isScanning) {
+            instantScannerRef.current.stop().catch(e => console.log(e));
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+        instantScannerRef.current = null;
+      }
+      return;
+    }
+
+    let isSubscribed = true;
+    let retryCount = 0;
+
+    const startInstantScanner = () => {
+      const el = document.getElementById("gear-instant-scanner");
+      if (!el) {
+        if (isSubscribed && retryCount < 40) {
+          retryCount++;
+          setTimeout(startInstantScanner, 100);
+        }
+        return;
+      }
+
+      try {
+        const scanner = new Html5Qrcode("gear-instant-scanner");
+        instantScannerRef.current = scanner;
+
+        scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 280, height: 280 } },
+          (decodedText) => {
+            const now = Date.now();
+            if (
+              lastInstantScannedRef.current &&
+              lastInstantScannedRef.current.code === decodedText &&
+              now - lastInstantScannedRef.current.time < 2500
+            ) {
+              return;
+            }
+            lastInstantScannedRef.current = { code: decodedText, time: now };
+            handleInstantScanSuccess(decodedText);
+          },
+          () => {}
+        ).catch((err) => {
+          console.warn("Retrying scanner with user-facing camera:", err);
+          if (!isSubscribed) return;
+          scanner.start(
+            { facingMode: "user" },
+            { fps: 10, qrbox: { width: 280, height: 280 } },
+            (decodedText) => {
+              const now = Date.now();
+              if (
+                lastInstantScannedRef.current &&
+                lastInstantScannedRef.current.code === decodedText &&
+                now - lastInstantScannedRef.current.time < 2500
+              ) {
+                return;
+              }
+              lastInstantScannedRef.current = { code: decodedText, time: now };
+              handleInstantScanSuccess(decodedText);
+            },
+            () => {}
+          ).catch(e => console.error("Camera access failed:", e));
+        });
+      } catch (err) {
+        console.error("Instant barcode scanner failed startup", err);
+      }
+    };
+
+    startInstantScanner();
+
+    return () => {
+      isSubscribed = false;
+      if (instantScannerRef.current) {
+        try {
+          if (instantScannerRef.current.isScanning) {
+            instantScannerRef.current.stop().catch(e => console.log(e));
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+        instantScannerRef.current = null;
+      }
+    };
+  }, [isInstantScannerActive, adminTab]);
+
+  const processAutoCheckInOut = async (scannedValue: string) => {
+    const targetUid = initialUser?.uid;
+    if (!targetUid) {
+      toast.error("Please log in to use the automated scanner component.");
+      return;
+    }
+
+    let decodedValue = scannedValue.trim();
+    if (decodedValue.includes('/gear/')) {
+      try {
+        const urlObj = new URL(decodedValue);
+        const pathParts = urlObj.pathname.split('/');
+        const gearIdx = pathParts.indexOf('gear');
+        if (gearIdx !== -1 && pathParts[gearIdx + 1]) {
+          decodedValue = pathParts[gearIdx + 1];
+        }
+      } catch (e) {
+        const parts = decodedValue.split('/gear/');
+        if (parts[1]) {
+          decodedValue = parts[1].split('?')[0];
+        }
+      }
+    }
+
+    try {
+      let foundItem: GearItem | null = null;
+      const directRef = doc(db, 'users', targetUid, 'gearLibrary', decodedValue);
+      const directSnap = await getDoc(directRef);
+      if (directSnap.exists()) {
+        foundItem = { id: directSnap.id, ...directSnap.data() } as GearItem;
+      } else {
+        const qTag = query(
+          collection(db, 'users', targetUid, 'gearLibrary'),
+          where('assetTag', '==', decodedValue),
+          limit(1)
+        );
+        const tagSnap = await getDocs(qTag);
+        if (!tagSnap.empty) {
+          foundItem = { id: tagSnap.docs[0].id, ...tagSnap.docs[0].data() } as GearItem;
+        } else {
+          const qRawTag = query(
+            collection(db, 'users', targetUid, 'gearLibrary'),
+            where('assetTag', '==', scannedValue),
+            limit(1)
+          );
+          const rawTagSnap = await getDocs(qRawTag);
+          if (!rawTagSnap.empty) {
+            foundItem = { id: rawTagSnap.docs[0].id, ...rawTagSnap.docs[0].data() } as GearItem;
+          }
+        }
+      }
+
+      if (!foundItem) {
+        toast.error(`No equipment matches asset identifier "${decodedValue}"`);
+        return;
+      }
+
+      const userGearRef = doc(db, 'users', targetUid, 'gearLibrary', foundItem.id);
+      
+      if (foundItem.status === 'in_use') {
+        await updateDoc(userGearRef, {
+          status: 'available',
+          currentHolder: "",
+          lastCheckedIn: serverTimestamp()
+        });
+
+        await addDoc(collection(db, 'checkouts'), {
+          assetId: foundItem.id,
+          assetName: foundItem.name,
+          assetType: 'item',
+          userId: targetUid,
+          userName: foundItem.currentHolder || 'Assigned Holder',
+          userEmail: '',
+          checkInTime: serverTimestamp(),
+          status: 'returned',
+          notes: `Auto checked-in via Instant Gear Scanner at ${new Date().toLocaleTimeString()}`
+        });
+
+        setAutoScanLogs(prev => [
+          {
+            id: Math.random().toString(),
+            itemName: foundItem!.name,
+            brand: foundItem!.brand || '',
+            action: 'in',
+            timestamp: new Date(),
+            assetTag: foundItem!.assetTag || foundItem!.id
+          },
+          ...prev
+        ]);
+
+        toast.success(`✓ Auto Checked IN: ${foundItem.brand || ''} ${foundItem.name}`);
+      } else {
+        const holderName = scannerAssignee.trim() || initialUser?.displayName || 'Terminal Guest';
+        const holderEmail = scannerAssigneeEmail.trim() || initialUser?.email || 'guest@terminal.local';
+
+        await updateDoc(userGearRef, {
+          status: 'in_use',
+          currentHolder: holderName,
+          lastCheckedOut: serverTimestamp()
+        });
+
+        await addDoc(collection(db, 'checkouts'), {
+          assetId: foundItem.id,
+          assetName: foundItem.name,
+          assetType: 'item',
+          userId: targetUid,
+          userName: holderName,
+          userEmail: holderEmail,
+          checkOutTime: serverTimestamp(),
+          status: 'active',
+          notes: `Auto checked-out via Instant Gear Scanner at ${new Date().toLocaleTimeString()}`
+        });
+
+        setAutoScanLogs(prev => [
+          {
+            id: Math.random().toString(),
+            itemName: foundItem!.name,
+            brand: foundItem!.brand || '',
+            action: 'out',
+            assignee: holderName,
+            timestamp: new Date(),
+            assetTag: foundItem!.assetTag || foundItem!.id
+          },
+          ...prev
+        ]);
+
+        toast.success(`➜ Auto Checked OUT: ${foundItem.brand || ''} ${foundItem.name} to ${holderName}`);
+      }
+    } catch (err) {
+      console.error("Auto scan check-in/out error:", err);
+      toast.error("Auto state transition failed.");
+    }
+  };
+
+  const handleInstantScanSuccess = (scannedValue: string) => {
+    processAutoCheckInOut(scannedValue);
+  };
+
+  const handleAddNewTerminal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!initialUser?.uid) return;
+    if (!newTerminalName.trim()) {
+      toast.error("Please specify a terminal location or device name!");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      await addDoc(collection(db, 'terminals'), {
+        ownerUid: initialUser.uid,
+        deviceName: newTerminalName.trim(),
+        pairingCode: code,
+        status: 'pending',
+        lastActive: new Date().toISOString(),
+        settings: {
+          mode: newTerminalMode
+        },
+        customPreferences: {
+          welcomeMessage: kioskWelcomeMessage,
+          showBrand: showBrandSetting,
+          showCondition: showConditionSetting,
+          showHolder: showHolderSetting,
+          showCategory: showCategorySetting,
+          showQR: showQRSetting,
+          showTimestamp: showTimestampSetting
+        }
+      });
+
+      toast.success(`Kiosk "${newTerminalName}" successfully registered!`);
+      setNewTerminalName('');
+      setShowAddTerminalModal(false);
+    } catch (err) {
+      console.error("Error creating terminal record:", err);
+      toast.error("Failed to register Kiosk device.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegeneratePin = async (tId: string, deviceName: string) => {
+    try {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      await updateDoc(doc(db, 'terminals', tId), {
+        pairingCode: code,
+        lastActive: new Date().toISOString()
+      });
+      toast.success(`Pairing PIN successfully rotated for ${deviceName}!`);
+    } catch (err) {
+      console.error("Error regenerating pairing PIN:", err);
+      toast.error("Failed to rotate pairing PIN.");
+    }
+  };
+
+  const handleRevokeTerminal = async (tId: string, deviceName: string) => {
+    if (!confirm(`Are you sure you want to delete and revoke terminal "${deviceName}"?`)) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'terminals', tId));
+      toast.success(`Terminal ${deviceName} successfully deleted.`);
+    } catch (err) {
+      console.error("Error deleting terminal:", err);
+      toast.error("Failed to delete terminal.");
+    }
+  };
   
   // Database Entities load states
   const [organizations, setOrganizations] = useState<any[]>([]);
@@ -1203,6 +1576,600 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     setCart([]);
     setLastOrderReceipt(null);
   };
+
+  const isFullscreen = window.location.hash.includes('fullscreen=true');
+
+  if (!isFullscreen) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 space-y-8 bg-neutral-50 min-h-screen text-neutral-900 font-sans">
+        {/* Header Board */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-200 pb-6">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-black uppercase tracking-tighter text-neutral-900 flex items-center gap-2">
+              <QrCode size={32} className="text-[#F27D26]" />
+              Kiosk & Scanner Console
+            </h1>
+            <p className="text-xs text-neutral-550 font-medium leading-relaxed">
+              Configure remote terminal behaviors, manage pairing PIN authorization keys, or use your device as an instant auto check-in/out scanner.
+            </p>
+          </div>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                window.location.hash = '#/kiosk?fullscreen=true';
+              }}
+              className="px-5 py-3 bg-[#F27D26] hover:bg-[#F27D26]/90 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition flex items-center gap-2 shadow-sm shadow-[#F27D26]/20 cursor-pointer text-center"
+            >
+              <Lock size={15} />
+              Launch Fullscreen Kiosk
+            </button>
+          </div>
+        </header>
+
+        {/* Console Navigation Tabs */}
+        <div className="flex flex-wrap items-center gap-2 bg-neutral-200/50 p-1.5 rounded-2xl w-fit">
+          <button
+            onClick={() => {
+              setAdminTab('hub');
+              setIsInstantScannerActive(false);
+            }}
+            className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-205 cursor-pointer ${
+              adminTab === 'hub' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+          >
+            Kiosk Configuration
+          </button>
+          <button
+            onClick={() => {
+              setAdminTab('devices');
+              setIsInstantScannerActive(false);
+            }}
+            className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-205 cursor-pointer ${
+              adminTab === 'devices' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+          >
+            Manage Pairing Keys ({terminalsList.length})
+          </button>
+          <button
+            onClick={() => {
+              setAdminTab('scanner');
+              setIsInstantScannerActive(true);
+            }}
+            className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-205 cursor-pointer ${
+              adminTab === 'scanner' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+          >
+            Gear Scanner (Auto-Check)
+          </button>
+        </div>
+
+        {/* Tab Content Panels */}
+        <AnimatePresence mode="wait">
+          {adminTab === 'hub' && (
+            <motion.div
+              key="tab-hub"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="grid md:grid-cols-3 gap-8"
+            >
+              <div className="md:col-span-2 bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 space-y-6 shadow-sm">
+                <div className="space-y-1 border-b border-neutral-100 pb-4">
+                  <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Custom Display Properties</h3>
+                  <p className="text-xs text-neutral-455 font-medium">Select exactly what properties should be visible inside the physical checkout terminal screen.</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Custom Greeting Welcome Headline</label>
+                    <input
+                      type="text"
+                      value={kioskWelcomeMessage}
+                      onChange={(e) => setKioskWelcomeMessage(e.target.value)}
+                      placeholder="e.g. Welcome to the Central Gear Depot"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl p-4 text-xs font-semibold focus:border-[#F27D26] outline-none text-neutral-800 transition"
+                    />
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4 pt-2">
+                    <label className="flex items-center gap-3 p-4 bg-neutral-50 rounded-2xl border border-neutral-150 cursor-pointer hover:bg-neutral-100/50 transition border-solid">
+                      <input
+                        type="checkbox"
+                        checked={showBrandSetting}
+                        onChange={(e) => setShowBrandSetting(e.target.checked)}
+                        className="accent-[#F27D26] scale-110"
+                      />
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wide text-neutral-800 block">Show Brand & Model</span>
+                        <span className="text-[10px] text-neutral-400 block mt-0.5 font-medium leading-none">Displays equipment manufacturer details first.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-4 bg-neutral-50 rounded-2xl border border-neutral-150 cursor-pointer hover:bg-neutral-100/50 transition border-solid">
+                      <input
+                        type="checkbox"
+                        checked={showConditionSetting}
+                        onChange={(e) => setShowConditionSetting(e.target.checked)}
+                        className="accent-[#F27D26] scale-110"
+                      />
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wide text-neutral-800 block">Show Condition Rating</span>
+                        <span className="text-[10px] text-neutral-400 block mt-0.5 font-medium leading-none">Embeds condition tags on items.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-4 bg-neutral-50 rounded-2xl border border-neutral-150 cursor-pointer hover:bg-neutral-100/50 transition border-solid">
+                      <input
+                        type="checkbox"
+                        checked={showHolderSetting}
+                        onChange={(e) => setShowHolderSetting(e.target.checked)}
+                        className="accent-[#F27D26] scale-110"
+                      />
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wide text-neutral-800 block">Show Custody Holder name</span>
+                        <span className="text-[10px] text-neutral-400 block mt-0.5 font-medium leading-none">Shows who currently possesses Checked-Out gear.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-4 bg-neutral-50 rounded-2xl border border-neutral-150 cursor-pointer hover:bg-neutral-100/50 transition border-solid">
+                      <input
+                        type="checkbox"
+                        checked={showCategorySetting}
+                        onChange={(e) => setShowCategorySetting(e.target.checked)}
+                        className="accent-[#F27D26] scale-110"
+                      />
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wide text-neutral-800 block">Show Category Badge</span>
+                        <span className="text-[10px] text-neutral-400 block mt-0.5 font-medium leading-none">Organizes items with visual categories.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-4 bg-neutral-50 rounded-2xl border border-neutral-150 cursor-pointer hover:bg-neutral-100/50 transition border-solid">
+                      <input
+                        type="checkbox"
+                        checked={showQRSetting}
+                        onChange={(e) => setShowQRSetting(e.target.checked)}
+                        className="accent-[#F27D26] scale-110"
+                      />
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wide text-neutral-800 block">Show QR Confirmation</span>
+                        <span className="text-[10px] text-neutral-400 block mt-0.5 font-medium leading-none">Embeds dynamic QR validation assets.</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-4 bg-neutral-50 rounded-2xl border border-neutral-150 cursor-pointer hover:bg-neutral-100/50 transition border-solid">
+                      <input
+                        type="checkbox"
+                        checked={showTimestampSetting}
+                        onChange={(e) => setShowTimestampSetting(e.target.checked)}
+                        className="accent-[#F27D26] scale-110"
+                      />
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wide text-neutral-800 block">Show Live Timestamp Clock</span>
+                        <span className="text-[10px] text-neutral-400 block mt-0.5 font-medium leading-none">Includes real-time localized clock widgets.</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 flex flex-col justify-between shadow-sm space-y-6">
+                <div className="space-y-4">
+                  <div className="w-12 h-12 bg-[#F27D26]/10 text-[#F27D26] rounded-2xl flex items-center justify-center">
+                    <Sliders size={24} />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Configure Default Kiosk Mode</h3>
+                    <p className="text-xs text-neutral-550 leading-relaxed font-semibold">
+                      Restrict terminal operations to enforce certain flows in warehouses or fields. For example, checkin-only modes prevent unrecorded gear removals.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2.5 pt-2">
+                    <button
+                      onClick={() => {
+                        setKioskMode('both');
+                        toast.success("Default mode set to Checkout & Checkin!");
+                      }}
+                      className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                        kioskMode === 'both'
+                          ? 'border-[#F27D26] bg-[#F27D26]/5 text-[#F27D26]'
+                          : 'border-neutral-200 bg-neutral-50 hover:bg-neutral-100 text-neutral-700'
+                      }`}
+                    >
+                      <div>
+                        <span className="text-xs font-black uppercase tracking-wide block">Both (Checkout / Check-In)</span>
+                        <span className="text-[10px] text-neutral-400 block mt-0.5 font-semibold">Self-service full capability terminal.</span>
+                      </div>
+                      {kioskMode === 'both' && <CheckSquare size={16} />}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setKioskMode('checkout');
+                        toast.success("Default mode set to Checkout Only!");
+                      }}
+                      className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                        kioskMode === 'checkout'
+                          ? 'border-[#F27D26] bg-[#F27D26]/5 text-[#F27D26]'
+                          : 'border-neutral-200 bg-neutral-50 hover:bg-neutral-100 text-neutral-700'
+                      }`}
+                    >
+                      <div>
+                        <span className="text-xs font-black uppercase tracking-wide block">Checkout & Order Only</span>
+                        <span className="text-[10px] text-neutral-400 block mt-0.5 font-semibold">Disable instant check-ins.</span>
+                      </div>
+                      {kioskMode === 'checkout' && <CheckSquare size={16} />}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setKioskMode('checkin');
+                        toast.success("Default mode set to Check-In Only!");
+                      }}
+                      className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                        kioskMode === 'checkin'
+                          ? 'border-[#F27D26] bg-[#F27D26]/5 text-[#F27D26]'
+                          : 'border-neutral-200 bg-neutral-50 hover:bg-neutral-100 text-neutral-700'
+                      }`}
+                    >
+                      <div>
+                        <span className="text-xs font-black uppercase tracking-wide block">Check-In Focus Only</span>
+                        <span className="text-[10px] text-neutral-400 block mt-0.5 font-semibold">Disable checkout & orders.</span>
+                      </div>
+                      {kioskMode === 'checkin' && <CheckSquare size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-neutral-950/5 border border-dashed border-neutral-200 rounded-2xl p-4 text-[11px] text-neutral-500 font-mono text-center">
+                  All active parameters are compiled and synced automatically to remote terminals.
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {adminTab === 'devices' && (
+            <motion.div
+              key="tab-devices"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="space-y-6"
+            >
+              {/* Device Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-3xl border border-neutral-200 p-6 shadow-sm">
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-tight text-neutral-955 text-neutral-900">Add & Manage Kiosk Devices</h3>
+                  <p className="text-xs text-neutral-400 font-medium">Register standalone android tablets or warehouse devices. Pair using security rotating PIN keys.</p>
+                </div>
+                <button
+                  onClick={() => setShowAddTerminalModal(true)}
+                  className="px-5 py-3 bg-[#F27D26] text-white hover:bg-[#F27D05] rounded-2xl text-xs font-black uppercase tracking-widest transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Plus size={16} />
+                  Add Kiosk Device
+                </button>
+              </div>
+
+              {/* Terminals list Grid */}
+              {terminalsList.length === 0 ? (
+                <div className="text-center p-16 bg-white border border-neutral-200 rounded-[2rem] space-y-4 shadow-sm">
+                  <div className="w-16 h-16 bg-neutral-50 text-neutral-400 rounded-3xl flex items-center justify-center mx-auto border border-neutral-100">
+                    <Tv size={32} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800">No Terminals Registered</h4>
+                    <p className="text-xs text-neutral-400 max-w-sm mx-auto font-medium leading-relaxed">
+                      Add a device tablet above to authorize standalone self-checkout stations without granting full account access.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {terminalsList.map((terminal) => {
+                    const statusBadge = terminal.status === 'active' 
+                      ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                      : 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+
+                    return (
+                      <div key={terminal.id} className="bg-white rounded-3xl border border-neutral-200 p-6 flex flex-col justify-between shadow-sm space-y-6">
+                        <div className="space-y-4">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-0.5">
+                              <h4 className="text-sm font-black uppercase tracking-wide text-neutral-900">{terminal.deviceName}</h4>
+                              <p className="text-[10px] text-neutral-400 font-mono uppercase tracking-widest font-bold">Terminal ID: {terminal.id.substring(0, 8)}</p>
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border leading-none ${statusBadge}`}>
+                              {terminal.status}
+                            </span>
+                          </div>
+
+                          <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-150 space-y-3">
+                            <div className="flex justify-between items-center text-[10px] uppercase font-black text-neutral-400">
+                              <span>Default Mode:</span>
+                              <span className="text-neutral-850 font-mono font-black mt-0.5 uppercase">{terminal.settings?.mode || 'both'}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px] uppercase font-black text-neutral-400">
+                              <span>Last Touch Sync:</span>
+                              <span className="text-neutral-850 font-mono font-black mt-0.5">
+                                {terminal.lastActive ? new Date(terminal.lastActive).toLocaleDateString() : 'Pending Pairing'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {terminal.status === 'pending' && (
+                            <div className="bg-amber-50/50 border border-dashed border-amber-200 rounded-2xl p-4 text-center space-y-1">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-[#F27D26] block">Terminal Pairing Pin Key</span>
+                              <span className="text-2xl font-mono font-black tracking-widest text-neutral-800 block">{terminal.pairingCode}</span>
+                              <span className="text-[9px] text-amber-600/85 leading-normal block pt-1 font-semibold select-all">
+                                Enter this verification number on your new station panel to complete secure handshake activation.
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2 border-t border-neutral-100 pt-4">
+                          <button
+                            onClick={() => handleRegeneratePin(terminal.id, terminal.deviceName)}
+                            className="flex-1 py-2.5 bg-neutral-50 border border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 rounded-xl text-[10px] font-black uppercase tracking-wider transition cursor-pointer"
+                          >
+                            Regen PIN
+                          </button>
+                          <button
+                            onClick={() => handleRevokeTerminal(terminal.id, terminal.deviceName)}
+                            className="px-3.5 py-2.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 rounded-xl text-[10px] font-black uppercase tracking-wider transition cursor-pointer"
+                          >
+                            Revoke
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {adminTab === 'scanner' && (
+            <motion.div
+              key="tab-scanner"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="grid lg:grid-cols-12 gap-8"
+            >
+              {/* Scanner Interface */}
+              <div className="lg:col-span-7 bg-white rounded-[2rem] border border-neutral-200 p-6 sm:p-8 space-y-6 shadow-sm">
+                <div className="space-y-1 border-b border-neutral-100 pb-4 flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <h3 className="text-base font-black uppercase tracking-tight text-neutral-900">Auto Scan State Machine</h3>
+                    <p className="text-xs text-neutral-450 font-medium">Scanned gear moves available tags directly into 'in_use' and back!</p>
+                  </div>
+                  
+                  {/* Start/Stop Camera Feed */}
+                  <button
+                    onClick={() => {
+                      setIsInstantScannerActive(!isInstantScannerActive);
+                      if (!isInstantScannerActive) {
+                        toast.success("Ready to receive scans!");
+                      }
+                    }}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center gap-2 cursor-pointer ${
+                      isInstantScannerActive 
+                        ? 'bg-rose-50 border border-rose-250 text-rose-600 hover:bg-rose-100' 
+                        : 'bg-[#F27D26]/10 text-[#F27D26] hover:bg-[#F27D26]/20'
+                    }`}
+                  >
+                    <Scan size={14} />
+                    {isInstantScannerActive ? 'Disconnect Scan Stream' : 'Activate Scan Stream'}
+                  </button>
+                </div>
+
+                {/* Live Scanner Placeholder/Viewport */}
+                <div className="relative aspect-video rounded-2xl bg-neutral-950 overflow-hidden border border-neutral-300 m-auto max-w-lg flex flex-col justify-center items-center text-center">
+                  {isInstantScannerActive ? (
+                    <div id="gear-instant-scanner" className="w-full h-full object-cover relative select-none" />
+                  ) : (
+                    <div className="p-6 space-y-4">
+                      <div className="w-14 h-14 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mx-auto text-neutral-400">
+                        <Scan size={28} />
+                      </div>
+                      <div className="space-y-2">
+                        <span className="text-xs font-black uppercase tracking-wider text-neutral-300 block">Video Feed Blocked</span>
+                        <p className="text-[10px] text-neutral-500 leading-relaxed font-semibold uppercase font-mono max-w-xs">
+                          Click 'Activate Scan Stream' above to bind cameras for high-frequency scanner operations.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {isInstantScannerActive && (
+                    <div className="absolute inset-0 border-2 border-[#F27D26]/20 pointer-events-none flex items-center justify-center">
+                      <div className="w-56 h-56 border-2 border-dashed border-[#F27D26]/60 rounded-3xl animate-pulse" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Configurations parameters: Default Checkout Assignee User */}
+                <div className="grid sm:grid-cols-2 gap-4 bg-neutral-50 p-4 rounded-2xl border border-neutral-150">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#555] block">Recipient/Assignee Name</label>
+                    <input
+                      type="text"
+                      value={scannerAssignee}
+                      onChange={(e) => setScannerAssignee(e.target.value)}
+                      placeholder="e.g. John Doe, Production Crew A"
+                      className="w-full bg-white border border-neutral-200 rounded-xl p-3 text-xs font-bold uppercase tracking-wide text-neutral-800 outline-none focus:border-[#F27D26]"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#555] block">Recipient Email (Optional)</label>
+                    <input
+                      type="text"
+                      value={scannerAssigneeEmail}
+                      onChange={(e) => setScannerAssigneeEmail(e.target.value)}
+                      placeholder="e.g. pilot@agency-group.com"
+                      className="w-full bg-white border border-neutral-200 rounded-xl p-3 text-xs font-semibold text-neutral-800 outline-none focus:border-[#F27D26]"
+                    />
+                  </div>
+                </div>
+
+                {/* Manual tag lookup backup input */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (instantManualInput.trim()) {
+                      processAutoCheckInOut(instantManualInput);
+                      setInstantManualInput('');
+                    }
+                  }}
+                  className="space-y-1.5 pt-2"
+                >
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Or Manually Enter Asset Tag Code</label>
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      value={instantManualInput}
+                      onChange={(e) => setInstantManualInput(e.target.value)}
+                      placeholder="Type asset code (e.g. CAM-012) and press Enter"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl py-3.5 pl-4 pr-32 text-xs font-bold outline-none focus:border-[#F27D26] text-neutral-800 transition"
+                    />
+                    <button
+                      type="submit"
+                      className="absolute right-2 px-4 py-2 bg-[#F27D26] hover:bg-[#F27D15] text-white text-[10px] font-black uppercase tracking-wide rounded-lg cursor-pointer transition"
+                    >
+                      Process Input
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Chronological Scan Entries logs */}
+              <div className="lg:col-span-5 bg-white rounded-[2rem] border border-neutral-200 p-6 sm:p-8 flex flex-col shadow-sm h-[600px]">
+                <div className="border-b border-neutral-100 pb-4 mb-4 shrink-0">
+                  <h3 className="text-base font-black uppercase tracking-tight text-neutral-900">Session Operations Log</h3>
+                  <p className="text-xs text-neutral-450 font-medium">Automatic transitions tracked in the current active session.</p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto pr-1 space-y-3">
+                  {autoScanLogs.length === 0 ? (
+                    <div className="h-full flex flex-col justify-center items-center text-center p-6 text-neutral-400">
+                      <div className="w-12 h-12 rounded-2xl bg-neutral-50 border border-neutral-100 flex items-center justify-center mb-3">
+                        <Clock size={20} />
+                      </div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-neutral-600">Scan Session Empty</span>
+                      <p className="text-[10px] text-neutral-400 leading-normal max-w-sm block mt-1 uppercase font-semibold font-mono">
+                        Awaiting automatic check-ins or custody dispatches...
+                      </p>
+                    </div>
+                  ) : (
+                    autoScanLogs.map((log) => {
+                      const isReturn = log.action === 'in';
+                      return (
+                        <div key={log.id} className="p-3 bg-neutral-50 rounded-2xl border border-neutral-150 flex justify-between items-start border-solid">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border leading-none ${
+                                isReturn 
+                                  ? 'bg-green-500/10 text-green-700 border-green-500/20' 
+                                  : 'bg-blue-500/10 text-blue-700 border-blue-500/20'
+                              }`}>
+                                {isReturn ? 'AUTO IN' : 'AUTO OUT'}
+                              </span>
+                              <span className="text-[9px] font-mono font-black text-neutral-400">
+                                {log.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              </span>
+                            </div>
+                            <h4 className="text-xs font-black uppercase tracking-tight text-neutral-800 leading-snug">
+                              {log.brand ? `${log.brand} ` : ''}{log.itemName}
+                            </h4>
+                            <p className="text-[10px] text-neutral-450 font-semibold uppercase tracking-wide leading-none">
+                              {isReturn ? 'Safely returned to inventory' : `Signed out to ${log.assignee}`}
+                            </p>
+                          </div>
+                          <span className="text-[9px] font-mono bg-neutral-200 text-neutral-600 px-2 py-0.5 rounded font-black mt-1 uppercase leading-none">
+                            {log.assetTag}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Modal: Register New Kiosk device */}
+        <AnimatePresence>
+          {showAddTerminalModal && (
+            <div className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-md flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="max-w-md w-full bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 space-y-6 shadow-2xl text-neutral-900"
+              >
+                <div className="flex justify-between items-center border-b border-neutral-100 pb-4">
+                  <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Add Kiosk Station</h3>
+                  <button
+                    onClick={() => setShowAddTerminalModal(false)}
+                    className="p-1.5 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-neutral-600 hover:text-neutral-900 transition cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleAddNewTerminal} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Terminal Location / Device Label</label>
+                    <input
+                      type="text"
+                      required
+                      value={newTerminalName}
+                      onChange={(e) => setNewTerminalName(e.target.value)}
+                      placeholder="e.g. South Warehouse Tablet B"
+                      className="w-full bg-neutral-50 border border-neutral-250 rounded-2xl p-4 text-xs font-semibold text-neutral-800 outline-none focus:border-[#F27D26]"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#F27D26]">Initial Default Operational Mode</label>
+                    <select
+                      value={newTerminalMode}
+                      onChange={(e) => setNewTerminalMode(e.target.value as any)}
+                      className="w-full bg-neutral-50 border border-neutral-250 rounded-2xl p-4 text-xs font-semibold uppercase tracking-wider text-neutral-800 outline-none"
+                    >
+                      <option value="both">Both (Checkout & Check-In)</option>
+                      <option value="checkout">Checkout Only</option>
+                      <option value="checkin">Check-In Only</option>
+                    </select>
+                  </div>
+
+                  <div className="pt-4 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddTerminalModal(false)}
+                      className="flex-1 py-3 border border-neutral-200 hover:bg-neutral-50 text-neutral-600 rounded-2xl text-xs font-black uppercase tracking-widest transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-4 bg-[#F27D26] hover:bg-[#F27D26]/95 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition cursor-pointer"
+                    >
+                      Create Pin Key
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-neutral-900 text-white flex flex-col font-sans select-none md:overflow-hidden overflow-y-auto md:touch-none touch-auto relative">

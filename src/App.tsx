@@ -563,7 +563,7 @@ export default function App() {
     };
   }, []);
 
-  const isLayoutHidden = currentHash.startsWith('#/kiosk') || currentHash.includes('hideLayout=true') || currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/');
+  const isLayoutHidden = (currentHash.startsWith('#/kiosk') && currentHash.includes('fullscreen=true')) || currentHash.includes('hideLayout=true') || currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/');
 
   // Conditional routing and location detection for community selector
   useEffect(() => {

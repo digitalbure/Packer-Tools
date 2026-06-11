@@ -1,12 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { collection, addDoc, serverTimestamp, doc, setDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { Camera, RefreshCw, Check, X, ChevronLeft, Zap, Package, Tag, Loader2, Edit2, Eraser, Library, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, GearItem, AdminSettings } from '../types';
 import { identifyItem, removeBackground } from '../services/geminiService';
 import confetti from 'canvas-confetti';
+import { Html5Qrcode } from 'html5-qrcode';
+
+const base64ToFile = (dataurl: string, filename: string): File => {
+  const arr = dataurl.split(',');
+  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+};
 
 export default function CameraScanner({ user, adminSettings }: { user: UserProfile, adminSettings: AdminSettings | null }) {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +47,23 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
   const [assetTag, setAssetTag] = useState('');
   const [addToLibrary, setAddToLibrary] = useState(true);
   const [libraryMatch, setLibraryMatch] = useState<GearItem | null>(null);
+  const [gearLibraryItems, setGearLibraryItems] = useState<GearItem[]>([]);
+  const [dbSearchQuery, setDbSearchQuery] = useState('');
+  const [manualEntryMode, setManualEntryMode] = useState<'existing' | 'new_item'>('existing');
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const fetchGear = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'users', user.uid, 'gearLibrary'));
+        const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as GearItem[];
+        setGearLibraryItems(items);
+      } catch (err) {
+        console.warn("Error loading gear library for selection:", err);
+      }
+    };
+    fetchGear();
+  }, [user]);
 
   useEffect(() => {
     startCamera(false);
@@ -60,13 +90,132 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
     }
   };
 
+  const handleQrDetected = async (decodedText: string): Promise<boolean> => {
+    toast.success("Passport QR Code detected!");
+    
+    let gearId = '';
+    let ownerId = '';
+    
+    if (decodedText.includes('/#/gear/') || decodedText.includes('/gear/')) {
+      const urlPart = decodedText.includes('/#/gear/') ? '/#/gear/' : '/gear/';
+      const parts = decodedText.split(urlPart);
+      if (parts[1]) {
+        const subParts = parts[1].split('?');
+        gearId = subParts[0];
+        if (subParts[1] && subParts[1].includes('owner=')) {
+          const searchParams = new URLSearchParams(subParts[1]);
+          ownerId = searchParams.get('owner') || '';
+        }
+      }
+    }
+    
+    if (gearId) {
+      const actualOwner = ownerId || user.uid;
+      try {
+        const docRef = doc(db, 'users', actualOwner, 'gearLibrary', gearId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const gear = { id: docSnap.id, ...docSnap.data() } as GearItem;
+          
+          setManualName(gear.name);
+          setManualCategory(gear.category || 'Equipment');
+          setAssetTag(gear.assetTag || `TAG-${Math.random().toString(36).substring(2, 8).toUpperCase()}`);
+          setLibraryMatch(gear);
+          setAddToLibrary(false);
+          if (gear.photoUrls && gear.photoUrls[0]) {
+            setCapturedImage(gear.photoUrls[0]);
+          } else {
+            setCapturedImage('https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=300');
+          }
+          
+          setIdentifiedItem({
+            name: gear.name,
+            category: gear.category || 'Equipment',
+            isClear: true,
+            confidence: 1.0,
+            tags: gear.tags,
+            organizationTip: gear.organizationTip
+          });
+          
+          toast.success(`Matched passport item "${gear.name}" from QR code.`);
+          return true;
+        }
+      } catch (err) {
+        console.error("Error fetching QR item from database:", err);
+      }
+    }
+    
+    try {
+      const q = query(collection(db, 'users', user.uid, 'gearLibrary'), where('assetTag', '==', decodedText.trim()));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const gear = { id: snap.docs[0].id, ...snap.docs[0].data() } as GearItem;
+        setManualName(gear.name);
+        setManualCategory(gear.category || 'Equipment');
+        setAssetTag(gear.assetTag || decodedText.trim());
+        setLibraryMatch(gear);
+        setAddToLibrary(false);
+        if (gear.photoUrls && gear.photoUrls[0]) {
+          setCapturedImage(gear.photoUrls[0]);
+        } else {
+          setCapturedImage('https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=300');
+        }
+        
+        setIdentifiedItem({
+          name: gear.name,
+          category: gear.category || 'Equipment',
+          isClear: true,
+          confidence: 1.0,
+          tags: gear.tags,
+          organizationTip: gear.organizationTip
+        });
+        
+        toast.success(`Matched owned asset tag "${gear.name}" from QR code.`);
+        return true;
+      }
+    } catch (err) {
+      console.warn("Error matching asset tag directly:", err);
+    }
+    
+    setManualName(decodedText.length < 50 ? decodedText : "QR Encoded Item");
+    setManualCategory("Equipment");
+    setAssetTag(decodedText);
+    setLibraryMatch(null);
+    setAddToLibrary(true);
+    setCapturedImage('https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=300');
+    
+    setIdentifiedItem({
+      name: decodedText.length < 50 ? decodedText : "QR Encoded Item",
+      category: "Equipment",
+      isClear: true,
+      confidence: 0.9,
+      tags: ["QR Scan"],
+      organizationTip: "Loaded from custom QR tag."
+    });
+    
+    toast.success(`Scanned plain QR code. Pre-populated for packing!`);
+    return true;
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         const dataUrl = reader.result as string;
         setCapturedImage(dataUrl);
+
+        setIsIdentifying(true);
+        try {
+          const html5QrCode = new Html5Qrcode("temp-qr-reader");
+          const decodedText = await html5QrCode.scanFile(file, false);
+          await handleQrDetected(decodedText);
+          setIsIdentifying(false);
+          return;
+        } catch (err) {
+          console.log("No QR barcode found in file. Proceeding with standard Gemini identification.");
+        }
+
         if (scanMode === 'ai') {
           handleIdentify(dataUrl);
         } else {
@@ -88,7 +237,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
     }
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext('2d');
       if (context) {
@@ -98,6 +247,18 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
         const dataUrl = canvasRef.current.toDataURL('image/jpeg');
         setCapturedImage(dataUrl);
         
+        setIsIdentifying(true);
+        try {
+          const file = base64ToFile(dataUrl, "capture.jpg");
+          const html5QrCode = new Html5Qrcode("temp-qr-reader");
+          const decodedText = await html5QrCode.scanFile(file, false);
+          await handleQrDetected(decodedText);
+          setIsIdentifying(false);
+          return;
+        } catch (err) {
+          console.log("No QR barcode found in captured frame. Proceeding with standard Gemini identification.");
+        }
+
         if (scanMode === 'ai') {
           handleIdentify(dataUrl);
         } else {
@@ -361,56 +522,163 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
             )}
           </>
         ) : !capturedImage && scanMode === 'manual' ? (
-          <div className="w-full h-full bg-white p-8 flex flex-col justify-center space-y-8">
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 bg-neutral-100 rounded-2xl flex items-center justify-center mx-auto text-neutral-400">
-                <Edit2 size={32} />
+          <div className="w-full h-full bg-white p-6 sm:p-8 flex flex-col justify-between space-y-6">
+            <div className="text-center space-y-1.5 shrink-0">
+              <div className="w-12 h-12 bg-neutral-100 rounded-2xl flex items-center justify-center mx-auto text-neutral-400">
+                <Edit2 size={24} />
               </div>
-              <h3 className="text-2xl font-black uppercase tracking-tighter text-neutral-900">Manual Entry</h3>
-              <p className="text-sm text-neutral-500 font-bold uppercase tracking-widest">Type in gear details directly</p>
-            </div>
-            
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Item Name</label>
-                <input
-                  type="text"
-                  value={manualName}
-                  onChange={(e) => setManualName(e.target.value)}
-                  placeholder="e.g. Sony A7IV Camera"
-                  className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 placeholder:text-neutral-300 outline-none focus:ring-2 focus:ring-primary transition"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Category</label>
-                <input
-                  type="text"
-                  value={manualCategory}
-                  onChange={(e) => setManualCategory(e.target.value)}
-                  placeholder="e.g. Electronics"
-                  className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 placeholder:text-neutral-300 outline-none focus:ring-2 focus:ring-primary transition"
-                />
-              </div>
+              <h3 className="text-xl font-black uppercase tracking-tighter text-neutral-900">Manual Entry</h3>
+              <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">Select an owned asset or input details manually to pack</p>
             </div>
 
-            <div className="pt-4 space-y-4">
+            {/* Selection Mode Selector */}
+            <div className="bg-neutral-50 p-1 rounded-xl flex border border-neutral-150/40 shrink-0">
               <button
-                onClick={handleSave}
-                disabled={!manualName}
-                className="w-full py-4 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+                onClick={() => setManualEntryMode('existing')}
+                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  manualEntryMode === 'existing' 
+                    ? 'bg-neutral-900 text-white shadow-sm' 
+                    : 'text-neutral-500 hover:text-neutral-900'
+                }`}
               >
-                <Check size={20} />
-                <span>Save Item</span>
+                <Library size={12} />
+                <span>Existing DB Items</span>
               </button>
               <button
+                type="button"
+                onClick={() => setManualEntryMode('new_item')}
+                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  manualEntryMode === 'new_item' 
+                    ? 'bg-neutral-900 text-white shadow-sm' 
+                    : 'text-neutral-500 hover:text-neutral-900'
+                }`}
+              >
+                <Edit2 size={12} />
+                <span>Brand New Item</span>
+              </button>
+            </div>
+            
+            {manualEntryMode === 'existing' ? (
+              <div className="flex-1 flex flex-col min-h-0 space-y-4">
+                <div className="space-y-1 shrink-0">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Search Your Owned Database</label>
+                  <input
+                    type="text"
+                    placeholder="Search gear name, category, barcode..."
+                    value={dbSearchQuery}
+                    onChange={(e) => setDbSearchQuery(e.target.value)}
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-900 outline-none focus:ring-2 focus:ring-primary placeholder:text-neutral-350 transition"
+                  />
+                </div>
+                
+                <div className="flex-1 overflow-y-auto max-h-[180px] border border-neutral-155 rounded-2xl bg-neutral-25/30 p-2 space-y-1.5 custom-scrollbar min-h-[140px]">
+                  {gearLibraryItems.filter(item => 
+                    (item.name || '').toLowerCase().includes(dbSearchQuery.toLowerCase()) || 
+                    (item.category || '').toLowerCase().includes(dbSearchQuery.toLowerCase()) ||
+                    (item.assetTag || '').toLowerCase().includes(dbSearchQuery.toLowerCase())
+                  ).map(gear => (
+                    <button
+                      key={gear.id}
+                      type="button"
+                      onClick={() => {
+                        setManualName(gear.name);
+                        setManualCategory(gear.category || 'Equipment');
+                        setAssetTag(gear.assetTag || `TAG-${Math.random().toString(36).substring(2, 8).toUpperCase()}`);
+                        setLibraryMatch(gear);
+                        setAddToLibrary(false);
+                        if (gear.photoUrls && gear.photoUrls[0]) {
+                          setCapturedImage(gear.photoUrls[0]);
+                        } else {
+                          // No photo, but pre-populate fields
+                          setCapturedImage('https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=300');
+                        }
+                        toast.success(`Loaded "${gear.name}" from your Gear database!`);
+                      }}
+                      className="w-full flex items-center justify-between p-2.5 bg-white hover:bg-neutral-50 border border-neutral-150 rounded-xl transition duration-150 text-left group"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg overflow-hidden border border-neutral-100 bg-neutral-50 shrink-0 flex items-center justify-center">
+                          {gear.photoUrls && gear.photoUrls[0] ? (
+                            <img src={gear.photoUrls[0]} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <Package size={14} className="text-neutral-400" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-neutral-900 group-hover:text-primary transition truncate leading-snug">{gear.name}</h4>
+                          <p className="text-[8px] text-neutral-400 font-extrabold uppercase tracking-widest">{gear.category || 'General'}</p>
+                        </div>
+                      </div>
+                      <span className="text-[8px] font-mono tracking-wider text-neutral-400 bg-neutral-100 px-1 py-0.5 rounded uppercase font-black shrink-0">
+                        {gear.assetTag?.slice(-6) || 'OWNED'}
+                      </span>
+                    </button>
+                  ))}
+
+                  {gearLibraryItems.filter(item => 
+                    (item.name || '').toLowerCase().includes(dbSearchQuery.toLowerCase()) || 
+                    (item.category || '').toLowerCase().includes(dbSearchQuery.toLowerCase()) ||
+                    (item.assetTag || '').toLowerCase().includes(dbSearchQuery.toLowerCase())
+                  ).length === 0 && (
+                    <div className="text-center py-8 text-neutral-400 space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-wider">No matching database items found</p>
+                      <button 
+                        type="button" 
+                        onClick={() => setManualEntryMode('new_item')} 
+                        className="text-[9px] text-primary font-black uppercase tracking-widest hover:underline block mx-auto"
+                      >
+                        Create a Brand New asset instead
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Item Name</label>
+                  <input
+                    type="text"
+                    value={manualName}
+                    onChange={(e) => setManualName(e.target.value)}
+                    placeholder="e.g. Sony A7IV Camera"
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-900 outline-none focus:ring-2 focus:ring-primary transition"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Category</label>
+                  <input
+                    type="text"
+                    value={manualCategory}
+                    onChange={(e) => setManualCategory(e.target.value)}
+                    placeholder="e.g. Electronics"
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-900 outline-none focus:ring-2 focus:ring-primary transition"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2 space-y-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!manualName}
+                className="w-full py-3.5 bg-primary text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-primary/90 transition shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Check size={16} />
+                <span>Pack Item Now</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   stopCamera();
                   startCamera();
                   setCapturedImage(null);
                 }}
-                className="w-full py-4 bg-neutral-100 text-neutral-600 rounded-2xl font-bold hover:bg-neutral-200 transition flex items-center justify-center gap-2"
+                className="w-full py-3 bg-neutral-100 text-neutral-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-neutral-150 transition flex items-center justify-center gap-2"
               >
-                <Camera size={20} />
+                <Camera size={16} />
                 <span>Use Camera Instead</span>
               </button>
             </div>
@@ -621,6 +889,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
+      <div id="temp-qr-reader" className="hidden" style={{ width: 0, height: 0 }} />
 
       <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm flex items-start gap-4">
         <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center flex-shrink-0">

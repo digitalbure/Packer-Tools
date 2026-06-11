@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Package, Plus, Search, Trash2, Edit2, Zap, ArrowRight, Weight as WeightIcon, Ruler, LayoutGrid, List, CheckCircle2, Layout, Lock, Camera, QrCode, Luggage, Briefcase, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import { collection, query, onSnapshot, doc, addDoc, updateDoc, deleteDoc, getDocs, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { Container, GearItem, UserProfile, AdminSettings, PackingList } from '../types';
 import { compressImage } from '../lib/imageUtils';
 import { toast } from 'sonner';
@@ -384,20 +384,28 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
   const [editingContainerId, setEditingContainerId] = useState<string | null>(null);
 
   useEffect(() => {
+    const containersPath = `users/${user.uid}/containers`;
     const unsubscribeContainers = onSnapshot(collection(db, 'users', user.uid, 'containers'), (snapshot) => {
       setContainers(snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as Container))
       );
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, containersPath);
     });
 
+    const gearPath = `users/${user.uid}/gearLibrary`;
     const unsubscribeGear = onSnapshot(collection(db, 'users', user.uid, 'gearLibrary'), (snapshot) => {
       setGear(snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as GearItem))
       );
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, gearPath);
     });
 
     const unsubscribeLists = onSnapshot(query(collection(db, 'packingLists'), where('ownerId', '==', user.uid)), (snapshot) => {
       setPackingLists(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PackingList)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'packingLists');
     });
 
     setLoading(false);
@@ -405,11 +413,14 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
       if (docSnap.exists()) {
         setSettings(docSnap.data() as AdminSettings);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'adminSettings/global');
     });
 
     return () => {
       unsubscribeContainers();
       unsubscribeGear();
+      unsubscribeLists();
       unsubscribeSettings();
     };
   }, [user.uid]);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, collection, query, getDocs, addDoc, writeBatch } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, collection, query, getDocs, addDoc, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { GearItem, UserProfile, GearIncident } from '../types';
 import { toast } from 'sonner';
@@ -40,6 +40,39 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
 
   const [editForm, setEditForm] = useState<Partial<GearItem>>({});
   const [ownerProfile, setOwnerProfile] = useState<any>(null);
+  const [revealContact, setRevealContact] = useState(false);
+
+  useEffect(() => {
+    if (item) {
+      document.title = `${item.brand || ''} ${item.name} | Packer Tools Digital Passport Representative`;
+      
+      const ogImgUrl = item.photoUrls?.[0] || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400';
+      
+      let ogImageMeta = document.querySelector('meta[property="og:image"]');
+      if (!ogImageMeta) {
+        ogImageMeta = document.createElement('meta');
+        ogImageMeta.setAttribute('property', 'og:image');
+        document.head.appendChild(ogImageMeta);
+      }
+      ogImageMeta.setAttribute('content', ogImgUrl);
+
+      let ogTitleMeta = document.querySelector('meta[property="og:title"]');
+      if (!ogTitleMeta) {
+        ogTitleMeta = document.createElement('meta');
+        ogTitleMeta.setAttribute('property', 'og:title');
+        document.head.appendChild(ogTitleMeta);
+      }
+      ogTitleMeta.setAttribute('content', `${item.brand || ''} ${item.name} Passport`);
+
+      let ogDescMeta = document.querySelector('meta[property="og:description"]');
+      if (!ogDescMeta) {
+        ogDescMeta = document.createElement('meta');
+        ogDescMeta.setAttribute('property', 'og:description');
+        document.head.appendChild(ogDescMeta);
+      }
+      ogDescMeta.setAttribute('content', item.description || `Certified product asset reference ID: ${item.assetTag}`);
+    }
+  }, [item]);
 
   // Finder / Public report states
   const [finderName, setFinderName] = useState('');
@@ -399,6 +432,52 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
             </div>
           </div>
 
+          {/* Simulated Social Share/OG Link Card Preview */}
+          <div className="bg-neutral-900 text-white rounded-[2rem] p-6 border border-neutral-800 shadow-xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Social Share & Feed Card Preview</span>
+              <span className="px-2 py-0.5 bg-primary/20 text-primary border border-primary/30 rounded text-[9px] font-black uppercase tracking-widest">Active OG Card</span>
+            </div>
+            
+            <div className="bg-neutral-950 rounded-2xl border border-neutral-800 p-3 flex sm:flex-row flex-col gap-4 hover:border-neutral-700 transition">
+              {item.photoUrls?.[0] && (
+                <div className="sm:w-32 sm:h-32 w-full h-44 bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800/80 shrink-0">
+                  <img 
+                    src={item.photoUrls[0]} 
+                    alt={item.name} 
+                    className="w-full h-full object-cover grayscale hover:grayscale-0 transition duration-300"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              )}
+              <div className="flex flex-col justify-between py-1 space-y-2">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[8px] font-mono tracking-widest text-[#ff4f3a] bg-[#ff4f3a]/10 px-1.5 py-0.5 rounded font-black uppercase">
+                      {item.assetTag || 'PACKER LOGS'}
+                    </span>
+                    {item.weight && (
+                      <span className="text-[8px] font-mono text-neutral-400">
+                        {item.weight} g
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="text-sm font-black uppercase tracking-tight text-neutral-100">
+                    {item.brand ? `${item.brand} | ` : ''}{item.name}
+                  </h4>
+                  <p className="text-xs text-neutral-400 font-medium leading-relaxed line-clamp-2">
+                    {item.description || 'Verified product equipment bio tracking passport. Certified under active Packer Tools asset network.'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 pt-1 border-t border-neutral-900 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
+                  <span>⚓ PARENT REGISTRY: {item.category || 'EQUIPMENT'}</span>
+                  <span>•</span>
+                  <span>CON: {item.condition || 'GOOD'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Lost & Found Item Profile Card */}
           <div className="bg-white border border-neutral-100 rounded-[2.5rem] shadow-xl shadow-neutral-100 overflow-hidden flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-neutral-100">
             {/* Item Photo & Meta */}
@@ -453,38 +532,67 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                 <div className="space-y-4 pt-4 border-t border-neutral-800">
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Direct Contact Methods</h4>
                   
-                  <div className="space-y-2">
-                    {/* Contact Phone */}
-                    {item.recoveryContactPhone && (
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <a 
-                          href={`tel:${item.recoveryContactPhone}`}
-                          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-white text-black hover:bg-neutral-100 transition font-bold text-xs rounded-xl text-center"
-                        >
-                          <Phone size={14} />
-                          <span>Call Owner</span>
-                        </a>
-                        <a 
-                          href={`sms:${item.recoveryContactPhone}`}
-                          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 transition font-bold text-xs rounded-xl text-white text-center"
-                        >
-                          <MessageSquare size={14} />
-                          <span>Send Text SMS</span>
-                        </a>
-                      </div>
-                    )}
-
-                    {/* Email */}
-                    {(item.recoveryContactEmail || ownerProfile?.email) && (
-                      <a 
-                        href={`mailto:${item.recoveryContactEmail || ownerProfile?.email}`}
-                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 transition font-bold text-xs rounded-xl text-white text-center"
+                  {!revealContact ? (
+                    <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl text-center space-y-3">
+                      <p className="text-[10px] text-neutral-300 font-extrabold uppercase tracking-widest leading-normal">
+                        🔒 Contact details hidden for privacy
+                      </p>
+                      <p className="text-[10px] text-neutral-500 leading-relaxed">
+                        To protect the owner from automated spam bots and web scraping, direct dial and email links are masked until requested.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRevealContact(true);
+                          toast.success("Identity links unlocked successfully.");
+                        }}
+                        className="w-full py-2.5 bg-white text-black hover:bg-neutral-100 transition font-black text-[9px] uppercase tracking-widest rounded-lg cursor-pointer"
                       >
-                        <Mail size={14} />
-                        <span>Email {item.recoveryContactName || ownerProfile?.displayName || 'Owner'}</span>
-                      </a>
-                    )}
-                  </div>
+                        Reveal Contact Details
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {/* Contact Phone */}
+                      {item.recoveryContactPhone && (
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <a 
+                            href={`tel:${item.recoveryContactPhone}`}
+                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-white text-black hover:bg-neutral-100 transition font-bold text-xs rounded-xl text-center"
+                          >
+                            <Phone size={14} />
+                            <span>Call Owner</span>
+                          </a>
+                          <a 
+                            href={`sms:${item.recoveryContactPhone}`}
+                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 transition font-bold text-xs rounded-xl text-white text-center"
+                          >
+                            <MessageSquare size={14} />
+                            <span>Send Text SMS</span>
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Email */}
+                      {(item.recoveryContactEmail || ownerProfile?.email) && (
+                        <a 
+                          href={`mailto:${item.recoveryContactEmail || ownerProfile?.email}`}
+                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 transition font-bold text-xs rounded-xl text-white text-center animate-fade-in"
+                        >
+                          <Mail size={14} />
+                          <span>Email {item.recoveryContactName || ownerProfile?.displayName || 'Owner'}</span>
+                        </a>
+                      )}
+                      
+                      <button
+                        type="button"
+                        onClick={() => setRevealContact(false)}
+                        className="text-[9px] text-neutral-500 hover:text-neutral-400 block text-right mx-auto font-black uppercase tracking-widest pt-1"
+                      >
+                        Lock & Hide Links again
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
