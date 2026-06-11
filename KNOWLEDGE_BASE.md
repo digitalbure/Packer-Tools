@@ -39,6 +39,25 @@ Use this workflow to organize and batch-align custom spreadsheet imports or spec
 
 ---
 
+## 📁 1.2. Select Mode and Multi-Asset Bulk Operations (v4.7.0)
+
+To support rapid warehouse operations, physical audits, and logistics coordination, Packer Tools features a dedicated **Select Mode**. This mode streamlines selecting multiple items at once to perform coordinated batch updates.
+
+### ⚙️ How to Activate and Use Select Mode:
+1. **Toggle Select Mode:** Click the 🔘 **"Select Mode"** button in the main configuration bar of your Gear Library workspace.
+2. **Interactive Multi-Selection:** Checkboxes will appear on all assets in Grid, Compact, and mobile List representations. Tap any item's card or row to add it to your batch selection. All selected items will receive high-contrast blue selection rings.
+3. **Smart Floating Action Bar:** Once items are selected, the action bar emerges at the bottom of your screen tracking exact counts.
+4. **Trigger Bulk Operations:** Use the dedicated action triggers on this bar:
+   - 📦 **Pack:** Bundle selected assets for transport or checklists.
+   - 🥞 **Bundle / Kit:** Combine elements into a logical or permanent hardware kit.
+   - 📥 **Export:** Instantly export selected assets' metadata to CSV files.
+   - 🎨 **Assign Batch:** Reassign organization, department, department team, or individual custody tags.
+   - 🖨️ **Move to Rack:** Deploy the selected items directly into a physical warehouse shelf location or AV tray.
+   - 🛠️ **Change Status:** Batch-transition states to Available, In Use, Maintenance, Retired, or Missing.
+   - 🗑️ **Delete:** Permanently remove selected items from your master database using a unified transactional Firestore batch operation.
+
+---
+
 ## 🔍 2. Using Audit Mode to Spot Inventory Issues
 In both the main **Gear Library** and **Multi-Department Lists**, you can activate **Audit Mode** to visually flag assets requiring immediate attention.
 

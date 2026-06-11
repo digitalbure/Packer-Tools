@@ -265,6 +265,22 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     assignedTo?: string;
   }>({});
   const [selectedInventoryCategory, setSelectedInventoryCategory] = useState<string>('All');
+  const [inventoryPage, setInventoryPage] = useState(1);
+  const [inventoryItemsPerPage, setInventoryItemsPerPage] = useState(50);
+  const [debouncedInventorySearch, setDebouncedInventorySearch] = useState('');
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedInventorySearch(inventorySearch);
+      setInventoryPage(1);
+    }, 250);
+    return () => clearTimeout(handler);
+  }, [inventorySearch]);
+
+  useEffect(() => {
+    setInventoryPage(1);
+  }, [inventoryFilterCondition, inventoryFilterStatus, selectedInventoryCategory]);
+
   const [isExportToAnotherOpen, setIsExportToAnotherOpen] = useState(false);
   const [targetAnotherInventoryId, setTargetAnotherInventoryId] = useState('');
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
@@ -1110,11 +1126,11 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   // Tab 1 UI List filters logic
   const filteredInventoryItems = useMemo(() => {
     return effectiveInventoryItems.filter(item => {
-      const matchesSearch = item.name.toLowerCase().includes(inventorySearch.toLowerCase()) || 
-                           item.assetTag?.toLowerCase().includes(inventorySearch.toLowerCase()) ||
-                           item.brand?.toLowerCase().includes(inventorySearch.toLowerCase()) ||
-                           item.model?.toLowerCase().includes(inventorySearch.toLowerCase()) ||
-                           item.serialNumber?.toLowerCase().includes(inventorySearch.toLowerCase());
+      const matchesSearch = item.name.toLowerCase().includes(debouncedInventorySearch.toLowerCase()) || 
+                           item.assetTag?.toLowerCase().includes(debouncedInventorySearch.toLowerCase()) ||
+                           item.brand?.toLowerCase().includes(debouncedInventorySearch.toLowerCase()) ||
+                           item.model?.toLowerCase().includes(debouncedInventorySearch.toLowerCase()) ||
+                           item.serialNumber?.toLowerCase().includes(debouncedInventorySearch.toLowerCase());
       const matchesCondition = inventoryFilterCondition === 'all' || item.condition === inventoryFilterCondition;
       const matchesStatus = inventoryFilterStatus === 'all' || item.status === inventoryFilterStatus;
       const matchesCategory = selectedInventoryCategory === 'All' || (item.primaryCategory || 'Other') === selectedInventoryCategory;
@@ -1127,7 +1143,18 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
       return matchesSearch && matchesCondition && matchesStatus && matchesCategory;
     });
-  }, [effectiveInventoryItems, inventorySearch, inventoryFilterCondition, inventoryFilterStatus, selectedInventoryCategory, isAuditMode, showOnlyAttentionNeeded]);
+  }, [effectiveInventoryItems, debouncedInventorySearch, inventoryFilterCondition, inventoryFilterStatus, selectedInventoryCategory, isAuditMode, showOnlyAttentionNeeded]);
+
+  const paginatedInventoryItems = useMemo(() => {
+    if (inventoryItemsPerPage === -1) return filteredInventoryItems;
+    const startIndex = (inventoryPage - 1) * inventoryItemsPerPage;
+    return filteredInventoryItems.slice(startIndex, startIndex + inventoryItemsPerPage);
+  }, [filteredInventoryItems, inventoryPage, inventoryItemsPerPage]);
+
+  const totalInventoryPages = useMemo(() => {
+    if (inventoryItemsPerPage === -1) return 1;
+    return Math.max(1, Math.ceil(filteredInventoryItems.length / inventoryItemsPerPage));
+  }, [filteredInventoryItems.length, inventoryItemsPerPage]);
 
   // Tab 1 Valuation stats derived
   const inventoryValueSum = useMemo(() => {
@@ -1846,15 +1873,20 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                               <th className="p-4 w-12">
                                 <button 
                                   onClick={() => {
-                                    if (selectedInventoryItems.size === filteredInventoryItems.length) {
-                                      setSelectedInventoryItems(new Set());
+                                    const allPageSelected = paginatedInventoryItems.length > 0 && paginatedInventoryItems.every(i => selectedInventoryItems.has(i.id));
+                                    if (allPageSelected) {
+                                      const next = new Set(selectedInventoryItems);
+                                      paginatedInventoryItems.forEach(i => next.delete(i.id));
+                                      setSelectedInventoryItems(next);
                                     } else {
-                                      setSelectedInventoryItems(new Set(filteredInventoryItems.map(g => g.id)));
+                                      const next = new Set(selectedInventoryItems);
+                                      paginatedInventoryItems.forEach(i => next.add(i.id));
+                                      setSelectedInventoryItems(next);
                                     }
                                   }}
                                   className="w-5 h-5 border border-neutral-300 rounded flex items-center justify-center bg-white hover:border-black cursor-pointer"
                                 >
-                                  {selectedInventoryItems.size === filteredInventoryItems.length && filteredInventoryItems.length > 0 && <Check size={12} strokeWidth={4} />}
+                                  {paginatedInventoryItems.length > 0 && paginatedInventoryItems.every(i => selectedInventoryItems.has(i.id)) && <Check size={12} strokeWidth={4} />}
                                 </button>
                               </th>
                             )}
@@ -1867,7 +1899,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-50">
-                          {filteredInventoryItems.map(item => {
+                          {paginatedInventoryItems.map(item => {
                             const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
                             const isCheckedOut = item.status === 'in_use';
                             return (
@@ -2041,7 +2073,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                     </div>
                   ) : inventoryViewMode === 'grid' ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
-                      {filteredInventoryItems.map((item) => {
+                      {paginatedInventoryItems.map((item) => {
                         const photoUrl = (item.photoUrls && item.photoUrls[0]) || `https://picsum.photos/seed/${item.id}/400/400`;
                         const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
                         const isCheckedOut = item.status === 'in_use';
@@ -2171,7 +2203,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                      {filteredInventoryItems.map((item) => {
+                      {paginatedInventoryItems.map((item) => {
                         const photoUrl = (item.photoUrls && item.photoUrls[0]) || `https://picsum.photos/seed/${item.id}/400/400`;
                         const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
                         const isCheckedOut = item.status === 'in_use';
@@ -2244,6 +2276,101 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {/* Custom Inventory Pagination */}
+                  {filteredInventoryItems.length > 0 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-[2rem] border border-neutral-200 shadow-sm w-full mt-6">
+                      <div className="flex items-center gap-3 text-xs text-neutral-500">
+                        <span>
+                          Showing{' '}
+                          <span className="font-mono font-bold text-neutral-800">
+                            {inventoryItemsPerPage === -1 ? 1 : (inventoryPage - 1) * inventoryItemsPerPage + 1}
+                          </span>{' '}
+                          to{' '}
+                          <span className="font-mono font-bold text-neutral-800">
+                            {inventoryItemsPerPage === -1 ? filteredInventoryItems.length : Math.min(inventoryPage * inventoryItemsPerPage, filteredInventoryItems.length)}
+                          </span>{' '}
+                          of{' '}
+                          <span className="font-mono font-bold text-neutral-800">
+                            {filteredInventoryItems.length}
+                          </span>{' '}
+                          items
+                        </span>
+                        {filteredInventoryItems.length > 250 && (
+                          <span className="text-[9px] font-bold bg-emerald-50 px-2 py-0.5 rounded-full text-emerald-600 uppercase tracking-widest">
+                            Optimized Scale
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Items per page:</span>
+                          <select
+                            value={inventoryItemsPerPage}
+                            onChange={(e) => {
+                              setInventoryItemsPerPage(Number(e.target.value));
+                              setInventoryPage(1);
+                            }}
+                            className="bg-neutral-50 hover:bg-neutral-100 border border-neutral-250 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer text-neutral-700 shadow-sm"
+                          >
+                            <option value={24}>24</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                            <option value={250}>250</option>
+                            <option value={-1}>All Items</option>
+                          </select>
+                        </div>
+
+                        {inventoryItemsPerPage !== -1 && totalInventoryPages > 1 && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setInventoryPage(1)}
+                              disabled={inventoryPage === 1}
+                              className="p-2 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 disabled:opacity-30 disabled:hover:bg-white text-neutral-500 transition cursor-pointer text-xs font-semibold flex items-center justify-center min-w-[32px] h-[32px]"
+                              type="button"
+                              title="First Page"
+                            >
+                              <ChevronLeft size={14} className="stroke-[2.5]" />
+                            </button>
+                            <button
+                              onClick={() => setInventoryPage(prev => Math.max(1, prev - 1))}
+                              disabled={inventoryPage === 1}
+                              className="px-3 h-[32px] text-xs font-semibold rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 disabled:opacity-30 disabled:hover:bg-white text-neutral-500 transition cursor-pointer"
+                              type="button"
+                            >
+                              Prev
+                            </button>
+
+                            <div className="flex items-center px-3 h-[32px]">
+                              <span className="text-xs font-semibold text-neutral-700">
+                                <span className="font-mono text-neutral-900 font-bold">{inventoryPage}</span> /{' '}
+                                <span className="font-mono text-neutral-500">{totalInventoryPages}</span>
+                              </span>
+                            </div>
+
+                            <button
+                              onClick={() => setInventoryPage(prev => Math.min(totalInventoryPages, prev + 1))}
+                              disabled={inventoryPage === totalInventoryPages}
+                              className="px-3 h-[32px] text-xs font-semibold rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 disabled:opacity-30 disabled:hover:bg-white text-neutral-500 transition cursor-pointer"
+                              type="button"
+                            >
+                              Next
+                            </button>
+                            <button
+                              onClick={() => setInventoryPage(totalInventoryPages)}
+                              disabled={inventoryPage === totalInventoryPages}
+                              className="p-2 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 disabled:opacity-30 disabled:hover:bg-white text-neutral-500 transition cursor-pointer text-xs font-semibold flex items-center justify-center min-w-[32px] h-[32px]"
+                              type="button"
+                              title="Last Page"
+                            >
+                              <ChevronRight size={14} className="stroke-[2.5]" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </>

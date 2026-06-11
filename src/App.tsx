@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, addDoc, query, where, deleteDoc, writeBatch } from 'firebase/firestore';
@@ -7,46 +7,50 @@ import { UserProfile } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { Toaster, toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
 // Components
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
-import LandingPage from './pages/LandingPage';
-import Dashboard from './pages/Dashboard';
-import PackingListDetail from './pages/PackingListDetail';
-import PackingListBioView from './pages/PackingListBioView';
-import CameraScanner from './pages/CameraScanner';
-import AdminPanel from './pages/AdminPanel';
-import OrganizationModule from './pages/OrganizationModule';
-import ProfilePage from './pages/ProfilePage';
-import LegalPage from './pages/LegalPage';
-import ContactPage from './pages/ContactPage';
-import AITemplateWizard from './pages/AITemplateWizard';
-import HelpCenter from './pages/HelpCenter';
-import GearLibrary from './pages/GearLibrary';
-import InventoryModule from './pages/InventoryModule';
-import RackingDashboard from './pages/RackingDashboard';
-import RackDetail from './pages/RackDetail';
-import ProjectDashboard from './pages/ProjectDashboard';
-import ProjectDetail from './pages/ProjectDetail';
-import SystemsBuilder from './pages/SystemsBuilder';
-import TravelCaseModule from './pages/TravelCaseModule';
-import OrganizerModule from './pages/OrganizerModule';
-import ToolingListModule from './pages/ToolingListModule';
-import LogisticsDashboard from './pages/LogisticsDashboard';
-import Contacts from './pages/Contacts';
-import MarketplaceView from './pages/MarketplaceView';
-import Marketplace from './pages/Marketplace';
-import PagesManager from './pages/PagesManager';
-import PageViewer from './pages/PageViewer';
-import KioskMode from './pages/KioskMode';
-import ListingsModule from './pages/ListingsModule';
-import GearBioPage from './pages/GearBioPage';
-import ShopPage from './pages/ShopPage';
-import ScenarioBuilder from './pages/ScenarioBuilder';
-import TravellerModule from './pages/TravellerModule';
+
+// Lazy-loaded Pages
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const PackingListDetail = lazy(() => import('./pages/PackingListDetail'));
+const PackingListBioView = lazy(() => import('./pages/PackingListBioView'));
+const CameraScanner = lazy(() => import('./pages/CameraScanner'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const OrganizationModule = lazy(() => import('./pages/OrganizationModule'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
+const AITemplateWizard = lazy(() => import('./pages/AITemplateWizard'));
+const HelpCenter = lazy(() => import('./pages/HelpCenter'));
+const GearLibrary = lazy(() => import('./pages/GearLibrary'));
+const InventoryModule = lazy(() => import('./pages/InventoryModule'));
+const RackingDashboard = lazy(() => import('./pages/RackingDashboard'));
+const RackDetail = lazy(() => import('./pages/RackDetail'));
+const ProjectDashboard = lazy(() => import('./pages/ProjectDashboard'));
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
+const SystemsBuilder = lazy(() => import('./pages/SystemsBuilder'));
+const TravelCaseModule = lazy(() => import('./pages/TravelCaseModule'));
+const OrganizerModule = lazy(() => import('./pages/OrganizerModule'));
+const ToolingListModule = lazy(() => import('./pages/ToolingListModule'));
+const LogisticsDashboard = lazy(() => import('./pages/LogisticsDashboard'));
+const Contacts = lazy(() => import('./pages/Contacts'));
+const MarketplaceView = lazy(() => import('./pages/MarketplaceView'));
+const Marketplace = lazy(() => import('./pages/Marketplace'));
+const PagesManager = lazy(() => import('./pages/PagesManager'));
+const PageViewer = lazy(() => import('./pages/PageViewer'));
+const KioskMode = lazy(() => import('./pages/KioskMode'));
+const ListingsModule = lazy(() => import('./pages/ListingsModule'));
+const GearBioPage = lazy(() => import('./pages/GearBioPage'));
+const ShopPage = lazy(() => import('./pages/ShopPage'));
+const ScenarioBuilder = lazy(() => import('./pages/ScenarioBuilder'));
+const TravellerModule = lazy(() => import('./pages/TravellerModule'));
 import ErrorBoundary from './components/ErrorBoundary';
 import AddGearModal from './components/AddGearModal';
+import CommandPalette from './components/CommandPalette';
 import { IndustryProvider } from './context/IndustryContext';
 import { ThemeProvider } from './context/ThemeContext';
 import AuthGate from './components/AuthGate';
@@ -124,44 +128,50 @@ function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick, selectedCom
         exit={{ opacity: 0, y: -10 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
       >
-        <Routes location={location}>
-          <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate adminSettings={adminSettings} /> : (selectedCommunity === 'global' ? <LandingPage user={user} adminSettings={adminSettings} landingView={landingView} setLandingView={setLandingView} /> : <Marketplace user={user} adminSettings={adminSettings} />))} />
-          <Route path="/dashboard" element={user ? <Dashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/list/:id" element={<PackingListDetail user={user} adminSettings={adminSettings} />} />
-          <Route path="/p/:id" element={<PackingListBioView />} />
-          <Route path="/marketplace/:id" element={<MarketplaceView />} />
-          <Route path="/shop/:uid" element={<ShopPage />} />
-          <Route path="/marketplace" element={<Marketplace user={user} adminSettings={adminSettings} />} />
-          <Route path="/scan/:id" element={user ? <CameraScanner user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/admin" element={user?.isSuperAdmin ? <AdminPanel user={user} onMenuClick={onMenuClick} /> : <Navigate to="/" />} />
-          <Route path="/admin/pages" element={user?.isSuperAdmin ? <PagesManager user={user} /> : <Navigate to="/" />} />
-          <Route path="/organization" element={user ? <OrganizationModule user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/profile" element={user ? <ProfilePage user={user} onUpdate={setUser} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/listings" element={user ? <ListingsModule user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/privacy" element={<LegalPage type="privacy" />} />
-          <Route path="/terms" element={<LegalPage type="terms" />} />
-          <Route path="/pg/:slug" element={<PageViewer />} />
-          <Route path="/kiosk" element={<KioskMode user={user} adminSettings={adminSettings} />} />
-          <Route path="/ai-wizard" element={isFeatureEnabled('aiWizard', user, adminSettings) ? <AITemplateWizard user={user} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
-          <Route path="/library" element={user ? <GearLibrary user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/gear/:id" element={<GearBioPage user={user} adminSettings={adminSettings} />} />
-          <Route path="/systems-builder" element={user ? <SystemsBuilder user={user} /> : <Navigate to="/" />} />
-          <Route path="/racks" element={user ? <RackingDashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/rack/:id" element={user ? <RackDetail user={user} /> : <Navigate to="/" />} />
-          <Route path="/projects" element={user ? <ProjectDashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/project/:id" element={user ? <ProjectDetail user={user} /> : <Navigate to="/" />} />
-          <Route path="/tooling" element={isFeatureEnabled('toolingLists', user, adminSettings) ? <ToolingListModule user={user} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
-          <Route path="/organizer" element={isFeatureEnabled('organizer', user, adminSettings) ? <OrganizerModule user={user} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
-          <Route path="/inventory" element={user ? <InventoryModule user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/travel-cases" element={isFeatureEnabled('travelCases', user, adminSettings) ? <TravelCaseModule user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
-          <Route path="/scenario-builder" element={user ? <ScenarioBuilder user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/traveller" element={user ? <TravellerModule user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/logistics" element={user ? <LogisticsDashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/contacts" element={user ? <Contacts user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="/help" element={<HelpCenter user={user} />} />
-          <Route path="*" element={user ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={
+          <div className="flex items-center justify-center min-h-[400px] w-full">
+            <Loader2 className="animate-spin text-neutral-400" size={32} />
+          </div>
+        }>
+          <Routes location={location}>
+            <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate adminSettings={adminSettings} /> : (selectedCommunity === 'global' ? <LandingPage user={user} adminSettings={adminSettings} landingView={landingView} setLandingView={setLandingView} /> : <Marketplace user={user} adminSettings={adminSettings} />))} />
+            <Route path="/dashboard" element={user ? <Dashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/list/:id" element={<PackingListDetail user={user} adminSettings={adminSettings} />} />
+            <Route path="/p/:id" element={<PackingListBioView />} />
+            <Route path="/marketplace/:id" element={<MarketplaceView />} />
+            <Route path="/shop/:uid" element={<ShopPage />} />
+            <Route path="/marketplace" element={<Marketplace user={user} adminSettings={adminSettings} />} />
+            <Route path="/scan/:id" element={user ? <CameraScanner user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/admin" element={user?.isSuperAdmin ? <AdminPanel user={user} onMenuClick={onMenuClick} /> : <Navigate to="/" />} />
+            <Route path="/admin/pages" element={user?.isSuperAdmin ? <PagesManager user={user} /> : <Navigate to="/" />} />
+            <Route path="/organization" element={user ? <OrganizationModule user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/profile" element={user ? <ProfilePage user={user} onUpdate={setUser} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/listings" element={user ? <ListingsModule user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/privacy" element={<LegalPage type="privacy" />} />
+            <Route path="/terms" element={<LegalPage type="terms" />} />
+            <Route path="/pg/:slug" element={<PageViewer />} />
+            <Route path="/kiosk" element={<KioskMode user={user} adminSettings={adminSettings} />} />
+            <Route path="/ai-wizard" element={isFeatureEnabled('aiWizard', user, adminSettings) ? <AITemplateWizard user={user} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
+            <Route path="/library" element={user ? <GearLibrary user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/gear/:id" element={<GearBioPage user={user} adminSettings={adminSettings} />} />
+            <Route path="/systems-builder" element={user ? <SystemsBuilder user={user} /> : <Navigate to="/" />} />
+            <Route path="/racks" element={user ? <RackingDashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/rack/:id" element={user ? <RackDetail user={user} /> : <Navigate to="/" />} />
+            <Route path="/projects" element={user ? <ProjectDashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/project/:id" element={user ? <ProjectDetail user={user} /> : <Navigate to="/" />} />
+            <Route path="/tooling" element={isFeatureEnabled('toolingLists', user, adminSettings) ? <ToolingListModule user={user} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
+            <Route path="/organizer" element={isFeatureEnabled('organizer', user, adminSettings) ? <OrganizerModule user={user} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
+            <Route path="/inventory" element={user ? <InventoryModule user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/travel-cases" element={isFeatureEnabled('travelCases', user, adminSettings) ? <TravelCaseModule user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
+            <Route path="/scenario-builder" element={user ? <ScenarioBuilder user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/traveller" element={user ? <TravellerModule user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/logistics" element={user ? <LogisticsDashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/contacts" element={user ? <Contacts user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/help" element={<HelpCenter user={user} />} />
+            <Route path="*" element={user ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </motion.div>
     </AnimatePresence>
   );
@@ -324,7 +334,9 @@ export function getDefaultAdminSettings(): AdminSettings {
       wordpressEnabled: false,
       callbackUrlDev: `${window.location.origin}/auth/callback`,
       callbackUrlProd: '',
-      paypalClientId: ''
+      paypalClientId: '',
+      paddleApiKey: 'mock_paddle_api_key_placeholder_value',
+      paddleEnabled: true
     },
     marketplaceRegionConfig: {
       launchCountry: 'Fiji',
@@ -873,16 +885,22 @@ export default function App() {
             console.warn("Unable to write global settings to Firebase (expected if not signed in as admin):", writeError);
           }
         } else {
-          // Check if parent settings documents need to be updated with correct Privacy / Terms values
+          // Check if parent settings documents need to be updated with correct Privacy / Terms/ Paddle values
           const data = settingsSnap.data() || {};
-          if (!data.privacyContent || !data.termsContent) {
+          if (!data.privacyContent || !data.termsContent || !data.integrationConfig?.paddleApiKey) {
             try {
+              const updatedConfig = { ...(data.integrationConfig || {}) };
+              if (!updatedConfig.paddleApiKey) {
+                updatedConfig.paddleApiKey = 'mock_paddle_api_key_placeholder_value';
+                updatedConfig.paddleEnabled = true;
+              }
               await setDoc(settingsRef, {
                 privacyContent: data.privacyContent || privacyPolicyMD,
-                termsContent: data.termsContent || termsOfServiceMD
+                termsContent: data.termsContent || termsOfServiceMD,
+                integrationConfig: updatedConfig
               }, { merge: true });
             } catch (err) {
-              console.warn("Unable to merge-update settings with privacy/terms content:", err);
+              console.warn("Unable to merge-update settings with privacy/terms/paddle content:", err);
             }
           }
         }
@@ -1063,8 +1081,167 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-neutral-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex min-h-screen bg-neutral-50 text-neutral-900 font-sans overflow-hidden">
+        {/* Sidebar Skeleton (Hidden on Mobile, Visible on Desktop) */}
+        <div className="hidden lg:flex flex-col w-[280px] bg-white border-r border-neutral-200 h-screen shrink-0">
+          {/* Sidebar Header / Logo */}
+          <div className="h-20 flex items-center px-6 border-b border-neutral-100 shrink-0 gap-3">
+            <div className="w-8 h-8 rounded-xl bg-neutral-200 animate-pulse shrink-0" />
+            <div className="w-32 h-4 rounded bg-neutral-200 animate-pulse" />
+          </div>
+
+          {/* Sidebar Items */}
+          <div className="flex-1 p-6 space-y-8 overflow-y-auto">
+            {/* Section 1 */}
+            <div className="space-y-4">
+              <div className="w-16 h-2 bg-neutral-200/60 animate-pulse rounded uppercase tracking-wider" />
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((idx) => (
+                  <div key={idx} className="flex items-center gap-3 py-1">
+                    <div className="w-5 h-5 rounded bg-neutral-200/50 animate-pulse shrink-0" />
+                    <div className={`${idx % 2 === 0 ? 'w-24' : 'w-28'} h-3 bg-neutral-200/50 animate-pulse rounded`} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Section 2 */}
+            <div className="space-y-4">
+              <div className="w-20 h-2 bg-neutral-200/60 animate-pulse rounded uppercase tracking-wider" />
+              <div className="space-y-3">
+                {[1, 2, 3].map((idx) => (
+                  <div key={idx} className="flex items-center gap-3 py-1">
+                    <div className="w-5 h-5 rounded bg-neutral-200/50 animate-pulse shrink-0" />
+                    <div className="w-24 h-3 bg-neutral-200/50 animate-pulse rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Section 3 */}
+            <div className="space-y-4">
+              <div className="w-12 h-2 bg-neutral-200/60 animate-pulse rounded uppercase tracking-wider" />
+              <div className="space-y-3">
+                {[1, 2, 3].map((idx) => (
+                  <div key={idx} className="flex items-center gap-3 py-1">
+                    <div className="w-5 h-5 rounded bg-neutral-200/50 animate-pulse shrink-0" />
+                    <div className="w-20 h-3 bg-neutral-200/50 animate-pulse rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Dashboard / Workspace Skeleton */}
+        <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden">
+          {/* Navbar Skeleton */}
+          <div className="h-20 bg-white border-b border-neutral-100 px-6 flex items-center justify-between shrink-0">
+            {/* Left: App title / path container */}
+            <div className="flex items-center gap-3 lg:hidden flex-1 pr-6">
+              <div className="w-6 h-6 rounded bg-neutral-200 animate-pulse shrink-0" />
+              <div className="w-28 h-4 rounded bg-neutral-200 animate-pulse" />
+            </div>
+            <div className="hidden lg:flex items-center gap-3">
+              <div className="w-48 h-8 rounded-xl bg-neutral-100 animate-pulse" />
+            </div>
+
+            {/* Right: Actions / Profile */}
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="w-24 h-8 rounded-full bg-neutral-100 animate-pulse" />
+              <div className="w-8 h-8 rounded-full bg-neutral-200 animate-pulse" />
+            </div>
+          </div>
+
+          {/* Page Panel Area */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-10">
+            {/* Symmetrical Mode Switcher Bar */}
+            <div className="flex justify-center md:justify-start">
+              <div className="flex bg-neutral-200/30 p-1 rounded-2xl border border-neutral-250 w-fit shrink-0 gap-1 animate-pulse">
+                <div className="w-28 h-8 rounded-xl bg-neutral-100" />
+                <div className="w-24 h-8 rounded-xl bg-neutral-100" />
+              </div>
+            </div>
+
+            {/* Header Title Board */}
+            <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-neutral-100 pb-6">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="w-80 max-w-full h-10 bg-neutral-300 animate-pulse rounded-2xl" />
+                  <div className="w-28 h-6 bg-neutral-200 animate-pulse rounded-full" />
+                </div>
+                <div className="w-96 max-w-full h-3.5 bg-neutral-200 animate-pulse rounded-lg mt-2" />
+                <div className="hidden sm:block w-72 max-w-full h-3 bg-neutral-100 animate-pulse rounded-lg mt-1" />
+              </div>
+              <div className="flex flex-wrap gap-3 shrink-0">
+                <div className="w-40 h-12 bg-neutral-200 animate-pulse rounded-2xl" />
+                <div className="w-32 h-12 bg-neutral-300 animate-pulse rounded-2xl" />
+              </div>
+            </header>
+
+            {/* Navigation Tabs Bar */}
+            <div className="flex items-center gap-2 bg-neutral-100 p-1.5 rounded-2xl w-fit">
+              {[1, 2, 3, 4].map((idx) => (
+                <div key={idx} className={`${idx === 1 ? 'w-24 bg-white shadow-sm' : 'w-20 bg-transparent'} h-9 rounded-xl animate-pulse flex items-center justify-center p-1`}>
+                  <div className="w-3/4 h-2.5 bg-neutral-200/80 animate-pulse rounded" />
+                </div>
+              ))}
+            </div>
+
+            {/* Stats Summary Cards Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+              {[1, 2, 3, 4].map((idx) => (
+                <div key={idx} className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-4">
+                  <div className="w-10 h-10 bg-neutral-100 animate-pulse rounded-xl flex items-center justify-center animate-pulse" />
+                  <div className="space-y-2">
+                    <div className="w-14 h-3 bg-neutral-200 animate-pulse rounded" />
+                    <div className="w-24 h-6 bg-neutral-300 animate-pulse rounded mt-2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Main Interactive Grid Layout */}
+            <div className="grid lg:grid-cols-3 gap-6 md:gap-8">
+              {/* Pie Chart Representation */}
+              <div className="lg:col-span-1 bg-white p-6 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 flex flex-col justify-between h-[360px]">
+                <div className="flex items-center justify-between">
+                  <div className="w-24 h-4 bg-neutral-200 animate-pulse rounded" />
+                  <div className="w-5 h-5 bg-neutral-100 animate-pulse rounded-full" />
+                </div>
+                <div className="flex items-center justify-center flex-1">
+                  <div className="w-36 h-36 rounded-full border-[14px] border-neutral-100 border-t-neutral-200/50 animate-pulse animate-pulse" />
+                </div>
+                <div className="flex justify-center gap-4">
+                  <div className="w-16 h-3 bg-neutral-100 animate-pulse rounded" />
+                  <div className="w-16 h-3 bg-neutral-100 animate-pulse rounded" />
+                </div>
+              </div>
+
+              {/* Detailed Feed / Insights List Representation */}
+              <div className="lg:col-span-2 bg-white p-6 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 flex flex-col h-[360px]">
+                <div className="flex items-center justify-between">
+                  <div className="w-36 h-4 bg-neutral-200 animate-pulse rounded" />
+                  <div className="w-20 h-4 bg-neutral-100 animate-pulse rounded" />
+                </div>
+                <div className="space-y-4 flex-1 overflow-hidden">
+                  {[1, 2, 3].map((rowIdx) => (
+                    <div key={rowIdx} className="flex items-center justify-between py-3 border-b border-neutral-50 last:border-0">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded bg-neutral-100 animate-pulse" />
+                        <div className="flex flex-col gap-1.5">
+                          <div className={`${rowIdx % 2 === 0 ? 'w-48' : 'w-36'} h-3 bg-neutral-200/80 animate-pulse rounded`} />
+                          <div className="w-24 h-2 bg-neutral-100 animate-pulse rounded" />
+                        </div>
+                      </div>
+                      <div className="w-16 h-5 bg-neutral-100 animate-pulse rounded-full" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1150,6 +1327,11 @@ export default function App() {
             {user && <DukeyAssistant user={user} />}
             {user && <AddGearModal user={user} adminSettings={adminSettings} />}
             {user && <QuickActionsDrawer user={user} />}
+            {user && (
+              <CommandPalette 
+                onToggleSidebar={() => setIsSidebarCollapsed(prev => !prev)} 
+              />
+            )}
           </div>
         </Router>
       </IndustryProvider>

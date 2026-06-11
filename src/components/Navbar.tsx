@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, LayoutDashboard, Settings, Package, User, Menu, X, Zap, HelpCircle, Server, Home, Truck, ShieldCheck, Briefcase } from 'lucide-react';
+import { LogIn, LogOut, LayoutDashboard, Settings, Package, User, Menu, X, Zap, HelpCircle, Server, Home, Truck, ShieldCheck, Briefcase, Search } from 'lucide-react';
 import PackerLogo from './PackerLogo';
 import { signInWithGoogle, logout } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
@@ -106,6 +106,16 @@ export default function Navbar({
           {user ? (
             <>
               <div className="flex items-center gap-4 pl-6">
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+                  className="flex items-center gap-2 px-3 py-1.5 h-10 bg-neutral-50 hover:bg-neutral-100 text-neutral-500 hover:text-neutral-850 rounded-xl transition border border-neutral-200/50 cursor-pointer text-xs font-semibold select-none active:scale-95 whitespace-nowrap"
+                  title="Open Search Console (⌘K)"
+                >
+                  <Search size={14} className="text-neutral-400" />
+                  <span className="text-[9px] uppercase font-black tracking-widest text-neutral-500">Console</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-white border border-neutral-250 text-[9px] font-mono text-neutral-450 shadow-xs leading-none">⌘K</kbd>
+                </button>
+
                 <Link to="/profile" className="flex items-center gap-3 hover:bg-neutral-50 p-2 rounded-xl transition">
                   <div className="text-right hidden sm:block">
                     <div className="text-xs font-black uppercase tracking-tight">{user.displayName}</div>
@@ -140,6 +150,17 @@ export default function Navbar({
             </div>
           )}
         </div>
+
+        {/* Mobile Search Console Button */}
+        {user && (
+          <button 
+            onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+            className="md:hidden p-2 text-primary hover:bg-neutral-100 rounded-lg transition mr-1 cursor-pointer flex items-center justify-center shrink-0"
+            title="Open Search Console"
+          >
+            <Search size={22} className="text-neutral-500 hover:text-neutral-900" />
+          </button>
+        )}
 
         {/* Mobile Menu Toggle */}
         <button 

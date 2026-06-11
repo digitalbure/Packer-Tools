@@ -111,6 +111,17 @@ export default function DukeyAssistant({ user }: DukeyAssistantProps) {
     };
   }, [user]);
 
+  // Handle global shortcut/trigger to open Dukey assistant
+  useEffect(() => {
+    const handleOpen = () => {
+      setIsOpen(true);
+    };
+    window.addEventListener('open-dukey', handleOpen);
+    return () => {
+      window.removeEventListener('open-dukey', handleOpen);
+    };
+  }, []);
+
   // Set up initial greeting based on the user's role and plan
   useEffect(() => {
     if (messages.length === 0 && user) {

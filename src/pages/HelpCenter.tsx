@@ -122,6 +122,18 @@ const articles = [
     tips: ["Use 'Batch Scan' if you have many items with barcodes or QR codes already attached."]
   },
   {
+    id: 'select-mode-bulk-operations',
+    title: "Using Select Mode for Multi-Asset Operations",
+    description: "Learn how to activate Select Mode, select multiple items, and run large-scale batch updates.",
+    category: 'gear-library',
+    steps: [
+      { title: "Activate Select Mode", description: "In the Gear Library view bar, click 'Select Mode' to toggle checkbox selection across grids, list compacts, and tables." },
+      { title: "Select Target Inventory", description: "Tap individual items to append them to your active batch selection. An elegant smart floating bar will emerge tracking counts." },
+      { title: "Execute Batch Changes", description: "Use the floating triggers to update statuses, assign departments, move items to racks, or batch delete entire selections." }
+    ],
+    tips: ["Batch deletion acts immediately via Firestore write-batches. Be sure your selections are accurate as deletion is irreversible!"]
+  },
+  {
     id: 'packing-list-mastery',
     title: "How to master Packing Manifests",
     description: "Move from a list of gear to a verified, group-organized deployment manifest.",

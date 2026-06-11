@@ -74,6 +74,10 @@ export interface Plan {
   maxWorkspaces?: number;
   trialDays?: number;
   trialEnabled?: boolean;
+  paddleProductId?: string;
+  paddlePriceIdMonthly?: string;
+  paddlePriceIdAnnual?: string;
+  paddleCheckoutUrl?: string;
 }
 
 export interface UserProfile {
@@ -340,6 +344,7 @@ export interface GearItem {
   rentalPeriod?: 'day' | 'week' | 'month';
   currentHolder?: string;
   workspaceId?: string;
+  rackId?: string;
   createdAt?: string;
   updatedAt?: string;
   isSale?: boolean;
@@ -603,6 +608,8 @@ export interface IntegrationConfig {
   compatibilityModel?: string;
   bomLeadServiceEnabled?: boolean;
   bomRiskThreshold?: number;
+  paddleApiKey?: string;
+  paddleEnabled?: boolean;
 }
 
 export interface LandingPagePair {

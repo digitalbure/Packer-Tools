@@ -16,6 +16,7 @@ import {
   SortAsc,
   SortDesc,
   ChevronRight,
+  ChevronLeft,
   MoreVertical,
   History,
   Wrench,
@@ -40,7 +41,8 @@ import {
   Sliders,
   ShieldCheck,
   Share2,
-  ArrowRightLeft
+  ArrowRightLeft,
+  CheckSquare
 } from 'lucide-react';
 import ShareModal from '../components/ShareModal';
 import ManualCheckoutModal from '../components/ManualCheckoutModal';
@@ -488,10 +490,27 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [settings, setSettings] = useState<AdminSettings | null>(propAdminSettings);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setCurrentPage(1);
+    }, 250);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [privacyLayerFilter, setPrivacyLayerFilter] = useState<'all' | 'private' | 'team' | 'dept' | 'org' | 'public'>('all');
   const [selectedCondition, setSelectedCondition] = useState<string>('all');
   const [categoryFilterMode, setCategoryFilterMode] = useState<'primary' | 'all'>('primary');
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, privacyLayerFilter, selectedCondition, categoryFilterMode]);
   const [isAIAutoRegistering, setIsAIAutoRegistering] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [sortField, setSortField] = useState<'name' | 'createdAt' | 'weight' | 'price' | 'usageCount' | 'health'>('createdAt');
@@ -542,6 +561,33 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
   // Workflow guidance model
   const [checkoutGuidanceModal, setCheckoutGuidanceModal] = useState(false);
+
+  // Undo bulk action states
+  const [lastBulkAction, setLastBulkAction] = useState<{
+    type: 'status' | 'rack' | 'assign' | 'delete';
+    items: {
+      gearItem: GearItem;
+      previousRackId?: string | null;
+      createdRackItemId?: string;
+      selectedRackId?: string;
+      previousData?: {
+        status?: string;
+        orgId?: string;
+        deptId?: string;
+        teamId?: string;
+        assignedTo?: string;
+      };
+    }[];
+    timestamp: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!lastBulkAction) return;
+    const timer = setTimeout(() => {
+      setLastBulkAction(null);
+    }, 15000); // 15 seconds visibility
+    return () => clearTimeout(timer);
+  }, [lastBulkAction]);
 
   // Audit Mode states and helpers
   const [isAuditMode, setIsAuditMode] = useState(false);
@@ -1267,6 +1313,111 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     return () => unsubscribe();
   }, [user?.uid]);
 
+  const handleUndoBulkAction = async (directRecord?: any) => {
+    const record = directRecord || lastBulkAction;
+    if (!record) return;
+    
+    const toastId = toast.loading("Undoing last bulk operation...");
+    try {
+      const batch = writeBatch(db);
+      const updatedAt = new Date().toISOString();
+
+      if (record.type === 'delete') {
+        for (const itemRec of record.items) {
+          if (!itemRec.gearItem?.id) continue;
+          const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', itemRec.gearItem.id);
+          batch.set(itemRef, {
+            ...itemRec.gearItem,
+            updatedAt
+          });
+        }
+        await batch.commit();
+        
+        await logActivity(
+          user?.uid,
+          user?.displayName || user?.email || 'Platform User',
+          'gear_undo',
+          `Undone batch deletion: Restored ${record.items.length} gear items`,
+          { count: record.items.length }
+        );
+        toast.success(`Successfully restored ${record.items.length} deleted items!`, { id: toastId });
+      } 
+      else if (record.type === 'status') {
+        for (const itemRec of record.items) {
+          if (!itemRec.gearItem?.id) continue;
+          const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', itemRec.gearItem.id);
+          batch.update(itemRef, {
+            status: itemRec.previousData?.status || 'available',
+            updatedAt
+          });
+        }
+        await batch.commit();
+        
+        await logActivity(
+          user?.uid,
+          user?.displayName || user?.email || 'Platform User',
+          'gear_undo',
+          `Undone batch status update: Reverted ${record.items.length} items`,
+          { count: record.items.length }
+        );
+        toast.success(`Successfully reverted status for ${record.items.length} items!`, { id: toastId });
+      }
+      else if (record.type === 'rack') {
+        for (const itemRec of record.items) {
+          if (!itemRec.gearItem?.id) continue;
+          const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', itemRec.gearItem.id);
+          batch.update(itemRef, {
+            rackId: itemRec.previousRackId || '',
+            updatedAt
+          });
+
+          if (itemRec.createdRackItemId && itemRec.selectedRackId) {
+            const rackItemRef = doc(db, 'racks', itemRec.selectedRackId, 'items', itemRec.createdRackItemId);
+            batch.delete(rackItemRef);
+          }
+        }
+        await batch.commit();
+
+        await logActivity(
+          user?.uid,
+          user?.displayName || user?.email || 'Platform User',
+          'gear_undo',
+          `Undone batch rack transfer`,
+          { count: record.items.length }
+        );
+        toast.success(`Successfully removed items from rack and restored previous positions!`, { id: toastId });
+      }
+      else if (record.type === 'assign') {
+        for (const itemRec of record.items) {
+          if (!itemRec.gearItem?.id) continue;
+          const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', itemRec.gearItem.id);
+          batch.update(itemRef, {
+            orgId: itemRec.previousData?.orgId || '',
+            deptId: itemRec.previousData?.deptId || '',
+            teamId: itemRec.previousData?.teamId || '',
+            assignedTo: itemRec.previousData?.assignedTo || '',
+            updatedAt
+          });
+        }
+        await batch.commit();
+
+        await logActivity(
+          user?.uid,
+          user?.displayName || user?.email || 'Platform User',
+          'gear_undo',
+          `Undone batch reassignments`,
+          { count: record.items.length }
+        );
+        toast.success(`Successfully reverted batch reassignments!`, { id: toastId });
+      }
+
+      setLastBulkAction(null);
+    } catch (err) {
+      console.error("Undo error:", err);
+      toast.error("Failed to undo bulk operation.", { id: toastId });
+    }
+  };
+
   const handleBatchMoveToRack = async () => {
     if (selectedItems.size === 0) {
       toast.error("No items selected");
@@ -1287,6 +1438,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     try {
       const batch = writeBatch(db);
       const updatedAt = new Date().toISOString();
+      const itemsToRestore: any[] = [];
 
       for (const itemId of Array.from(selectedItems)) {
         const item = gear.find(i => i.id === itemId);
@@ -1311,13 +1463,35 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             photoUrls: item.photoUrls || [],
             createdAt: updatedAt
           });
+
+          itemsToRestore.push({
+            gearItem: { ...item },
+            previousRackId: item.rackId || null,
+            createdRackItemId: rackItemRef.id,
+            selectedRackId
+          });
         }
       }
 
       await batch.commit();
+      
+      const newUndoRecord = {
+        type: 'rack' as const,
+        items: itemsToRestore,
+        timestamp: Date.now()
+      };
+      setLastBulkAction(newUndoRecord);
+
       setSelectedItems(new Set());
       setIsMoveToRackModalOpen(false);
-      toast.success(`Successfully moved ${selectedItems.size} assets to Rack "${targetRack.name}"`, { id: toastId });
+      
+      toast.success(`Successfully moved items to Rack "${targetRack.name}"`, {
+        id: toastId,
+        action: {
+          label: "Undo",
+          onClick: () => handleUndoBulkAction(newUndoRecord)
+        }
+      });
     } catch (e) {
       console.error(e);
       toast.error("Failed to batch move items to rack", { id: toastId });
@@ -1334,19 +1508,43 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     try {
       const batch = writeBatch(db);
       const updatedAt = new Date().toISOString();
+      const itemsToRestore: any[] = [];
 
       selectedItems.forEach(itemId => {
-        const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
-        batch.update(itemRef, { 
-          status: selectedBatchStatus,
-          updatedAt
-        });
+        const item = gear.find(i => i.id === itemId);
+        if (item) {
+          const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
+          batch.update(itemRef, { 
+            status: selectedBatchStatus,
+            updatedAt
+          });
+
+          itemsToRestore.push({
+            gearItem: { ...item },
+            previousData: { status: item.status || 'available' }
+          });
+        }
       });
 
       await batch.commit();
+
+      const newUndoRecord = {
+        type: 'status' as const,
+        items: itemsToRestore,
+        timestamp: Date.now()
+      };
+      setLastBulkAction(newUndoRecord);
+
       setSelectedItems(new Set());
       setIsChangeStatusModalOpen(false);
-      toast.success(`Successfully changed status of ${selectedItems.size} items to ${selectedBatchStatus}`, { id: toastId });
+
+      toast.success(`Successfully changed status of items to ${selectedBatchStatus}`, {
+        id: toastId,
+        action: {
+          label: "Undo",
+          onClick: () => handleUndoBulkAction(newUndoRecord)
+        }
+      });
     } catch (e) {
       console.error(e);
       toast.error("Failed to batch change status", { id: toastId });
@@ -1365,41 +1563,70 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     try {
       const batch = writeBatch(db);
       const updatedAt = new Date().toISOString();
+      const itemsToRestore: any[] = [];
       
       selectedItems.forEach(itemId => {
-        const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
-        const updateData: any = { updatedAt };
-        
-        if (shouldUpdateOrg) {
-          updateData.orgId = batchOrgId || '';
-          if (!shouldUpdateDept) {
-            updateData.deptId = '';
-            updateData.teamId = '';
+        const item = gear.find(i => i.id === itemId);
+        if (item) {
+          const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
+          const updateData: any = { updatedAt };
+          
+          if (shouldUpdateOrg) {
+            updateData.orgId = batchOrgId || '';
+            if (!shouldUpdateDept) {
+              updateData.deptId = '';
+              updateData.teamId = '';
+            }
           }
-        }
-        
-        if (shouldUpdateDept) {
-          updateData.deptId = batchDeptId || '';
-          if (!shouldUpdateTeam) {
-            updateData.teamId = '';
+          
+          if (shouldUpdateDept) {
+            updateData.deptId = batchDeptId || '';
+            if (!shouldUpdateTeam) {
+              updateData.teamId = '';
+            }
           }
+          
+          if (shouldUpdateTeam) {
+            updateData.teamId = batchTeamId || '';
+          }
+          
+          if (shouldUpdateAssignee) {
+            updateData.assignedTo = batchAssignedTo || '';
+          }
+          
+          batch.update(itemRef, updateData);
+
+          itemsToRestore.push({
+            gearItem: { ...item },
+            previousData: {
+              orgId: item.orgId || '',
+              deptId: item.deptId || '',
+              teamId: item.teamId || '',
+              assignedTo: item.assignedTo || ''
+            }
+          });
         }
-        
-        if (shouldUpdateTeam) {
-          updateData.teamId = batchTeamId || '';
-        }
-        
-        if (shouldUpdateAssignee) {
-          updateData.assignedTo = batchAssignedTo || '';
-        }
-        
-        batch.update(itemRef, updateData);
       });
       
       await batch.commit();
+
+      const newUndoRecord = {
+        type: 'assign' as const,
+        items: itemsToRestore,
+        timestamp: Date.now()
+      };
+      setLastBulkAction(newUndoRecord);
+
       setSelectedItems(new Set());
       setIsBatchAssignModalOpen(false);
-      toast.success(`Successfully batch assigned details to ${selectedItems.size} items!`, { id: toastId });
+
+      toast.success(`Successfully batch assigned details details!`, {
+        id: toastId,
+        action: {
+          label: "Undo",
+          onClick: () => handleUndoBulkAction(newUndoRecord)
+        }
+      });
     } catch (error) {
       console.error("Batch assign error:", error);
       toast.error("Failed to batch update items.", { id: toastId });
@@ -1467,59 +1694,72 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     return ['All', 'Kits', ...Array.from(cats)];
   }, [effectiveGear, categoryFilterMode]);
 
-  const filteredGear = effectiveGear.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         item.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesCategory = selectedCategory === 'All' 
-      ? true 
-      : selectedCategory === 'Kits' 
-        ? (item.isKit || item.category === 'Kit' || item.category === 'Kits' || item.primaryCategory === 'Kit' || item.primaryCategory === 'Kits') 
-        : (categoryFilterMode === 'primary'
-          ? getPrimaryCategory(item) === selectedCategory
-          : (getPrimaryCategory(item) === selectedCategory || getSecondaryCategories(item).includes(selectedCategory))
-        );
-    const matchesCondition = selectedCondition === 'all' || item.condition === selectedCondition;
+  const filteredGear = useMemo(() => {
+    return effectiveGear.filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
+                           item.brand?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+                           item.tags?.some(tag => tag.toLowerCase().includes(debouncedSearchTerm.toLowerCase()));
+      const matchesCategory = selectedCategory === 'All' 
+        ? true 
+        : selectedCategory === 'Kits' 
+          ? (item.isKit || item.category === 'Kit' || item.category === 'Kits' || item.primaryCategory === 'Kit' || item.primaryCategory === 'Kits') 
+          : (categoryFilterMode === 'primary'
+            ? getPrimaryCategory(item) === selectedCategory
+            : (getPrimaryCategory(item) === selectedCategory || getSecondaryCategories(item).includes(selectedCategory))
+          );
+      const matchesCondition = selectedCondition === 'all' || item.condition === selectedCondition;
 
-    // Privacy View Layer filter check
-    if (privacyLayerFilter !== 'all') {
-      const itemVis = item.visibility || 'public';
-      if (privacyLayerFilter !== itemVis) {
-        return false;
+      // Privacy View Layer filter check
+      if (privacyLayerFilter !== 'all') {
+        const itemVis = item.visibility || 'public';
+        if (privacyLayerFilter !== itemVis) {
+          return false;
+        }
       }
-    }
 
-    // Audit Mode filters
-    if (isAuditMode && showOnlyAttentionNeeded) {
-      const needsAttention = isMaintenanceOutdated(item) || isLowInventory(item);
-      if (!needsAttention) return false;
-    }
+      // Audit Mode filters
+      if (isAuditMode && showOnlyAttentionNeeded) {
+        const needsAttention = isMaintenanceOutdated(item) || isLowInventory(item);
+        if (!needsAttention) return false;
+      }
 
-    return matchesSearch && matchesCategory && matchesCondition;
-  }).sort((a, b) => {
-    let comparison = 0;
-    switch (sortField) {
-      case 'name':
-        comparison = a.name.localeCompare(b.name);
-        break;
-      case 'createdAt':
-        comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        break;
-      case 'weight':
-        comparison = (a.weight || 0) - (b.weight || 0);
-        break;
-      case 'price':
-        comparison = (a.price || 0) - (b.price || 0);
-        break;
-      case 'usageCount':
-        comparison = (a.usageCount || 0) - (b.usageCount || 0);
-        break;
-      case 'health':
-        comparison = getHealthScore(a) - getHealthScore(b);
-        break;
-    }
-    return sortOrder === 'asc' ? comparison : -comparison;
-  });
+      return matchesSearch && matchesCategory && matchesCondition;
+    }).sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'createdAt':
+          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+        case 'weight':
+          comparison = (a.weight || 0) - (b.weight || 0);
+          break;
+        case 'price':
+          comparison = (a.price || 0) - (b.price || 0);
+          break;
+        case 'usageCount':
+          comparison = (a.usageCount || 0) - (b.usageCount || 0);
+          break;
+        case 'health':
+          comparison = getHealthScore(a) - getHealthScore(b);
+          break;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [effectiveGear, debouncedSearchTerm, selectedCategory, categoryFilterMode, selectedCondition, privacyLayerFilter, isAuditMode, showOnlyAttentionNeeded, sortField, sortOrder]);
+
+  const paginatedGear = useMemo(() => {
+    if (itemsPerPage === -1) return filteredGear;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredGear.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredGear, currentPage, itemsPerPage]);
+
+  const totalPages = useMemo(() => {
+    if (itemsPerPage === -1) return 1;
+    return Math.max(1, Math.ceil(filteredGear.length / itemsPerPage));
+  }, [filteredGear.length, itemsPerPage]);
 
   const handleDelete = async (id: string) => {
     setConfirmModal({
@@ -1555,6 +1795,81 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           setConfirmModal(prev => ({ ...prev, isOpen: false }));
         } catch (error) {
           handleFirestoreError(error, OperationType.DELETE, path);
+        }
+      }
+    });
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedItems.size === 0) return;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Selected Items',
+      message: `Are you sure you want to remove all ${selectedItems.size} selected items from your library? This action is irreversible.`,
+      onConfirm: async () => {
+        const toastId = toast.loading(`Removing ${selectedItems.size} items from library...`);
+        try {
+          if (!isOnline) {
+            const batchOperations = Array.from(selectedItems).map(id => {
+              const targetItem = effectiveGear.find(it => it.id === id);
+              return offlineSync.queueOperation({
+                type: 'delete',
+                collectionPath: ['users', user?.uid, 'gearLibrary', id],
+                docId: id,
+                label: `Delete gear: ${targetItem?.name || 'Item'}`
+              });
+            });
+            await Promise.all(batchOperations);
+            toast.success(`Flagged ${selectedItems.size} items for removal offline.`, { id: toastId });
+            setSelectedItems(new Set());
+            setIsMultiSelectMode(false);
+            setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            return;
+          }
+
+          const itemsToRestore = Array.from(selectedItems).map(id => {
+            const item = effectiveGear.find(u => u.id === id);
+            return {
+              gearItem: { ...item } as GearItem
+            };
+          }).filter(u => u.gearItem !== undefined && u.gearItem.id !== undefined);
+
+          const batch = writeBatch(db);
+          for (const id of Array.from(selectedItems)) {
+            const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', id);
+            batch.delete(itemRef);
+          }
+          await batch.commit();
+
+          await logActivity(
+            user?.uid,
+            user?.displayName || user?.email || 'Platform User',
+            'gear_delete',
+            `Removed ${selectedItems.size} items from Gear Library via batch deletion`,
+            { count: selectedItems.size }
+          );
+
+          const newUndoRecord = {
+            type: 'delete' as const,
+            items: itemsToRestore,
+            timestamp: Date.now()
+          };
+          setLastBulkAction(newUndoRecord);
+
+          toast.success(`Successfully removed ${selectedItems.size} assets from library`, {
+            id: toastId,
+            action: {
+              label: "Undo",
+              onClick: () => handleUndoBulkAction(newUndoRecord)
+            }
+          });
+          setSelectedItems(new Set());
+          setIsMultiSelectMode(false);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          toast.error("Failed to batch delete items.", { id: toastId });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          handleFirestoreError(error, OperationType.DELETE, `users/${user?.uid}/gearLibrary`);
         }
       }
     });
@@ -2795,7 +3110,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     const categoryList = categories.filter(c => c !== 'All');
     
     const entries = categoryList.map(cat => {
-      const groupItems = filteredGear.filter(item => {
+      const groupItems = paginatedGear.filter(item => {
         const isKit = (item.isKit || item.category === 'Kit' || item.category === 'Kits' || item.primaryCategory === 'Kit' || item.primaryCategory === 'Kits');
         if (cat === 'Kits') return isKit;
         return !isKit && getPrimaryCategory(item) === cat;
@@ -2804,7 +3119,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     }).filter(entry => entry.items.length > 0);
 
     return entries;
-  }, [filteredGear, selectedCategory, categories]);
+  }, [paginatedGear, selectedCategory, categories]);
 
   const renderGridItem = (item: GearItem) => (
     <motion.div
@@ -2813,11 +3128,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      onClick={() => setSelectedGearItemView(item)}
+      onClick={(e) => {
+        if (isMultiSelectMode) {
+          toggleItemSelection(item.id, e);
+        } else {
+          setSelectedGearItemView(item);
+        }
+      }}
       className={`group bg-white rounded-xl md:rounded-[2rem] border transition-all duration-500 overflow-hidden flex flex-col cursor-pointer min-w-0 w-full ${
-        isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
-          ? 'ring-2 ring-amber-500 border-amber-500 shadow-amber-200 shadow-xl'
-          : 'border-neutral-100 shadow-sm hover:shadow-2xl'
+        selectedItems.has(item.id)
+          ? 'ring-2 ring-[#0066cc] border-[#0066cc] shadow-md bg-sky-50/10'
+          : isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
+            ? 'ring-2 ring-amber-500 border-amber-500 shadow-amber-200 shadow-xl'
+            : 'border-neutral-100 shadow-sm hover:shadow-2xl'
       }`}
     >
       <div className="relative aspect-square sm:aspect-[16/10] overflow-hidden bg-neutral-50">
@@ -2827,11 +3150,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             onClick={(e) => toggleItemSelection(item.id, e)}
             className={`w-7 h-7 md:w-8 md:h-8 rounded-lg md:rounded-xl border-2 flex items-center justify-center transition-all ${
               selectedItems.has(item.id) 
-                ? 'bg-primary border-primary text-white shadow-lg scale-110' 
-                : 'bg-white/80 backdrop-blur border-white/20 text-transparent hover:border-black/20 hover:text-black/10'
+                ? 'bg-[#0066cc] border-[#0066cc] text-white shadow-lg scale-110' 
+                : isMultiSelectMode
+                  ? 'bg-white border-[#0066cc]/45 text-[#0066cc] shadow-sm'
+                  : 'bg-white/80 backdrop-blur border-white/20 text-transparent hover:border-black/20 hover:text-black/10'
             }`}
           >
-            <Check size={14} className="md:w-4 md:h-4" strokeWidth={4} />
+            <Check size={14} className={`md:w-4 md:h-4 ${selectedItems.has(item.id) || isMultiSelectMode ? 'opacity-100' : 'opacity-0'}`} strokeWidth={4} />
           </button>
         </div>
 
@@ -2962,11 +3287,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      onClick={() => setSelectedGearItemView(item)}
+      onClick={(e) => {
+        if (isMultiSelectMode) {
+          toggleItemSelection(item.id, e);
+        } else {
+          setSelectedGearItemView(item);
+        }
+      }}
       className={`group bg-white rounded-2xl border transition-all duration-300 overflow-hidden flex flex-col cursor-pointer ${
-        isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
-          ? 'ring-2 ring-amber-500 border-amber-500 shadow-md'
-          : 'border-neutral-100 shadow-sm hover:shadow-md'
+        selectedItems.has(item.id)
+          ? 'ring-2 ring-[#0066cc] border-[#0066cc] shadow-md bg-sky-50/10'
+          : isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
+            ? 'ring-2 ring-amber-500 border-amber-500 shadow-md'
+            : 'border-neutral-100 shadow-sm hover:shadow-md'
       }`}
     >
       <div className="relative aspect-square overflow-hidden bg-neutral-50">
@@ -2976,11 +3309,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             onClick={(e) => { e.stopPropagation(); toggleItemSelection(item.id, e); }}
             className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${
               selectedItems.has(item.id) 
-                ? 'bg-primary border-primary text-white shadow-lg scale-110' 
-                : 'bg-white/80 backdrop-blur border-white/20 text-transparent hover:border-white'
+                ? 'bg-[#0066cc] border-[#0066cc] text-white shadow-lg scale-110' 
+                : isMultiSelectMode
+                  ? 'bg-white border-[#0066cc]/45 text-[#0066cc] shadow-sm'
+                  : 'bg-white/80 backdrop-blur border-white/20 text-transparent hover:border-white'
             }`}
           >
-            <Check size={10} strokeWidth={4} />
+            <Check size={10} className={selectedItems.has(item.id) || isMultiSelectMode ? 'opacity-100' : 'opacity-0'} strokeWidth={4} />
           </button>
         </div>
 
@@ -3181,21 +3516,31 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     <div 
       key={item.id} 
       className={`p-4 rounded-2xl border flex items-center gap-4 transition-all cursor-pointer ${
-        isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
-          ? 'bg-amber-50/30 border-amber-500 ring-2 ring-amber-500'
-          : 'bg-white border-neutral-100 hover:border-primary/20'
+        selectedItems.has(item.id)
+          ? 'bg-sky-50/10 border-[#0066cc] ring-2 ring-[#0066cc]'
+          : isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
+            ? 'bg-amber-50/30 border-amber-500 ring-2 ring-amber-500'
+            : 'bg-white border-neutral-100 hover:border-primary/20'
       }`}
-      onClick={() => setSelectedGearItemView(item)}
+      onClick={(e) => {
+        if (isMultiSelectMode) {
+          toggleItemSelection(item.id, e);
+        } else {
+          setSelectedGearItemView(item);
+        }
+      }}
     >
       <div 
-        onClick={(e) => { e.stopPropagation(); toggleItemSelection(item.id); }}
+        onClick={(e) => { e.stopPropagation(); toggleItemSelection(item.id, e); }}
         className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer shrink-0 ${
           selectedItems.has(item.id) 
-            ? 'bg-neutral-900 border-neutral-900 text-white' 
-            : 'bg-neutral-50 border-neutral-200'
+            ? 'bg-[#0066cc] border-[#0066cc] text-white' 
+            : isMultiSelectMode
+              ? 'bg-white border-[#0066cc]/45 text-[#0066cc]'
+              : 'bg-neutral-50 border-neutral-200'
         }`}
       >
-        <Check size={12} className={selectedItems.has(item.id) ? 'opacity-100' : 'opacity-0'} />
+        <Check size={12} className={selectedItems.has(item.id) || isMultiSelectMode ? 'opacity-100' : 'opacity-0'} />
       </div>
       <div className="relative shrink-0">
         <img src={item.photoUrls[0]} className="w-16 h-16 rounded-xl object-cover border border-neutral-100 shrink-0" />
@@ -3338,9 +3683,23 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             </button>
             <button 
               onClick={() => setViewMode('list')}
-              className={`flex-1 shrink-0 px-3 sm:px-4 p-2 rounded-xl text-[9.5px] md:text-[10px] font-black uppercase tracking-widest transition ${viewMode === 'list' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-neutral-900'}`}
+              className={`flex-1 shrink-0 px-3 sm:px-4 p-2 rounded-xl text-[9.5px] md:text-[10px] font-black uppercase tracking-widest transition ${viewMode === 'list' && !isMultiSelectMode ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-neutral-900'}`}
             >
               List
+            </button>
+            <button 
+              onClick={() => {
+                setIsMultiSelectMode(!isMultiSelectMode);
+                if (isMultiSelectMode) {
+                  setSelectedItems(new Set());
+                }
+              }}
+              className={`flex-1 shrink-0 px-3 sm:px-4 p-2 rounded-xl text-[9.5px] md:text-[10px] font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5 ${isMultiSelectMode ? 'bg-black text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-900'}`}
+              title="Toggle checklist selection mode"
+              id="multi-select-toggle-button"
+            >
+              <CheckSquare size={13} className="shrink-0" />
+              <span>Select Mode</span>
             </button>
           </div>
           <button 
@@ -4063,7 +4422,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         ) : (
           <div className="grid grid-cols-1 min-[450px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 w-full">
             <AnimatePresence mode="popLayout">
-              {filteredGear.map((item) => renderGridItem(item))}
+              {paginatedGear.map((item) => renderGridItem(item))}
             </AnimatePresence>
           </div>
         )
@@ -4091,7 +4450,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         ) : (
           <div className="grid grid-cols-1 min-[450px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             <AnimatePresence mode="popLayout">
-              {filteredGear.map((item) => renderCompactItem(item))}
+              {paginatedGear.map((item) => renderCompactItem(item))}
             </AnimatePresence>
           </div>
         )
@@ -4104,16 +4463,24 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 <th className="px-8 py-6 w-10">
                   <button 
                     onClick={() => {
-                      if (selectedItems.size === filteredGear.length) setSelectedItems(new Set());
-                      else setSelectedItems(new Set(filteredGear.map(i => i.id)));
+                      const allPageSelected = paginatedGear.length > 0 && paginatedGear.every(i => selectedItems.has(i.id));
+                      if (allPageSelected) {
+                        const next = new Set(selectedItems);
+                        paginatedGear.forEach(i => next.delete(i.id));
+                        setSelectedItems(next);
+                      } else {
+                        const next = new Set(selectedItems);
+                        paginatedGear.forEach(i => next.add(i.id));
+                        setSelectedItems(next);
+                      }
                     }}
                     className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${
-                      selectedItems.size === filteredGear.length && filteredGear.length > 0
+                      paginatedGear.length > 0 && paginatedGear.every(i => selectedItems.has(i.id))
                         ? 'bg-primary border-primary text-white' 
                         : 'bg-white border-neutral-200'
                     }`}
                   >
-                    {selectedItems.size === filteredGear.length && filteredGear.length > 0 && <Check size={12} strokeWidth={4} />}
+                    {paginatedGear.length > 0 && paginatedGear.every(i => selectedItems.has(i.id)) && <Check size={12} strokeWidth={4} />}
                   </button>
                 </th>
                 <th 
@@ -4167,7 +4534,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   </React.Fragment>
                 ))
               ) : (
-                filteredGear.map((item) => renderTableRow(item))
+                paginatedGear.map((item) => renderTableRow(item))
               )}
             </tbody>
             </table>
@@ -4190,7 +4557,98 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 </div>
               ))
             ) : (
-              filteredGear.map((item) => renderMobileListItem(item))
+              paginatedGear.map((item) => renderMobileListItem(item))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Pagination component with clean styling and dropdown options */}
+      {filteredGear.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-8 py-6 rounded-3xl border border-neutral-100 shadow-sm w-full">
+          <div className="flex items-center gap-3 text-xs text-neutral-500">
+            <span>
+              Showing{' '}
+              <span className="font-mono font-bold text-neutral-800">
+                {itemsPerPage === -1 ? 1 : (currentPage - 1) * itemsPerPage + 1}
+              </span>{' '}
+              to{' '}
+              <span className="font-mono font-bold text-neutral-800">
+                {itemsPerPage === -1 ? filteredGear.length : Math.min(currentPage * itemsPerPage, filteredGear.length)}
+              </span>{' '}
+              of{' '}
+              <span className="font-mono font-bold text-neutral-800">
+                {filteredGear.length}
+              </span>{' '}
+              items
+            </span>
+            {filteredGear.length > 250 && (
+              <span className="text-[9px] font-bold bg-emerald-50 px-2 py-0.5 rounded-full text-emerald-600 uppercase tracking-widest">
+                Optimized Scale
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Items per page:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer text-neutral-700 shadow-sm"
+              >
+                <option value={24}>24</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={250}>250</option>
+                <option value={-1}>All Items</option>
+              </select>
+            </div>
+
+            {itemsPerPage !== -1 && totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-xl border border-neutral-150 bg-white hover:bg-neutral-50 disabled:opacity-30 disabled:hover:bg-white text-neutral-500 transition cursor-pointer text-xs font-semibold flex items-center justify-center min-w-[32px] h-[32px]"
+                  title="First Page"
+                >
+                  <ChevronLeft size={14} className="stroke-[2.5]" />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 h-[32px] text-xs font-semibold rounded-xl border border-neutral-150 bg-white hover:bg-neutral-50 disabled:opacity-30 disabled:hover:bg-white text-neutral-500 transition cursor-pointer"
+                >
+                  Prev
+                </button>
+
+                <div className="flex items-center px-3 h-[32px]">
+                  <span className="text-xs font-semibold text-neutral-700">
+                    <span className="font-mono text-neutral-900 font-bold">{currentPage}</span> /{' '}
+                    <span className="font-mono text-neutral-500">{totalPages}</span>
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 h-[32px] text-xs font-semibold rounded-xl border border-neutral-150 bg-white hover:bg-neutral-50 disabled:opacity-30 disabled:hover:bg-white text-neutral-500 transition cursor-pointer"
+                >
+                  Next
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-xl border border-neutral-150 bg-white hover:bg-neutral-50 disabled:opacity-30 disabled:hover:bg-white text-neutral-500 transition cursor-pointer text-xs font-semibold flex items-center justify-center min-w-[32px] h-[32px]"
+                  title="Last Page"
+                >
+                  <ChevronRight size={14} className="stroke-[2.5]" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -6115,7 +6573,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
       {/* Floating Action Bar for Selections */}
       <AnimatePresence>
-        {selectedItems.size > 0 && (
+        {(selectedItems.size > 0 || isMultiSelectMode) && (
           <motion.div 
             initial={{ y: 100, opacity: 0, x: '-50%' }}
             animate={{ y: 0, opacity: 1, x: '-50%' }}
@@ -6124,14 +6582,21 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           >
             <div className="flex items-center justify-between w-full md:w-auto md:border-r md:border-white/10 md:pr-6 md:mr-2">
               <div className="flex items-center gap-3">
-                <div className="bg-primary px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-black">
+                <div className={`px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-black transition-all ${selectedItems.size > 0 ? 'bg-[#0066cc] text-white' : 'bg-neutral-800 text-neutral-400'}`}>
                   {selectedItems.size}
                 </div>
-                <span className="text-xs md:text-sm font-bold text-neutral-300 whitespace-nowrap uppercase tracking-widest">Selected</span>
+                <div className="flex flex-col">
+                  <span className="text-xs md:text-sm font-bold text-neutral-300 whitespace-nowrap uppercase tracking-widest leading-none">Selected</span>
+                  {selectedItems.size === 0 && <span className="text-[8px] font-black uppercase tracking-wider text-neutral-500 mt-1">Tap items to select</span>}
+                </div>
               </div>
               <button 
-                onClick={() => setSelectedItems(new Set())}
+                onClick={() => {
+                  setSelectedItems(new Set());
+                  setIsMultiSelectMode(false);
+                }}
                 className="md:hidden p-2 hover:bg-white/10 rounded-xl transition text-neutral-400 hover:text-white"
+                title="Exit Selection Mode"
               >
                 <X size={18} />
               </button>
@@ -6140,7 +6605,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             <div className="flex items-center gap-2 overflow-x-auto md:overflow-visible w-full md:w-auto scrollbar-hide pb-1 md:pb-0">
               <button 
                 onClick={() => setIsPackingModalOpen(true)}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-700 transition shadow-lg whitespace-nowrap border border-white/5"
+                disabled={selectedItems.size === 0}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-700 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Pack selected assets"
               >
                 <Luggage className="w-4 h-4" />
                 <span>Pack</span>
@@ -6148,7 +6615,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
               <button 
                 onClick={handleCreateKitFromSelection}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white text-neutral-900 px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-100 transition shadow-lg whitespace-nowrap"
+                disabled={selectedItems.size === 0}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white text-neutral-900 px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-100 transition shadow-lg whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Combine selected into a bundle kit"
               >
                 <Layers className="w-4 h-4" />
                 <span>Bundle</span>
@@ -6156,7 +6625,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
               <button 
                 onClick={() => setIsExportToInventoryOpen(true)}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 transition shadow-lg whitespace-nowrap border border-white/5"
+                disabled={selectedItems.size === 0}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Export selected assets to CSV/inventory"
               >
                 <Upload size={14} className="text-emerald-200" />
                 <span>Export</span>
@@ -6174,7 +6645,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   setShouldUpdateAssignee(true);
                   setIsBatchAssignModalOpen(true);
                 }}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap"
+                disabled={selectedItems.size === 0}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Bulk change organization, department or team assignment"
               >
                 <Sliders size={14} className="text-amber-400 font-bold" />
                 <span>Assign Batch</span>
@@ -6185,7 +6658,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   setSelectedRackId('');
                   setIsMoveToRackModalOpen(true);
                 }}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in"
+                disabled={selectedItems.size === 0}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Deploy selected equipment to rack"
               >
                 <Server size={14} className="text-blue-400 font-bold" />
                 <span>Move to Rack</span>
@@ -6196,16 +6671,29 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   setSelectedBatchStatus('available');
                   setIsChangeStatusModalOpen(true);
                 }}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in"
+                disabled={selectedItems.size === 0}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Change status of selected to Maintenance, etc."
               >
                 <Sliders size={14} className="text-purple-400 font-bold" />
                 <span>Change Status</span>
+              </button>
+
+              <button 
+                onClick={handleBatchDelete}
+                disabled={selectedItems.size === 0}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-950/40 text-red-400 border border-red-900/40 px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-red-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition shadow-lg whitespace-nowrap border-white/5"
+                title="Batch delete selected assets permanently"
+              >
+                <Trash2 size={13} className="text-red-400 shrink-0" />
+                <span>Delete</span>
               </button>
 
               {selectedItems.size === 2 && (
                 <button 
                   onClick={handleCheckCompatibility}
                   className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:brightness-110 transition shadow-lg whitespace-nowrap"
+                  title="Run compatibility diagnostic"
                 >
                   <Zap className="w-4 h-4 fill-amber-300 stroke-amber-100" />
                   <span>AI Compatibility</span>
@@ -6213,10 +6701,59 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               )}
               
               <button 
-                onClick={() => setSelectedItems(new Set())}
+                onClick={() => {
+                  setSelectedItems(new Set());
+                  setIsMultiSelectMode(false);
+                }}
                 className="hidden md:block p-2 hover:bg-white/10 rounded-xl transition text-neutral-400 hover:text-white"
+                title="Exit Selection Mode"
               >
                 <X size={20} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Undo action banner */}
+      <AnimatePresence>
+        {lastBulkAction && (
+          <motion.div
+            initial={{ y: 100, opacity: 0, x: '-50%' }}
+            animate={{ y: 0, opacity: 1, x: '-50%' }}
+            exit={{ y: 100, opacity: 0, x: '-50%' }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[95] flex items-center justify-between gap-4 bg-neutral-900 border border-white/15 text-white rounded-2xl px-6 py-4 shadow-2xl w-[90%] max-w-md"
+            id="undo-bulk-action-banner"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl shrink-0">
+                <RotateCcw size={16} />
+              </div>
+              <div className="flex flex-col">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#0066cc]">Action Completed</p>
+                <p className="text-xs font-bold text-neutral-200 mt-0.5">
+                  {lastBulkAction.type === 'delete' && `Deleted ${lastBulkAction.items.length} gear items`}
+                  {lastBulkAction.type === 'status' && `Changed status of ${lastBulkAction.items.length} items`}
+                  {lastBulkAction.type === 'rack' && `Moved ${lastBulkAction.items.length} items to rack`}
+                  {lastBulkAction.type === 'assign' && `Reassigned ${lastBulkAction.items.length} items`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                onClick={() => handleUndoBulkAction()}
+                className="px-4 py-2 bg-[#0066cc] hover:bg-[#0052a3] text-white font-black uppercase tracking-widest text-[9px] rounded-xl flex items-center gap-1.5 transition active:scale-95 shadow-md"
+                id="undo-action-trigger-btn"
+              >
+                <RotateCcw size={11} />
+                <span>Undo</span>
+              </button>
+              <button
+                onClick={() => setLastBulkAction(null)}
+                className="p-1 hover:bg-white/10 rounded-lg text-neutral-400 hover:text-white transition"
+                title="Dismiss banner"
+              >
+                <X size={15} />
               </button>
             </div>
           </motion.div>

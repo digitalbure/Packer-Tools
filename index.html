@@ -15,6 +15,47 @@
           window.location.replace(window.location.origin + '/#' + path + window.location.search);
         }
       })();
+
+      // Defensive error handling for Vite chunk/module loading failures common on mobile caching
+      window.addEventListener('error', function(e) {
+        var isChunkError = e.message && (
+          e.message.indexOf('Failed to fetch dynamically imported module') > -1 || 
+          e.message.indexOf('Importing a module script failed') > -1 ||
+          e.message.indexOf('chunk') > -1
+        );
+        if (isChunkError) {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              for (var i = 0; i < registrations.length; i++) {
+                registrations[i].unregister();
+              }
+              window.location.reload();
+            });
+          } else {
+            window.location.reload();
+          }
+        }
+      }, true);
+
+      window.addEventListener('unhandledrejection', function(e) {
+        var isChunkError = e.reason && e.reason.message && (
+          e.reason.message.indexOf('Failed to fetch dynamically imported module') > -1 ||
+          e.reason.message.indexOf('Importing a module script failed') > -1 ||
+          e.reason.message.indexOf('chunk') > -1
+        );
+        if (isChunkError) {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              for (var i = 0; i < registrations.length; i++) {
+                registrations[i].unregister();
+              }
+              window.location.reload();
+            });
+          } else {
+            window.location.reload();
+          }
+        }
+      });
     </script>
   </head>
   <body>
