@@ -78,7 +78,7 @@ When an asset is assigned to a specific **Member**, they are designated as the c
 
 ---
 
-## 🎨 4. Public Brand Shopfronts & Regional Currencies Settings (v4.3.0)
+## 🎨 4. Public Brand Shopfronts & Regional Currencies Settings (v4.10.0)
 
 Packer Tools offers advanced customization options for rental marketplace operators and gear hire companies looking to build a professional public presence.
 
@@ -106,7 +106,7 @@ To post items or complete escrow hires, users must be associated with the approp
 
 ---
 
-## 🎨 5. Personalizing Workspace Layout & Preferences
+## 🎨 5. Personalizing Workspace Layout & Preferences (v4.8.0)
 
 Packer Tools allows detailed control over how the application is presented on your specific account, providing a personalized experience optimized for your hardware and daily operational task load.
 
@@ -128,10 +128,31 @@ By default, the Dashboard renders various action shortcut creation buttons. You 
 1. Under **Visible Quick Actions Buttons**, simply select/uncheck specific trigger elements.
 2. Unchecked actions (such as `+ inventory` or `+ tech rack`) are dynamically hidden from your landing page, allowing a simpler, clutter-free action hub layout.
 
+### 📐 Navigating with Starters sidebar drawer
+For secondary or supplementary modules, users can clean up their main sidebar navigation:
+1. Scroll down to the **Workspace Starters Settings** on the layout settings page.
+2. Toggling on a module moves it to the **Starters** group in the sidebar, removing it from the main left navigation view for clutter clearance.
+
 ### 📐 Booting with Collapsed Navigation Sidebar
 For operators functioning on lower-resolution tablets, laptop terminals, or portable visual carts:
 1. Locate the **Default Navigation Sidebar Width** selector in your configuration cards.
 2. Toggle **Start Sidebar Collapsed** to **ON**.
 3. During future app opens or system cold-boots, the sidebar will initialize in its collapsed state, affording maximum layout width from the very first rendering frame.
+
+---
+
+## 🐞 6. System Settings & Bug Reports Finder (v4.9.0)
+
+Administrator accounts now access a unified Bug Reports Finder directly situated within the core System Settings dashboard.
+1. **Real-time Diagnostic Badges:** Unresolved beta-testing requests (unresolved status tags like `open` or `in_review`) trigger an immediate red glowing alert glow on the settings panel navigation item.
+2. **Full Resolution Controls:** Allows admins to track incoming browser layouts, analyze tester diagnostics, append resolution messages, and update status logs returning live progress notifications to clients instantly.
+
+---
+
+## 🌐 7. Production Custom Domain Mapping & Routing (v4.10.0)
+
+We have mapped the official **`packer.tools`** domain directly to our scalable Google Cloud Run container architecture.
+1. **Routing Synchronization:** All iframe embed generators, developer sandbox REST toolcodes, and platform reference links resolve directly to `https://packer.tools`.
+2. **Authentication Integrations:** Federated security headers have been synchronized to whitelist the production address, securing OAuth redirects and public store bio checkout widgets flawlessly.
 
 

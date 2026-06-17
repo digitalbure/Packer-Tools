@@ -103,6 +103,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
   const [editDropoffType, setEditDropoffType] = useState<'preset' | 'custom'>('preset');
   const [editDropoffLocationId, setEditDropoffLocationId] = useState('suva_depot');
   const [editDropoffCustomAddress, setEditDropoffCustomAddress] = useState('');
+  const [editImage, setEditImage] = useState('');
+  const [editVideoUrl, setEditVideoUrl] = useState('');
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -439,8 +441,9 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
         dropoffType: editDropoffType,
         dropoffLocationId: editDropoffLocationId,
         dropoffCustomAddress: editDropoffCustomAddress,
-        updatedAt: new Date().toISOString(),
-        ...(mainImageUrl ? { image: mainImageUrl } : {})
+        image: editImage || mainImageUrl || "",
+        videoUrl: editVideoUrl || "",
+        updatedAt: new Date().toISOString()
       });
       toast.success("Listing prices, details, categories, pickup/drop-off settings, and sync status updated successfully!");
       setShowEditPriceModal(null);
@@ -783,6 +786,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                   setEditDropoffType(list.dropoffType || 'preset');
                                   setEditDropoffLocationId(list.dropoffLocationId || 'suva_depot');
                                   setEditDropoffCustomAddress(list.dropoffCustomAddress || '');
+                                  setEditImage(list.image || '');
+                                  setEditVideoUrl((list as any).videoUrl || '');
                                   setShowEditPriceModal(list);
                                 }}
                                 className="px-4 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow transition"
@@ -1808,6 +1813,29 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                         />
                       </div>
                     )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Kit Image URL</label>
+                    <input
+                      type="text"
+                      placeholder="https://images.unsplash.com/..."
+                      value={editImage}
+                      onChange={(e) => setEditImage(e.target.value)}
+                      className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold outline-none text-neutral-900"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#ff4f3a]">Intro Video URL</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. YouTube embed or mp4 link"
+                      value={editVideoUrl}
+                      onChange={(e) => setEditVideoUrl(e.target.value)}
+                      className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold outline-none text-neutral-900"
+                    />
                   </div>
                 </div>
 

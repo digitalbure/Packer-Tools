@@ -286,7 +286,7 @@ const articles = [
       {
         title: "List Retrieval (Node.js/JS)",
         code: `// Retrieve active rental lists
-fetch('https://packer-tools.run.app/api/developer/lists', {
+fetch('https://packer.tools/api/developer/lists', {
   method: 'GET',
   headers: {
     'x-api-key': 'pk_live_packer_your_key_here',
@@ -304,7 +304,7 @@ fetch('https://packer-tools.run.app/api/developer/lists', {
         code: `# Retrieve registered master gear
 import requests
 
-url = "https://packer-tools.run.app/api/developer/gear"
+url = "https://packer.tools/api/developer/gear"
 headers = {
     "x-api-key": "pk_live_packer_your_key_here",
     "Content-Type": "application/json"

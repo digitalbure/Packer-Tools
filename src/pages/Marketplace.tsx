@@ -223,8 +223,9 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
           dropoffType: data.dropoffType || 'preset',
           dropoffLocationId: data.dropoffLocationId || 'suva_depot',
           dropoffCustomAddress: data.dropoffCustomAddress || '',
+          status: data.status || 'Active',
         };
-      }).filter(item => item.moderationStatus !== 'suspended');
+      }).filter(item => item.moderationStatus !== 'suspended' && item.status !== 'Draft');
       setUserListings(dbListings);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'packingLists (marketplaceEnabled)');

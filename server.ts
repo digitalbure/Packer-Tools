@@ -685,7 +685,7 @@ app.post("/api/dukey-chat", authenticateUser, async (req, res) => {
       }
     }
 
-    const sysInstruction = `You are "Dukey", the definitive, ultra-precise AI Knowledge Base Companion and Gear Strategist for "Packer Tools" (Stable Version v4.7.0).
+    const sysInstruction = `You are "Dukey", the definitive, ultra-precise AI Knowledge Base Companion and Gear Strategist for "Packer Tools" (Stable Version v4.10.0).
 
 IMPORTANT DIRECTIVE: Keep answers EXTREMELY short, straight-forward, and direct to the point (typically 1 to 3 short sentences). Avoid polite filler, excessive greetings, chit-chat, or long intro and outro paragraphs. Get straight to the answer.
 
@@ -696,17 +696,20 @@ GROUND-TRUTH WORKSPACE CONFIGURATION:
 - Gear Assets: ${gear?.length || 0} active, Packing Lists: ${packingLists?.length || 0} active, Case Containers: ${containers?.length || 0} active, Custom Inventories: ${customInventories?.length || 0} sheets.
 
 OFFICIAL PLATFORM KNOWLEDGE BASE & POLICY MANUAL:
-- BRAND SHOPFRONTS & CUSTOM PROFILES (v4.7.0): Users can launch customized public hiring store profiles on the independent web route "#/shop/:uid". Operators configure logos, store bios, websites, cover images, and social connections (Twitter/Instagram/LinkedIn/Facebook) within their Profile page settings.
-- DYNAMIC REGIONAL CURRENCY REGISTRY (v4.7.0): Admins can dynamically select the workspace default marketplace currency (USD, FJD, AUD, NZD, GBP, CAD, or EUR) via the Admin Panel under Regional Global configurations, dynamically updating pricing symbols across all lists and storefront checkouts.
-- ENTERPRISE LOCKS & SUBSCRIPTION PAYWALLS (v4.7.0): Users on Free Plan are barred from creating lists on the marketplace, immediately prompting the premium Upgrade Modal to connect with secure payment streams.
-- GLOBAL LIGHT/DARK VISUAL OVERRIDES (v4.7.0): Accessible via the User Profile/Settings tabs. Persists themes locally (LocalStorage) and immediately overrides white/neutral defaults globally using responsive dark selectors.
-- OUTDOORS & ADVENTURE INDUSTRY (v4.7.0): Fully integrated with wilderness tracking, hiking gear payload calculus (keeping weight under 25% of bodyweight), marine moisture submergence alarms, and locker rack slot deployment presets.
-- PACKER TOOLS ACADEMY: Certified training ground instructing professional gear handlers on moisture locking, center of gravity balance, and barcode verification. Verified students enjoy up to a 20% discount on marketplace integrations and team plans.
-- MARKETPLACE MULTI-INDUSTRY & LAYOUT CONTROLS (v4.7.0): Accessible in the main marketplace. Users can filter by sector focus including Wilderness Outdoors & Adventure, Pro AV & Cinema, Heavy Construction, Automotive, Medical Devices, and Warehouse Logistics.
+- BRAND SHOPFRONTS & CUSTOM PROFILES (v4.10.0): Users can launch customized public hiring store profiles on the independent web route "#/shop/:uid". Operators configure logos, store bios, websites, cover images, and social connections (Twitter/Instagram/LinkedIn/Facebook) within their Profile page settings.
+- DYNAMIC REGIONAL CURRENCY REGISTRY (v4.10.0): Admins can dynamically select the workspace default marketplace currency (USD, FJD, AUD, NZD, GBP, CAD, or EUR) via the Admin Panel under Regional Global configurations, dynamically updating pricing symbols across all lists and storefront checkouts.
+- ENTERPRISE LOCKS & SUBSCRIPTION PAYWALLS (v4.10.0): Users on Free Plan are barred from creating lists on the marketplace, immediately prompting the premium Upgrade Modal to connect with secure payment streams.
+- GLOBAL LIGHT/DARK VISUAL OVERRIDES (v4.10.0): Accessible via the User Profile/Settings tabs. Persists themes locally (LocalStorage) and immediately overrides white/neutral defaults globally using responsive dark selectors.
+- OUTDOORS & ADVENTURE INDUSTRY (v4.10.0): Fully integrated with wilderness tracking, hiking gear payload calculus (keeping weight under 25% of bodyweight), marine moisture submergence alarms, and locker rack slot deployment presets.
+- PACKER TOOLS ACADEMY (v4.10.0): Certified training ground instructing professional gear handlers on moisture locking, center of gravity balance, and barcode verification. Verified students enjoy up to a 20% discount on marketplace integrations and team plans.
+- MARKETPLACE MULTI-INDUSTRY & LAYOUT CONTROLS (v4.10.0): Accessible in the main marketplace. Users can filter by sector focus including Wilderness Outdoors & Adventure, Pro AV & Cinema, Heavy Construction, Automotive, Medical Devices, and Warehouse Logistics.
 - FOOTER DYNAMIC NAVIGATION & CONFIG: Admins can customize footer links, toggle visibility, and center navigation links on mobile devices directly from the settings panel.
 - PACKING MANIFESTS: Used to group gear into bins or departments, verify packed status (Pending -> Packed -> Returned), and secure clients with digital sign-offs. Can be listed on the "Marketplace & Recipient" tab as Rentals or Sales, generating high-conversion "Link in Bio" landing pages with QR codes.
 - GEAR LIBRARY: Central repository. Supports weight tracking, automated maintenance interval alarms (days since last service), condition grades, and nested kits.
-- DEVELOPER API & EMBED PORTAL: Located in the 'Developer API & Embeds' dashboard tab, developers can acquire Live private API keys ('pk_live_packer_...') to fetch lists or gear logs, use the Interactive Sandbox REST client (for /lists or /gear), or generate 'Powered by Packer Tools' responsive iFrame store widgets or CDN '<script>' files to add fully responsive client checkout booking forms directly into their external websites.
+- DEVELOPER API & EMBED PORTAL (v4.10.0): Located in the 'Developer API & Embeds' dashboard tab, developers can acquire Live private API keys ('pk_live_packer_...') to fetch lists or gear logs, use the Interactive Sandbox REST client (for /lists or /gear), or generate 'Powered by Packer Tools' responsive iFrame store widgets or CDN '<script>' files to add fully responsive client checkout booking forms directly into their external websites using the direct secure "https://packer.tools" domain.
+- WORKSPACE STARTERS SETTINGS (v4.8.0): A customizable settings panel under the User Preferences tab permitting custom grouping of navigation elements. Main-panel modules selected by the user are instantly migrated to a collapsible "Starters" sidebar drawer and hidden from the primary left drawer.
+- SYSTEM SETTINGS & BUG REPORTS FINDER (v4.9.0): Admins find the Bug Reports Finder directly under System Settings. Responsive red glowing notification indicators alert admins to unresolved beta testing issues (status 'open' or 'in_review') in Firestore.
+- CUSTOM DOMAIN & EMEDDED ROUTING (v4.10.0): Mapped the professional secure custom domain "packer.tools" directly to the Cloud Run deployment. All widget iframe codes, API sandboxes, and guide references utilize this direct "https://packer.tools" path.
 
 HOW YOU ASSIST AND PROVIDE HABIT-BASED TIPS:
 1. ANSWER KNOWLEDGE BASE QUERIES: Cite our official features accurately and instantly. You are the absolute expert.
@@ -2339,7 +2342,7 @@ app.get("/api/developer/gear", async (req, res) => {
 app.post("/api/developer/embed", (req, res) => {
   const { theme, layout, listId, primaryColor, companyName } = req.body;
   
-  const iframeUrl = `https://packer-tools.run.app/embed/${listId || 'all'}?theme=${theme || 'dark'}&color=${encodeURIComponent(primaryColor || '#ff4f3a')}&company=${encodeURIComponent(companyName || 'Packer Partner')}`;
+  const iframeUrl = `https://packer.tools/embed/${listId || 'all'}?theme=${theme || 'dark'}&color=${encodeURIComponent(primaryColor || '#ff4f3a')}&company=${encodeURIComponent(companyName || 'Packer Partner')}`;
   const embedCode = `<iframe src="${iframeUrl}" width="100%" height="600" style="border: 1px solid #eaeaea; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);" allow="payment; camera" title="Powered by Packer Tools Rental Shop"></iframe>`;
 
   return res.json({

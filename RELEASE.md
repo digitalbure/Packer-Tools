@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.9.0`
+## Current Application Version: `v4.10.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.10.0 (Production Custom Domain Mapping & Routing)
+*Released on: June 16, 2026*
+- **Custom Domain Migration**: Configured and successfully mapped the professional custom domain **`packer.tools`** to the Cloud Run project, preparing the application for full-scale live production.
+- **Embedded Routing & API Update**: Migrated embedded widget iframe links, developer API endpoint sandboxes, and developer tools documentation code snippets from the legacy temporary `packer-tools.run.app` address to use the direct secure `https://packer.tools` URL.
+- **System Synchronization**: Verified and updated production references across the application to provide seamless, consistent platform identity and correct payment gateway integration checks.
 
 ---
 
