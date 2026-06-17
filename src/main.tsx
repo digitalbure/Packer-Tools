@@ -11,10 +11,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
   window.dispatchEvent(new CustomEvent('pwa-prompt-available'));
 });
 
-try {
-  registerSW({ immediate: true });
-} catch (e) {
-  console.warn('Service worker registration failed:', e);
+if (import.meta.env.PROD) {
+  try {
+    registerSW({ immediate: true });
+  } catch (e) {
+    console.warn('Service worker registration failed:', e);
+  }
 }
 
 createRoot(document.getElementById('root')!).render(
