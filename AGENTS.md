@@ -4,6 +4,53 @@ This file contains guides and code constraints for future AI coding agents maint
 
 ---
 
+## 📦 What is Packer Tools?
+**Packer Tools** is a highly specialized, multi-industry Asset & Inventory Management and Gear Logistics platform. It is engineered to build, track, assign, and audit high-volume equipment setups across various corporate and technical domains, including:
+- **General Logistics & Operations** (Default cargo/warehouse tracking)
+- **Film & Production** (Cameras, lenses, light kits, sound boards)
+- **Construction & Rigging** (Heavy tooling, safety harnesses, drills)
+- **Automotive & Mechanics** (Pneumatic lifts, diagnostic meters, wrenches)
+- **Sports & Athletic Teams** (Training gear, roster jerseys, protective kits)
+- **Medical & Field Equipment** (Diagnostic bags, PPE, ventilators)
+
+Its core features encompass multi-tenant organizational structure (Workspaces, Departments, Teams, and Members), primary inventory checklists or logs, a standalone **Kiosk Mode** (featuring signature canvases for secure check-ins/outs), a custom **Systems Builder** canvas for visual setup modeling, a custom workspace **Marketplace**, and custom **System Health telemetry** grids for administrator oversight.
+
+---
+
+## 🛠️ Preferred Tech Stack
+The platform follows a premium, performance-oriented full-stack layout built on:
+
+### 1. Frontend Framework & Tooling:
+- **Core**: React 18+ paired with TypeScript for tight compile-time safety and type validation.
+- **Build Server**: Vite as the asset pipeline and rapid bundler.
+- **Styling**: Tailwind CSS utility classes following a high-contrast premium layout (soft off-whites and dark charcoal grays).
+- **Animations**: Fluid, motion-driven route transitions using `motion` (imported strictly from `motion/react`).
+- **Icons**: Standardized vector iconography imported exclusively from `lucide-react`. Custom inline SVG overlays are prohibited.
+
+### 2. Backend & Persistence:
+- **Cloud Database**: Google Cloud Firestore, providing server-synchronized offline persistence, real-time live observers (`onSnapshot`), and fast document reads.
+- **Identity & Access**: Firebase Authentication for managed corporate logins and Google Workspace single sign-on (SSO) integration.
+- **Custom Backend**: A light Node/Express custom server (`server.ts`) running on target port `3000`. In development, it proxies requests and mounts the Vite middleware; in production, it compiles down to a single bundled Node CommonJS file (`dist/server.cjs`) to guarantee reliable launch in container entry points.
+
+### 3. Progressive Web App (PWA):
+- Built-in offline support via a custom service worker (`src/sw.ts`) and `vite-plugin-pwa` to cache templates, workspace lists, and inventory sheets.
+
+---
+
+## ⚠️ Critical Things to Watch For (Architectural & Runtime Gotchas)
+
+### 1. PWA Hydration & Lazy Loading:
+- **Avoid Dev-Server White Screens**: The live development server operates with Hot Module Replacement (HMR) programmatically disabled (`DISABLE_HMR=true`). Service worker registrations MUST be restricted strictly to production environments (`import.meta.env.PROD`). Standard development loads must bypass service-worker interference to prevent caching of dynamic imports.
+- **Lazy Page Imports**: Core pages (e.g., `KioskMode`, `AdminPanel`) are heavily detailed. Always load major modules using React's `lazy` wrapper to prevent overwhelming the client bundle size on startup.
+
+### 2. Multi-Industry Jargon & `useIndustry()`:
+- Never hardcode user labels such as "Gear", "Items", "Checklist", or "Roster" in common UI headers/components. Always retrieve appropriate industry-adjusted singular and plural nouns from the central `useIndustry()` React context (`getAdjustedLabel()`).
+
+### 3. API Key & Security Proxies:
+- Sensitive integrations (such as Google Corporate Chat Spaces & Webhooks) must **never** leak API keys, access secrets, or runtime environment variables to the browser. Proxy those requests securely through the Express API routes (`/api/*`) on the server.
+
+---
+
 ## 🗄️ Database Fields & Type Alignments
 
 The following types are declared in `/src/types.ts` and used across `/src/pages/GearLibrary.tsx` and `/src/pages/InventoryModule.tsx`:
@@ -88,4 +135,3 @@ To ensure the system scales comfortably to millions of items, all AI agents and 
    }
    ```
 3. **Low-Overhead Counting**: Never use `getDocs` list queries when of checking database limits (pricing tiers, user counts, visual analytics). Always call `getCountFromServer(query)` to minimize infrastructure costs and prevent memory leaks.
-
