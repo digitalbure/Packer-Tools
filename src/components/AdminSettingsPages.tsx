@@ -2007,3 +2007,506 @@ export function WidgetsSettingsTab({ settings, setSettings }: SettingsTabProps) 
     </div>
   );
 }
+
+/** 
+ * =========================================================================
+ * 6. AUTOMATED EMAILS VISUAL CUSTOMIZER SETTINGS TAB
+ * =========================================================================
+ */
+export function EmailBrandingSettingsTab({ settings, setSettings }: SettingsTabProps) {
+  const [newLinkLabel, setNewLinkLabel] = useState('');
+  const [newLinkHref, setNewLinkHref] = useState('');
+  const [previewTemplate, setPreviewTemplate] = useState<'verification' | 'admin_notification' | 'general_notification'>('verification');
+  const [testRecipientEmail, setTestRecipientEmail] = useState('');
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
+
+  const handleAddField = <K extends keyof NonNullable<AdminSettings['emailBranding']>>(
+    key: K,
+    value: NonNullable<AdminSettings['emailBranding']>[K]
+  ) => {
+    setSettings((s) => {
+      if (!s) return null;
+      const eb = s.emailBranding || {};
+      return {
+        ...s,
+        emailBranding: {
+          ...eb,
+          [key]: value
+        }
+      };
+    });
+  };
+
+  const handleAddFooterLink = () => {
+    if (!newLinkLabel.trim() || !newLinkHref.trim()) {
+      toast.error("Please enter both dynamic anchor text and destination URL.");
+      return;
+    }
+    setSettings((s) => {
+      if (!s) return null;
+      const eb = s.emailBranding || {};
+      const currentLinks = eb.footerLinks || [];
+      return {
+        ...s,
+        emailBranding: {
+          ...eb,
+          footerLinks: [...currentLinks, { label: newLinkLabel.trim(), href: newLinkHref.trim() }]
+        }
+      };
+    });
+    setNewLinkLabel('');
+    setNewLinkHref('');
+    toast.success("Active link appended to email footer template layout.");
+  };
+
+  const handleRemoveFooterLink = (idx: number) => {
+    setSettings((s) => {
+      if (!s) return null;
+      const eb = s.emailBranding || {};
+      const currentLinks = eb.footerLinks || [];
+      const updated = currentLinks.filter((_, i) => i !== idx);
+      return {
+        ...s,
+        emailBranding: {
+          ...eb,
+          footerLinks: updated
+        }
+      };
+    });
+    toast.success("Link removed from email footer template.");
+  };
+
+  const handleSendTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testRecipientEmail.trim() || !testRecipientEmail.includes('@')) {
+      toast.error("Please enter a valid target email address.");
+      return;
+    }
+
+    setIsTestingEmail(true);
+    try {
+      const { emailService } = await import('../services/emailService');
+      
+      let res;
+      if (previewTemplate === 'verification') {
+        res = await emailService.sendVerificationEmail(
+          testRecipientEmail.trim(),
+          "524389",
+          "Verification Tester",
+          settings
+        );
+      } else if (previewTemplate === 'admin_notification') {
+        res = await emailService.sendAdminNotification(
+          testRecipientEmail.trim(),
+          "Test administrative system ping",
+          "Verification check executed from the automated visual branding panel.",
+          {
+            "Trigger Type": "Custom Design Test Run",
+            "Dispatched By": "Workspace Admin Operator",
+            "Security Level": "SECURE"
+          },
+          settings
+        );
+      } else {
+        res = await emailService.sendNotification(
+          testRecipientEmail.trim(),
+          "Custom Brand Notice Dispatched",
+          "Operational Notice dynamic test run",
+          "Success! If you see this message, your automated email system is successfully compiling customized styles, custom colors, and footer layout configuration settings in real-time. Feel free to use this system to send branded alerts, list handovers, or verification logins!",
+          window.location.origin + "/admin",
+          "Review Settings Dashboard",
+          settings
+        );
+      }
+
+      if (res && res.simulated) {
+        toast.info("Sandbox Active: Real email simulated in offline developer console (unconfigured server key). Recipient email: " + testRecipientEmail);
+      } else {
+        toast.success(`Active Resend dispatch successful to ${testRecipientEmail}!`);
+      }
+    } catch (err: any) {
+      toast.error(`Email dispatch failed: ${err.message || err}`);
+    } finally {
+      setIsTestingEmail(false);
+    }
+  };
+
+  const companyName = settings?.emailBranding?.companyName || settings?.branding?.companyName || "Packer Tools";
+  const logoUrl = settings?.emailBranding?.logoUrl || settings?.branding?.logo || "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop";
+  const primaryColor = settings?.emailBranding?.primaryColor || settings?.branding?.primaryColor || "#FF5500";
+  const footerText = settings?.emailBranding?.footerText || "";
+  const footerLinks = settings?.emailBranding?.footerLinks || [];
+  const defaultFromType = settings?.emailBranding?.defaultFromType || 'no-reply';
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* Upper header segment wrapper */}
+      <div className="bg-white p-6 rounded-[2.5rem] border border-neutral-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2.5 text-neutral-900">
+            <Mail className="text-primary animate-pulse" size={24} />
+            <span>Automated Emails Visual Customizer</span>
+          </h2>
+          <p className="font-semibold text-neutral-500 text-xs">
+            Design, preview, and test-dispatch high-fidelity transactional emails including verification codes and admin notifications.
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-900 text-white rounded-full text-[10px] font-mono font-black uppercase tracking-widest self-start">
+          <span>Resend SDK Engine</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+        
+        {/* Left column inputs config form block */}
+        <div className="xl:col-span-5 space-y-6">
+          <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6">
+            <div className="flex items-center gap-3 border-b border-neutral-50 pb-4">
+              <div className="p-2 bg-primary/10 text-primary border border-primary/20 rounded-xl">
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <h3 className="font-extrabold uppercase text-xs tracking-tight text-neutral-800">Visual Identity Specs</h3>
+                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider">Configure metadata overrides and layout branding</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Company name block signature override */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Email Corporate Name</label>
+                <input
+                  type="text"
+                  value={settings?.emailBranding?.companyName || ''}
+                  onChange={(e) => handleAddField('companyName', e.target.value)}
+                  placeholder={settings?.branding?.companyName || "Packer Tools"}
+                  className="w-full px-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-bold text-neutral-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition"
+                />
+                <span className="text-[9px] text-neutral-400 block font-medium">Overrides core branding name in operational emails of packer tools.</span>
+              </div>
+
+              {/* Logo URL configuration */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Email Branded Logo (URL)</label>
+                <input
+                  type="text"
+                  value={settings?.emailBranding?.logoUrl || ''}
+                  onChange={(e) => handleAddField('logoUrl', e.target.value)}
+                  placeholder={settings?.branding?.logo || "https://images.unsplash.com/photo-example.png"}
+                  className="w-full px-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-bold text-neutral-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition"
+                />
+              </div>
+
+              {/* Color picker segment */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Accent Theme Color Coloration (Hex)</label>
+                <div className="flex gap-3 items-center">
+                  <input
+                    type="color"
+                    value={primaryColor}
+                    onChange={(e) => handleAddField('primaryColor', e.target.value)}
+                    className="w-10 h-10 border-0 outline-none rounded-xl cursor-pointer shrink-0 bg-transparent"
+                  />
+                  <input
+                    type="text"
+                    value={settings?.emailBranding?.primaryColor || ''}
+                    onChange={(e) => handleAddField('primaryColor', e.target.value)}
+                    placeholder={settings?.branding?.primaryColor || "#FF5500"}
+                    className="flex-1 px-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-bold font-mono text-neutral-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Sender addresses preference defaults list choice */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Default Sender Prefix</label>
+                <select
+                  value={defaultFromType}
+                  onChange={(e) => handleAddField('defaultFromType', e.target.value as any)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-bold text-neutral-800 outline-none focus:bg-white transition"
+                >
+                  <option value="no-reply">no-reply@ (No Reply Address)</option>
+                  <option value="hi">hi@ (General Hello Point)</option>
+                  <option value="team">team@ (Corporate Workspace Team)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Email Custom Footers Customizer Anchor Container */}
+          <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6">
+            <div className="flex items-center gap-3 border-b border-neutral-50 pb-4">
+              <div className="p-2 bg-primary/10 text-primary border border-primary/20 rounded-xl">
+                <Sliders size={18} />
+              </div>
+              <div>
+                <h3 className="font-extrabold uppercase text-xs tracking-tight text-neutral-800">Custom Email Footer Template</h3>
+                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider">Configure text disclaimers & footer navigation links</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Paragraph footer disclaimer Text */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Footer Disclaimer / Address Details</label>
+                <textarea
+                  value={footerText}
+                  onChange={(e) => handleAddField('footerText', e.target.value)}
+                  rows={2}
+                  maxLength={180}
+                  placeholder="You have received this letter because your email requested identity verification or security validation details on this device."
+                  className="w-full px-4 py-3 bg-neutral-50 rounded-2xl border border-neutral-200/60 text-xs font-semibold text-neutral-850 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition resize-none"
+                />
+              </div>
+
+              {/* Display list of current customized email navigation layout list links */}
+              <div className="space-y-3">
+                <span className="text-[9.5px] font-black uppercase text-neutral-450 tracking-wider block font-mono">Footer Navigation Anchors ({footerLinks.length})</span>
+                {footerLinks.length > 0 ? (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {footerLinks.map((link, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-xl border border-neutral-150 text-xs font-semibold">
+                        <div>
+                          <span className="text-neutral-800 font-extrabold">{link.label}</span>
+                          <span className="text-[9px] font-mono text-neutral-400 block">{link.href}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFooterLink(idx)}
+                          className="p-1 px-2.5 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-neutral-500 hover:text-red-600 font-bold uppercase text-[8px] transition"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="p-3 rounded-xl border border-dashed border-neutral-200 text-center text-[9px] text-neutral-400 font-bold italic uppercase block">No custom email links added</p>
+                )}
+
+                <div className="bg-neutral-50 p-2.5 rounded-2xl border border-neutral-200/60 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Label (e.g. Terms)"
+                      value={newLinkLabel}
+                      onChange={(e) => setNewLinkLabel(e.target.value)}
+                      className="bg-white border border-neutral-200 rounded-lg px-2 py-1 text-[10px] font-semibold outline-none"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Href (e.g. /terms)"
+                      value={newLinkHref}
+                      onChange={(e) => setNewLinkHref(e.target.value)}
+                      className="bg-white border border-neutral-200 rounded-lg px-2 py-1 text-[10px] font-semibold outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddFooterLink}
+                    className="w-full py-1 bg-neutral-900 border border-neutral-800 hover:bg-black text-white text-[9px] font-black uppercase rounded-lg tracking-wider"
+                  >
+                    + Add Footer Link Anchor
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right column: Beautiful rendered output design system mockup */}
+        <div className="xl:col-span-7 space-y-6">
+          <div className="bg-neutral-900 p-6 md:p-8 rounded-[2.5rem] border border-neutral-800 shadow-2xl relative text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-850 pb-4 mb-6">
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-black text-[#FF5500] uppercase tracking-widest block font-mono">💻 Core WYSIWYG Renderer</span>
+                <h3 className="text-white text-lg font-black uppercase tracking-tight">E-Mail Live Layout Previewer</h3>
+              </div>
+              {/* Dynamic sub selector tabs */}
+              <div className="flex bg-neutral-950 p-1 rounded-xl border border-neutral-800 text-[10px] font-bold self-start">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTemplate('verification')}
+                  className={`px-3 py-1.5 rounded-lg transition-all text-xs ${previewTemplate === 'verification' ? 'bg-primary text-white font-black' : 'text-neutral-400 hover:text-neutral-100'}`}
+                >
+                  Verify Access
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewTemplate('admin_notification')}
+                  className={`px-3 py-1.5 rounded-lg transition-all text-xs ${previewTemplate === 'admin_notification' ? 'bg-primary text-white font-black' : 'text-neutral-400 hover:text-neutral-100'}`}
+                >
+                  Admin Alert
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewTemplate('general_notification')}
+                  className={`px-3 py-1.5 rounded-lg transition-all text-xs ${previewTemplate === 'general_notification' ? 'bg-primary text-white font-black' : 'text-neutral-400 hover:text-neutral-100'}`}
+                >
+                  Branded Notice
+                </button>
+              </div>
+            </div>
+
+            {/* Email Canvas Mock Block */}
+            <div className="bg-neutral-100 rounded-[2rem] p-4 md:p-8 border border-neutral-200 overflow-hidden text-[#1e293b] font-sans">
+              <div className="max-w-[480px] mx-auto bg-white rounded-2xl border border-neutral-200 overflow-hidden shadow-md">
+                
+                {/* Dynamically Styled Header based on customize inputs */}
+                {previewTemplate === 'verification' ? (
+                  <div className="p-6 text-center text-white flex flex-col items-center justify-center" style={{ backgroundColor: primaryColor }}>
+                    <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mb-3">
+                      <img src={logoUrl} referrerPolicy="no-referrer" alt="Custom logo preview" className="object-contain max-h-8 max-w-[120px]" />
+                    </div>
+                    <h2 className="margin-0 text-md font-black uppercase tracking-wider">Verification Bureau</h2>
+                  </div>
+                ) : previewTemplate === 'admin_notification' ? (
+                  <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-700">
+                    <span className="font-extrabold text-[10px] uppercase tracking-wider">🚨 {companyName} Admin Panel</span>
+                    <img src={logoUrl} referrerPolicy="no-referrer" alt="Custom logo preview" className="object-contain max-h-5 max-w-[80px]" />
+                  </div>
+                ) : (
+                  <div className="p-8 text-center bg-slate-800 text-white flex flex-col items-center justify-center">
+                    <img src={logoUrl} referrerPolicy="no-referrer" alt="Custom logo preview" className="object-contain max-h-12 max-w-[140px] mb-3" />
+                    <h1 className="margin-0 text-lg font-black uppercase tracking-tight">OPERATIONAL NOTICE</h1>
+                  </div>
+                )}
+
+                {/* Card Template Body Contents preview fields */}
+                <div className="p-6 md:p-8 space-y-4 text-left">
+                  {previewTemplate === 'verification' ? (
+                    <div className="space-y-4 text-center">
+                      <p className="text-xs text-neutral-600 font-bold mt-0">Bula Vinaka, <strong>John Operator</strong>,</p>
+                      <p className="text-[11px] text-neutral-500 leading-relaxed leading-normal">
+                        Use the following secure, temporary access validation token block to verify your workspace identity for {companyName}:
+                      </p>
+                      <div className="font-mono text-xl md:text-2xl font-black tracking-widest p-4 rounded-xl border border-orange-150 inline-block bg-orange-50/50" style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>
+                        524389
+                      </div>
+                      <p className="text-[9px] text-neutral-400 italic">This code will expire shortly. If you did not request this login credentials set, disregard this email.</p>
+                    </div>
+                  ) : previewTemplate === 'admin_notification' ? (
+                    <div className="space-y-3">
+                      <h4 className="font-extrabold text-neutral-900 text-sm border-b pb-2">Test administrative system ping</h4>
+                      <p className="text-xs text-neutral-500 leading-relaxed">An administrative event or notification was raised by the workspace platform operations:</p>
+                      
+                      <div className="bg-neutral-50 p-3 rounded-lg border border-neutral-150 text-[10px] space-y-1">
+                        <table className="w-full text-left">
+                          <tbody>
+                            <tr className="border-b border-neutral-100">
+                              <td className="font-bold uppercase text-neutral-400 py-1">Trigger Type:</td>
+                              <td className="font-mono py-1">Custom Design Test Run</td>
+                            </tr>
+                            <tr className="border-b border-neutral-100">
+                              <td className="font-bold uppercase text-neutral-400 py-1">Dispatched By:</td>
+                              <td className="font-mono py-1">Workspace Admin Operator</td>
+                            </tr>
+                            <tr>
+                              <td className="font-bold uppercase text-neutral-400 py-1">Security Level:</td>
+                              <td className="font-mono py-1 font-bold text-red-600">SECURE</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <p className="text-[9px] text-[#854d0e] bg-yellow-50 border border-yellow-250 p-2.5 rounded-lg">
+                        ⚠️ This is an webmaster automated notification email dispatch. Action may be required at the main panel of your secure Packer Tools deployment.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 text-center md:text-left">
+                      <p className="text-xs text-neutral-600 leading-relaxed font-semibold">
+                        Success! If you see this message, your automated email system is successfully compiling customized styles, custom colors, and footer layout configuration settings in real-time. Feel free to use this system to send branded alerts, list handovers, or verification logins!
+                      </p>
+                      <div className="text-center py-2">
+                        <span className="px-5 py-2 rounded-xl text-white text-[10px] font-black uppercase tracking-wider transition inline-block cursor-pointer shadow-sm shadow-[#FF5500]/20" style={{ backgroundColor: primaryColor }}>
+                          REVIEW SETTINGS DASHBOARD
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Dynamically Styled Email footers mapping customization preview */}
+                <div className="p-6 bg-neutral-50 border-t border-neutral-150 text-center text-[10px] text-neutral-400 flex flex-col items-center justify-center gap-1.5 font-sans leading-relaxed">
+                  {previewTemplate === 'general_notification' && (
+                    <p className="mb-1 text-[9.5px] font-semibold text-neutral-500 font-sans">
+                      For dynamic assistance, drop a line to <span style={{ color: primaryColor, fontWeight: 'bold' }}>jnakasamai@gmail.com</span>.
+                    </p>
+                  )}
+                  
+                  <p className="text-[9px] font-semibold">© {new Date().getFullYear()} {companyName} Team logistics.</p>
+                  
+                  {footerLinks.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-center gap-1.5 mt-1">
+                      {footerLinks.map((link, lIdx) => (
+                        <React.Fragment key={lIdx}>
+                          {lIdx > 0 && <span className="text-neutral-300"> | </span>}
+                          <span className="font-black" style={{ color: primaryColor }}>
+                            {link.label}
+                          </span>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  )}
+
+                  {footerText && (
+                    <p className="text-[9px] text-neutral-400 leading-normal max-w-[360px] mx-auto mt-2 italic font-medium font-sans border-t border-neutral-200/60 pt-2">
+                      {footerText}
+                    </p>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          {/* Test Dispatch Sender launcher widget console */}
+          <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-4">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <h4 className="font-black text-xs text-neutral-800 uppercase tracking-tight block">Send Test Branded Email Transaction</h4>
+            </div>
+            
+            <p className="text-xs text-neutral-500">
+              Fire a real transactional test mail to verify layout formatting and inbox rendering speed directly via proxying.
+            </p>
+
+            <form onSubmit={handleSendTestEmail} className="grid sm:grid-cols-4 gap-3 items-end">
+              <div className="sm:col-span-2 space-y-1">
+                <span className="text-[9px] font-black uppercase text-neutral-400 block tracking-widest font-mono">Recipient Email</span>
+                <input
+                  type="email"
+                  value={testRecipientEmail}
+                  onChange={(e) => setTestRecipientEmail(e.target.value)}
+                  placeholder="jnakasamai@gmail.com"
+                  className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-primary/20 outline-none"
+                  required
+                />
+              </div>
+
+              <div className="sm:col-span-1 space-y-1">
+                <span className="text-[9px] font-black uppercase text-neutral-400 block tracking-widest font-mono">Preset Template</span>
+                <div className="bg-neutral-50 p-2 py-1 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold capitalize text-neutral-700 truncate min-w-0 h-[38px] flex items-center">
+                  {previewTemplate.replace('_', ' ')}
+                </div>
+              </div>
+
+              <div className="sm:col-span-1">
+                <button
+                  type="submit"
+                  disabled={isTestingEmail}
+                  className="w-full py-2 bg-neutral-900 border border-neutral-850 text-white font-black text-xs uppercase rounded-xl tracking-wider transition hover:bg-neutral-800 flex items-center justify-center gap-2 h-[38px] disabled:opacity-50"
+                >
+                  {isTestingEmail ? 'Sending...' : 'Send Test'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}

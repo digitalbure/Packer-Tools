@@ -313,12 +313,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     
     const toastId = toast.loading(`Deleting ${selectedInventoryItems.size} items...`);
     try {
-      const batch = writeBatch(db);
-      selectedInventoryItems.forEach(id => {
-        const docRef = doc(db, 'inventories', selectedInventory.id, 'items', id);
-        batch.delete(docRef);
-      });
-      await batch.commit();
+      const ids = Array.from(selectedInventoryItems);
+      for (let i = 0; i < ids.length; i += 500) {
+        const chunk = ids.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach(id => {
+          const docRef = doc(db, 'inventories', selectedInventory.id, 'items', id);
+          batch.delete(docRef);
+        });
+        await batch.commit();
+      }
       toast.success("Successfully deleted selected items!", { id: toastId });
       setSelectedInventoryItems(new Set());
       setIsBulkDeleteConfirmOpen(false);
@@ -337,22 +341,25 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
     const toastId = toast.loading(`Batch assigning ${selectedInventoryItems.size} custom items...`);
     try {
-      const batch = writeBatch(db);
       const itemsToUpdate = inventoryItems.filter(item => selectedInventoryItems.has(item.id));
       const colRef = collection(db, 'inventories', selectedInventory.id, 'items');
 
-      itemsToUpdate.forEach(item => {
-        const docRef = doc(colRef, item.id);
-        batch.update(docRef, {
-          orgId: inventoryBatchAssignTarget.orgId || null,
-          deptId: inventoryBatchAssignTarget.deptId || null,
-          teamId: inventoryBatchAssignTarget.teamId || null,
-          assignedTo: inventoryBatchAssignTarget.assignedTo || null,
-          updatedAt: new Date().toISOString()
+      for (let i = 0; i < itemsToUpdate.length; i += 500) {
+        const chunk = itemsToUpdate.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach(item => {
+          const docRef = doc(colRef, item.id);
+          batch.update(docRef, {
+            orgId: inventoryBatchAssignTarget.orgId || null,
+            deptId: inventoryBatchAssignTarget.deptId || null,
+            teamId: inventoryBatchAssignTarget.teamId || null,
+            assignedTo: inventoryBatchAssignTarget.assignedTo || null,
+            updatedAt: new Date().toISOString()
+          });
         });
-      });
+        await batch.commit();
+      }
 
-      await batch.commit();
       setSelectedInventoryItems(new Set());
       setIsInventoryBatchAssignOpen(false);
       toast.success(`Successfully batch assigned details to ${itemsToUpdate.length} custom items!`, { id: toastId });
@@ -379,32 +386,35 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       const itemsToCopy = inventoryItems.filter(item => selectedInventoryItems.has(item.id));
       const colRef = collection(db, 'inventories', targetAnotherInventoryId, 'items');
 
-      const batch = writeBatch(db);
-      itemsToCopy.forEach(item => {
-        const docRef = doc(colRef);
-        batch.set(docRef, {
-          id: docRef.id,
-          name: item.name || '',
-          description: item.description || '',
-          brand: item.brand || '',
-          model: item.model || '',
-          modelNumber: item.modelNumber || '',
-          serialNumber: item.serialNumber || '',
-          primaryCategory: item.primaryCategory || 'Other',
-          weight: item.weight || null,
-          weightUnit: item.weightUnit || 'g',
-          price: item.price || 0,
-          condition: item.condition || 'good',
-          quantity: item.quantity || 1,
-          status: item.status || 'available',
-          assetTag: item.assetTag || `ASSET-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-          photoUrls: item.photoUrls || ['https://picsum.photos/seed/gear/400/400'],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+      for (let i = 0; i < itemsToCopy.length; i += 500) {
+        const chunk = itemsToCopy.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach(item => {
+          const docRef = doc(colRef);
+          batch.set(docRef, {
+            id: docRef.id,
+            name: item.name || '',
+            description: item.description || '',
+            brand: item.brand || '',
+            model: item.model || '',
+            modelNumber: item.modelNumber || '',
+            serialNumber: item.serialNumber || '',
+            primaryCategory: item.primaryCategory || 'Other',
+            weight: item.weight || null,
+            weightUnit: item.weightUnit || 'g',
+            price: item.price || 0,
+            condition: item.condition || 'good',
+            quantity: item.quantity || 1,
+            status: item.status || 'available',
+            assetTag: item.assetTag || `ASSET-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+            photoUrls: item.photoUrls || ['https://picsum.photos/seed/gear/400/400'],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
         });
-      });
+        await batch.commit();
+      }
 
-      await batch.commit();
       toast.success(`Successfully copied ${itemsToCopy.length} items to "${targetInv.name}"!`, { id: toastId });
       setSelectedInventoryItems(new Set());
       setIsExportToAnotherOpen(false);
@@ -424,35 +434,38 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       const itemsToCopy = inventoryItems.filter(item => selectedInventoryItems.has(item.id));
       const colRef = collection(db, 'users', user.uid, 'gearLibrary');
 
-      const batch = writeBatch(db);
-      itemsToCopy.forEach(item => {
-        const docRef = doc(colRef);
-        batch.set(docRef, {
-          id: docRef.id,
-          name: item.name || '',
-          description: item.description || '',
-          brand: item.brand || '',
-          model: item.model || '',
-          modelNumber: item.modelNumber || '',
-          serialNumber: item.serialNumber || '',
-          primaryCategory: item.primaryCategory || 'Other',
-          category: item.primaryCategory || 'Other',
-          weight: item.weight || null,
-          weightUnit: item.weightUnit || 'g',
-          price: item.price || 0,
-          condition: item.condition || 'good',
-          quantity: item.quantity || 1,
-          status: item.status || 'available',
-          assetTag: item.assetTag || `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-          photoUrls: item.photoUrls || ['https://picsum.photos/seed/gear/400/400'],
-          usageCount: 0,
-          ownerId: user.uid,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+      for (let i = 0; i < itemsToCopy.length; i += 500) {
+        const chunk = itemsToCopy.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach(item => {
+          const docRef = doc(colRef);
+          batch.set(docRef, {
+            id: docRef.id,
+            name: item.name || '',
+            description: item.description || '',
+            brand: item.brand || '',
+            model: item.model || '',
+            modelNumber: item.modelNumber || '',
+            serialNumber: item.serialNumber || '',
+            primaryCategory: item.primaryCategory || 'Other',
+            category: item.primaryCategory || 'Other',
+            weight: item.weight || null,
+            weightUnit: item.weightUnit || 'g',
+            price: item.price || 0,
+            condition: item.condition || 'good',
+            quantity: item.quantity || 1,
+            status: item.status || 'available',
+            assetTag: item.assetTag || `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+            photoUrls: item.photoUrls || ['https://picsum.photos/seed/gear/400/400'],
+            usageCount: 0,
+            ownerId: user.uid,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
         });
-      });
+        await batch.commit();
+      }
 
-      await batch.commit();
       toast.success(`Successfully copied ${itemsToCopy.length} items to your central Gear Library!`, { id: toastId });
       setSelectedInventoryItems(new Set());
     } catch (err) {
@@ -741,11 +754,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     try {
       // First, fetch and bundle delete inner subcollection items
       const itemsSnapshot = await getDocs(collection(db, 'inventories', invId, 'items'));
-      const batch = writeBatch(db);
-      itemsSnapshot.docs.forEach(d => {
-        batch.delete(doc(db, 'inventories', invId, 'items', d.id));
-      });
-      await batch.commit();
+      const docs = itemsSnapshot.docs;
+      
+      for (let i = 0; i < docs.length; i += 500) {
+        const chunk = docs.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach(d => {
+          batch.delete(doc(db, 'inventories', invId, 'items', d.id));
+        });
+        await batch.commit();
+      }
 
       // Delete core inventory definition doc
       await deleteDoc(doc(db, 'inventories', invId));
@@ -1203,20 +1221,23 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     if (allocationSelected.size === 0) return;
     if (!user) return;
 
-    const batch = writeBatch(db);
-    allocationSelected.forEach(id => {
-      const gearRef = doc(db, 'users', user.uid, 'gearLibrary', id);
-      batch.update(gearRef, {
-        orgId: allocationAssignTarget.orgId || null,
-        deptId: allocationAssignTarget.deptId || null,
-        teamId: allocationAssignTarget.teamId || null,
-        assignedTo: allocationAssignTarget.assignedTo || null,
-        updatedAt: new Date().toISOString()
-      });
-    });
-
     try {
-      await batch.commit();
+      const ids = Array.from(allocationSelected);
+      for (let i = 0; i < ids.length; i += 500) {
+        const chunk = ids.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach(id => {
+          const gearRef = doc(db, 'users', user.uid, 'gearLibrary', id);
+          batch.update(gearRef, {
+            orgId: allocationAssignTarget.orgId || null,
+            deptId: allocationAssignTarget.deptId || null,
+            teamId: allocationAssignTarget.teamId || null,
+            assignedTo: allocationAssignTarget.assignedTo || null,
+            updatedAt: new Date().toISOString()
+          });
+        });
+        await batch.commit();
+      }
       toast.success(`Successfully assigned ${allocationSelected.size} assets`);
       setAllocationSelected(new Set());
       setAllocationIsAssigning(false);

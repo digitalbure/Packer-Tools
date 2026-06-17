@@ -139,34 +139,38 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     const toastId = toast.loading(`Copying ${selectedSyncItemIds.size} items to your library...`);
     try {
       const itemsToImport = syncInventoryItems.filter(item => selectedSyncItemIds.has(item.id));
-      const batch = writeBatch(db);
       
-      itemsToImport.forEach((item) => {
-        const newItemRef = doc(collection(db, 'users', user.uid, 'gearLibrary'));
-        batch.set(newItemRef, {
-          name: item.name || '',
-          description: item.description || '',
-          brand: item.brand || '',
-          model: item.model || '',
-          modelNumber: item.modelNumber || '',
-          serialNumber: item.serialNumber || '',
-          primaryCategory: item.primaryCategory || 'Other',
-          category: item.primaryCategory || 'Other',
-          weight: Number(item.weight) || 0,
-          weightUnit: (item.weightUnit || 'g'),
-          price: Number(item.price) || 0,
-          condition: (item.condition || 'good'),
-          quantity: Number(item.quantity) || 1,
-          status: (item.status || 'available'),
-          ownerId: user.uid,
-          assetTag: item.assetTag || `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-          usageCount: 0,
-          photoUrls: item.photoUrls || ['https://picsum.photos/seed/gear/400/400'],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+      for (let i = 0; i < itemsToImport.length; i += 500) {
+        const chunk = itemsToImport.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach((item) => {
+          const newItemRef = doc(collection(db, 'users', user.uid, 'gearLibrary'));
+          batch.set(newItemRef, {
+            name: item.name || '',
+            description: item.description || '',
+            brand: item.brand || '',
+            model: item.model || '',
+            modelNumber: item.modelNumber || '',
+            serialNumber: item.serialNumber || '',
+            primaryCategory: item.primaryCategory || 'Other',
+            category: item.primaryCategory || 'Other',
+            weight: Number(item.weight) || 0,
+            weightUnit: (item.weightUnit || 'g'),
+            price: Number(item.price) || 0,
+            condition: (item.condition || 'good'),
+            quantity: Number(item.quantity) || 1,
+            status: (item.status || 'available'),
+            ownerId: user.uid,
+            assetTag: item.assetTag || `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+            usageCount: 0,
+            photoUrls: item.photoUrls || ['https://picsum.photos/seed/gear/400/400'],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
         });
-      });
-      await batch.commit();
+        await batch.commit();
+      }
+
       toast.success(`Successfully added ${selectedSyncItemIds.size} items to Gear Library!`, { id: toastId });
       setSelectedSyncInventory(null);
       setIsImportModalOpen(false);
@@ -201,32 +205,35 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       const itemsToExport = gear.filter(item => selectedItems.has(item.id));
       const colRef = collection(db, 'inventories', selectedExportInventoryId, 'items');
 
-      const batch = writeBatch(db);
-      itemsToExport.forEach(item => {
-        const docRef = doc(colRef);
-        batch.set(docRef, {
-          id: docRef.id,
-          name: item.name || '',
-          description: item.description || '',
-          brand: item.brand || '',
-          model: item.model || '',
-          modelNumber: item.modelNumber || '',
-          serialNumber: item.serialNumber || '',
-          primaryCategory: item.category || 'Other',
-          weight: item.weight || null,
-          weightUnit: item.weightUnit || 'g',
-          price: item.price || 0,
-          condition: item.condition || 'good',
-          quantity: item.quantity || 1,
-          status: item.status || 'available',
-          assetTag: item.assetTag || `ASSET-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-          photoUrls: item.photoUrls || ['https://picsum.photos/seed/gear/400/400'],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+      for (let i = 0; i < itemsToExport.length; i += 500) {
+        const chunk = itemsToExport.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach(item => {
+          const docRef = doc(colRef);
+          batch.set(docRef, {
+            id: docRef.id,
+            name: item.name || '',
+            description: item.description || '',
+            brand: item.brand || '',
+            model: item.model || '',
+            modelNumber: item.modelNumber || '',
+            serialNumber: item.serialNumber || '',
+            primaryCategory: item.category || 'Other',
+            weight: item.weight || null,
+            weightUnit: item.weightUnit || 'g',
+            price: item.price || 0,
+            condition: item.condition || 'good',
+            quantity: item.quantity || 1,
+            status: item.status || 'available',
+            assetTag: item.assetTag || `ASSET-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+            photoUrls: item.photoUrls || ['https://picsum.photos/seed/gear/400/400'],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
         });
-      });
+        await batch.commit();
+      }
 
-      await batch.commit();
       toast.success(`Exported ${itemsToExport.length} items to "${targetInv.name}" successfully!`, { id: toastId });
       setSelectedItems(new Set());
       setIsExportToInventoryOpen(false);
@@ -1319,19 +1326,23 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     
     const toastId = toast.loading("Undoing last bulk operation...");
     try {
-      const batch = writeBatch(db);
       const updatedAt = new Date().toISOString();
 
       if (record.type === 'delete') {
-        for (const itemRec of record.items) {
-          if (!itemRec.gearItem?.id) continue;
-          const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', itemRec.gearItem.id);
-          batch.set(itemRef, {
-            ...itemRec.gearItem,
-            updatedAt
+        const itemsList = record.items;
+        for (let i = 0; i < itemsList.length; i += 500) {
+          const chunk = itemsList.slice(i, i + 500);
+          const batch = writeBatch(db);
+          chunk.forEach((itemRec: any) => {
+            if (!itemRec.gearItem?.id) return;
+            const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', itemRec.gearItem.id);
+            batch.set(itemRef, {
+              ...itemRec.gearItem,
+              updatedAt
+            });
           });
+          await batch.commit();
         }
-        await batch.commit();
         
         await logActivity(
           user?.uid,
@@ -1343,15 +1354,20 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         toast.success(`Successfully restored ${record.items.length} deleted items!`, { id: toastId });
       } 
       else if (record.type === 'status') {
-        for (const itemRec of record.items) {
-          if (!itemRec.gearItem?.id) continue;
-          const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', itemRec.gearItem.id);
-          batch.update(itemRef, {
-            status: itemRec.previousData?.status || 'available',
-            updatedAt
+        const itemsList = record.items;
+        for (let i = 0; i < itemsList.length; i += 500) {
+          const chunk = itemsList.slice(i, i + 500);
+          const batch = writeBatch(db);
+          chunk.forEach((itemRec: any) => {
+            if (!itemRec.gearItem?.id) return;
+            const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', itemRec.gearItem.id);
+            batch.update(itemRef, {
+              status: itemRec.previousData?.status || 'available',
+              updatedAt
+            });
           });
+          await batch.commit();
         }
-        await batch.commit();
         
         await logActivity(
           user?.uid,
@@ -1363,20 +1379,25 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         toast.success(`Successfully reverted status for ${record.items.length} items!`, { id: toastId });
       }
       else if (record.type === 'rack') {
-        for (const itemRec of record.items) {
-          if (!itemRec.gearItem?.id) continue;
-          const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', itemRec.gearItem.id);
-          batch.update(itemRef, {
-            rackId: itemRec.previousRackId || '',
-            updatedAt
-          });
+        const itemsList = record.items;
+        for (let i = 0; i < itemsList.length; i += 250) {
+          const chunk = itemsList.slice(i, i + 250);
+          const batch = writeBatch(db);
+          chunk.forEach((itemRec: any) => {
+            if (!itemRec.gearItem?.id) return;
+            const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', itemRec.gearItem.id);
+            batch.update(itemRef, {
+              rackId: itemRec.previousRackId || '',
+              updatedAt
+            });
 
-          if (itemRec.createdRackItemId && itemRec.selectedRackId) {
-            const rackItemRef = doc(db, 'racks', itemRec.selectedRackId, 'items', itemRec.createdRackItemId);
-            batch.delete(rackItemRef);
-          }
+            if (itemRec.createdRackItemId && itemRec.selectedRackId) {
+              const rackItemRef = doc(db, 'racks', itemRec.selectedRackId, 'items', itemRec.createdRackItemId);
+              batch.delete(rackItemRef);
+            }
+          });
+          await batch.commit();
         }
-        await batch.commit();
 
         await logActivity(
           user?.uid,
@@ -1388,18 +1409,23 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         toast.success(`Successfully removed items from rack and restored previous positions!`, { id: toastId });
       }
       else if (record.type === 'assign') {
-        for (const itemRec of record.items) {
-          if (!itemRec.gearItem?.id) continue;
-          const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', itemRec.gearItem.id);
-          batch.update(itemRef, {
-            orgId: itemRec.previousData?.orgId || '',
-            deptId: itemRec.previousData?.deptId || '',
-            teamId: itemRec.previousData?.teamId || '',
-            assignedTo: itemRec.previousData?.assignedTo || '',
-            updatedAt
+        const itemsList = record.items;
+        for (let i = 0; i < itemsList.length; i += 500) {
+          const chunk = itemsList.slice(i, i + 500);
+          const batch = writeBatch(db);
+          chunk.forEach((itemRec: any) => {
+            if (!itemRec.gearItem?.id) return;
+            const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', itemRec.gearItem.id);
+            batch.update(itemRef, {
+              orgId: itemRec.previousData?.orgId || '',
+              deptId: itemRec.previousData?.deptId || '',
+              teamId: itemRec.previousData?.teamId || '',
+              assignedTo: itemRec.previousData?.assignedTo || '',
+              updatedAt
+            });
           });
+          await batch.commit();
         }
-        await batch.commit();
 
         await logActivity(
           user?.uid,
@@ -1436,44 +1462,47 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
     const toastId = toast.loading(`Moving ${selectedItems.size} items to ${targetRack.name}...`);
     try {
-      const batch = writeBatch(db);
       const updatedAt = new Date().toISOString();
       const itemsToRestore: any[] = [];
+      const assetIds = Array.from(selectedItems);
 
-      for (const itemId of Array.from(selectedItems)) {
-        const item = gear.find(i => i.id === itemId);
-        if (item) {
-          const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
-          batch.update(itemRef, { 
-            rackId: selectedRackId,
-            updatedAt
-          });
+      for (let i = 0; i < assetIds.length; i += 250) {
+        const chunk = assetIds.slice(i, i + 250);
+        const batch = writeBatch(db);
+        chunk.forEach(itemId => {
+          const item = gear.find(i => i.id === itemId);
+          if (item) {
+            const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
+            batch.update(itemRef, { 
+              rackId: selectedRackId,
+              updatedAt
+            });
 
-          const rackItemRef = doc(collection(db, 'racks', selectedRackId, 'items'));
-          batch.set(rackItemRef, {
-            name: item.name || 'Unnamed Asset',
-            uPosition: 1,
-            uHeight: 1,
-            assetTag: item.assetTag || '',
-            serialNumber: item.serialNumber || '',
-            purchaseDate: item.purchaseDate || '',
-            rackId: selectedRackId,
-            gearItemId: item.id,
-            status: 'installed',
-            photoUrls: item.photoUrls || [],
-            createdAt: updatedAt
-          });
+            const rackItemRef = doc(collection(db, 'racks', selectedRackId, 'items'));
+            batch.set(rackItemRef, {
+              name: item.name || 'Unnamed Asset',
+              uPosition: 1,
+              uHeight: 1,
+              assetTag: item.assetTag || '',
+              serialNumber: item.serialNumber || '',
+              purchaseDate: item.purchaseDate || '',
+              rackId: selectedRackId,
+              gearItemId: item.id,
+              status: 'installed',
+              photoUrls: item.photoUrls || [],
+              createdAt: updatedAt
+            });
 
-          itemsToRestore.push({
-            gearItem: { ...item },
-            previousRackId: item.rackId || null,
-            createdRackItemId: rackItemRef.id,
-            selectedRackId
-          });
-        }
+            itemsToRestore.push({
+              gearItem: { ...item },
+              previousRackId: item.rackId || null,
+              createdRackItemId: rackItemRef.id,
+              selectedRackId
+            });
+          }
+        });
+        await batch.commit();
       }
-
-      await batch.commit();
       
       const newUndoRecord = {
         type: 'rack' as const,
@@ -1506,27 +1535,30 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
     const toastId = toast.loading(`Changing status of ${selectedItems.size} items...`);
     try {
-      const batch = writeBatch(db);
       const updatedAt = new Date().toISOString();
       const itemsToRestore: any[] = [];
+      const assetIds = Array.from(selectedItems);
 
-      selectedItems.forEach(itemId => {
-        const item = gear.find(i => i.id === itemId);
-        if (item) {
-          const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
-          batch.update(itemRef, { 
-            status: selectedBatchStatus,
-            updatedAt
-          });
+      for (let i = 0; i < assetIds.length; i += 500) {
+        const chunk = assetIds.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach(itemId => {
+          const item = gear.find(i => i.id === itemId);
+          if (item) {
+            const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
+            batch.update(itemRef, { 
+              status: selectedBatchStatus,
+              updatedAt
+            });
 
-          itemsToRestore.push({
-            gearItem: { ...item },
-            previousData: { status: item.status || 'available' }
-          });
-        }
-      });
-
-      await batch.commit();
+            itemsToRestore.push({
+              gearItem: { ...item },
+              previousData: { status: item.status || 'available' }
+            });
+          }
+        });
+        await batch.commit();
+      }
 
       const newUndoRecord = {
         type: 'status' as const,
@@ -1561,54 +1593,57 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     const toastId = toast.loading(`Batch updating ${selectedItems.size} items...`);
     
     try {
-      const batch = writeBatch(db);
       const updatedAt = new Date().toISOString();
       const itemsToRestore: any[] = [];
+      const assetIds = Array.from(selectedItems);
       
-      selectedItems.forEach(itemId => {
-        const item = gear.find(i => i.id === itemId);
-        if (item) {
-          const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
-          const updateData: any = { updatedAt };
-          
-          if (shouldUpdateOrg) {
-            updateData.orgId = batchOrgId || '';
-            if (!shouldUpdateDept) {
-              updateData.deptId = '';
-              updateData.teamId = '';
+      for (let i = 0; i < assetIds.length; i += 500) {
+        const chunk = assetIds.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach(itemId => {
+          const item = gear.find(i => i.id === itemId);
+          if (item) {
+            const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
+            const updateData: any = { updatedAt };
+            
+            if (shouldUpdateOrg) {
+              updateData.orgId = batchOrgId || '';
+              if (!shouldUpdateDept) {
+                updateData.deptId = '';
+                updateData.teamId = '';
+              }
             }
-          }
-          
-          if (shouldUpdateDept) {
-            updateData.deptId = batchDeptId || '';
-            if (!shouldUpdateTeam) {
-              updateData.teamId = '';
+            
+            if (shouldUpdateDept) {
+              updateData.deptId = batchDeptId || '';
+              if (!shouldUpdateTeam) {
+                updateData.teamId = '';
+              }
             }
-          }
-          
-          if (shouldUpdateTeam) {
-            updateData.teamId = batchTeamId || '';
-          }
-          
-          if (shouldUpdateAssignee) {
-            updateData.assignedTo = batchAssignedTo || '';
-          }
-          
-          batch.update(itemRef, updateData);
+            
+            if (shouldUpdateTeam) {
+              updateData.teamId = batchTeamId || '';
+            }
+            
+            if (shouldUpdateAssignee) {
+              updateData.assignedTo = batchAssignedTo || '';
+            }
+            
+            batch.update(itemRef, updateData);
 
-          itemsToRestore.push({
-            gearItem: { ...item },
-            previousData: {
-              orgId: item.orgId || '',
-              deptId: item.deptId || '',
-              teamId: item.teamId || '',
-              assignedTo: item.assignedTo || ''
-            }
-          });
-        }
-      });
-      
-      await batch.commit();
+            itemsToRestore.push({
+              gearItem: { ...item },
+              previousData: {
+                orgId: item.orgId || '',
+                deptId: item.deptId || '',
+                teamId: item.teamId || '',
+                assignedTo: item.assignedTo || ''
+              }
+            });
+          }
+        });
+        await batch.commit();
+      }
 
       const newUndoRecord = {
         type: 'assign' as const,
@@ -1834,12 +1869,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             };
           }).filter(u => u.gearItem !== undefined && u.gearItem.id !== undefined);
 
-          const batch = writeBatch(db);
-          for (const id of Array.from(selectedItems)) {
-            const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', id);
-            batch.delete(itemRef);
+          const ids = Array.from(selectedItems);
+          for (let i = 0; i < ids.length; i += 500) {
+            const chunk = ids.slice(i, i + 500);
+            const batch = writeBatch(db);
+            chunk.forEach(id => {
+              const itemRef = doc(db, 'users', user?.uid, 'gearLibrary', id);
+              batch.delete(itemRef);
+            });
+            await batch.commit();
           }
-          await batch.commit();
 
           await logActivity(
             user?.uid,
@@ -1943,34 +1982,37 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       // Write-time synchronization: Propagate item-specific details to all items with matching name
       const sameNameItems = gear.filter(g => g.id !== id && g.name && g.name.trim().toLowerCase() === data.name.trim().toLowerCase());
       if (sameNameItems.length > 0) {
-        const batch = writeBatch(db);
-        sameNameItems.forEach(item => {
-          const itemRef = doc(db, 'users', user.uid, 'gearLibrary', item.id);
-          batch.update(itemRef, {
-            brand: data.brand || '',
-            model: data.model || '',
-            modelNumber: data.modelNumber || '',
-            serialNumber: data.serialNumber || '',
-            releaseYear: data.releaseYear || '',
-            weight: data.weight || 0,
-            weightUnit: data.weightUnit || 'g',
-            price: data.price || 0,
-            photoUrls: data.photoUrls || [],
-            description: data.description || '',
-            isAvailableForRent: data.isAvailableForRent ?? false,
-            isSale: data.isSale ?? false,
-            rentalPrice: data.rentalPrice || 0,
-            rentalHourlyPrice: data.rentalHourlyPrice || 0,
-            rentalDeposit: data.rentalDeposit || 0,
-            rentalPeriod: data.rentalPeriod || 'day',
-            currency: data.currency || '$',
-            secondaryCategories: data.secondaryCategories || [],
-            minRentalDays: data.minRentalDays || 1,
-            maxRentalDays: data.maxRentalDays || 30,
-            updatedAt: updatedAt
+        for (let i = 0; i < sameNameItems.length; i += 500) {
+          const chunk = sameNameItems.slice(i, i + 500);
+          const batch = writeBatch(db);
+          chunk.forEach(item => {
+            const itemRef = doc(db, 'users', user.uid, 'gearLibrary', item.id);
+            batch.update(itemRef, {
+              brand: data.brand || '',
+              model: data.model || '',
+              modelNumber: data.modelNumber || '',
+              serialNumber: data.serialNumber || '',
+              releaseYear: data.releaseYear || '',
+              weight: data.weight || 0,
+              weightUnit: data.weightUnit || 'g',
+              price: data.price || 0,
+              photoUrls: data.photoUrls || [],
+              description: data.description || '',
+              isAvailableForRent: data.isAvailableForRent ?? false,
+              isSale: data.isSale ?? false,
+              rentalPrice: data.rentalPrice || 0,
+              rentalHourlyPrice: data.rentalHourlyPrice || 0,
+              rentalDeposit: data.rentalDeposit || 0,
+              rentalPeriod: data.rentalPeriod || 'day',
+              currency: data.currency || '$',
+              secondaryCategories: data.secondaryCategories || [],
+              minRentalDays: data.minRentalDays || 1,
+              maxRentalDays: data.maxRentalDays || 30,
+              updatedAt: updatedAt
+            });
           });
-        });
-        await batch.commit();
+          await batch.commit();
+        }
       }
 
       setEditingItem(null);

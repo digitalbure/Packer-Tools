@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, doc, updateDoc, increment, runTransaction } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, increment, runTransaction, getCountFromServer } from 'firebase/firestore';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings, Plan } from '../types';
 
@@ -64,40 +64,52 @@ export async function checkLimit(
   switch (resourceType) {
     case 'packingLists':
       limit = plan.maxPackingLists;
-      const qLists = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid));
-      const snapLists = await getDocs(qLists);
-      current = snapLists.size;
+      {
+        const qLists = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid));
+        const snap = await getCountFromServer(qLists);
+        current = snap.data().count;
+      }
       break;
     case 'gearItems':
       limit = plan.maxGearItems;
-      const qGear = query(collection(db, 'users', user.uid, 'gearLibrary'));
-      const snapGear = await getDocs(qGear);
-      current = snapGear.size;
+      {
+        const qGear = query(collection(db, 'users', user.uid, 'gearLibrary'));
+        const snap = await getCountFromServer(qGear);
+        current = snap.data().count;
+      }
       break;
     case 'racks':
       limit = plan.maxRacks;
-      const qRacks = query(collection(db, 'racks'), where('ownerId', '==', user.uid));
-      const snapRacks = await getDocs(qRacks);
-      current = snapRacks.size;
+      {
+        const qRacks = query(collection(db, 'racks'), where('ownerId', '==', user.uid));
+        const snap = await getCountFromServer(qRacks);
+        current = snap.data().count;
+      }
       break;
     case 'movingProjects':
     case 'projects':
       limit = plan.maxProjects;
-      const qProjects = query(collection(db, 'projects'), where('ownerId', '==', user.uid));
-      const snapProjects = await getDocs(qProjects);
-      current = snapProjects.size;
+      {
+        const qProjects = query(collection(db, 'projects'), where('ownerId', '==', user.uid));
+        const snap = await getCountFromServer(qProjects);
+        current = snap.data().count;
+      }
       break;
     case 'contacts':
       limit = plan.maxContacts || 0;
-      const qContacts = query(collection(db, 'contacts'), where('ownerId', '==', user.uid));
-      const snapContacts = await getDocs(qContacts);
-      current = snapContacts.size;
+      {
+        const qContacts = query(collection(db, 'contacts'), where('ownerId', '==', user.uid));
+        const snap = await getCountFromServer(qContacts);
+        current = snap.data().count;
+      }
       break;
     case 'distributions':
       limit = user.plan === 'pro' ? Infinity : 10;
-      const qDist = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid), where('recipientId', '!=', ''));
-      const snapDist = await getDocs(qDist);
-      current = snapDist.size;
+      {
+        const qDist = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid), where('recipientId', '!=', ''));
+        const snap = await getCountFromServer(qDist);
+        current = snap.data().count;
+      }
       break;
   }
 
@@ -123,20 +135,20 @@ export async function getUsage(
   const plan = adminSettings?.plans?.find(p => p.id === user.plan || p.name.toLowerCase() === user.plan?.toLowerCase()) || adminSettings?.plans?.[0];
   
   const [snapLists, snapGear, snapRacks, snapProjects, snapContacts] = await Promise.all([
-    getDocs(query(collection(db, 'packingLists'), where('ownerId', '==', user.uid))),
-    getDocs(query(collection(db, 'users', user.uid, 'gearLibrary'))),
-    getDocs(query(collection(db, 'racks'), where('ownerId', '==', user.uid))),
-    getDocs(query(collection(db, 'projects'), where('ownerId', '==', user.uid))),
-    getDocs(query(collection(db, 'contacts'), where('ownerId', '==', user.uid)))
+    getCountFromServer(query(collection(db, 'packingLists'), where('ownerId', '==', user.uid))),
+    getCountFromServer(query(collection(db, 'users', user.uid, 'gearLibrary'))),
+    getCountFromServer(query(collection(db, 'racks'), where('ownerId', '==', user.uid))),
+    getCountFromServer(query(collection(db, 'projects'), where('ownerId', '==', user.uid))),
+    getCountFromServer(query(collection(db, 'contacts'), where('ownerId', '==', user.uid)))
   ]);
 
   return {
-    packingLists: { current: snapLists.size, limit: plan?.maxPackingLists || 0 },
-    gearItems: { current: snapGear.size, limit: plan?.maxGearItems || 0 },
-    racks: { current: snapRacks.size, limit: plan?.maxRacks || 0 },
-    movingProjects: { current: snapProjects.size, limit: plan?.maxProjects || 0 },
-    projects: { current: snapProjects.size, limit: plan?.maxProjects || 0 },
-    contacts: { current: snapContacts.size, limit: plan?.maxContacts || 0 },
+    packingLists: { current: snapLists.data().count, limit: plan?.maxPackingLists || 0 },
+    gearItems: { current: snapGear.data().count, limit: plan?.maxGearItems || 0 },
+    racks: { current: snapRacks.data().count, limit: plan?.maxRacks || 0 },
+    movingProjects: { current: snapProjects.data().count, limit: plan?.maxProjects || 0 },
+    projects: { current: snapProjects.data().count, limit: plan?.maxProjects || 0 },
+    contacts: { current: snapContacts.data().count, limit: plan?.maxContacts || 0 },
     aiTokens: { current: user.aiTokenUsage || 0, limit: plan?.aiTokenLimit || 0 }
   };
 }

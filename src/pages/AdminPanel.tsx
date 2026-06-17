@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch, setDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch, setDoc, startAfter, orderBy, getCountFromServer } from 'firebase/firestore';
 import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Smartphone, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin, Bug, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
@@ -14,7 +14,9 @@ import AdminDocsTab from '../components/AdminDocsTab';
 import FirebaseMigrator from '../components/FirebaseMigrator';
 import BillingSettings from '../components/BillingSettings';
 import BillingDashboard from '../components/BillingDashboard';
-import { BrandingSettingsTab, BillingSettingsTab, MultiIndustrySettingsTab, MarketplaceSettingsTab, WidgetsSettingsTab } from '../components/AdminSettingsPages';
+import { BrandingSettingsTab, BillingSettingsTab, MultiIndustrySettingsTab, MarketplaceSettingsTab, WidgetsSettingsTab, EmailBrandingSettingsTab } from '../components/AdminSettingsPages';
+import EmailTemplates from '../components/EmailTemplates';
+import OrganizationAdmin from '../components/OrganizationAdmin';
 import { AreaChart, Area, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cell, CartesianGrid } from 'recharts';
 
 export const MODULE_METADATA: {
@@ -387,7 +389,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const hasActiveBugs = bugReports.some(b => b.status === 'open' || b.status === 'in_review');
 
   // Currency and payment gateway states
-  const [settingsSubTab, setSettingsSubTab] = useState<'branding' | 'billing' | 'multi_industry' | 'marketplace' | 'widgets' | 'bugs'>('branding');
+  const [settingsSubTab, setSettingsSubTab] = useState<'branding' | 'emails' | 'billing' | 'multi_industry' | 'marketplace' | 'widgets' | 'bugs'>('branding');
   const [isAddingCurrency, setIsAddingCurrency] = useState(false);
   const [newCurrencyCode, setNewCurrencyCode] = useState('');
   const [newCurrencyName, setNewCurrencyName] = useState('');
@@ -401,19 +403,19 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const [newGatewayPaypalClientId, setNewGatewayPaypalClientId] = useState('');
 
   useEffect(() => {
-    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+    const unsubscribeUsers = onSnapshot(query(collection(db, 'users'), limit(150)), (snapshot) => {
       setUsers(snapshot.docs.map(doc => doc.data() as UserProfile));
     }, (error) => {
       console.warn("AdminPanel: Error catching users collection:", error);
     });
 
-    const unsubscribeLists = onSnapshot(collection(db, 'packingLists'), (snapshot) => {
+    const unsubscribeLists = onSnapshot(query(collection(db, 'packingLists'), limit(150)), (snapshot) => {
       setLists(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PackingList)));
     }, (error) => {
       console.warn("AdminPanel: Error catching packingLists:", error);
     });
 
-    const unsubscribeAllProjects = onSnapshot(collection(db, 'projects'), (snapshot) => {
+    const unsubscribeAllProjects = onSnapshot(query(collection(db, 'projects'), limit(150)), (snapshot) => {
       setAllProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project)));
     }, (error) => {
       console.warn("AdminPanel: Error catching projects:", error);
@@ -727,31 +729,31 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
         setSettings(data);
     });
 
-    const unsubscribeCheckouts = onSnapshot(collection(db, 'checkouts'), (snapshot) => {
+    const unsubscribeCheckouts = onSnapshot(query(collection(db, 'checkouts'), limit(150)), (snapshot) => {
       setCheckoutLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CheckoutRecord)));
     }, (error) => {
       console.warn("AdminPanel: Error catching checkouts:", error);
     });
 
-    const unsubscribeOrgs = onSnapshot(collection(db, 'organizations'), (snapshot) => {
+    const unsubscribeOrgs = onSnapshot(query(collection(db, 'organizations'), limit(150)), (snapshot) => {
       setOrganizations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Organization)));
     }, (error) => {
       console.warn("AdminPanel: Error catching organizations:", error);
     });
 
-    const unsubscribeDepts = onSnapshot(collection(db, 'departments'), (snapshot) => {
+    const unsubscribeDepts = onSnapshot(query(collection(db, 'departments'), limit(150)), (snapshot) => {
       setDepartments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department)));
     }, (error) => {
       console.warn("AdminPanel: Error catching departments:", error);
     });
 
-    const unsubscribeTeams = onSnapshot(collection(db, 'teams'), (snapshot) => {
+    const unsubscribeTeams = onSnapshot(query(collection(db, 'teams'), limit(150)), (snapshot) => {
       setTeams(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Team)));
     }, (error) => {
       console.warn("AdminPanel: Error catching teams:", error);
     });
 
-    const unsubscribeBugs = onSnapshot(collection(db, 'bugs'), (snapshot) => {
+    const unsubscribeBugs = onSnapshot(query(collection(db, 'bugs'), limit(150)), (snapshot) => {
       setBugReports(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as unknown as BugReport)));
     }, (error) => {
       console.warn("AdminPanel: Error catching bugs:", error);
@@ -982,6 +984,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     { id: 'landing', icon: <Layout size={18} />, label: 'Landing Page', description: 'Public site content' },
     { id: 'pages', icon: <FileText size={18} />, label: 'Manage Pages', description: 'Terms, policies & documents' },
     { id: 'communities', icon: <MapPin size={18} />, label: 'Communities Portal', description: 'Manage regional country community workspaces' },
+    { id: 'email_templates', icon: <Mail size={18} />, label: 'Email Templates', description: 'Interactive visual branding client simulator' },
     { id: 'settings', icon: <Settings size={18} />, label: 'Settings', description: 'Global configuration' },
     { id: 'migration', icon: <Database size={18} />, label: 'Firebase Migration', description: 'Migrate data from old Firebase' },
     { id: 'docs', icon: <HelpCircle size={18} />, label: 'App Documentation', description: 'Packer Tools University & Widget Setup' }
@@ -1094,9 +1097,6 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
           >
             {activeTab === 'organizations' && (
               <OrganizationAdmin 
-                organizations={organizations} 
-                departments={departments} 
-                teams={teams} 
                 users={users}
               />
             )}
@@ -5546,6 +5546,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               className="w-full bg-white border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs font-black uppercase tracking-wider shadow-sm focus:ring-2 focus:ring-primary outline-none"
             >
               <option value="branding">🎨 Branding & Platform Identity</option>
+              <option value="emails">✉️ Automated Emails Visual Customizer</option>
               <option value="billing">💳 Billing & Payment Gateways</option>
               <option value="multi_industry">🏢 Multi-Industry Sandboxes</option>
               <option value="marketplace">🌍 Marketplace & regional launch</option>
@@ -5574,6 +5575,23 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   <div className="min-w-0 flex-1">
                     <p className="font-extrabold text-[11px] leading-none uppercase tracking-wider">Branding & Kit</p>
                     <span className={`text-[8px] block mt-1 font-sans font-bold leading-none ${settingsSubTab === 'branding' ? 'text-neutral-400' : 'text-neutral-350'}`}>Logos, footer & launcher specs</span>
+                  </div>
+                </button>
+
+                {/* Automated Emails Visual Branding Tab */}
+                <button
+                  type="button"
+                  onClick={() => setSettingsSubTab('emails')}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all font-bold ${
+                    settingsSubTab === 'emails' 
+                      ? 'bg-neutral-900 text-white shadow-xl shadow-neutral-900/10' 
+                      : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-950'
+                  }`}
+                >
+                  <Mail size={16} className={settingsSubTab === 'emails' ? 'text-primary' : 'text-neutral-400'} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-extrabold text-[11px] leading-none uppercase tracking-wider">Email Customizer</p>
+                    <span className={`text-[8px] block mt-1 font-sans font-bold leading-none ${settingsSubTab === 'emails' ? 'text-neutral-400' : 'text-neutral-350'}`}>Visual template branding specs</span>
                   </div>
                 </button>
 
@@ -5702,6 +5720,9 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             <div className="col-span-1 md:col-span-3 space-y-6">
               {settingsSubTab === 'branding' && (
                 <BrandingSettingsTab settings={settings} setSettings={setSettings} />
+              )}
+              {settingsSubTab === 'emails' && (
+                <EmailBrandingSettingsTab settings={settings} setSettings={setSettings} />
               )}
               {settingsSubTab === 'billing' && (
                 <BillingSettingsTab settings={settings} setSettings={setSettings} />
@@ -5998,6 +6019,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     <Save size={16} />
                     <span>Synchronize {
                       settingsSubTab === 'branding' ? 'Branding' : 
+                      settingsSubTab === 'emails' ? 'Email Branding' : 
                       settingsSubTab === 'billing' ? 'Billing' : 
                       settingsSubTab === 'multi_industry' ? 'Sandbox' : 
                       settingsSubTab === 'marketplace' ? 'Marketplace' : 'Widget'
@@ -6012,6 +6034,13 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
       {activeTab === 'migration' && (
         <FirebaseMigrator />
+      )}
+
+      {activeTab === 'email_templates' && (
+        <EmailTemplates 
+          settings={settings} 
+          onUpdateSettings={(updated) => setSettings(updated)} 
+        />
       )}
 
       {activeTab === 'docs' && (
@@ -6103,7 +6132,7 @@ function CheckoutAdmin({ logs }: { logs: CheckoutRecord[] }) {
   );
 }
 
-function OrganizationAdmin({ 
+function DEPRECATED_OrganizationAdmin({ 
   organizations, 
   departments, 
   teams, 
@@ -6114,7 +6143,17 @@ function OrganizationAdmin({
   teams: Team[],
   users: UserProfile[]
 }) {
-  const [activeOrgView, setActiveOrgView] = useState<'orgs' | 'depts' | 'teams'>('orgs');
+  const [activeLayout, setActiveLayout] = useState<'tree' | 'cascade'>('tree');
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Custom expandable triggers for Directory Tree Mode
+  const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
+  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
+
+  // Cascading Mode Selected States
+  const [selectedOrgIdCascade, setSelectedOrgIdCascade] = useState('');
+  const [selectedDeptIdCascade, setSelectedDeptIdCascade] = useState('');
+
   const [isAddingOrg, setIsAddingOrg] = useState(false);
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
   const [newOrgName, setNewOrgName] = useState('');
@@ -6127,6 +6166,101 @@ function OrganizationAdmin({
   const [isAddingTeam, setIsAddingTeam] = useState(false);
   const [selectedDeptId, setSelectedDeptId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
+
+  // Auto-set cascade values initially
+  useEffect(() => {
+    if (organizations.length > 0 && !selectedOrgIdCascade) {
+      setSelectedOrgIdCascade(organizations[0].id);
+    }
+  }, [organizations, selectedOrgIdCascade]);
+
+  useEffect(() => {
+    if (selectedOrgIdCascade) {
+      const orgDepts = departments.filter(d => d.orgId === selectedOrgIdCascade);
+      if (orgDepts.length > 0) {
+        // Only override if previous choice does not belong to the new org selection
+        const currentBelongs = orgDepts.some(d => d.id === selectedDeptIdCascade);
+        if (!currentBelongs) {
+          setSelectedDeptIdCascade(orgDepts[0].id);
+        }
+      } else {
+        setSelectedDeptIdCascade('');
+      }
+    } else {
+      setSelectedDeptIdCascade('');
+    }
+  }, [selectedOrgIdCascade, departments, selectedDeptIdCascade]);
+
+  // Expand first items on load in tree view
+  useEffect(() => {
+    if (organizations.length > 0 && expandedOrgs.size === 0) {
+      setExpandedOrgs(new Set([organizations[0].id]));
+      const firstOrgDepts = departments.filter(d => d.orgId === organizations[0].id).map(d => d.id);
+      setExpandedDepts(new Set(firstOrgDepts));
+    }
+  }, [organizations, departments, expandedOrgs.size]);
+
+  // Expand parent hierarchy if search input modifies
+  const lowerSearch = searchTerm.toLowerCase().trim();
+  const isTeamMatching = (t: Team) => !lowerSearch || t.name.toLowerCase().includes(lowerSearch);
+  const isDeptMatching = (d: Department) => {
+    if (!lowerSearch) return true;
+    if (d.name.toLowerCase().includes(lowerSearch)) return true;
+    const deptTeams = teams.filter(t => t.deptId === d.id);
+    return deptTeams.some(isTeamMatching);
+  };
+  const isOrgMatching = (o: Organization) => {
+    if (!lowerSearch) return true;
+    if (o.name.toLowerCase().includes(lowerSearch)) return true;
+    if (o.slug?.toLowerCase().includes(lowerSearch)) return true;
+    const orgDepts = departments.filter(d => d.orgId === o.id);
+    return orgDepts.some(isDeptMatching);
+  };
+
+  useEffect(() => {
+    if (lowerSearch) {
+      const parentOrgs = organizations.filter(isOrgMatching).map(o => o.id);
+      const parentDepts = departments.filter(isDeptMatching).map(d => d.id);
+      setExpandedOrgs(new Set(parentOrgs));
+      setExpandedDepts(new Set(parentDepts));
+    }
+  }, [searchTerm]);
+
+  const toggleOrgExpand = (orgId: string) => {
+    setExpandedOrgs(prev => {
+      const next = new Set(prev);
+      if (next.has(orgId)) {
+        next.delete(orgId);
+      } else {
+        next.add(orgId);
+      }
+      return next;
+    });
+  };
+
+  const toggleDeptExpand = (deptId: string) => {
+    setExpandedDepts(prev => {
+      const next = new Set(prev);
+      if (next.has(deptId)) {
+        next.delete(deptId);
+      } else {
+        next.add(deptId);
+      }
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setExpandedOrgs(new Set(organizations.map(o => o.id)));
+    setExpandedDepts(new Set(departments.map(d => d.id)));
+    toast.success("Expanded all categories");
+  };
+
+  const collapseAll = () => {
+    setExpandedOrgs(new Set());
+    setExpandedDepts(new Set());
+    toast.success("Collapsed all categories");
+  };
 
   const handleCreateOrg = async () => {
     if (!newOrgName) {
@@ -6189,11 +6323,15 @@ function OrganizationAdmin({
   };
 
   const handleCreateDept = async () => {
-    if (!newDeptName || !selectedOrgId) return;
+    const parentId = selectedOrgId || selectedOrgIdCascade;
+    if (!newDeptName || !parentId) {
+      toast.error("Please provide department name and parent organization");
+      return;
+    }
     try {
       await addDoc(collection(db, 'departments'), {
         name: newDeptName,
-        orgId: selectedOrgId,
+        orgId: parentId,
         createdAt: serverTimestamp()
       });
       setNewDeptName('');
@@ -6205,15 +6343,19 @@ function OrganizationAdmin({
   };
 
   const handleCreateTeam = async () => {
-    if (!newTeamName || !selectedDeptId) return;
-    const dept = departments.find(d => d.id === selectedDeptId);
+    const parentDeptId = selectedDeptId || selectedDeptIdCascade;
+    if (!newTeamName || !parentDeptId) {
+      toast.error("Please provide team name and parent department");
+      return;
+    }
+    const dept = departments.find(d => d.id === parentDeptId);
     if (!dept) return;
 
     try {
       await addDoc(collection(db, 'teams'), {
         name: newTeamName,
         orgId: dept.orgId,
-        deptId: selectedDeptId,
+        deptId: parentDeptId,
         createdAt: serverTimestamp()
       });
       setNewTeamName('');
@@ -6238,12 +6380,16 @@ function OrganizationAdmin({
         // Delete org
         batch.delete(doc(db, 'organizations', id));
         await batch.commit();
+
+        if (selectedOrgIdCascade === id) setSelectedOrgIdCascade('');
       } else if (coll === 'departments') {
         const batch = writeBatch(db);
         const teamsToDel = teams.filter(t => t.deptId === id);
         teamsToDel.forEach(t => batch.delete(doc(db, 'teams', t.id)));
         batch.delete(doc(db, 'departments', id));
         await batch.commit();
+
+        if (selectedDeptIdCascade === id) setSelectedDeptIdCascade('');
       } else {
         await deleteDoc(doc(db, coll, id));
       }
@@ -6255,300 +6401,741 @@ function OrganizationAdmin({
   };
 
   return (
-    <div className="space-y-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-8 font-sans">
+      
+      {/* Upper Module Banner */}
+      <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-neutral-150/80 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="space-y-1">
-          <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter">Organization Management</h2>
-          <p className="text-neutral-500 text-xs md:text-sm">Create and oversee platform-wide organizations, teams and departments.</p>
+          <div className="flex items-center gap-2">
+            <span className="p-2.5 bg-neutral-900 text-white rounded-2xl">
+              <Building2 size={22} />
+            </span>
+            <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tighter text-neutral-950">Organization Hierarchy</h2>
+          </div>
+          <p className="text-neutral-500 text-xs md:text-sm font-semibold max-w-2xl">
+            Design, oversee, and align platform corporate namespaces. Seamlessly visualize structural connections between corporate parents, departments, and active field operational teams.
+          </p>
         </div>
-        <button 
-          onClick={() => setIsAddingOrg(true)}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition shadow-lg text-sm"
-        >
-          <Plus size={20} />
-          <span>New Organization</span>
-        </button>
-      </div>
+        
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          {/* Layout switcher */}
+          <div className="flex bg-neutral-100 p-1 rounded-xl border border-neutral-200 text-xs font-bold">
+            <button
+              onClick={() => setActiveLayout('tree')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                activeLayout === 'tree' ? 'bg-white text-neutral-900 shadow-sm font-black' : 'text-neutral-500 hover:text-neutral-800'
+              }`}
+            >
+              <GitBranch size={14} />
+              <span>Family Tree Map</span>
+            </button>
+            <button
+              onClick={() => setActiveLayout('cascade')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                activeLayout === 'cascade' ? 'bg-white text-neutral-900 shadow-sm font-black' : 'text-neutral-500 hover:text-neutral-800'
+              }`}
+            >
+              <Layers size={14} />
+              <span>Cascading Column</span>
+            </button>
+          </div>
 
-      {/* Mobile Organization View Switcher */}
-      <div className="flex lg:hidden bg-neutral-100 p-1 rounded-xl">
-        {(['orgs', 'depts', 'teams'] as const).map(view => (
-          <button
-            key={view}
-            onClick={() => setActiveOrgView(view)}
-            className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-              activeOrgView === view ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-400'
-            }`}
+          <button 
+            onClick={() => {
+              setIsAddingOrg(true);
+              toast.info("Configuring corporate namespace entry form.");
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-neutral-900 text-white hover:bg-neutral-800 rounded-xl font-bold transition duration-200 text-xs uppercase tracking-wider shadow active:scale-95"
           >
-            {view}
+            <Plus size={16} />
+            <span>New Organization</span>
           </button>
-        ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Organizations Column */}
-        <div className={`space-y-6 ${activeOrgView !== 'orgs' ? 'hidden lg:block' : ''}`}>
-          <div className="flex items-center justify-between px-2">
-            <h3 className="font-bold uppercase tracking-widest text-xs text-neutral-400">Organizations ({organizations.length})</h3>
-          </div>
-          <div className="space-y-4">
-            <AnimatePresence>
-              {isAddingOrg && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white p-6 rounded-3xl border-2 border-primary/20 shadow-xl space-y-4"
-                >
-                  <div className="space-y-4">
-                    <input 
-                      placeholder="Organization Name"
-                      value={newOrgName}
-                      onChange={(e) => setNewOrgName(e.target.value)}
-                      className="w-full px-4 py-2 bg-neutral-50 border border-neutral-100 rounded-xl font-bold"
-                    />
-                    <input 
-                      placeholder={newOrgName ? newOrgName.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') : "Slug (e.g. my-org)"}
-                      value={newOrgSlug}
-                      onChange={(e) => setNewOrgSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                      className="w-full px-4 py-2 bg-neutral-50 border border-neutral-100 rounded-xl font-mono text-sm"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={handleCreateOrg} className="flex-1 bg-primary text-white py-2 rounded-xl font-bold text-xs uppercase">Create</button>
-                    <button onClick={() => setIsAddingOrg(false)} className="flex-1 bg-neutral-100 text-neutral-600 py-2 rounded-xl font-bold text-xs uppercase">Cancel</button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+      {/* Dynamic Summary Cards block */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-white px-5 py-4 rounded-3xl border border-neutral-150/70 shadow-sm">
+          <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block mb-0.5">Total Organizations</span>
+          <span className="text-2xl font-black text-neutral-900 font-mono">{organizations.length}</span>
+        </div>
+        <div className="bg-white px-5 py-4 rounded-3xl border border-neutral-150/70 shadow-sm">
+          <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block mb-0.5">Total Departments</span>
+          <span className="text-2xl font-black text-neutral-800 font-mono">{departments.length}</span>
+        </div>
+        <div className="bg-white px-5 py-4 rounded-3xl border border-neutral-150/70 shadow-sm">
+          <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block mb-0.5">Total Assigned Teams</span>
+          <span className="text-2xl font-black text-neutral-800 font-mono">{teams.length}</span>
+        </div>
+        <div className="bg-white px-5 py-4 rounded-3xl border border-neutral-150/70 shadow-sm">
+          <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block mb-0.5">Active Staff Members</span>
+          <span className="text-2xl font-black text-emerald-600 font-mono">{users.length}</span>
+        </div>
+      </div>
 
-            {organizations.map(org => (
-              <div key={org.id} className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md transition group">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-neutral-900 text-white rounded-xl flex items-center justify-center">
-                      <Building2 size={20} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold">{org.name}</h4>
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${org.status === 'active' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
-                          {org.status || 'active'}
-                        </span>
+      {/* Universal Filter Box */}
+      <div className="bg-white p-4 rounded-3xl border border-neutral-150/70 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="relative w-full sm:max-w-md">
+          <span className="absolute left-3 top-3 text-neutral-400">
+            <Search size={16} />
+          </span>
+          <input
+            type="text"
+            placeholder="Search hierarchy (e.g. FBC, Radio, Technical)..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-neutral-50 hover:bg-neutral-100/50 border border-neutral-200 rounded-2xl text-xs font-semibold uppercase tracking-wide focus:ring-2 focus:ring-neutral-200 outline-none transition"
+          />
+        </div>
+
+        {activeLayout === 'tree' && (
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
+            <button
+              onClick={expandAll}
+              className="px-3 py-1.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-600 text-[10px] font-extrabold uppercase rounded-xl transition border border-neutral-200"
+            >
+              Expand All
+            </button>
+            <button
+              onClick={collapseAll}
+              className="px-3 py-1.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-600 text-[10px] font-extrabold uppercase rounded-xl transition border border-neutral-200"
+            >
+              Collapse All
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Global Inline Creator Modals / States */}
+      <AnimatePresence>
+        {isAddingOrg && (
+          <motion.div 
+            initial={{ opacity: 0, y: -15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className="bg-white p-6 rounded-[2rem] border-2 border-primary/20 shadow-xl space-y-4 max-w-xl"
+          >
+            <div className="flex items-center gap-2 border-b border-neutral-100 pb-3">
+              <span className="p-1 bg-primary/10 text-primary rounded-lg">
+                <Building2 size={16} />
+              </span>
+              <h3 className="font-extrabold text-xs uppercase tracking-wider text-neutral-700">Add New Corporate Namespace</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-neutral-400 uppercase">Organization Name</label>
+                <input 
+                  placeholder="e.g. Fijian Broadcasting Corp"
+                  value={newOrgName}
+                  onChange={(e) => setNewOrgName(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-neutral-400 uppercase">Url Identifier / Slug</label>
+                <input 
+                  placeholder="e.g. fbc"
+                  value={newOrgSlug}
+                  onChange={(e) => setNewOrgSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                  className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-mono text-xs text-neutral-600"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setIsAddingOrg(false)} className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-xl font-bold text-xs uppercase">Cancel</button>
+              <button onClick={handleCreateOrg} className="px-4 py-2 bg-neutral-900 hover:bg-black text-white rounded-xl font-bold text-xs uppercase">Initialize Org</button>
+            </div>
+          </motion.div>
+        )}
+
+        {isAddingDept && (
+          <motion.div 
+            initial={{ opacity: 0, y: -15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className="bg-white p-6 rounded-[2rem] border-2 border-primary/20 shadow-xl space-y-4 max-w-xl"
+          >
+            <div className="flex items-center gap-2 border-b border-neutral-100 pb-3">
+              <span className="p-1 bg-primary/10 text-primary rounded-lg">
+                <Layers size={16} />
+              </span>
+              <h3 className="font-extrabold text-xs uppercase tracking-wider text-neutral-700">Register Sub-Department</h3>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-neutral-400 uppercase">Associate Parent Organization</label>
+                <select 
+                  value={selectedOrgId || selectedOrgIdCascade}
+                  onChange={(e) => setSelectedOrgId(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-xs"
+                >
+                  <option value="">Choose organization...</option>
+                  {organizations.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-neutral-400 uppercase">Department Name</label>
+                <input 
+                  placeholder="e.g. Technical Operations / OB Services"
+                  value={newDeptName}
+                  onChange={(e) => setNewDeptName(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-xs"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button 
+                onClick={() => { setIsAddingDept(false); setSelectedOrgId(''); }} 
+                className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-xl font-bold text-xs uppercase"
+              >
+                Cancel
+              </button>
+              <button onClick={handleCreateDept} className="px-4 py-2 bg-neutral-900 hover:bg-black text-white rounded-xl font-bold text-xs uppercase">Deploy Dept</button>
+            </div>
+          </motion.div>
+        )}
+
+        {isAddingTeam && (
+          <motion.div 
+            initial={{ opacity: 0, y: -15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className="bg-white p-6 rounded-[2rem] border-2 border-primary/20 shadow-xl space-y-4 max-w-xl"
+          >
+            <div className="flex items-center gap-2 border-b border-neutral-100 pb-3">
+              <span className="p-1 bg-primary/10 text-primary rounded-lg">
+                <GitBranch size={16} />
+              </span>
+              <h3 className="font-extrabold text-xs uppercase tracking-wider text-neutral-700">Deploy Field Operational Team</h3>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-neutral-400 uppercase">Associate Parent Sub-Department</label>
+                <select 
+                  value={selectedDeptId || selectedDeptIdCascade}
+                  onChange={(e) => setSelectedDeptId(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-xs"
+                >
+                  <option value="">Choose department...</option>
+                  {departments.map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({organizations.find(o => o.id === d.orgId)?.name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-neutral-400 uppercase">Team Nickname / Designation</label>
+                <input 
+                  placeholder="e.g. Radio OB / FBC TV Production"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl font-bold text-xs"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button 
+                onClick={() => { setIsAddingTeam(false); setSelectedDeptId(''); }} 
+                className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-xl font-bold text-xs uppercase"
+              >
+                Cancel
+              </button>
+              <button onClick={handleCreateTeam} className="px-4 py-2 bg-neutral-900 hover:bg-black text-white rounded-xl font-bold text-xs uppercase">Deploy Team</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ----------------- LAYOUTS DISPATCH ----------------- */}
+      
+      {activeLayout === 'tree' ? (
+        
+        /* 
+          LAYOUT 1: HIERARCHICAL TREE VIEW 
+          A visual schematic nesting cards clearly with dashed horizontal and vertical connectors
+        */
+        <div className="space-y-6">
+          {organizations.filter(isOrgMatching).length > 0 ? (
+            organizations.filter(isOrgMatching).map(org => {
+              const orgDepts = departments.filter(d => d.orgId === org.id && isDeptMatching(d));
+              const isExpanded = expandedOrgs.has(org.id);
+
+              return (
+                <div key={org.id} className="bg-white p-6 rounded-[2rem] border border-neutral-150/70 shadow-sm transition hover:shadow-md">
+                  
+                  {/* Top Level Organization Node Container */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-neutral-100 pb-4">
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => toggleOrgExpand(org.id)}
+                        className="p-1.5 hover:bg-neutral-50 rounded-lg text-neutral-400 transition"
+                      >
+                        <ChevronDown 
+                          size={18} 
+                          className={`transform transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} 
+                        />
+                      </button>
+
+                      <div className="w-12 h-12 bg-neutral-900 text-white rounded-[1.25rem] flex items-center justify-center shrink-0">
+                        <Building2 size={22} />
                       </div>
-                      <p className="text-[10px] text-neutral-400 font-mono italic">/{org.slug}</p>
+                      
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-extrabold text-neutral-950 text-base">{org.name}</h4>
+                          <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest ${
+                            org.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
+                          }`}>
+                            {org.status || 'active'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-neutral-400 font-bold uppercase tracking-wide">
+                          <span className="font-mono">/{org.slug}</span>
+                          <span>•</span>
+                          <span className="text-neutral-500">{orgDepts.length} departments</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Organization Control Actions */}
+                    <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+                      <button 
+                        onClick={() => {
+                          setSelectedOrgId(org.id);
+                          setIsAddingDept(true);
+                          toast.info(`Pre-assigning departments to ${org.name}`);
+                        }}
+                        className="px-3 py-1.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900 text-[10px] font-extrabold uppercase rounded-lg transition border border-neutral-200/60"
+                      >
+                        + Add Dept
+                      </button>
+                      <button 
+                        onClick={() => setEditingOrg(org)}
+                        className="p-2 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50 rounded-lg transition"
+                        title="Edit Organization Name/Slug"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button 
+                        onClick={async () => {
+                          const newStatus = org.status === 'suspended' ? 'active' : 'suspended';
+                          await updateDoc(doc(db, 'organizations', org.id), { status: newStatus });
+                          toast.success(`Organization settings modified: Status is ${newStatus}`);
+                        }}
+                        className={`p-2 rounded-lg transition ${
+                          org.status === 'suspended' ? 'text-emerald-500 hover:bg-emerald-50' : 'text-amber-500 hover:bg-amber-50'
+                        }`}
+                        title={org.status === 'suspended' ? 'Activate status' : 'Suspend status'}
+                      >
+                        <Shield size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete('organizations', org.id)} 
+                        className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                        title="Delete Organization"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button 
-                      onClick={() => setEditingOrg(org)}
-                      className="p-2 text-neutral-400 hover:text-primary transition"
-                      title="Edit Organization"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button 
-                      onClick={async () => {
-                        const newStatus = org.status === 'suspended' ? 'active' : 'suspended';
-                        await updateDoc(doc(db, 'organizations', org.id), { status: newStatus });
-                        toast.success(`Organization ${newStatus}`);
-                      }}
-                      className={`p-2 rounded-lg transition ${org.status === 'suspended' ? 'text-emerald-500 hover:bg-emerald-50' : 'text-amber-500 hover:bg-amber-50'}`}
-                      title={org.status === 'suspended' ? 'Activate' : 'Suspend'}
-                    >
-                      <Shield size={16} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete('organizations', org.id)} 
-                      className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
-                      title="Delete Organization"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+
+                  {/* Inline edit fields if active */}
+                  <AnimatePresence>
+                    {editingOrg?.id === org.id && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="my-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-150 space-y-3 overflow-hidden"
+                      >
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-neutral-400">Name</label>
+                            <input 
+                              value={editingOrg.name}
+                              onChange={(e) => setEditingOrg({ ...editingOrg, name: e.target.value })}
+                              className="w-full px-3 py-1.5 bg-white border border-neutral-250 rounded-lg text-xs font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-neutral-400">Slug</label>
+                            <input 
+                              value={editingOrg.slug}
+                              onChange={(e) => setEditingOrg({ ...editingOrg, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                              className="w-full px-3 py-1.5 bg-white border border-neutral-250 rounded-lg text-xs font-mono"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-1">
+                          <button onClick={() => setEditingOrg(null)} className="px-3 py-1.5 bg-white border border-neutral-200 text-neutral-500 rounded-lg font-bold text-[9px] uppercase">Cancel</button>
+                          <button onClick={handleUpdateOrg} className="px-3 py-1.5 bg-neutral-900 text-white rounded-lg font-bold text-[9px] uppercase">Save Changes</button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Level 2: Collapsible Departments List */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="relative pt-4 pl-4 md:pl-8 space-y-4 overflow-hidden border-t border-neutral-50/50"
+                      >
+                        
+                        {/* Connecting Left vertical line of Family directory tree */}
+                        <div className="absolute left-1.5 md:left-4 top-0 bottom-6 w-0.5 border-l border-dashed border-neutral-300" />
+
+                        {orgDepts.length > 0 ? (
+                          orgDepts.map(dept => {
+                            const deptTeams = teams.filter(t => t.deptId === dept.id && isTeamMatching(t));
+                            const isDeptExpanded = expandedDepts.has(dept.id);
+
+                            return (
+                              <div key={dept.id} className="relative group/dept">
+                                
+                                {/* Horizontal connector branch guide to department card */}
+                                <div className="absolute -left-[14px] md:-left-[24px] top-6 w-[14px] md:w-[24px] border-t border-dashed border-neutral-300" />
+                                
+                                <div className="bg-neutral-50 hover:bg-neutral-100/60 border border-neutral-200/70 rounded-2xl p-4 transition">
+                                  
+                                  {/* Department info line */}
+                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                    <div className="flex items-center gap-2.5">
+                                      <button 
+                                        onClick={() => toggleDeptExpand(dept.id)}
+                                        className="p-1 hover:bg-white rounded-lg text-neutral-400 transition"
+                                      >
+                                        <ChevronDown 
+                                          size={16} 
+                                          className={`transform transition-transform duration-200 ${isDeptExpanded ? '' : '-rotate-90'}`} 
+                                        />
+                                      </button>
+
+                                      <span className="p-1.5 bg-neutral-200 text-neutral-700 rounded-lg">
+                                        <Layers size={14} />
+                                      </span>
+
+                                      <div>
+                                        <h5 className="font-extrabold text-neutral-800 text-xs sm:text-sm uppercase tracking-wide">{dept.name}</h5>
+                                        <span className="text-[9px] text-neutral-400 uppercase tracking-widest font-black block">
+                                          Department ID Node • {deptTeams.length} Operational teams
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Department branch actions */}
+                                    <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
+                                      <button 
+                                        onClick={() => {
+                                          setSelectedDeptId(dept.id);
+                                          setIsAddingTeam(true);
+                                          toast.info(`Pre-assigning field teams to ${dept.name}`);
+                                        }}
+                                        className="px-2.5 py-1 bg-white hover:bg-neutral-50 text-[9px] font-black uppercase tracking-wider text-neutral-600 rounded-lg border border-neutral-200 transition"
+                                      >
+                                        + Team
+                                      </button>
+                                      <button 
+                                        onClick={() => handleDelete('departments', dept.id)} 
+                                        className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-white rounded-lg transition"
+                                        title="Delete department namespace"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Level 3: Collapsible Teams List */}
+                                  <AnimatePresence>
+                                    {isDeptExpanded && (
+                                      <motion.div 
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="relative pt-3 pl-6 ml-3 space-y-2 overflow-hidden border-t border-neutral-200/30"
+                                      >
+                                        {/* Sub-branch connecting vertical line */}
+                                        <div className="absolute left-[3px] top-0 bottom-4 w-px border-l border-dashed border-neutral-200" />
+
+                                        {deptTeams.length > 0 ? (
+                                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 py-1">
+                                            {deptTeams.map(team => (
+                                              <div key={team.id} className="relative pl-4">
+                                                {/* Smaller team branch connector */}
+                                                <div className="absolute -left-[20px] top-4 w-4 border-t border-dashed border-neutral-200" />
+                                                
+                                                {/* Team Leaf Node Tag */}
+                                                <div className="bg-white border border-neutral-200/60 rounded-xl px-3 py-2 flex items-center justify-between gap-2 shadow-2xs hover:border-neutral-300 transition">
+                                                  <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="p-1 bg-emerald-55 text-emerald-600 rounded-md shrink-0">
+                                                      <GitBranch size={11} />
+                                                    </span>
+                                                    <span className="font-extrabold text-neutral-700 text-[11px] uppercase tracking-wide truncate">
+                                                      {team.name}
+                                                    </span>
+                                                  </div>
+                                                  
+                                                  <button 
+                                                    onClick={() => handleDelete('teams', team.id)}
+                                                    className="p-1 text-neutral-300 hover:text-red-500 rounded hover:bg-neutral-50 transition shrink-0"
+                                                    title="Decommission operations team"
+                                                  >
+                                                    <Trash2 size={11} />
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <div className="relative pl-4 py-2 text-left">
+                                            <div className="absolute -left-[20px] top-4 w-4 border-t border-dashed border-neutral-200" />
+                                            <span className="text-[10px] text-neutral-400 italic font-medium">
+                                              No functional teams mapped under department. 
+                                              <button 
+                                                onClick={() => {
+                                                  setSelectedDeptId(dept.id);
+                                                  setIsAddingTeam(true);
+                                                }}
+                                                className="text-primary hover:underline ml-1 font-bold"
+                                              >
+                                                Initialize one now →
+                                              </button>
+                                            </span>
+                                          </div>
+                                        )}
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="relative pl-6 py-2">
+                            <div className="absolute -left-[14px] md:-left-[24px] top-6 w-[14px] md:w-[24px] border-t border-dashed border-neutral-300" />
+                            <p className="text-[11px] text-neutral-400 font-bold uppercase tracking-wider italic py-2">
+                              No departments registered under this organization.
+                            </p>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                </div>
+              );
+            })
+          ) : (
+            <div className="bg-white p-12 text-center rounded-[2rem] border border-neutral-150">
+              <Building2 className="mx-auto text-neutral-300 mb-3" size={36} />
+              <p className="text-neutral-500 text-xs font-semibold uppercase tracking-wider">No matching hierarchies found</p>
+              <p className="text-neutral-400 text-[10px] mt-1 uppercase font-bold">Try adjusting your search filters or generate a brand new corporate entity layout.</p>
+            </div>
+          )}
+        </div>
+        
+      ) : (
+        
+        /* 
+          LAYOUT 2: CASCADING CATEGORY COLUMN SELECTOR 
+          A multi-pane master-detail sub-menu selector where selecting a node loads its children
+        */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          {/* Column A: Organisations (4 cols) */}
+          <div className="lg:col-span-4 bg-white rounded-[2rem] border border-neutral-150/70 p-5 shadow-sm space-y-4">
+            <div className="flex justify-between items-center border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-neutral-900" />
+                <h3 className="font-extrabold text-[11px] uppercase tracking-wider text-neutral-400">1. Organizations ({organizations.length})</h3>
+              </div>
+            </div>
+
+            <div className="space-y-2 max-h-120 overflow-y-auto pr-1">
+              {organizations.filter(o => !searchTerm || o.name.toLowerCase().includes(lowerSearch)).map(org => (
+                <div 
+                  key={org.id} 
+                  onClick={() => {
+                    setSelectedOrgIdCascade(org.id);
+                    toast.success(`Broadcasting namespace for: ${org.name}`);
+                  }}
+                  className={`p-4 rounded-2xl border transition text-left cursor-pointer relative ${
+                    selectedOrgIdCascade === org.id 
+                      ? 'border-neutral-900 bg-neutral-950 text-white shadow' 
+                      : 'border-neutral-200 bg-neutral-50/70 hover:bg-neutral-100/70 text-neutral-800'
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="min-w-0 pr-2">
+                      <p className="font-black text-xs uppercase tracking-wide truncate">{org.name}</p>
+                      <span className={`font-mono text-[9px] block ${selectedOrgIdCascade === org.id ? 'text-neutral-400' : 'text-neutral-400'}`}>
+                        /{org.slug}
+                      </span>
+                    </div>
+
+                    <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-wider shrink-0 ${
+                      org.status === 'active' 
+                        ? (selectedOrgIdCascade === org.id ? 'bg-emerald-800/80 text-emerald-200' : 'bg-emerald-100 text-emerald-700')
+                        : 'bg-red-100 text-red-600'
+                    }`}>
+                      {org.status || 'active'}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center border-t border-neutral-100/10 pt-2 text-[8px] uppercase tracking-widest font-black text-neutral-400">
+                    <span>Depts: {departments.filter(d => d.orgId === org.id).length}</span>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setEditingOrg(org); }}
+                        className="hover:text-primary transition"
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDelete('organizations', org.id); }}
+                        className="hover:text-red-500 transition"
+                      >
+                        Del
+                      </button>
+                    </div>
                   </div>
                 </div>
-                
-                {/* Edit Org Modal/In-line */}
-                <AnimatePresence>
-                  {editingOrg?.id === org.id && (
-                    <motion.div 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mb-4 bg-neutral-50 p-4 rounded-2xl border border-neutral-100 space-y-3 overflow-hidden"
-                    >
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Name</label>
-                        <input 
-                          value={editingOrg.name}
-                          onChange={(e) => setEditingOrg({ ...editingOrg, name: e.target.value })}
-                          className="w-full px-3 py-1.5 bg-white border border-neutral-200 rounded-lg text-sm font-bold"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Slug</label>
-                        <input 
-                          value={editingOrg.slug}
-                          onChange={(e) => setEditingOrg({ ...editingOrg, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-                          className="w-full px-3 py-1.5 bg-white border border-neutral-200 rounded-lg text-sm font-mono"
-                        />
-                      </div>
-                      <div className="flex gap-2 pt-2">
-                        <button onClick={handleUpdateOrg} className="flex-1 bg-neutral-900 text-white py-2 rounded-lg font-bold text-[10px] uppercase">Save</button>
-                        <button onClick={() => setEditingOrg(null)} className="flex-1 bg-white border border-neutral-200 text-neutral-500 py-2 rounded-lg font-bold text-[10px] uppercase">Cancel</button>
-                      </div>
-                    </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Column B: Selected Departments List (4 cols) */}
+          <div className="lg:col-span-4 bg-white rounded-[2rem] border border-neutral-150/70 p-5 shadow-sm space-y-4">
+            
+            <div className="flex justify-between items-center border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                <h3 className="font-extrabold text-[11px] uppercase tracking-wider text-neutral-400">2. Active Departments</h3>
+              </div>
+              {selectedOrgIdCascade && (
+                <button 
+                  onClick={() => setIsAddingDept(true)}
+                  className="text-[9px] font-black uppercase text-primary hover:underline"
+                >
+                  + Add Dept
+                </button>
+              )}
+            </div>
+
+            {selectedOrgIdCascade ? (
+              <div className="space-y-2 max-h-120 overflow-y-auto pr-1">
+                {departments
+                  .filter(d => d.orgId === selectedOrgIdCascade && (!searchTerm || d.name.toLowerCase().includes(lowerSearch)))
+                  .length > 0 ? (
+                    departments
+                      .filter(d => d.orgId === selectedOrgIdCascade && (!searchTerm || d.name.toLowerCase().includes(lowerSearch)))
+                      .map(dept => (
+                        <div 
+                          key={dept.id}
+                          onClick={() => setSelectedDeptIdCascade(dept.id)}
+                          className={`p-3.5 rounded-xl border text-left cursor-pointer transition ${
+                            selectedDeptIdCascade === dept.id
+                              ? 'border-neutral-800 bg-neutral-900 text-white shadow'
+                              : 'border-neutral-200 bg-neutral-50 hover:bg-neutral-100/50 text-neutral-700'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="font-extrabold text-xs uppercase tracking-wide truncate">{dept.name}</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDelete('departments', dept.id); }}
+                              className="text-neutral-400 hover:text-red-500 p-1 shrink-0 transition"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          
+                          <div className="flex justify-between items-center text-[8px] font-bold uppercase tracking-wider text-neutral-400">
+                            <span>Teams: {teams.filter(t => t.deptId === dept.id).length}</span>
+                            <span className="font-normal italic">Mapped</span>
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-dashed border-neutral-200">
+                      <p className="text-[10px] text-neutral-400 uppercase font-black">No departments mapped</p>
+                    </div>
                   )}
-                </AnimatePresence>
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => { setSelectedOrgId(org.id); setIsAddingDept(true); }}
-                    className="flex-1 py-2 bg-neutral-50 text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-primary transition rounded-lg"
-                  >
-                    + Dept
-                  </button>
-                </div>
               </div>
-            ))}
+            ) : (
+              <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-dashed border-neutral-200 py-12">
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider leading-relaxed">
+                  ← Choose an organization category from the left column to populate active departments.
+                </p>
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Departments Column */}
-        <div className={`space-y-6 ${activeOrgView !== 'depts' ? 'hidden lg:block' : ''}`}>
-          <div className="flex items-center justify-between px-2">
-            <h3 className="font-bold uppercase tracking-widest text-xs text-neutral-400">Departments ({departments.length})</h3>
-            <button 
-              onClick={() => setIsAddingDept(true)}
-              className="text-[10px] font-black uppercase text-primary hover:underline"
-            >
-              + Add Dept
-            </button>
-          </div>
-          <div className="space-y-4">
-            <AnimatePresence>
-              {isAddingDept && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white p-6 rounded-3xl border-2 border-primary/20 shadow-xl space-y-4"
+          {/* Column C: Assigned Teams List (4 cols) */}
+          <div className="lg:col-span-4 bg-white rounded-[2rem] border border-neutral-150/70 p-5 shadow-sm space-y-4">
+            
+            <div className="flex justify-between items-center border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <h3 className="font-extrabold text-[11px] uppercase tracking-wider text-neutral-400">3. Operational Teams</h3>
+              </div>
+              {selectedDeptIdCascade && (
+                <button 
+                  onClick={() => setIsAddingTeam(true)}
+                  className="text-[9px] font-black uppercase text-[#FF5500] hover:underline"
                 >
-                  <select 
-                    value={selectedOrgId}
-                    onChange={(e) => setSelectedOrgId(e.target.value)}
-                    className="w-full px-4 py-2 bg-neutral-50 border border-neutral-100 rounded-xl font-bold text-sm"
-                  >
-                    <option value="">Select Organization</option>
-                    {organizations.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                  </select>
-                  <input 
-                    placeholder="Department Name"
-                    value={newDeptName}
-                    onChange={(e) => setNewDeptName(e.target.value)}
-                    className="w-full px-4 py-2 bg-neutral-50 border border-neutral-100 rounded-xl font-bold"
-                  />
-                  <div className="flex gap-2">
-                    <button onClick={handleCreateDept} className="flex-1 bg-primary text-white py-2 rounded-xl font-bold text-xs uppercase">Add</button>
-                    <button onClick={() => setIsAddingDept(false)} className="flex-1 bg-neutral-100 text-neutral-600 py-2 rounded-xl font-bold text-xs uppercase">Cancel</button>
-                  </div>
-                </motion.div>
+                  + Add Team
+                </button>
               )}
-            </AnimatePresence>
+            </div>
 
-            {departments.map(dept => (
-              <div key={dept.id} className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md transition group">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center">
-                      <Layers size={20} />
+            {selectedDeptIdCascade ? (
+              <div className="space-y-2 max-h-120 overflow-y-auto pr-1">
+                {teams
+                  .filter(t => t.deptId === selectedDeptIdCascade && (!searchTerm || t.name.toLowerCase().includes(lowerSearch)))
+                  .length > 0 ? (
+                    teams
+                      .filter(t => t.deptId === selectedDeptIdCascade && (!searchTerm || t.name.toLowerCase().includes(lowerSearch)))
+                      .map(team => (
+                        <div 
+                          key={team.id}
+                          className="p-3.5 bg-neutral-50/75 hover:bg-neutral-100/50 border border-neutral-200 rounded-xl flex items-center justify-between gap-3 text-left"
+                        >
+                          <div className="min-w-0">
+                            <h5 className="font-extrabold text-neutral-800 text-xs truncate uppercase tracking-widest">{team.name}</h5>
+                            <span className="text-[7.5px] font-black uppercase tracking-widest text-[#FF5500] block mt-0.5">
+                              Operational Namespace Active
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleDelete('teams', team.id)}
+                            className="p-1 text-neutral-400 hover:text-red-500 rounded hover:bg-white border border-transparent hover:border-neutral-200 transition shrink-0"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))
+                  ) : (
+                    <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-dashed border-neutral-200">
+                      <p className="text-[10px] text-neutral-400 uppercase font-black">No operational teams deployed</p>
                     </div>
-                    <div>
-                      <h4 className="font-bold">{dept.name}</h4>
-                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
-                        {organizations.find(o => o.id === dept.orgId)?.name || 'Unknown Org'}
-                      </p>
-                    </div>
-                  </div>
-                  <button onClick={() => handleDelete('departments', dept.id)} className="p-2 text-neutral-200 hover:text-red-500 transition opacity-0 group-hover:opacity-100">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => { setSelectedDeptId(dept.id); setIsAddingTeam(true); }}
-                    className="flex-1 py-2 bg-neutral-50 text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-primary transition rounded-lg"
-                  >
-                    + Team
-                  </button>
-                </div>
+                  )}
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Teams Column */}
-        <div className={`space-y-6 ${activeOrgView !== 'teams' ? 'hidden lg:block' : ''}`}>
-          <div className="flex items-center justify-between px-2">
-            <h3 className="font-bold uppercase tracking-widest text-xs text-neutral-400">Teams ({teams.length})</h3>
-            <button 
-              onClick={() => setIsAddingTeam(true)}
-              className="text-[10px] font-black uppercase text-primary hover:underline"
-            >
-              + Add Team
-            </button>
-          </div>
-          <div className="space-y-4">
-            <AnimatePresence>
-              {isAddingTeam && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white p-6 rounded-3xl border-2 border-primary/20 shadow-xl space-y-4"
-                >
-                  <select 
-                    value={selectedDeptId}
-                    onChange={(e) => setSelectedDeptId(e.target.value)}
-                    className="w-full px-4 py-2 bg-neutral-50 border border-neutral-100 rounded-xl font-bold text-sm"
-                  >
-                    <option value="">Select Department</option>
-                    {departments.map(d => <option key={d.id} value={d.id}>{d.name} ({organizations.find(o => o.id === d.orgId)?.name})</option>)}
-                  </select>
-                  <input 
-                    placeholder="Team Name"
-                    value={newTeamName}
-                    onChange={(e) => setNewTeamName(e.target.value)}
-                    className="w-full px-4 py-2 bg-neutral-50 border border-neutral-100 rounded-xl font-bold"
-                  />
-                  <div className="flex gap-2">
-                    <button onClick={handleCreateTeam} className="flex-1 bg-primary text-white py-2 rounded-xl font-bold text-xs uppercase">Add</button>
-                    <button onClick={() => setIsAddingTeam(false)} className="flex-1 bg-neutral-100 text-neutral-600 py-2 rounded-xl font-bold text-xs uppercase">Cancel</button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {teams.map(team => (
-              <div key={team.id} className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm hover:shadow-md transition group">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-emerald-50 text-emerald-500 rounded-xl flex items-center justify-center">
-                      <GitBranch size={20} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold">{team.name}</h4>
-                      <div className="flex flex-col text-[10px] text-neutral-400 font-bold uppercase tracking-widest italic">
-                        <span>{organizations.find(o => o.id === team.orgId)?.name || 'Unknown Org'}</span>
-                        <span>{departments.find(d => d.id === team.deptId)?.name || 'Unknown Dept'}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <button onClick={() => handleDelete('teams', team.id)} className="p-2 text-neutral-200 hover:text-red-500 transition opacity-0 group-hover:opacity-100">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+            ) : (
+              <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-dashed border-neutral-200 py-12">
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider leading-relaxed">
+                  ← Choose a sub-department namespace to inspect and manage operational teams.
+                </p>
               </div>
-            ))}
+            )}
           </div>
+
         </div>
-      </div>
+      )}
+
     </div>
   );
 }

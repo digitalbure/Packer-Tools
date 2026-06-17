@@ -1305,6 +1305,7 @@ export default function App() {
 
             {/* Dynamic Geographic Community Router Portal */}
             <CommunitySelector
+              user={user}
               adminSettings={adminSettings}
               selectedCommunity={selectedCommunity}
               isOpen={isCommunitySelectorOpen}

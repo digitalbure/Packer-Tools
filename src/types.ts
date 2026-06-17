@@ -116,6 +116,12 @@ export interface UserProfile {
   country?: string; // User selected marketplace country
   dashboardMode?: 'minimal' | 'all';
   viewDensity?: 'compact' | 'comfortable';
+  fijiCity?: string;
+  fijiProvince?: string;
+  phoneNumber?: string;
+  fijiPhone?: string;
+  fijiDetailsCaptured?: boolean;
+  fijiDetailsCapturedAt?: string;
   layoutPreferences?: {
     showRecentLists?: boolean;
     showMaintenanceAlerts?: boolean;
@@ -802,6 +808,14 @@ export interface AdminSettings {
     pwaThemeColor?: string;
     pwaIcon192Url?: string;
     pwaIcon512Url?: string;
+  };
+  emailBranding?: {
+    logoUrl?: string;
+    primaryColor?: string;
+    companyName?: string;
+    footerText?: string;
+    footerLinks?: Array<{ label: string; href: string }>;
+    defaultFromType?: 'no-reply' | 'hi' | 'team';
   };
   limits?: {
     maxCheckoutDurationHours?: number;
