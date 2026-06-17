@@ -18,6 +18,7 @@ interface IndustryContextProps {
   isConstruction: boolean;
   isAutomotive: boolean;
   isOutdoors: boolean;
+  isSports: boolean;
   getAdjustedLabel: (key: 'library' | 'lists' | 'racks' | 'logistics' | 'inventory' | 'systems-builder' | 'packing-lists' | 'templates') => string;
   getAdjustedNav: <T extends { to: string }>(items: T[]) => T[];
 }
@@ -51,6 +52,7 @@ export function IndustryProvider({ user, adminSettings, children }: IndustryProv
   const isConstruction = activeIndustry === 'construction';
   const isAutomotive = activeIndustry === 'car_rental';
   const isOutdoors = activeIndustry === 'outdoors';
+  const isSports = activeIndustry === 'sports';
 
   const customTerms = useMemo(() => {
     const defaultTerm = INDUSTRIES.find(ind => ind.id === activeIndustry) || INDUSTRIES[INDUSTRIES.length - 1];
@@ -110,6 +112,20 @@ export function IndustryProvider({ user, adminSettings, children }: IndustryProv
       }
     }
 
+    if (isSports) {
+      switch (key) {
+        case 'library': return customTerms.gearLabelPlural; // e.g. "Athletic Gear & Kits"
+        case 'lists': return customTerms.listLabelPlural; // e.g. "Roster & Team Lists"
+        case 'packing-lists': return 'Team Game Day Lists';
+        case 'templates': return 'Tournament & Game Presets';
+        case 'racks': return 'Team Locker & Equipment Cage';
+        case 'logistics': return 'Team Travel & Game Logistics';
+        case 'inventory': return 'Locker Room Stock & Jerseys';
+        case 'systems-builder': return 'Team Roster Kit Builder';
+        default: break;
+      }
+    }
+
     // Default translation using custom terms where available or sensible fallbacks
     switch (key) {
       case 'library': return customTerms.gearLabelPlural;
@@ -161,6 +177,18 @@ export function IndustryProvider({ user, adminSettings, children }: IndustryProv
       });
     }
 
+    if (isSports) {
+      const prioritized = ['/lists', '/library', '/inventory', '/racks', '/logistics', '/systems-builder'];
+      return [...items].sort((a, b) => {
+        const idxA = prioritized.indexOf(a.to);
+        const idxB = prioritized.indexOf(b.to);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      });
+    }
+
     return items;
   };
 
@@ -171,9 +199,10 @@ export function IndustryProvider({ user, adminSettings, children }: IndustryProv
     isConstruction,
     isAutomotive,
     isOutdoors,
+    isSports,
     getAdjustedLabel,
     getAdjustedNav,
-  }), [activeIndustry, customTerms, currentWorkspace, isConstruction, isAutomotive, isOutdoors]);
+  }), [activeIndustry, customTerms, currentWorkspace, isConstruction, isAutomotive, isOutdoors, isSports]);
 
   return (
     <IndustryContext.Provider value={contextValue}>

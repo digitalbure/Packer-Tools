@@ -15,7 +15,9 @@ import {
   Car,
   Cpu,
   Cake,
-  Briefcase
+  Briefcase,
+  Compass,
+  Trophy
 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -75,6 +77,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
     else if (indId === 'car_rental') setWorkspaceName('Car Fleet Garage');
     else if (indId === 'it') setWorkspaceName('Hardware Server Rack');
     else if (indId === 'event') setWorkspaceName('Main Event Banquet Store');
+    else if (indId === 'sports') setWorkspaceName('Championship Athletic Locker');
     else setWorkspaceName('My General Inventory');
   };
 
@@ -86,6 +89,8 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
       case 'Car': return <Car className="w-5 h-5 text-red-500 shrink-0" />;
       case 'Cpu': return <Cpu className="w-5 h-5 text-teal-500 shrink-0" />;
       case 'Cake': return <Cake className="w-5 h-5 text-purple-500 shrink-0" />;
+      case 'Compass': return <Compass className="w-5 h-5 text-emerald-600 shrink-0" />;
+      case 'Trophy': return <Trophy className="w-5 h-5 text-amber-500 shrink-0" />;
       default: return <Package className="w-5 h-5 text-slate-500 shrink-0" />;
     }
   };

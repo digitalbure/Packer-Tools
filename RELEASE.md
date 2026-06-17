@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.10.0`
+## Current Application Version: `v4.13.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,31 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.13.0 (Systems Builder Authorization & Self-Service Beta Enroller)
+*Released on: June 17, 2026*
+- **Systems Builder Security Audit & Registry**: Hardened and configured comprehensive security rules for the Systems Builder feature under a custom `/systemsBuilds/{buildId}` namespace in `firestore.rules`. Established strict ownership validation (`isValidSystemsBuild()`) preventing unauthorized cross-tenant writes or read tampering.
+- **Self-Service Beta Program Access**: Deployed an interactive, high-contrast purple control panel within the Developer Dashboard allowing any registered user to toggle their official platform-wide `isBetaTester` status seamlessly with instantaneous visual feedback, bypassing manual administrative whitelisting.
+- **Instant Dashboard Syncing**: Connected the newly toggled beta flag to the main workspace layout, allowing users to instantly reveal or hide the deep debug `🧪 Beta Bug Finder` workbench tab without requiring page reloads.
+
+---
+
+### 🚀 Stable Release: v4.12.0 (Administrative System Health & Concurrency Load Simulator)
+*Released on: June 17, 2026*
+- **Administrative System Health Dashboard**: Designed and integrated a production-ready telemetry component under the "System Health" tab of the Admin Panel, visualizing live Firebase Firestore document counts, transaction volume distribution curves, and real-time SLA patterns.
+- **Serverless Cloud Aggregations Audit**: Built on-demand database syncing utilizing lightweight `getCountFromServer()` checks across collections (including Users, Lists, Projects, Logs, and Custom Sheets), eliminating unneeded memory consumption.
+- **Durable Concurrency Load Simulator**: Implemented interactive scaling controls for Daily Active Users (DAU), Reads, and Writes per session to automatically recalculate hourly operations, project pricing schedules, and flag potential write hotspots.
+- **Hotspot Auditing Index Guidelines**: Documented complete structural check-indexes mapping micro-batch actions, large query limits, and write-lock mitigations, supporting high enterprise scalability.
+
+---
+
+### 🚀 Stable Release: v4.11.0 (Enterprise Scalability & High-Volume Query Safeguards)
+*Released on: June 17, 2026*
+- **Query Cost & Overhead Mitigation**: Migrated multiple system dashboard tracking queries in `limitUtils` from pulling expensive list-snapshots (`getDocs`) to utilizing server-side optimized aggregation functions (`getCountFromServer`). This prevents client memory exhaustion and slashes Firebase billing costs for checking active item limitations down to near-zero.
+- **Write-Batch Splitting Engine**: Fixed and upgraded bulk action processors across the Gear Library and custom inventories. Any operations updating, creating, copying, or deleting assets in large batches are dynamically split into micro-batches of maximum 250-500 operations to prevent exceeding Firestore's strict single-batch limit of 500 documents.
+- **Robust High-Efficiency Pagination**: Validated and updated reactive interface buffers in both catalog grids and dataset tables. Large sheets with millions of entities are rendered seamlessly via decoupled page limits and virtual sorting.
 
 ---
 

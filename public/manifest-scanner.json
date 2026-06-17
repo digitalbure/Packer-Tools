@@ -1,11 +1,11 @@
 {
-  "name": "Packer Tools",
-  "short_name": "Packer Tools",
-  "description": "The professional visual inventory & gear lifecycle platform.",
-  "start_url": "/",
+  "name": "Packer Tools Scanner",
+  "short_name": "Packer Scanner",
+  "description": "High-frequency visual checkout and inventory scan terminal.",
+  "start_url": "/#/kiosk?scannerApp=true&hideLayout=true",
   "display": "standalone",
-  "background_color": "#0a0a0c",
-  "theme_color": "#0a0a0c",
+  "background_color": "#F27D26",
+  "theme_color": "#F27D26",
   "icons": [
     {
       "src": "/icon-192.png",

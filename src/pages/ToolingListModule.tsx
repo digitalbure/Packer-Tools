@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Wrench, Hammer, Plus, Search, Trash2, Edit2, Zap, Package, Tag, Filter, ChevronRight, ChevronDown, CheckCircle2, Circle, RotateCcw, GripVertical, X, Info } from 'lucide-react';
-import { collection, query, onSnapshot, doc, addDoc, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, addDoc, updateDoc, deleteDoc, getDocs, writeBatch, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { PackingList, PackingItem, UserProfile, AdminSettings } from '../types';
 import { toast } from 'sonner';
@@ -29,10 +29,11 @@ export default function ToolingListModule({ user, adminSettings: propAdminSettin
   });
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'packingLists'), (snapshot) => {
+    const qList = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid));
+    const unsubscribe = onSnapshot(qList, (snapshot) => {
       setLists(snapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() } as PackingList))
-        .filter(l => l.ownerId === user.uid && l.jobType) // Only lists with jobType (Tooling Lists)
+        .filter(l => l.jobType) // Only lists with jobType (Tooling Lists)
       );
     });
 

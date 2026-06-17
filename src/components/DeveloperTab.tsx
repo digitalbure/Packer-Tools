@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Code, Key, Terminal, Copy, Check, ExternalLink, Globe, RefreshCw, Play, Layout, Paintbrush, Shield, HelpCircle } from 'lucide-react';
+import { Code, Key, Terminal, Copy, Check, ExternalLink, Globe, RefreshCw, Play, Layout, Paintbrush, Shield, HelpCircle, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { db } from '../firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 interface DeveloperTabProps {
   user: {
@@ -411,6 +413,43 @@ export default function DeveloperTab({ user, lists }: DeveloperTabProps) {
                 {isGeneratingKey ? 'Rotating credentials...' : 'Rotate API Credentials'}
               </button>
             </div>
+          </div>
+
+          {/* Beta Program Self-Service Access Mode */}
+          <div className="bg-purple-50 p-8 rounded-[2.5rem] border border-purple-150/70 space-y-6">
+            <div className="flex items-center gap-2">
+              <Sparkles className="text-purple-600 animate-pulse" size={20} />
+              <h3 className="font-bold text-lg text-neutral-950">Beta Program Access</h3>
+            </div>
+            <p className="text-xs text-purple-950 leading-relaxed font-medium">
+              Activate your platform-wide Beta Tester status to unlock the brand new <strong className="font-bold">🧪 Beta Bug Finder</strong> module and other experimental features directly on your dashboard.
+            </p>
+
+            <button
+              onClick={async () => {
+                try {
+                  const currentStatus = !!(user as any).isBetaTester;
+                  await updateDoc(doc(db, 'users', user.uid), {
+                    isBetaTester: !currentStatus
+                  });
+                  toast.success(
+                    !currentStatus 
+                      ? "Beta status activated! Look for the '🧪 Beta Bug Finder' tab on your main dashboard." 
+                      : "Beta status deactivated."
+                  );
+                } catch (err) {
+                  console.error("Error toggling beta status:", err);
+                  toast.error("Failed to update Beta program credentials.");
+                }
+              }}
+              className={`w-full py-2.5 text-center text-xs font-black uppercase tracking-widest rounded-xl transition shadow-sm border ${
+                (user as any).isBetaTester 
+                  ? 'bg-purple-600 border-purple-600 text-white hover:bg-purple-700' 
+                  : 'bg-white border-purple-200 text-purple-700 hover:bg-purple-50'
+              }`}
+            >
+              {(user as any).isBetaTester ? 'Beta Access Active (Disable)' : 'Enable Beta Access'}
+            </button>
           </div>
 
           {/* Guidelines & Documentation panel */}

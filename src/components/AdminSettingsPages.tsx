@@ -1066,6 +1066,7 @@ export function MultiIndustrySettingsTab({ settings, setSettings }: SettingsTabP
   const industries = [
     { id: 'film_media', name: 'Media & Film Production', desc: 'Sets terms to Camera, Lenses, Packing Lists, cases, and focal length configs' },
     { id: 'construction', name: 'Heavy Trades & Tools', desc: 'Configures sandbox items to Heavy Tools, Kits, Subcontractors & safety certificates' },
+    { id: 'sports', name: 'Sports & Teams Training', desc: 'Catalog active athletic jerseys, training equipment, ball gauges, and team game day rosters' },
     { id: 'events_stage', name: 'A/V Stage & Live production', desc: 'Sets sandboxes to Truss components, Cabinets, Stage assets, power cables' },
     { id: 'medical_edu', name: 'Life Science & Bio Labs', desc: 'Provides specific terms for calibration intervals, serial numbers, sterile seals' },
     { id: 'it_hardware', name: 'Network Cabinets & Laptops', desc: 'Terms like hostnames, IP allocations, software stacks, rack coordinates' },

@@ -2124,6 +2124,11 @@ app.post("/api/send-contact-email", authenticateUser, async (req, res) => {
   }
 });
 
+// Local in-memory caching variables for GCP Pricing API to shield against double-fetches and quota/rate exceptions
+let gcpPricingCache: any = null;
+let gcpPricingCacheTime = 0;
+const GCP_PRICING_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
+
 app.get("/api/gcp-pricing", authenticateUser, async (req, res) => {
   const defaultRates = {
     cloudRun: {
@@ -2139,9 +2144,14 @@ app.get("/api/gcp-pricing", authenticateUser, async (req, res) => {
     }
   };
 
+  const now = Date.now();
+  if (gcpPricingCache && (now - gcpPricingCacheTime < GCP_PRICING_CACHE_DURATION_MS)) {
+    return res.json(gcpPricingCache);
+  }
+
   const key = process.env.GCP_PRICING_API_KEY || process.env.GEMINI_API_KEY;
   if (!key) {
-    return res.json({
+    const resultPayload = {
       status: "success",
       source: "GCP Pricing Engine (Active Fallback Rates)",
       rates: defaultRates,
@@ -2149,7 +2159,10 @@ app.get("/api/gcp-pricing", authenticateUser, async (req, res) => {
       simulatedMetrics: {
         lastUpdated: new Date().toISOString()
       }
-    });
+    };
+    gcpPricingCache = resultPayload;
+    gcpPricingCacheTime = now;
+    return res.json(resultPayload);
   }
 
   try {
@@ -2257,7 +2270,7 @@ app.get("/api/gcp-pricing", authenticateUser, async (req, res) => {
       logDetails.push(`Cloud Firestore SKU fetch skipped or failed.`);
     }
 
-    return res.json({
+    const resultPayload = {
       status: "success",
       source: liveFetchedCount > 0 ? "GCP Pricing API (Live SKUs Synchronized)" : "GCP Pricing Engine (Active Fallback Rates)",
       rates: finalRates,
@@ -2265,11 +2278,14 @@ app.get("/api/gcp-pricing", authenticateUser, async (req, res) => {
       simulatedMetrics: {
         lastUpdated: new Date().toISOString()
       }
-    });
+    };
+    gcpPricingCache = resultPayload;
+    gcpPricingCacheTime = now;
+    return res.json(resultPayload);
 
   } catch (error: any) {
     console.error("GCP Pricing API fetch returned error:", error.message);
-    return res.json({
+    const resultPayload = {
       status: "success",
       source: "GCP Pricing Engine (Active Fallback Rates)",
       rates: defaultRates,
@@ -2277,7 +2293,10 @@ app.get("/api/gcp-pricing", authenticateUser, async (req, res) => {
       simulatedMetrics: {
         lastUpdated: new Date().toISOString()
       }
-    });
+    };
+    gcpPricingCache = resultPayload;
+    gcpPricingCacheTime = now - GCP_PRICING_CACHE_DURATION_MS + 60000;
+    return res.json(resultPayload);
   }
 });
 

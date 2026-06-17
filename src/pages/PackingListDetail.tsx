@@ -245,6 +245,13 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [brandLogo, setBrandLogo] = useState('');
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [isQRPrintModalOpen, setIsQRPrintModalOpen] = useState(false);
+  useEffect(() => {
+    const handleOpenQRPrint = () => {
+      setIsQRPrintModalOpen(true);
+    };
+    window.addEventListener('open-qr-print-modal', handleOpenQRPrint);
+    return () => window.removeEventListener('open-qr-print-modal', handleOpenQRPrint);
+  }, []);
   const [showCreateKitModal, setShowCreateKitModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);

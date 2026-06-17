@@ -1083,6 +1083,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     setIsDirty(false);
   };
   const [isQRPrintModalOpen, setIsQRPrintModalOpen] = useState(false);
+  useEffect(() => {
+    const handleOpenQRPrint = () => {
+      setIsQRPrintModalOpen(true);
+    };
+    window.addEventListener('open-qr-print-modal', handleOpenQRPrint);
+    return () => window.removeEventListener('open-qr-print-modal', handleOpenQRPrint);
+  }, []);
   const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;

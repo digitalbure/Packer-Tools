@@ -5,13 +5,7 @@ import {
   X, 
   Sparkles, 
   RotateCcw, 
-  Layers, 
-  HelpCircle, 
-  User, 
-  ShieldAlert, 
-  Package, 
-  Zap,
-  Info 
+  Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
@@ -33,6 +27,8 @@ interface DukeyAssistantProps {
 
 export default function DukeyAssistant({ user }: DukeyAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Chatbot states
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -65,7 +61,6 @@ export default function DukeyAssistant({ user }: DukeyAssistantProps) {
       console.warn("DukeyAssistant: Error listening to packing lists:", error);
     });
 
-    // Real-time custom inventories sheet integration with sub-items resolving
     const qInvs = query(collection(db, 'inventories'));
     const unsubInvs = onSnapshot(qInvs, async (snapshot) => {
       const allInvs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
@@ -130,18 +125,18 @@ export default function DukeyAssistant({ user }: DukeyAssistantProps) {
       const userName = user.displayName || user.email.split('@')[0];
       const planName = (user.plan || 'Free').toUpperCase();
       
-      let greeting = `👋 Hey **${userName}**! I'm **Dukey**, your expert gear architect and packing strategist. 
-
-I understand equipment integration, camera rigs, power management, storage compliance, and can help you organize packs instantly!
+      let greeting = `👋 Hey **${userName}**! I'm **Dukey**, your expert gear architect and packing advisor. 
+ 
+I understand equipment tracking, cable bundles, Pelican setups, and visual asset designer grids. Below you can chat with me! To print adhesive tags, open the **Quick Actions drawer** (via the red Zap icon on the right edge) and select **Print Adhesive Tags** to launch the physical designer!
 
 `;
 
       if (isSuper) {
-        greeting += `🛠️ **Super Admin Access Approved.** I have indexed your live database of **${gearItems.length} items** and **${packingLists.length} packing lists**. Ask me system level reports, statistics, or audit query details!`;
+        greeting += `🛠️ **Super Admin Access Approved.** I have indexed your live database of **${gearItems.length} items** and can help run real-time audits or configuration tasks!`;
       } else if (user.plan === 'pro' || user.plan === 'enterprise') {
-        greeting += `✨ **${planName} Plan Active.** All specialized features (AI Wizard, Custom Cases, Rack allocations) are online. Ready to optimize your high-stakes logistics or inventory weight?`;
+        greeting += `✨ **${planName} Plan Active.** All specialized features (AI Assistant, Cable wrap indicators, custom layouts) are fully online.`;
       } else {
-        greeting += `🎒 **Free Plan Lounge.** I see you have **${gearItems.length}/25 gear items** registered. Ask me general packing advice or how to expand list assemblies! *Tip: Upgrading to Pro lets us track more gear and build travel kits!*`;
+        greeting += `🎒 **Free Plan lounge.** Feel free to query packing rules or load high-density stickers!`;
       }
 
       setMessages([
@@ -184,13 +179,16 @@ I understand equipment integration, camera rigs, power management, storage compl
         text: msg.text
       }));
 
+      // If user asks about print tags, qr codes, adhesive or labels, give them a specialized answer and prompt switching tabs!
+      const isQrInquiry = /print|qr|adhesive|tag|label|barcode/i.test(rawText);
+
       const res = await authenticatedFetch('/api/dukey-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: rawText,
           history: chatHistory.slice(-10),
-          gear: (gearItems || []).slice(0, 100).map((g: any) => ({
+          gear: (gearItems || []).slice(0, 50).map((g: any) => ({
             name: g.name || '',
             brand: g.brand || '',
             model: g.model || '',
@@ -198,25 +196,22 @@ I understand equipment integration, camera rigs, power management, storage compl
             quantity: typeof g.quantity === 'number' ? g.quantity : 1,
             status: g.status || ''
           })),
-          packingLists: (packingLists || []).slice(0, 20).map((l: any) => ({
+          packingLists: (packingLists || []).slice(0, 10).map((l: any) => ({
             title: l.title || '',
             status: l.status || '',
             itemsCount: l.items?.length || 0
           })),
-          customInventories: (customInventories || []).slice(0, 10).map((inv: any) => ({
+          customInventories: (customInventories || []).slice(0, 5).map((inv: any) => ({
             name: inv.name || '',
-            items: (inv.items || []).slice(0, 20).map((i: any) => ({
+            items: (inv.items || []).slice(0, 10).map((i: any) => ({
               name: i.name || '',
               brand: i.brand || '',
-              quantity: typeof i.quantity === 'number' ? i.quantity : (typeof i.qty === 'number' ? i.qty : 1),
-              primaryCategory: i.primaryCategory || i.cat || ''
+              quantity: typeof i.qty === 'number' ? i.qty : 1
             }))
           })),
-          containers: (containers || []).slice(0, 20).map((c: any) => ({
+          containers: (containers || []).slice(0, 10).map((c: any) => ({
             name: c.name || '',
             type: c.type || '',
-            model: c.model || '',
-            weightLimit: c.weightLimit || null,
             currentWeight: c.currentWeight || 0
           })),
           userProfile: {
@@ -225,25 +220,23 @@ I understand equipment integration, camera rigs, power management, storage compl
             isSuperAdmin: user.isSuperAdmin || false,
             role: user.role || 'viewer',
             plan: user.plan || 'free'
-          },
-          recentViews: (() => {
-            try {
-              return JSON.parse(localStorage.getItem("packer_recent_views") || "[]");
-            } catch (e) {
-              return [];
-            }
-          })()
+          }
         })
       });
 
       if (!res.ok) throw new Error("Dukey's frequency scrambled");
 
       const data = await res.json();
+      let responseText = data.text || '';
       
+      if (isQrInquiry) {
+        responseText += `\n\n🎯 **Dukey Operator Advice:** I've noticed you are asking about QR or adhesive printing! You can open the **Quick Actions panel** (via the red Zap icon on the right edge of your screen) and select **Print Adhesive Tags (QR)**. This opens the dynamic layout designer where you can configure sizes, custom XLR/SDI cable tags, and sync titles!`;
+      }
+
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         sender: 'dukey',
-        text: data.text || "I processed your request but returned a blank thought. Try rephrasing!",
+        text: responseText,
         timestamp: new Date()
       }]);
     } catch (err: any) {
@@ -265,45 +258,13 @@ I understand equipment integration, camera rigs, power management, storage compl
 
   // Pre-compiled contextual prompt recommendations
   const getSuggestedPrompts = () => {
-    const prompts = [];
-    
-    // Check local equipment list
-    const hasLenses = gearItems.some(i => 
-      i.primaryCategory === 'Lens' || 
-      i.name?.toLowerCase().includes('lens') || 
-      i.model?.toLowerCase().includes('lens')
-    );
-    const hasBatteries = gearItems.some(i => 
-      i.name?.toLowerCase().includes('battery') || 
-      i.name?.toLowerCase().includes('v-mount') ||
-      i.primaryCategory === 'Power'
-    );
-
-    if (hasLenses) {
-      prompts.push("How many lenses are there?");
-    } else {
-      prompts.push("Suggest camera lenses or setups");
-    }
-
-    if (hasBatteries) {
-      prompts.push("How many batteries do we have?");
-    } else {
-      prompts.push("How should I pack power equipment?");
-    }
-
-    if (containers && containers.length > 0) {
-      prompts.push(`Suggest storage layouts for my ${containers[0].name || 'cases'}`);
-    } else {
-      prompts.push("Suggest storage containers & Pelican setups");
-    }
-
-    if (customInventories && customInventories.length > 0) {
-      prompts.push(`Suggest kit builds using ${customInventories[0].name || 'our inventory'}`);
-    } else {
-      prompts.push("Suggest custom kit builds & upgrades");
-    }
-
-    return prompts.slice(0, 4);
+    const prompts = [
+      "How do I print adhesive wraps?",
+      "How many lenses do we have?",
+      "Optimize my Pelican weight list",
+      "Explain XLR Cable wrap-around colors"
+    ];
+    return prompts;
   };
 
   return (
@@ -314,11 +275,11 @@ I understand equipment integration, camera rigs, power management, storage compl
           onClick={() => setIsOpen(true)}
           className="flex items-center gap-2.5 bg-neutral-900 border border-neutral-800 text-white hover:bg-neutral-800 px-4.5 py-3 rounded-full shadow-[0_4px_24px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_32px_rgba(242,125,38,0.25)] active:scale-95 transition-all group pointer-events-auto cursor-pointer"
           id="dukey-trigger-btn"
+          type="button"
         >
           <div className="relative">
-            <Bot size={20} className="text-primary group-hover:scale-115 transition-transform" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-neutral-900" />
+            <Bot size={20} className="text-primary group-hover:scale-110 transition-transform" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping text-transparent">●</span>
           </div>
           <span className="font-extrabold text-xs uppercase tracking-wider">Ask Dukey</span>
         </button>
@@ -334,7 +295,7 @@ I understand equipment integration, camera rigs, power management, storage compl
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-xs z-[70]"
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[70]"
               id="dukey-backdrop"
             />
 
@@ -343,23 +304,23 @@ I understand equipment integration, camera rigs, power management, storage compl
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-neutral-950 text-neutral-200 shadow-2xl z-[80] flex flex-col border-l border-neutral-800"
+              transition={{ type: 'spring', damping: 26, stiffness: 220 }}
+              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-neutral-950 text-neutral-250 shadow-2xl z-[80] flex flex-col border-l border-neutral-800 font-sans"
               id="dukey-chat-drawer"
             >
               {/* Obsidian Glossy Custom Header */}
-              <div className="p-4.5 border-b border-neutral-800 bg-neutral-900 flex items-center justify-between">
+              <div className="p-4 border-b border-neutral-800 bg-neutral-900 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 border border-primary/20 flex items-center justify-center rounded-xl text-primary font-black text-lg relative">
-                    <Bot size={22} className="relative z-10" />
+                  <div className="w-9 h-9 bg-primary/10 border border-primary/25 flex items-center justify-center rounded-xl text-primary font-black text-lg relative">
+                    <Bot size={20} className="relative z-10" />
                     <div className="absolute inset-0 bg-primary/5 rounded-xl animate-pulse" />
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5 leading-snug">
                       <span className="font-black text-sm uppercase tracking-wider text-white">Dukey</span>
-                      <span className="text-[10px] bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.5 rounded font-black uppercase tracking-widest">Expert AI</span>
+                      <span className="text-[9px] bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.5 rounded font-black uppercase tracking-widest">Expert AI</span>
                     </div>
-                    <p className="text-[10px] text-neutral-400 font-medium">Platform Knowledge Engine</p>
+                    <p className="text-[10px] text-neutral-400 font-medium">Assistant & Printing Portal</p>
                   </div>
                 </div>
 
@@ -368,24 +329,26 @@ I understand equipment integration, camera rigs, power management, storage compl
                     onClick={handleResetChat}
                     className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition"
                     title="Reset Dukey Chat"
+                    type="button"
                   >
-                    <RotateCcw size={15} />
+                    <RotateCcw size={14} />
                   </button>
                   <button 
                     onClick={() => setIsOpen(false)}
                     className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition"
                     title="Close Dukey Panel"
+                    type="button"
                   >
-                    <X size={16} />
+                    <X size={15} />
                   </button>
                 </div>
               </div>
 
-              {/* Scope and role statistics bar */}
-              <div className="px-4.5 py-2 bg-neutral-900/50 border-b border-neutral-800 flex items-center justify-between text-[11px] text-neutral-400">
+              {/* Active Scope and statistics bar */}
+              <div className="px-4 py-2 bg-neutral-900/40 border-b border-neutral-850 flex items-center justify-between text-[10px] text-neutral-400">
                 <div className="flex items-center gap-1">
-                  <Package size={12} className="text-neutral-500" />
-                  <span>Library context: <strong>{gearItems.length} items</strong></span>
+                  <Package size={11} className="text-neutral-500" />
+                  <span>Gear Assets indexed: <strong>{gearItems.length} styles</strong></span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
@@ -393,114 +356,110 @@ I understand equipment integration, camera rigs, power management, storage compl
                 </div>
               </div>
 
-              {/* Custom Chat Feed Area */}
-              <div className="flex-1 overflow-y-auto p-4.5 space-y-4 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className="flex gap-2.5 max-w-[85%]">
-                      {msg.sender === 'dukey' && (
-                        <div className="w-7 h-7 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-center shrink-0 text-primary pt-0.5">
-                          <Bot size={15} />
+              {/* TAB 1: ORIGINAL GEMINI CHAT BOT */}
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className="flex gap-2.5 max-w-[85%]">
+                        {msg.sender === 'dukey' && (
+                          <div className="w-7 h-7 bg-primary/10 border border-primary/25 rounded-lg flex items-center justify-center shrink-0 text-primary pt-0.5">
+                            <Bot size={14} />
+                          </div>
+                        )}
+                        <div>
+                          <div
+                            className={`p-3 rounded-2xl ${
+                              msg.sender === 'user'
+                                ? 'bg-primary text-white font-medium rounded-tr-none text-xs'
+                                : 'bg-neutral-900 border border-neutral-800 text-neutral-100 rounded-tl-none text-xs'
+                            }`}
+                          >
+                            {msg.sender === 'dukey' ? (
+                              <div className="prose prose-sm prose-invert max-w-none text-xs leading-relaxed space-y-1.5 text-neutral-200">
+                                <Markdown>{msg.text}</Markdown>
+                              </div>
+                            ) : (
+                              <p className="text-xs break-words leading-relaxed">{msg.text}</p>
+                            )}
+                          </div>
+                          <span className="text-[9px] text-neutral-500 mt-1 block px-1 text-right">
+                            {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
-                      )}
-                      <div>
-                        <div
-                          className={`p-3 rounded-2xl ${
-                            msg.sender === 'user'
-                              ? 'bg-primary text-white font-medium rounded-tr-none'
-                              : 'bg-neutral-900 border border-neutral-800 text-neutral-100 rounded-tl-none'
-                          }`}
-                        >
-                          {msg.sender === 'dukey' ? (
-                            <div className="prose prose-sm prose-invert max-w-none text-xs leading-relaxed space-y-1.5 text-neutral-200">
-                              <Markdown>{msg.text}</Markdown>
-                            </div>
-                          ) : (
-                            <p className="text-xs break-words leading-relaxed">{msg.text}</p>
-                          )}
-                        </div>
-                        <span className="text-[9px] text-neutral-500 mt-1 block px-1 text-right">
-                          {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="flex gap-2.5 max-w-[85%]">
-                      <div className="w-7 h-7 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-center shrink-0 text-primary animate-spin">
-                        <Sparkles size={14} />
-                      </div>
-                      <div className="p-3 bg-neutral-900 border border-neutral-800 text-neutral-100 rounded-2xl rounded-tl-none flex items-center gap-2">
-                        <span className="text-xs text-neutral-400 font-bold animate-pulse">Dukey is analyzing lists...</span>
+                  {isLoading && (
+                    <div className="flex justify-start">
+                      <div className="flex gap-2.5 max-w-[85%]">
+                        <div className="w-7 h-7 bg-primary/10 border border-primary/25 rounded-lg flex items-center justify-center shrink-0 text-primary animate-spin">
+                          <Sparkles size={13} />
+                        </div>
+                        <div className="p-3 bg-neutral-900 border border-neutral-800 text-neutral-100 rounded-2xl rounded-tl-none flex items-center gap-2">
+                          <span className="text-xs text-neutral-400 font-bold animate-pulse">Dukey is parsing logs...</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-                
-                <div ref={chatEndRef} />
-              </div>
-
-              {/* Suggestions / Prompt recommendations panel */}
-              {messages.length > 0 && !isLoading && (
-                <div className="p-3 bg-neutral-900/40 border-t border-neutral-900 space-y-1.5 shrink-0">
-                  <header className="flex items-center gap-1 px-1.5 text-[10px] font-black uppercase text-neutral-500 tracking-wider">
-                    <Sparkles size={11} className="text-primary" />
-                    <span>Inquire Dukey</span>
-                  </header>
-                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 scrollbar-hide">
-                    {getSuggestedPrompts().map((prompt, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleSendMessage(prompt)}
-                        className="text-[10px] bg-neutral-950 hover:bg-neutral-800 text-neutral-300 hover:text-white border border-neutral-800 px-2.5 py-1.5 rounded-lg transition text-left cursor-pointer active:scale-95 shrink-0"
-                      >
-                        {prompt}
-                      </button>
-                    ))}
-                  </div>
+                  )}
+                  
+                  <div ref={chatEndRef} />
                 </div>
-              )}
 
-              {/* Input Box Controls */}
-              <div className="p-4 border-t border-neutral-800 bg-neutral-900 shrink-0">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }}
-                  className="flex gap-2"
-                >
-                  <input
-                    type="text"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    placeholder="Ask Dukey about gear, counts, assembly or rules..."
-                    className="flex-1 bg-neutral-950 border border-neutral-800 focus:border-primary/50 text-white rounded-xl px-3 py-2.5 text-xs placeholder-neutral-500 font-medium focus:outline-none transition"
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="submit"
-                    className="p-2.5 bg-primary hover:bg-opacity-90 disabled:bg-neutral-800 disabled:text-neutral-500 text-white rounded-xl transition flex items-center justify-center shrink-0 cursor-pointer"
-                    disabled={!inputValue.trim() || isLoading}
-                  >
-                    <Send size={15} />
-                  </button>
-                </form>
-                
-                {/* Upgrade advise for Free Tier */}
-                {user.plan !== 'pro' && user.plan !== 'enterprise' && (
-                  <div className="mt-2.5 flex items-start gap-1 px-1 text-[9px] text-neutral-500 select-none">
-                    <Info size={10} className="text-primary shrink-0 mt-0.5" />
-                    <span>Unlocked with Dukey: auto-assembly analysis, weight-distribution modeling, and up to 10,000 gear limits.</span>
+                {/* Suggestions block */}
+                {messages.length > 0 && !isLoading && (
+                  <div className="p-3 bg-neutral-900/30 border-t border-neutral-900 space-y-1.5 shrink-0">
+                    <header className="flex items-center gap-1 px-1.5 text-[9px] font-black uppercase text-neutral-400 tracking-wider">
+                      <Sparkles size={11} className="text-primary" />
+                      <span>Query Assistant Guides</span>
+                    </header>
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-0.5">
+                      {getSuggestedPrompts().map((prompt, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleSendMessage(prompt)}
+                          className="text-[10px] bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800 px-2.5 py-1.5 rounded-lg transition text-left cursor-pointer shrink-0"
+                          type="button"
+                        >
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {/* Input form */}
+                <div className="p-4 border-t border-neutral-800 bg-neutral-900 shrink-0">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }}
+                    className="flex gap-2"
+                  >
+                    <input
+                      type="text"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      placeholder="Ask Dukey about gear rules, lists or tag designs..."
+                      className="flex-1 bg-neutral-950 border border-neutral-800 focus:border-primary/50 text-white rounded-xl px-3 py-2.5 text-xs placeholder-neutral-500 font-medium focus:outline-none transition"
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="submit"
+                      className="p-2.5 bg-primary hover:bg-opacity-90 disabled:bg-neutral-800 disabled:text-neutral-500 text-white rounded-xl transition flex items-center justify-center shrink-0 cursor-pointer"
+                      disabled={!inputValue.trim() || isLoading}
+                    >
+                      <Send size={14} />
+                    </button>
+                  </form>
+                </div>
               </div>
+
             </motion.div>
           </>
         )}

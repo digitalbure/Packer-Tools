@@ -67,3 +67,25 @@ We have shared helper logic written in both `/src/pages/GearLibrary.tsx` and `/s
 
 3. **Status Render Requirements:**
    - Active status check: If `item.status === 'in_use'`, indicate that the item is "Unavailable / Checked Out" or "OUT". Show `item.currentHolder` if populated.
+
+---
+
+## ⚡ Firestore Batch Processing Guidelines
+
+To ensure the system scales comfortably to millions of items, all AI agents and developers **MUST** observe the following database constraints:
+
+1. **Max Operation Limits**: Firestore has a strict limit of **500 operations per `WriteBatch`**.
+2. **Mandatory Chunking**: Never write code that aggregates items into a single `.commit()` block if the count of selected items can exceed 500 (or 250 for heavier compound operations). Always use a loop-based partitioning pattern:
+   ```typescript
+   const ids = Array.from(selectedItems);
+   for (let i = 0; i < ids.length; i += 500) {
+     const chunk = ids.slice(i, i + 500);
+     const batch = writeBatch(db);
+     chunk.forEach(id => {
+       // logic...
+     });
+     await batch.commit();
+   }
+   ```
+3. **Low-Overhead Counting**: Never use `getDocs` list queries when of checking database limits (pricing tiers, user counts, visual analytics). Always call `getCountFromServer(query)` to minimize infrastructure costs and prevent memory leaks.
+

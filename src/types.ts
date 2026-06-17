@@ -74,6 +74,7 @@ export interface Plan {
   maxWorkspaces?: number;
   trialDays?: number;
   trialEnabled?: boolean;
+  isActive?: boolean; // Activate/Deactivate subscription plans
   paddleProductId?: string;
   paddlePriceIdMonthly?: string;
   paddlePriceIdAnnual?: string;
@@ -170,6 +171,8 @@ export interface UserProfile {
   activeWorkspaceId?: string;
   workspaces?: Workspace[];
   selectedIndustry?: string;
+  betaTrialInitialized?: boolean;
+  trialEnabled?: boolean;
   permissions?: {
     locations?: {
       [inventoryId: string]: 'reader' | 'editor' | 'auditor' | 'none';
@@ -949,6 +952,16 @@ export interface AdminSettings {
       isExternal?: boolean;
     }>;
   };
+  systemHealthAlerts?: {
+    emailAlertsEnabled: boolean;
+    uiAlertsEnabled: boolean;
+    alertRecipientEmails: string[];
+    readThresholdHourly: number;
+    writeThresholdHourly: number;
+    concurrentWriteThreshold: number;
+    lastTriggeredAt?: string;
+  };
+  betaModeEnabled?: boolean;
 }
 
 export interface PaymentGatewayMethod {
@@ -975,6 +988,7 @@ export const INDUSTRIES = [
   { id: 'car_rental', name: 'Car Rentals & Fleets', icon: 'Car', gearLabelSingular: 'Vehicle/Fleet', gearLabelPlural: 'Vehicles & Cars', listLabelSingular: 'Fleet Booking', listLabelPlural: 'Vehicle Bookings', description: 'Manage car reservations, trucks, vans, driver assignments, and checklist logs.' },
   { id: 'it', name: 'IT & Cloud Infrastructure', icon: 'Cpu', gearLabelSingular: 'Hardware/Server', gearLabelPlural: 'Hardware & Servers', listLabelSingular: 'Rack Manifest', listLabelPlural: 'Server Rack Manifests', description: 'Manage server racks, networking switches, fiber arrays, and desk allocations.' },
   { id: 'event', name: 'Event & Banquet Planning', icon: 'Cake', gearLabelSingular: 'Event Item', gearLabelPlural: 'Chairs, Tables & Cables', listLabelSingular: 'Event Checklist', listLabelPlural: 'Event Checklists', description: 'Track table layouts, banquet chairs, audio/visual inputs, stage decors, and caterings.' },
+  { id: 'sports', name: 'Sports & Teams Training', icon: 'Trophy', gearLabelSingular: 'Athletic Gear/Kit', gearLabelPlural: 'Athletic Gear & Kits', listLabelSingular: 'Roster Checklist', listLabelPlural: 'Roster & Team Lists', description: 'Catalog team sports equipment, jerseys, dynamic training cones, helmets, soccer balls, custom team sports gear bags, and specialized athletic trainer accessories.' },
   { id: 'general', name: 'General Equipment', icon: 'Package', gearLabelSingular: 'Asset', gearLabelPlural: 'Inventory Assets', listLabelSingular: 'Packing List', listLabelPlural: 'Packing Lists', description: 'Universal tracking for multi-disciplinary gear libraries and general utilities.' }
 ];
 

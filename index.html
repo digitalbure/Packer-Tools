@@ -6,10 +6,30 @@
     <title>Packer Tools</title>
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#0a0a0c" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <link rel="apple-touch-icon" href="/icon.svg" />
+    <link rel="icon" type="image/png" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <script>
       (function() {
+        // Instant PWA Manifest Router based on URL path/hash/search params
+        var hash = window.location.hash || '';
+        var search = window.location.search || '';
+        var pathname = window.location.pathname || '';
+        var manifestUrl = '/manifest.json';
+        var themeColor = '#0a0a0c';
+
+        if (hash.indexOf('scannerApp=true') > -1 || search.indexOf('scannerApp=true') > -1) {
+          manifestUrl = '/manifest-scanner.json';
+          themeColor = '#F27D26'; // High-visibility scanner amber
+        } else if (hash.indexOf('kiosk') > -1 || pathname.indexOf('/kiosk') > -1) {
+          manifestUrl = '/manifest-kiosk.json';
+        }
+
+        var link = document.querySelector('link[rel="manifest"]');
+        if (link) link.setAttribute('href', manifestUrl);
+
+        var themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta) themeMeta.setAttribute('content', themeColor);
+
         var path = window.location.pathname;
         if (!window.location.hash && (path.startsWith('/gear/') || path.startsWith('/p/') || path.startsWith('/marketplace/') || path.startsWith('/list/'))) {
           window.location.replace(window.location.origin + '/#' + path + window.location.search);

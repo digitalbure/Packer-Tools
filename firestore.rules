@@ -36,6 +36,11 @@ service cloud.firestore {
       );
     }
 
+    function getUserOrgId() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ?
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId : "";
+    }
+
     function incoming() {
       return request.resource.data;
     }
@@ -191,6 +196,12 @@ service cloud.firestore {
              data.name is string && data.name.size() > 0 && data.name.size() < 100;
     }
 
+    function isValidSystemsBuild(data) {
+      return data.keys().hasAll(['ownerId', 'name']) &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
 
     // ===============================================================
     // Rules Configuration (Secured Paths)
@@ -271,15 +282,15 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
-    // 4. Packing Lists & Subcollections (Items, Versions)
+    // 4. Packing Lists & Subcollections (Items, Versions, RentalAgreements)
     match /packingLists/{listId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isCollaborator(listId) || resource.data.marketplaceEnabled == true || isAdmin());
+      allow read: if (resource != null && resource.data.marketplaceEnabled == true) || (isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin()));
       allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidPackingList(incoming());
       allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isCollaborator(listId)) && (resource.data.ownerId == incoming().ownerId) && isValidPackingList(incoming());
       allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
 
       match /items/{itemId} {
-        allow read: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin());
+        allow read: if (get(/databases/$(database)/documents/packingLists/$(listId)).data.marketplaceEnabled == true) || (isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin()));
         allow write: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin());
       }
 
@@ -287,29 +298,33 @@ service cloud.firestore {
         allow read: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin());
         allow write: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isAdmin());
       }
+
+      match /RentalAgreements/{agreementId} {
+        allow read, write: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin());
+      }
     }
 
     // 5. Global Admin Settings
     match /adminSettings/{settingId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
     // 6. Subscription plans
     match /plans/{planId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
     // 7. Marketplace Categories
     match /marketplaceCategories/{categoryId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
     // 8. Custom Compliance Pages
     match /pages/{pageId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
@@ -325,12 +340,16 @@ service cloud.firestore {
       }
     }
 
-    // 10. AV Build/Sandbox Projects
+    // 10. AV Build/Sandbox Projects & Subcollections (snapshots)
     match /projects/{projectId} {
       allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
       allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidProject(incoming());
       allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidProject(incoming());
       allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+
+      match /snapshots/{snapshotId} {
+        allow read, write: if isSignedIn() && (get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid || isAdmin());
+      }
     }
 
     // 11. Build Sandbox Items
@@ -338,6 +357,14 @@ service cloud.firestore {
       allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
       allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidBuildItem(incoming());
       allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidBuildItem(incoming());
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+
+    // 11b. Systems Builds
+    match /systemsBuilds/{buildId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidSystemsBuild(incoming());
+      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidSystemsBuild(incoming());
       allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
     }
 
@@ -413,7 +440,7 @@ service cloud.firestore {
 
     // 21. Master Organizations
     match /organizations/{orgId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || resource.id == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidOrganization(incoming());
       allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidOrganization(incoming());
       allow delete: if isAdmin();
@@ -421,31 +448,31 @@ service cloud.firestore {
 
     // 22. Org Departments
     match /departments/{deptId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (isAdmin() || resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId);
+      allow update: if isSignedIn() && (isAdmin() || resource.data.orgId == getUserOrgId());
       allow delete: if isAdmin();
     }
 
     // 23. Dept Teams
     match /teams/{teamId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (isAdmin() || resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId);
+      allow update: if isSignedIn() && (isAdmin() || resource.data.orgId == getUserOrgId());
       allow delete: if isAdmin();
     }
 
     // 24. Sheet Inventories & Subcollections (Items)
     match /inventories/{inventoryId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && request.auth.uid == incoming().ownerId;
-      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId || isAdmin());
+      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.orgId == getUserOrgId() || isAdmin());
       allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
 
       match /items/{itemId} {
         allow read, write: if isSignedIn() && (
           get(/databases/$(database)/documents/inventories/$(inventoryId)).data.ownerId == request.auth.uid ||
-          get(/databases/$(database)/documents/inventories/$(inventoryId)).data.orgId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId ||
+          get(/databases/$(database)/documents/inventories/$(inventoryId)).data.orgId == getUserOrgId() ||
           isAdmin()
         );
       }

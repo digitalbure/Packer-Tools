@@ -125,10 +125,22 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const [fleetVehicles, setFleetVehicles] = useState<any[]>([
     { id: 1, name: 'Ford Transit Cargo Van #3', plate: 'CTR-492', status: 'In Use', holder: 'Steve Rogers', mileage: 48500, fuel: 82 },
     { id: 2, name: 'Toyota Hilux Crew Cab #1', plate: 'WLD-091', status: 'Available', holder: '', mileage: 12400, fuel: 100 },
-    { id: 3, name: 'Tesla Model Y Delivery #6', plate: 'FLE-205', status: 'In Repair', holder: 'Garage Slot 3', mileage: 84000, fuel: 35 }
+    { id: 3, name: 'Tesla Model Y Delivery #6', plate: 'FLE-205', status: 'In Repair', holder: 'Garage Slot 3', mileage: 84005, fuel: 35 }
   ]);
 
-  const { activeIndustry, customTerms, currentWorkspace, isConstruction, isAutomotive, getAdjustedLabel } = useIndustry();
+  // Specialized sports & team training simulations
+  const [sportsRoster, setSportsRoster] = useState<any[]>([
+    { id: 1, name: 'Alex Morgan', role: 'Forward', jersey: '13', matchGears: 'Cleared & Handed Over', status: 'Active', injuryReport: 'None' },
+    { id: 2, name: 'Lionel Messi', role: 'Playmaker', jersey: '10', matchGears: 'Awaiting Sign-Off', status: 'Warning', injuryReport: 'Calf Tightness (Non-Contact)' },
+    { id: 3, name: 'Patrick Mahomes', role: 'Quarterback', jersey: '15', matchGears: 'Cleared & Handed Over', status: 'Active', injuryReport: 'None' }
+  ]);
+  const [sportsLogs, setSportsLogs] = useState<any[]>([
+    { id: 1, type: 'success', text: 'Gear Check: Game Jerseys and Custom helmets counted for All players', date: 'Just now' },
+    { id: 2, type: 'critical', text: 'Hazard Alert: 4 Soccer balls flat - Needs inflating before training', date: '1 hour ago' },
+    { id: 3, type: 'info', text: 'Trainer Note: Hydration Ice cooler packed with dynamic energy drinks', date: 'Yesterday' }
+  ]);
+
+  const { activeIndustry, customTerms, currentWorkspace, isConstruction, isAutomotive, isSports, getAdjustedLabel } = useIndustry();
 
   const visibleButtons = user.layoutPreferences?.visibleQuickActions || ['packing_list', 'inventory', 'rack', 'system_build', 'listing'];
 
@@ -1123,6 +1135,184 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                       )}
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sports & Teams Panel */}
+          {isSports && (
+            <div className="bg-neutral-900 text-white rounded-[2rem] p-6 lg:p-8 border border-neutral-800 shadow-xl space-y-6 text-left relative overflow-hidden">
+              {/* Background Accent */}
+              <div className="absolute right-0 top-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+                <div className="space-y-1.5 font-sans">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      🏆 Sports & Teams Training Sandbox
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                      Game-Day Ready
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black uppercase tracking-tight text-neutral-100 flex items-center gap-2">
+                    Game Day Athletic Training & Roster Console
+                  </h3>
+                  <p className="text-xs text-neutral-400 font-semibold leading-relaxed">
+                    Verify player custom gear handovers, log training incidents, track health clearances, and check roster kits.
+                  </p>
+                </div>
+
+                <div className="bg-neutral-800 p-4 rounded-2xl flex items-center gap-4 border border-neutral-700 w-fit shrink-0">
+                  <div className="text-center">
+                    <div className="text-2xl font-black text-amber-400">
+                      {sportsRoster.filter(r => r.status === 'Active').length} / {sportsRoster.length}
+                    </div>
+                    <div className="text-[9px] uppercase font-black text-neutral-400 tracking-wider">Active Athletes</div>
+                  </div>
+                  <div className="h-8 w-px bg-neutral-700" />
+                  <div className="text-center">
+                    <div className="text-2xl font-black text-green-400">
+                      {sportsRoster.filter(r => r.matchGears === 'Cleared & Handed Over').length} / {sportsRoster.length}
+                    </div>
+                    <div className="text-[9px] uppercase font-black text-neutral-400 tracking-wider font-sans">Gears Signed</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Simulation Widgets */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left block: Player handovers / check-in */}
+                <div className="lg:col-span-7 bg-neutral-850 p-5 rounded-2xl border border-neutral-800 space-y-4">
+                  <h4 className="text-xs font-black uppercase text-amber-400 tracking-widest font-mono">
+                    Athlete Match Gear & Kit Assignments
+                  </h4>
+                  <div className="space-y-3">
+                    {sportsRoster.map((player) => (
+                      <div key={player.id} className="bg-neutral-900 p-3.5 rounded-xl border border-neutral-805 flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center font-extrabold text-neutral-200">
+                            #{player.jersey}
+                          </div>
+                          <div>
+                            <p className="font-extrabold text-neutral-100">{player.name}</p>
+                            <p className="text-[10px] text-neutral-400 font-semibold">{player.role} &middot; <span className="text-amber-400 font-mono text-[9px] uppercase">{player.injuryReport}</span></p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2.5">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${
+                            player.matchGears === 'Cleared & Handed Over'
+                              ? 'bg-green-500/10 text-green-400 shadow-sm border border-green-500/20'
+                              : 'bg-amber-500/10 text-amber-400 shadow-sm border border-amber-500/20'
+                          }`}>
+                            {player.matchGears}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = sportsRoster.map(p => 
+                                p.id === player.id 
+                                  ? { 
+                                      ...p, 
+                                      matchGears: p.matchGears === 'Cleared & Handed Over' ? 'Awaiting Sign-Off' : 'Cleared & Handed Over' 
+                                    } 
+                                  : p
+                              );
+                              setSportsRoster(updated);
+                              toast.success(
+                                player.matchGears === 'Cleared & Handed Over' 
+                                  ? `Revoked roster equipment handover for ${player.name}.`
+                                  : `Signed off athletic kit & team protection equipment and handed it over to ${player.name}!`
+                              );
+                            }}
+                            className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[10px] font-black uppercase tracking-wider rounded border border-neutral-750 transition cursor-pointer"
+                          >
+                            Toggle Gear
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right block: Add event & sports status logs */}
+                <div className="lg:col-span-5 bg-neutral-850 p-5 rounded-2xl border border-neutral-800 space-y-4">
+                  <h4 className="text-xs font-black uppercase text-neutral-400 tracking-widest font-mono">
+                    Log Athletic/Training Event
+                  </h4>
+                  
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    const form = e.currentTarget;
+                    const logTextInput = form.elements.namedItem('logText') as HTMLInputElement;
+                    const logTypeInput = form.elements.namedItem('logType') as HTMLSelectElement;
+                    if (!logTextInput.value.trim()) return;
+
+                    const newLog = {
+                      id: Date.now(),
+                      type: logTypeInput.value,
+                      text: logTextInput.value,
+                      date: 'Just now'
+                    };
+                    setSportsLogs([newLog, ...sportsLogs]);
+                    toast.success(`Logged sports event: ${logTextInput.value}`);
+                    logTextInput.value = '';
+                  }} className="space-y-3 text-xs">
+                    <input
+                      name="logText"
+                      type="text"
+                      placeholder="e.g. Conducted whistle tactical drills on Field 2"
+                      className="w-full bg-neutral-900 max-w-none px-3 py-2.5 rounded-xl border border-neutral-700 text-xs focus:ring-1 focus:ring-amber-400 focus:border-amber-400 outline-none text-white font-medium"
+                    />
+                    <div className="flex gap-2">
+                      <select 
+                        name="logType" 
+                        className="flex-1 bg-neutral-900 px-3 py-2 rounded-xl border border-neutral-700 text-xs text-white focus:ring-1 focus:ring-amber-400 outline-none font-semibold cursor-pointer"
+                      >
+                        <option value="success">Normal (Gear Count / Done Checking)</option>
+                        <option value="critical">Warning (Flat Balls / Broken Helmets / Injured)</option>
+                        <option value="info">Info (Tactical Board Ready / Water Cooler Packed)</option>
+                      </select>
+                      <button
+                        type="submit"
+                        className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-black uppercase text-[10px] tracking-wide px-4 py-2 rounded-xl transition shrink-0 cursor-pointer"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </form>
+
+                  <div className="border-t border-neutral-800/60 pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">
+                        Sports Live Console Logs
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 max-h-[120px] overflow-y-auto pr-1">
+                      {sportsLogs.map((log) => (
+                        <div 
+                          key={log.id} 
+                          className={`p-2.5 rounded-xl border flex items-start gap-2.5 text-xs ${
+                            log.type === 'critical' 
+                              ? 'bg-red-500/10 border-red-500/20 text-red-300' 
+                              : log.type === 'success'
+                              ? 'bg-green-500/10 border-green-500/20 text-green-300'
+                              : 'bg-neutral-900 border-neutral-800 text-neutral-300'
+                          }`}
+                        >
+                          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                          <div className="flex-1 space-y-0.5 text-[11px]">
+                            <p className="font-semibold leading-relaxed">{log.text}</p>
+                            <span className="text-[8px] text-neutral-450 uppercase tracking-wider font-mono block">{log.date}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

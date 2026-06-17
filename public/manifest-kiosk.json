@@ -1,8 +1,8 @@
 {
-  "name": "Packer Tools",
-  "short_name": "Packer Tools",
-  "description": "The professional visual inventory & gear lifecycle platform.",
-  "start_url": "/",
+  "name": "Packer Tools Kiosk",
+  "short_name": "Packer Kiosk",
+  "description": "Self-service inventory and digital tag terminal client.",
+  "start_url": "/#/kiosk",
   "display": "standalone",
   "background_color": "#0a0a0c",
   "theme_color": "#0a0a0c",

@@ -185,6 +185,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
   const adminNavItems = [
     { to: '/admin?tab=analytics', label: 'Platform Analytics', icon: <BarChart3 size={20} /> },
     { to: '/admin?tab=telemetry', label: 'Resource Monitor', icon: <Cpu size={20} /> },
+    { to: '/admin?tab=system_health', label: 'System Health', icon: <Server size={20} /> },
     { to: '/admin?tab=organizations', label: 'Organizations', icon: <Building2 size={20} /> },
     { to: '/admin?tab=users', label: 'Manage Users', icon: <Users size={20} /> },
     { to: '/admin?tab=projects', label: 'Global Projects', icon: <Briefcase size={20} /> },

@@ -25,6 +25,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { toast } from 'sonner';
+import QRPrintModal from './QRPrintModal';
 
 interface QuickActionsDrawerProps {
   user: UserProfile;
@@ -451,85 +452,12 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
 
 
       {/* DIALOG 1: Asset Tags printable sheet overlay */}
-      <AnimatePresence>
-        {activeModal === 'tags' && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setActiveModal('none')}
-              className="absolute inset-0 bg-neutral-900/60 backdrop-blur-xs"
-            />
-
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-4xl bg-white rounded-[2.5rem] p-8 border border-neutral-100 shadow-2xl space-y-6 max-h-[85vh] overflow-y-auto"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-black uppercase tracking-tighter">Printable Asset Tags</h3>
-                  <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Self adhesive label layouts printable on standard A4 / Letter grids</p>
-                </div>
-                <div className="flex gap-2.5">
-                  <button
-                    onClick={() => window.print()}
-                    className="flex items-center gap-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl px-4 py-2.5 text-[9px] font-black uppercase tracking-widest shadow-md transition"
-                  >
-                    <Printer size={12} />
-                    <span>Print Tags</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveModal('none')}
-                    className="bg-neutral-150 hover:bg-neutral-200 text-neutral-600 rounded-xl px-4 py-2.5 text-[9px] font-black tracking-widest uppercase transition"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-
-              {gearList.length === 0 ? (
-                <div className="text-center py-16 border border-dashed rounded-3xl text-neutral-400 font-bold uppercase text-xs">
-                  No active equipment listed in catalog to populate labels.
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 border-t border-neutral-100 pt-6 print:grid-cols-2">
-                  {gearList.map(item => (
-                    <div 
-                      key={item.id} 
-                      className="border border-neutral-200 rounded-2xl p-4 bg-white hover:border-black transition flex items-center justify-between gap-4 break-inside-avoid shadow-xs cursor-pointer hover:shadow-md"
-                    >
-                      <div className="space-y-1.5 min-w-0">
-                        <p className="text-[10px] font-black uppercase text-black line-clamp-1">{item.name}</p>
-                        <p className="text-[7.5px] text-neutral-400 font-extrabold uppercase mt-0.5">
-                          {item.brand || 'ANY'} • {item.model || 'GENERIC'}
-                        </p>
-                        <p className="text-[8.5px] font-mono tracking-wider text-neutral-900 font-black">
-                          ID: {item.assetTag || 'VIRT-TAG'}
-                        </p>
-                      </div>
-
-                      <div className="w-14 h-14 bg-neutral-50 rounded-xl border border-neutral-100 shrink-0 flex items-center justify-center text-neutral-400 font-mono text-[6px]">
-                        {/* Elegant Simulated QR tag block */}
-                        <div className="w-10 h-10 grid grid-cols-5 gap-0.5">
-                          {Array.from({ length: 25 }).map((_, i) => (
-                            <div 
-                              key={i} 
-                              className={`rounded-xs ${((i % 2 === 0 && i % 3 === 0) || i === 0 || i === 4 || i === 20 || i === 24) ? 'bg-neutral-900' : 'bg-transparent'}`} 
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <QRPrintModal 
+        isOpen={activeModal === 'tags'} 
+        onClose={() => setActiveModal('none')} 
+        items={gearList} 
+        user={user} 
+      />
 
       {/* DIALOG 2: Interactive Maintenance Inspection entry logger */}
       <AnimatePresence>

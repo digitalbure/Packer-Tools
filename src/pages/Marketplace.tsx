@@ -128,7 +128,8 @@ const INDUSTRIES_MARKET = [
   { id: 'construction', name: 'Heavy Construction', description: 'Excavators, Drills, and Hoists' },
   { id: 'automotive', name: 'Automotive & Garage', description: 'Lift Jacks, diagnostics, wrenches' },
   { id: 'medical', name: 'Medical Devices', description: 'ECG Monitors, Ultrasounds, and Lab kits' },
-  { id: 'general_logistics', name: 'Warehouse Logistics', description: 'Forklifts, Hand Trucks, and Flight trunks' }
+  { id: 'general_logistics', name: 'Warehouse Logistics', description: 'Forklifts, Hand Trucks, and Flight trunks' },
+  { id: 'sports', name: 'Sports & Teams Training', description: 'Jerseys, helmets, training cones & goalie kits' }
 ];
 
 const EXTRA_CATEGORIES: CategoryItem[] = [
@@ -153,7 +154,12 @@ const EXTRA_CATEGORIES: CategoryItem[] = [
   // General logistics
   { id: 'warehouse-logistics', name: 'Propane Forklifts & Shifters', count: 0, image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=400' },
   { id: 'platform-carts', name: 'High Capacity Flatbed Dollies', count: 0, image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=400' },
-  { id: 'flight-cases', name: 'Flight Cases & G&E Pack Trunks', count: 0, image: 'https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=400' }
+  { id: 'flight-cases', name: 'Flight Cases & G&E Pack Trunks', count: 0, image: 'https://images.unsplash.com/photo-1601042879364-f3947d3f9c16?auto=format&fit=crop&q=80&w=400' },
+
+  // Sports
+  { id: 'sports-kits', name: 'Team Sports Kits & Gear', count: 0, image: 'https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&q=80&w=400' },
+  { id: 'jerseys-protective', name: 'Jerseys & Protective Helmets', count: 0, image: 'https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?auto=format&fit=crop&q=80&w=400' },
+  { id: 'training-accessories', name: 'Cones, Whistles & Hurdles', count: 0, image: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&q=80&w=400' }
 ];
 
 const MULTI_INDUSTRY_PRODUCTS: ProductItem[] = [];
@@ -580,6 +586,8 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
         return baseCats.filter(c => ['imaging', 'patient-monitors', 'clinical-pipettes', 'surgical-support'].includes(c.id));
       } else if (selectedIndustry === 'general_logistics') {
         return baseCats.filter(c => ['warehouse-logistics', 'platform-carts', 'flight-cases'].includes(c.id));
+      } else if (selectedIndustry === 'sports') {
+        return baseCats.filter(c => ['sports-kits', 'jerseys-protective', 'training-accessories'].includes(c.id));
       }
       return baseCats;
     }

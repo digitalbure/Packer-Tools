@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, collection, getDocs, addDoc, query, where, deleteDoc, writeBatch } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType } from './firebase';
+import { auth, db, handleFirestoreError, OperationType, logout } from './firebase';
 import { UserProfile } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 
@@ -54,6 +54,7 @@ import CommandPalette from './components/CommandPalette';
 import { IndustryProvider } from './context/IndustryContext';
 import { ThemeProvider } from './context/ThemeContext';
 import AuthGate from './components/AuthGate';
+import BetaProspectGate from './components/BetaProspectGate';
 import QuickActionsDrawer from './components/QuickActionsDrawer';
 import Onboarding from './components/Onboarding';
 import DukeyAssistant from './components/DukeyAssistant';
@@ -519,6 +520,7 @@ async function migrateDemoDataToUser(fromUid: string, toUid: string) {
 
 export default function App() {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [isInvited, setIsInvited] = useState<boolean | null>(null);
   const [adminSettings, setAdminSettings] = useState<AdminSettings>(getDefaultAdminSettings());
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -624,12 +626,25 @@ export default function App() {
     if (!adminSettings) return;
 
     const brand = adminSettings.branding || {};
-    const name = brand.pwaName || brand.companyName || "Packer Tools";
-    const shortName = brand.pwaShortName || brand.companyName || "Packer Tools";
+    let name = brand.pwaName || brand.companyName || "Packer Tools";
+    let shortName = brand.pwaShortName || brand.companyName || "Packer Tools";
     const bgColor = brand.pwaBgColor || "#0a0a0c";
-    const themeColor = brand.pwaThemeColor || "#0a0a0c";
+    let themeColor = brand.pwaThemeColor || "#0a0a0c";
     const icon192 = brand.pwaIcon192Url || "/icon-192.png";
     const icon512 = brand.pwaIcon512Url || "/icon-512.png";
+
+    // Determine the active config scope based on routing hash
+    let startUrl = "/";
+    if (currentHash.includes('scannerApp=true')) {
+      startUrl = "/#/kiosk?scannerApp=true&hideLayout=true";
+      name = brand.pwaName ? brand.pwaName + " Scanner" : "Packer Tools Scanner";
+      shortName = brand.pwaShortName ? brand.pwaShortName + " Scanner" : "Packer Scanner";
+      themeColor = "#F27D26"; // High-visibility amber orange for scanner mode
+    } else if (currentHash.includes('kiosk')) {
+      startUrl = "/#/kiosk";
+      name = brand.pwaName ? brand.pwaName + " Kiosk" : "Packer Tools Kiosk";
+      shortName = brand.pwaShortName ? brand.pwaShortName + " Kiosk" : "Packer Kiosk";
+    }
 
     // 1. Update <meta name="theme-color">
     let themeMeta = document.querySelector('meta[name="theme-color"]');
@@ -655,7 +670,7 @@ export default function App() {
         name: name,
         short_name: shortName,
         description: "The professional visual inventory & gear lifecycle platform.",
-        start_url: "/#/kiosk", // Ensures we default to the gorgeous Kiosk dashboard on install
+        start_url: startUrl,
         display: "standalone",
         orientation: "portrait",
         background_color: bgColor,
@@ -701,7 +716,7 @@ export default function App() {
     } catch (manifestError) {
       console.warn("Dynamic PWA customizer failure:", manifestError);
     }
-  }, [adminSettings]);
+  }, [adminSettings, currentHash]);
 
   useEffect(() => {
     // Initialize global settings and plans if they don't exist
@@ -964,8 +979,22 @@ export default function App() {
 
     let unsubscribeUser: (() => void) | null = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // Query beta invitation status for the user
+        const userEmail = (firebaseUser.email || '').toLowerCase().trim();
+        if (userEmail) {
+          try {
+            const inviteSnap = await getDoc(doc(db, 'betaInvitations', userEmail));
+            setIsInvited(inviteSnap.exists());
+          } catch (e) {
+            console.warn("[Beta] Invite lookup query failed:", e);
+            setIsInvited(false);
+          }
+        } else {
+          setIsInvited(false);
+        }
+
         // Run migration check in the background asynchronously without blocking the profile snapshot initialization
         (async () => {
           try {
@@ -987,6 +1016,8 @@ export default function App() {
         unsubscribeUser = onSnapshot(doc(db, 'users', firebaseUser.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const userData = docSnap.data() as UserProfile;
+            let updatedUser = { ...userData };
+            let hasChanged = false;
             
             // Auto-heal empty orgId for existing users who own an organization
             if (!userData.orgId) {
@@ -994,7 +1025,8 @@ export default function App() {
                 const orgsSnap = await getDocs(query(collection(db, 'organizations'), where('ownerId', '==', firebaseUser.uid)));
                 if (!orgsSnap.empty) {
                   const firstOrgId = orgsSnap.docs[0].id;
-                  await setDoc(doc(db, 'users', firebaseUser.uid), { orgId: firstOrgId }, { merge: true });
+                  updatedUser.orgId = firstOrgId;
+                  hasChanged = true;
                   console.log(`[Auto-Heal] Successfully linked empty orgId to owned organization: ${firstOrgId}`);
                 }
               } catch (healError) {
@@ -1004,7 +1036,31 @@ export default function App() {
 
             // Ensure default admin has super admin privileges
             if (firebaseUser.email === 'jnakasamai@gmail.com' && firebaseUser.emailVerified && !userData.isSuperAdmin) {
-              const updatedUser = { ...userData, isSuperAdmin: true, role: 'owner' as const };
+              updatedUser.isSuperAdmin = true;
+              updatedUser.role = 'owner';
+              hasChanged = true;
+            }
+
+            // Active 3-Month Beta Testing Trial Upgrade!
+            if (userEmail && userEmail !== 'jnakasamai@gmail.com') {
+              try {
+                const inviteSnap = await getDoc(doc(db, 'betaInvitations', userEmail));
+                if (inviteSnap.exists() && !userData.betaTrialInitialized) {
+                  updatedUser.plan = 'enterprise';
+                  updatedUser.trialEnabled = true;
+                  updatedUser.trialStartDate = new Date().toISOString();
+                  updatedUser.trialEndDate = new Date(Date.now() + 3 * 30 * 24 * 60 * 60 * 1000).toISOString(); // 3-month trial
+                  updatedUser.subscriptionStatus = 'trialing';
+                  updatedUser.betaTrialInitialized = true;
+                  hasChanged = true;
+                  toast.success("Welcome to Packer Tools! Your pre-authorized beta invite has activated a 3-month Trial with full premium access!", { duration: 10000 });
+                }
+              } catch (trialError) {
+                console.warn("[Beta] Automated trial configuration failed:", trialError);
+              }
+            }
+
+            if (hasChanged) {
               await setDoc(doc(db, 'users', firebaseUser.uid), updatedUser);
               setUser(updatedUser);
             } else {
@@ -1022,13 +1078,29 @@ export default function App() {
               console.warn("[Auto-Heal] Initial org match soft error:", initialMatchError);
             }
 
+            // Query if the new user signing up has an active pre-authorized beta invite
+            let isInvitedGuest = false;
+            if (userEmail) {
+              try {
+                const inviteSnap = await getDoc(doc(db, 'betaInvitations', userEmail));
+                isInvitedGuest = inviteSnap.exists();
+              } catch (e) {
+                console.warn("[Beta] Invite lookup query failed on registration:", e);
+              }
+            }
+
             const newUser: UserProfile = {
               uid: firebaseUser.uid,
               email: firebaseUser.email || '',
               displayName: firebaseUser.displayName || 'User',
               photoURL: firebaseUser.photoURL || '',
               orgId: initialOrgId,
-              plan: 'free',
+              plan: isInvitedGuest ? 'enterprise' : 'free',
+              trialEnabled: isInvitedGuest ? true : undefined,
+              trialStartDate: isInvitedGuest ? new Date().toISOString() : undefined,
+              trialEndDate: isInvitedGuest ? new Date(Date.now() + 3 * 30 * 24 * 60 * 60 * 1000).toISOString() : undefined,
+              subscriptionStatus: isInvitedGuest ? 'trialing' : undefined,
+              betaTrialInitialized: isInvitedGuest ? true : undefined,
               isSuperAdmin: (firebaseUser.email === 'jnakasamai@gmail.com' && firebaseUser.emailVerified),
               role: (firebaseUser.email === 'jnakasamai@gmail.com' && firebaseUser.emailVerified) ? 'owner' : 'viewer',
               createdAt: new Date().toISOString(),
@@ -1043,6 +1115,7 @@ export default function App() {
         });
       } else {
         if (unsubscribeUser) unsubscribeUser();
+        setIsInvited(null);
         if (localStorage.getItem('packer_demo_bypass') === 'true') {
           const fakeUser: UserProfile = {
             uid: 'demo-super-admin',
@@ -1246,97 +1319,110 @@ export default function App() {
     );
   }
 
+  const isBetaRestricted = adminSettings?.betaModeEnabled && user && !user.isSuperAdmin && isInvited === false;
+
   return (
     <ErrorBoundary>
       <Toaster position="bottom-right" richColors />
       <ThemeProvider>
         <IndustryProvider user={user} adminSettings={adminSettings}>
-          <Router>
-          <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans flex overflow-hidden">
-            {user && !isLayoutHidden && (
-              <Sidebar 
-                user={user} 
-                adminSettings={adminSettings} 
-                isCollapsed={isSidebarCollapsed} 
-                setIsCollapsed={setIsSidebarCollapsed} 
-                isMobileOpen={isMobileSidebarOpen}
-                setIsMobileOpen={setIsMobileSidebarOpen}
-                listsCount={listsCount}
-              />
-            )}
-            
-            <div className="flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 font-sans">
-              {!isLayoutHidden && (
-                <Navbar 
-                  user={user} 
-                  adminSettings={adminSettings} 
-                  onMenuClick={() => setIsMobileSidebarOpen(true)} 
-                  selectedCommunity={selectedCommunity}
-                  onOpenSelector={() => setIsCommunitySelectorOpen(true)}
-                  landingView={landingView}
-                  setLandingView={setLandingView}
-                />
-              )}
-              <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
-                isLayoutHidden 
-                  ? `max-w-none px-0 py-0 sm:px-0 sm:py-0 ${(currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/')) ? 'bg-neutral-50' : 'bg-neutral-900'}` 
-                  : 'max-w-[1700px] mx-auto px-4 sm:px-6 py-6 sm:py-8'
-              }`}>
-                <div className="flex-1">
-                  <AnimatedRoutes 
+          {isBetaRestricted ? (
+            <BetaProspectGate user={user} onLogout={logout} />
+          ) : (
+            <Router>
+              <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans flex overflow-hidden">
+                {user && !isLayoutHidden && (
+                  <Sidebar 
                     user={user} 
-                    setUser={setUser} 
                     adminSettings={adminSettings} 
-                    onMenuClick={() => setIsMobileSidebarOpen(true)} 
-                    selectedCommunity={selectedCommunity}
-                    landingView={landingView}
-                    setLandingView={setLandingView}
-                  />
-                </div>
-                {!isLayoutHidden && (
-                  <Footer 
-                    adminSettings={adminSettings} 
-                    selectedCommunity={selectedCommunity}
-                    onOpenSelector={() => setIsCommunitySelectorOpen(true)}
+                    isCollapsed={isSidebarCollapsed} 
+                    setIsCollapsed={setIsSidebarCollapsed} 
+                    isMobileOpen={isMobileSidebarOpen}
+                    setIsMobileOpen={setIsMobileSidebarOpen}
+                    listsCount={listsCount}
                   />
                 )}
-              </main>
-            </div>
+                
+                <div className="flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 font-sans">
+                  {!isLayoutHidden && (
+                    <Navbar 
+                      user={user} 
+                      adminSettings={adminSettings} 
+                      onMenuClick={() => setIsMobileSidebarOpen(true)} 
+                      selectedCommunity={selectedCommunity}
+                      onOpenSelector={() => setIsCommunitySelectorOpen(true)}
+                      landingView={landingView}
+                      setLandingView={setLandingView}
+                    />
+                  )}
+                  <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
+                    isLayoutHidden 
+                      ? `max-w-none px-0 py-0 sm:px-0 sm:py-0 ${(currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/')) ? 'bg-neutral-50' : 'bg-neutral-900'}` 
+                      : 'max-w-[1700px] mx-auto px-4 sm:px-6 py-6 sm:py-8'
+                  }`}>
+                    <div className="flex-1">
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <AnimatedRoutes 
+                          user={user} 
+                          setUser={setUser} 
+                          adminSettings={adminSettings} 
+                          onMenuClick={() => setIsMobileSidebarOpen(true)} 
+                          selectedCommunity={selectedCommunity}
+                          landingView={landingView}
+                          setLandingView={setLandingView}
+                        />
+                      </motion.div>
+                    </div>
+                    {!isLayoutHidden && (
+                      <Footer 
+                        adminSettings={adminSettings} 
+                        selectedCommunity={selectedCommunity}
+                        onOpenSelector={() => setIsCommunitySelectorOpen(true)}
+                      />
+                    )}
+                  </main>
+                </div>
 
-            {/* Dynamic Geographic Community Router Portal */}
-            <CommunitySelector
-              user={user}
-              adminSettings={adminSettings}
-              selectedCommunity={selectedCommunity}
-              isOpen={isCommunitySelectorOpen}
-              onSelect={(mId) => {
-                localStorage.setItem("packer_selected_community", mId);
-                setSelectedCommunity(mId);
-                setIsCommunitySelectorOpen(false);
-              }}
-              onClose={() => setIsCommunitySelectorOpen(false)}
-              isDismissible={selectedCommunity !== null}
-            />
+                {/* Dynamic Geographic Community Router Portal */}
+                <CommunitySelector
+                  user={user}
+                  adminSettings={adminSettings}
+                  selectedCommunity={selectedCommunity}
+                  isOpen={isCommunitySelectorOpen}
+                  onSelect={(mId) => {
+                    localStorage.setItem("packer_selected_community", mId);
+                    setSelectedCommunity(mId);
+                    setIsCommunitySelectorOpen(false);
+                  }}
+                  onClose={() => setIsCommunitySelectorOpen(false)}
+                  isDismissible={selectedCommunity !== null}
+                />
 
-            {user && !user.onboardingCompleted && (
-              <Onboarding 
-                user={user} 
-                onComplete={() => setUser({ ...user, onboardingCompleted: true })} 
-              />
-            )}
+                {user && !user.onboardingCompleted && (
+                  <Onboarding 
+                    user={user} 
+                    onComplete={() => setUser({ ...user, onboardingCompleted: true })} 
+                  />
+                )}
 
-            {user && <DukeyAssistant user={user} />}
-            {user && <AddGearModal user={user} adminSettings={adminSettings} />}
-            {user && <QuickActionsDrawer user={user} />}
-            {user && (
-              <CommandPalette 
-                onToggleSidebar={() => setIsSidebarCollapsed(prev => !prev)} 
-              />
-            )}
-          </div>
-        </Router>
-      </IndustryProvider>
-    </ThemeProvider>
-  </ErrorBoundary>
+                {user && <DukeyAssistant user={user} />}
+                {user && <AddGearModal user={user} adminSettings={adminSettings} />}
+                {user && <QuickActionsDrawer user={user} />}
+                {user && (
+                  <CommandPalette 
+                    onToggleSidebar={() => setIsSidebarCollapsed(prev => !prev)} 
+                  />
+                )}
+              </div>
+            </Router>
+          )}
+        </IndustryProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
