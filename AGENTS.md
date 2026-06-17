@@ -135,3 +135,24 @@ To ensure the system scales comfortably to millions of items, all AI agents and 
    }
    ```
 3. **Low-Overhead Counting**: Never use `getDocs` list queries when of checking database limits (pricing tiers, user counts, visual analytics). Always call `getCountFromServer(query)` to minimize infrastructure costs and prevent memory leaks.
+
+---
+
+## ⚙️ Workspace Setup Calibration & presets
+
+To enable rapid adaptation to various industries and densities, Packer Tools includes a multi-step **Config Onboarder** and a custom **Workspace Setup** preset system.
+
+### 1. Dynamic Features Flagging (`disabledFeatures` array)
+Visible features are managed reactively across the sidebar navigation and dashboard components using the `isFeatureEnabled` utility, referencing `user.disabledFeatures`.
+
+### 2. Built-in Layout Presets
+- **Packing Setup** (`packing`): Toggles focus exclusively onto smart packing checklists, case organizer grids, and container checklists.
+- **Inventory Setup** (`inventory`): Toggles focus exclusively onto master items inventory, repairs & maintenance, and vendor CRM templates.
+- **Tagging & Barcode Setup** (`tagging`): Toggles focus exclusively onto barcode layout printing sheets and scanner inspection tasks.
+- **Max Setup** (`max`): Enables full access for all modules and widgets.
+
+### 3. Custom Presets Button Synthesis
+Users can save custom feature sets as dynamic tab triggers in `/src/components/QuickActionsDrawer.tsx` under the **Workspace Setup** tab.
+These custom calibration structures are stored as:
+`customPresets: { id: string, name: string, disabledFeatures: FeatureKey[] }[]`
+under the central `users/{uid}` database profile document. Adding, applying, or deleting custom layout presets instantly syncs across the browser dynamically via the existing `onSnapshot` real-time listener.

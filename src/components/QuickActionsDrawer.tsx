@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { UserProfile, GearItem } from '../types';
+import { UserProfile, GearItem, FeatureKey } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -22,7 +22,16 @@ import {
   ShoppingBag,
   Globe,
   Percent,
-  BookOpen
+  BookOpen,
+  Sliders,
+  Check,
+  Plus,
+  Trash2,
+  Settings,
+  HelpCircle,
+  SlidersHorizontal,
+  Eye,
+  LayoutGrid
 } from 'lucide-react';
 import { toast } from 'sonner';
 import QRPrintModal from './QRPrintModal';
@@ -36,6 +45,28 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
   const [gearList, setGearList] = useState<GearItem[]>([]);
   const [activeModal, setActiveModal] = useState<'none' | 'tags' | 'maintenance' | 'insurance'>('none');
   
+  // Custom Workspace presets Tab configurations state
+  const [activeTab, setActiveTab] = useState<'utilities' | 'calibration'>('utilities');
+  const [customPresetName, setCustomPresetName] = useState('');
+  
+  const CALIBRATION_FEATURES: { key: FeatureKey; label: string; desc: string }[] = [
+    { key: 'gearLibrary', label: 'Gear Library', desc: 'Central items checklist & history logs' },
+    { key: 'inventoryManagement', label: 'Inventory Sheets', desc: 'Multi-location inventory tracking sheets' },
+    { key: 'toolingLists', label: 'Packing Checklists', desc: 'Slick packing specs & item cases' },
+    { key: 'aiWizard', label: 'Gemini Assistant', desc: 'AI smart suggestions & weight optimization' },
+    { key: 'marketplace', label: 'Hire Marketplace', desc: 'Share, rent, or lease gear with peers' },
+    { key: 'kioskMode', label: 'Checkout Terminal', desc: 'Secure kiosk terminals & signed receipts' },
+    { key: 'reminders', label: 'Inspections & Alerts', desc: 'Set service logs & inspection schedules' },
+    { key: 'travelCases', label: 'Case Packs & Containers', desc: 'Hardcase flight containers & logs' },
+    { key: 'organizer', label: 'Systems Builder', desc: 'Graphic system setup schematics' },
+    { key: 'bomManagement', label: 'BOM Composers', desc: 'Define nested hardware parts & units' },
+    { key: 'supplierManagement', label: 'Vendor Directory', desc: 'Supplier warranties & representative contacts' }
+  ];
+
+  const [selectedCustomFeatures, setSelectedCustomFeatures] = useState<Set<FeatureKey>>(
+    new Set(CALIBRATION_FEATURES.map(f => f.key))
+  );
+
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
@@ -137,6 +168,107 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
       toast.error("Failed to log audit checkup details.");
     } finally {
       setIsSavingMaintenance(false);
+    }
+  };
+
+  // Preset Layout calibration database updates
+  const applyPresetLayout = async (presetType: 'packing' | 'inventory' | 'tagging' | 'max') => {
+    try {
+      let disabled: FeatureKey[] = [];
+      const allKeys = CALIBRATION_FEATURES.map(f => f.key);
+      
+      if (presetType === 'packing') {
+        const keep: FeatureKey[] = ['toolingLists', 'travelCases', 'organizer', 'aiWizard', 'gearLibrary'];
+        disabled = allKeys.filter(k => !keep.includes(k));
+      } else if (presetType === 'inventory') {
+        const keep: FeatureKey[] = ['inventoryManagement', 'reminders', 'bomManagement', 'supplierManagement', 'gearLibrary'];
+        disabled = allKeys.filter(k => !keep.includes(k));
+      } else if (presetType === 'tagging') {
+        const keep: FeatureKey[] = ['gearLibrary', 'customBarcodes', 'qrSharing'];
+        disabled = allKeys.filter(k => !keep.includes(k));
+      } else if (presetType === 'max') {
+        disabled = [];
+      }
+
+      await updateDoc(doc(db, 'users', user.uid), {
+        disabledFeatures: disabled,
+        activeWorkspacePreset: presetType
+      });
+
+      toast.success(`Setup calibrated! ${presetType.toUpperCase()} preset applied.`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to calibrate workspace.");
+    }
+  };
+
+  const toggleCustomFeatureItem = (key: FeatureKey) => {
+    const updated = new Set(selectedCustomFeatures);
+    if (updated.has(key)) {
+      updated.delete(key);
+    } else {
+      updated.add(key);
+    }
+    setSelectedCustomFeatures(updated);
+  };
+
+  const handleCreateCustomPreset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customPresetName.trim()) {
+      toast.error("Please supply a recognizable shortcut name.");
+      return;
+    }
+
+    try {
+      const allKeys = CALIBRATION_FEATURES.map(f => f.key);
+      const disabled = allKeys.filter(k => !selectedCustomFeatures.has(k));
+      const presetId = 'preset_' + Date.now();
+      const newPreset = {
+        id: presetId,
+        name: customPresetName.trim(),
+        disabledFeatures: disabled
+      };
+
+      const existingPresets = user.customPresets || [];
+      const updatedPresets = [...existingPresets, newPreset];
+
+      await updateDoc(doc(db, 'users', user.uid), {
+        customPresets: updatedPresets,
+        disabledFeatures: disabled,
+        activeWorkspacePreset: presetId
+      });
+
+      setCustomPresetName('');
+      toast.success(`Custom Preset "${newPreset.name}" created & applied!`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not write customized preset to database.");
+    }
+  };
+
+  const handleDeleteCustomPreset = async (presetId: string, presetName: string) => {
+    try {
+      const updatedPresets = (user.customPresets || []).filter(p => p.id !== presetId);
+      await updateDoc(doc(db, 'users', user.uid), {
+        customPresets: updatedPresets
+      });
+      toast.success(`Removed layout shortcut "${presetName}".`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to remove custom preset.");
+    }
+  };
+
+  const applyCustomPreset = async (preset: { id: string; name: string; disabledFeatures: FeatureKey[] }) => {
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        disabledFeatures: preset.disabledFeatures,
+        activeWorkspacePreset: preset.id
+      });
+      toast.success(`Custom Layout "${preset.name}" applied!`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to activate custom layout.");
     }
   };
 
@@ -375,7 +507,7 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="relative w-full max-w-[380px] h-full bg-white shadow-2xl border-l border-neutral-100 flex flex-col justify-between overflow-hidden"
+              className="relative w-full max-w-[385px] h-full bg-white shadow-2xl border-l border-neutral-100 flex flex-col justify-between overflow-hidden"
             >
               {/* Drawer Header */}
               <div className="bg-neutral-50 px-6 py-5 border-b border-neutral-100 flex items-center justify-between">
@@ -402,48 +534,233 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
                 </div>
               </div>
 
+              {/* Tab Selector */}
+              <div className="flex border-b border-neutral-150 bg-neutral-100 p-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('utilities')}
+                  className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                    activeTab === 'utilities'
+                      ? 'bg-white text-neutral-900 shadow-sm ring-1 ring-neutral-250/20'
+                      : 'text-neutral-500 hover:text-neutral-700'
+                  }`}
+                >
+                  Adaptive Utilities
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('calibration')}
+                  className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-1 ${
+                    activeTab === 'calibration'
+                      ? 'bg-neutral-950 text-white shadow-sm'
+                      : 'text-neutral-500 hover:text-neutral-700'
+                  }`}
+                >
+                  <Sliders size={10} className={activeTab === 'calibration' ? "text-[#ff4f3a]" : ""} />
+                  Workspace Setup
+                </button>
+              </div>
+
               {/* Drawer Body content (scrollable) */}
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
-                
-                {/* Dynamically Styled Context Highlight card */}
-                <div className="bg-neutral-900 text-white rounded-2xl p-4 border border-neutral-800 text-[10px] leading-relaxed shadow-md">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#ff4f3a] animate-ping" />
-                    <span className="font-mono text-[8px] font-black uppercase tracking-widest text-[#ff4f3a]">{contextTitle}</span>
-                  </div>
-                  <p className="font-semibold text-neutral-300">
-                    {contextDesc}
-                  </p>
-                </div>
+                {activeTab === 'utilities' ? (
+                  <>
+                    {/* Dynamically Styled Context Highlight card */}
+                    <div className="bg-neutral-900 text-white rounded-2xl p-4 border border-neutral-800 text-[10px] leading-relaxed shadow-md animate-fade-in">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#ff4f3a] animate-ping" />
+                        <span className="font-mono text-[8px] font-black uppercase tracking-widest text-[#ff4f3a]">{contextTitle}</span>
+                      </div>
+                      <p className="font-semibold text-neutral-300">
+                        {contextDesc}
+                      </p>
+                    </div>
 
-                {/* Primary Large Buttons (rendered dynamically based on location context!) */}
-                <div className="space-y-3.5">
-                  <h4 className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Localized Utilities</h4>
-                  
-                  {contextActions.map((act, idx) => (
-                    <button
-                      key={idx}
-                      onClick={act.onClick}
-                      className="w-full bg-neutral-50 hover:bg-neutral-100/90 hover:scale-[1.01] active:scale-95 text-neutral-905 border border-neutral-200/60 p-4 rounded-2xl transition text-left flex items-start gap-4 shadow-sm"
-                    >
-                      <div className={`w-10 h-10 ${act.colorClass} rounded-xl flex items-center justify-center shrink-0 shadow-inner`}>
-                        {act.icon}
+                    {/* Primary Large Buttons (rendered dynamically based on location context!) */}
+                    <div className="space-y-3.5">
+                      <h4 className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Localized Utilities</h4>
+                      
+                      {contextActions.map((act, idx) => (
+                        <button
+                          key={idx}
+                          onClick={act.onClick}
+                          className="w-full bg-neutral-50 hover:bg-neutral-100/90 hover:scale-[1.01] active:scale-95 text-neutral-905 border border-neutral-200/60 p-4 rounded-2xl transition text-left flex items-start gap-4 shadow-sm"
+                        >
+                          <div className={`w-10 h-10 ${act.colorClass} rounded-xl flex items-center justify-center shrink-0 shadow-inner`}>
+                            {act.icon}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-black uppercase tracking-tight text-neutral-800 line-clamp-1">{act.title}</p>
+                            <p className="text-[9px] text-neutral-400 font-medium leading-relaxed uppercase mt-0.5 line-clamp-2">
+                              {act.description}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-5 animate-fade-in">
+                    {/* Calibration Presets Section */}
+                    <div className="space-y-2.5">
+                      <h4 className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Layout Preset Presets</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: 'packing', label: 'Packing View', desc: 'Preps, checklists, container cases', color: 'border-orange-100 hover:bg-orange-50/10' },
+                          { id: 'inventory', label: 'Inventory Mode', desc: 'Multi-warehouse sheets, vendor directory', color: 'border-teal-100 hover:bg-teal-50/10' },
+                          { id: 'tagging', label: 'Tagging View', desc: 'Barcodes sheets, check-outs, calibration', color: 'border-rose-100 hover:bg-rose-50/10' },
+                          { id: 'max', label: 'Max (All Enabled)', desc: 'Full-featured enterprise setup workspace', color: 'border-neutral-200 hover:bg-neutral-55/10' }
+                        ].map((pres) => {
+                          const active = user.activeWorkspacePreset === pres.id;
+                          return (
+                            <button
+                              key={pres.id}
+                              type="button"
+                              onClick={() => applyPresetLayout(pres.id as any)}
+                              className={`p-3 text-left border rounded-xl transition-all relative ${pres.color} ${
+                                active ? 'ring-2 ring-neutral-900 bg-neutral-90 px-3 border-neutral-700' : ''
+                              }`}
+                            >
+                              {active && (
+                                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#ff4f3a]" />
+                              )}
+                              <p className="text-[10px] font-black uppercase text-neutral-800 tracking-tight">{pres.label}</p>
+                              <p className="text-[8px] leading-tight text-neutral-400 font-bold mt-1 uppercase">{pres.desc}</p>
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-black uppercase tracking-tight text-neutral-800 line-clamp-1">{act.title}</p>
-                        <p className="text-[9px] text-neutral-400 font-medium leading-relaxed uppercase mt-0.5 mt-0.5 line-clamp-2">
-                          {act.description}
-                        </p>
+                    </div>
+
+                    {/* Dynamic Custom Shortcuts list */}
+                    <div className="space-y-2">
+                      <h4 className="text-[9px] font-black uppercase tracking-widest text-neutral-400 font-bold">My Custom Setup Buttons</h4>
+                      {(user.customPresets && user.customPresets.length > 0) ? (
+                        <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+                          {user.customPresets.map((preset) => {
+                            const active = user.activeWorkspacePreset === preset.id;
+                            return (
+                              <div 
+                                key={preset.id}
+                                className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                                  active ? 'border-[#ff4f3a] bg-rose-50/10' : 'border-neutral-200 bg-white hover:bg-neutral-50'
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => applyCustomPreset(preset)}
+                                  className="flex-1 text-left min-w-0"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <LayoutGrid size={11} className="text-neutral-500 shrink-0" />
+                                    <span className="text-[10px] font-black uppercase tracking-tight text-neutral-800 truncate">
+                                      {preset.name}
+                                    </span>
+                                  </div>
+                                  <p className="text-[8px] font-mono uppercase text-neutral-400 font-bold ml-4">
+                                    {11 - (preset.disabledFeatures?.length || 0)} modules active
+                                  </p>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCustomPreset(preset.id, preset.name)}
+                                  className="p-1 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded transition shrink-0"
+                                  title="Remove customized button shortcut"
+                                >
+                                  <Trash2 size={11} />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-neutral-50 rounded-xl border border-dashed border-neutral-150 text-center text-[8.5px] font-semibold text-neutral-400 leading-normal">
+                          No custom presets defined yet. Compile your chosen deck using checkout form below.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Composite Custom Preset constructor form */}
+                    <form onSubmit={handleCreateCustomPreset} className="p-4 bg-neutral-50 rounded-2xl border border-neutral-150 space-y-3.5">
+                      <div className="space-y-1">
+                        <h5 className="text-[9px] font-black uppercase tracking-widest text-[#ff4f3a]">Create Action Custom Button</h5>
+                        <p className="text-[8px] font-semibold text-neutral-400 leading-normal">Construct customized modules configurations presets and add to dynamic tabs list.</p>
                       </div>
-                    </button>
-                  ))}
-                </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-[8px] font-black uppercase tracking-wider text-neutral-400">Preset Tab Title</label>
+                        <input
+                          type="text"
+                          value={customPresetName}
+                          onChange={(e) => setCustomPresetName(e.target.value)}
+                          placeholder="e.g. Field Supervisor View"
+                          className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-[10px] font-semibold text-neutral-800 focus:outline-none focus:border-[#ff4f3a]"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[8px] font-black uppercase tracking-wider text-neutral-400">Toggle active layers</label>
+                        <div className="grid grid-cols-2 gap-1 max-h-[120px] overflow-y-auto pr-1">
+                          {CALIBRATION_FEATURES.map((feat) => {
+                            const checked = selectedCustomFeatures.has(feat.key);
+                            return (
+                              <button
+                                key={feat.key}
+                                type="button"
+                                onClick={() => toggleCustomFeatureItem(feat.key)}
+                                className={`p-1.5 text-left border rounded text-[8px] transition-all flex items-center justify-between ${
+                                  checked ? 'bg-neutral-900 border-neutral-900 text-white font-black uppercase' : 'bg-white border-neutral-200 text-neutral-400 font-bold uppercase hover:bg-neutral-100'
+                                }`}
+                              >
+                                <span className="truncate pr-1">{feat.label}</span>
+                                {checked && <Check size={8} strokeWidth={4} className="shrink-0 text-white" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white hover:text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition shadow flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Plus size={10} strokeWidth={3} />
+                        Save Preset Button
+                      </button>
+                    </form>
+
+                    {/* Relaunch Onboarder Link/Button */}
+                    <div className="pt-2 border-t border-neutral-150">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (confirm("Relaunching setup wizard will temporarily overlay the screen until completed. Proceed?")) {
+                            try {
+                              await updateDoc(doc(db, 'users', user.uid), {
+                                onboardingCompleted: false
+                              });
+                              setIsOpen(false);
+                              toast.info("Relaunching setup calibration wizard walkthrough...");
+                            } catch (e) {
+                              console.error(e);
+                              toast.error("Failed to relaunch calibration.");
+                            }
+                          }
+                        }}
+                        className="w-full py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-lg text-[8.5px] font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <SlidersHorizontal size={10} />
+                        Relaunch Setup Wizard
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Drawer Footer info details */}
               <div className="bg-neutral-50 px-6 py-4 border-t border-neutral-150 flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-neutral-400">
-                <span>Adaptive Context mode</span>
-                <span>Active</span>
+                <span>Preset Setup Mode({user.activeWorkspacePreset || 'none'})</span>
+                <span>Calibrated</span>
               </div>
             </motion.div>
           </div>

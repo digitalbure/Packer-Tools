@@ -43,6 +43,7 @@ import { collection, query, where, getDocs, getDoc, addDoc, deleteDoc, serverTim
 import { db, handleFirestoreError, OperationType, signInWithGoogle } from '../firebase';
 import { triggerGoogleChatAlert } from '../services/googleChat';
 import { GearItem, UserProfile, CheckoutRecord, AdminSettings, Container } from '../types';
+import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import PackerLogo from '../components/PackerLogo';
 import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
@@ -64,6 +65,19 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   const [step, setStep] = useState<KioskStep>('welcome');
   const [escapeTaps, setEscapeTaps] = useState(0);
   const [cameraAccessError, setCameraAccessError] = useState<string | null>(null);
+
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [offlineQueue, setOfflineQueue] = useState<OfflineOperation[]>([]);
+  const [isOfflineSyncing, setIsOfflineSyncing] = useState<boolean>(false);
+
+  useEffect(() => {
+    const unsubscribe = offlineSync.subscribe((queue, online, syncing) => {
+      setOfflineQueue(queue);
+      setIsOnline(online);
+      setIsOfflineSyncing(syncing);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Active Terminal Source Configuration
   const [activeSourceType, setActiveSourceType] = useState<'gearLibrary' | 'customInventory'>('gearLibrary');
@@ -515,23 +529,57 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       const userGearRef = doc(db, 'users', targetUid, 'gearLibrary', foundItem.id);
 
       if (pwaMode === 'checkin') {
-        await updateDoc(userGearRef, {
-          status: 'available',
-          currentHolder: "",
-          lastCheckedIn: serverTimestamp()
-        });
+        const nowMs = Date.now();
+        if (!isOnline) {
+          await offlineSync.queueOperation({
+            type: 'update',
+            collectionPath: ['users', targetUid, 'gearLibrary', foundItem.id],
+            docId: foundItem.id,
+            data: {
+              status: 'available',
+              currentHolder: "",
+              lastCheckedIn: nowMs
+            },
+            label: `Check-in ${foundItem.name} (Offline)`
+          });
 
-        await addDoc(collection(db, 'checkouts'), {
-          assetId: foundItem.id,
-          assetName: foundItem.name,
-          assetType: 'item',
-          userId: targetUid,
-          userName: foundItem.currentHolder || 'Assigned Holder',
-          userEmail: '',
-          checkInTime: serverTimestamp(),
-          status: 'returned',
-          notes: `Checked-in securely via PWA Scanner App`
-        });
+          const checkoutId = 'checkout_' + nowMs + '_' + Math.random().toString(36).substring(2, 7);
+          await offlineSync.queueOperation({
+            type: 'set',
+            collectionPath: ['checkouts', checkoutId],
+            docId: checkoutId,
+            data: {
+              assetId: foundItem.id,
+              assetName: foundItem.name,
+              assetType: 'item',
+              userId: targetUid,
+              userName: foundItem.currentHolder || 'Assigned Holder',
+              userEmail: '',
+              checkInTime: nowMs,
+              status: 'returned',
+              notes: `Checked-in securely via PWA Scanner App (Offline)`
+            },
+            label: `Record Check-in ${foundItem.name} (Offline)`
+          });
+        } else {
+          await updateDoc(userGearRef, {
+            status: 'available',
+            currentHolder: "",
+            lastCheckedIn: serverTimestamp()
+          });
+
+          await addDoc(collection(db, 'checkouts'), {
+            assetId: foundItem.id,
+            assetName: foundItem.name,
+            assetType: 'item',
+            userId: targetUid,
+            userName: foundItem.currentHolder || 'Assigned Holder',
+            userEmail: '',
+            checkInTime: serverTimestamp(),
+            status: 'returned',
+            notes: `Checked-in securely via PWA Scanner App`
+          });
+        }
 
         setPwaSessionLogs(prev => [
           {
@@ -544,26 +592,60 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
           },
           ...prev
         ]);
-        toast.success(`✓ Checked IN: ${foundItem.name}`);
+        toast.success(`✓ Checked IN: ${foundItem.name}${!isOnline ? ' (Queued Offline)' : ''}`);
       } else if (pwaMode === 'checkout') {
         const holderName = scannerAssignee.trim() || initialUser?.displayName || 'PWA Scanner Operator';
-        await updateDoc(userGearRef, {
-          status: 'in_use',
-          currentHolder: holderName,
-          lastCheckedOut: serverTimestamp()
-        });
+        const nowMs = Date.now();
+        if (!isOnline) {
+          await offlineSync.queueOperation({
+            type: 'update',
+            collectionPath: ['users', targetUid, 'gearLibrary', foundItem.id],
+            docId: foundItem.id,
+            data: {
+              status: 'in_use',
+              currentHolder: holderName,
+              lastCheckedOut: nowMs
+            },
+            label: `Check-out ${foundItem.name} to ${holderName} (Offline)`
+          });
 
-        await addDoc(collection(db, 'checkouts'), {
-          assetId: foundItem.id,
-          assetName: foundItem.name,
-          assetType: 'item',
-          userId: targetUid,
-          userName: holderName,
-          userEmail: scannerAssigneeEmail || '',
-          checkOutTime: serverTimestamp(),
-          status: 'checked_out',
-          notes: `Checked-out securely via PWA Scanner App to ${holderName}`
-        });
+          const checkoutId = 'checkout_' + nowMs + '_' + Math.random().toString(36).substring(2, 7);
+          await offlineSync.queueOperation({
+            type: 'set',
+            collectionPath: ['checkouts', checkoutId],
+            docId: checkoutId,
+            data: {
+              assetId: foundItem.id,
+              assetName: foundItem.name,
+              assetType: 'item',
+              userId: targetUid,
+              userName: holderName,
+              userEmail: scannerAssigneeEmail || '',
+              checkOutTime: nowMs,
+              status: 'checked_out',
+              notes: `Checked-out securely via PWA Scanner App to ${holderName} (Offline)`
+            },
+            label: `Record Check-out ${foundItem.name} (Offline)`
+          });
+        } else {
+          await updateDoc(userGearRef, {
+            status: 'in_use',
+            currentHolder: holderName,
+            lastCheckedOut: serverTimestamp()
+          });
+
+          await addDoc(collection(db, 'checkouts'), {
+            assetId: foundItem.id,
+            assetName: foundItem.name,
+            assetType: 'item',
+            userId: targetUid,
+            userName: holderName,
+            userEmail: scannerAssigneeEmail || '',
+            checkOutTime: serverTimestamp(),
+            status: 'checked_out',
+            notes: `Checked-out securely via PWA Scanner App to ${holderName}`
+          });
+        }
 
         setPwaSessionLogs(prev => [
           {
@@ -577,7 +659,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
           },
           ...prev
         ]);
-        toast.success(`➜ Checked OUT: ${foundItem.name} to ${holderName}`);
+        toast.success(`➜ Checked OUT: ${foundItem.name} to ${holderName}${!isOnline ? ' (Queued Offline)' : ''}`);
       } else {
         // Spec Board / Lookup
         setPwaSessionLogs(prev => [
@@ -1500,6 +1582,13 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     return doc(db, 'users', targetUid, 'gearLibrary', itemId);
   };
 
+  const getItemCollectionPath = (itemId: string, targetUid: string) => {
+    if (activeSourceType === 'customInventory' && terminalInventoryId) {
+      return ['inventories', terminalInventoryId, 'items', itemId];
+    }
+    return ['users', targetUid, 'gearLibrary', itemId];
+  };
+
   const handleScanSuccess = async (scannedValue: string) => {
     if (step === 'case_pack') {
       handlePackItem(scannedValue);
@@ -1646,42 +1735,93 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     try {
       const checkoutItems: any[] = [];
       const sigData = sigCanvas.current?.toDataURL() || undefined;
+      const nowMs = Date.now();
 
       for (const { item, qty } of cart) {
-        // Create an individual checkout record for each item
-        const checkoutData: Omit<CheckoutRecord, 'id'> = {
-          assetId: item.id,
-          assetName: item.name,
-          assetType: 'item',
-          userId: targetUid,
-          userName: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
-          userEmail: guestInfo.email || initialUser?.email || 'guest@terminal.local',
-          checkOutTime: serverTimestamp(),
-          status: 'active',
-          signature: sigData,
-          notes: `Bulk checked out via Gear Terminal at ${new Date().toLocaleString()}`
-        };
+        if (!isOnline) {
+          const checkoutId = 'checkout_' + nowMs + '_' + Math.random().toString(36).substring(2, 7);
+          await offlineSync.queueOperation({
+            type: 'set',
+            collectionPath: ['checkouts', checkoutId],
+            docId: checkoutId,
+            data: {
+              assetId: item.id,
+              assetName: item.name,
+              assetType: 'item',
+              userId: targetUid,
+              userName: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
+              userEmail: guestInfo.email || initialUser?.email || 'guest@terminal.local',
+              checkOutTime: nowMs,
+              status: 'active',
+              signature: sigData || null,
+              notes: `Bulk checked out via Gear Terminal at ${new Date().toLocaleString()} (Offline)`
+            },
+            label: `Check-out ${item.name} to ${guestInfo.name || initialUser?.displayName || 'Terminal Guest'} (Offline)`
+          });
 
-        await addDoc(collection(db, 'checkouts'), checkoutData);
-        
-        // Update item status in organization database
-        const userGearRef = getItemDocRef(item.id, targetUid);
-        await updateDoc(userGearRef, {
-          status: 'in_use',
-          currentHolder: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
-          lastCheckedOut: serverTimestamp()
-        });
-
-        // Update child items if it's external kit contents
-        if (item.isKit && item.childItemIds?.length) {
-          for (const childId of item.childItemIds) {
-            const childRef = getItemDocRef(childId, targetUid);
-            await updateDoc(childRef, {
+          const userGearPath = getItemCollectionPath(item.id, targetUid);
+          await offlineSync.queueOperation({
+            type: 'update',
+            collectionPath: userGearPath,
+            docId: item.id,
+            data: {
               status: 'in_use',
               currentHolder: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
-              lastCheckedOut: serverTimestamp(),
-              kitId: item.id
-            });
+              lastCheckedOut: nowMs
+            },
+            label: `Update status of ${item.name} to In Use (Offline)`
+          });
+
+          if (item.isKit && item.childItemIds?.length) {
+            for (const childId of item.childItemIds) {
+              const childPath = getItemCollectionPath(childId, targetUid);
+              await offlineSync.queueOperation({
+                type: 'update',
+                collectionPath: childPath,
+                docId: childId,
+                data: {
+                  status: 'in_use',
+                  currentHolder: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
+                  lastCheckedOut: nowMs,
+                  kitId: item.id
+                },
+                label: `Update kit item ${childId} status to In Use (Offline)`
+              });
+            }
+          }
+        } else {
+          const checkoutData: any = {
+            assetId: item.id,
+            assetName: item.name,
+            assetType: 'item',
+            userId: targetUid,
+            userName: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
+            userEmail: guestInfo.email || initialUser?.email || 'guest@terminal.local',
+            checkOutTime: serverTimestamp(),
+            status: 'active',
+            signature: sigData || null,
+            notes: `Bulk checked out via Gear Terminal at ${new Date().toLocaleString()}`
+          };
+
+          await addDoc(collection(db, 'checkouts'), checkoutData);
+          
+          const userGearRef = getItemDocRef(item.id, targetUid);
+          await updateDoc(userGearRef, {
+            status: 'in_use',
+            currentHolder: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
+            lastCheckedOut: serverTimestamp()
+          });
+
+          if (item.isKit && item.childItemIds?.length) {
+            for (const childId of item.childItemIds) {
+              const childRef = getItemDocRef(childId, targetUid);
+              await updateDoc(childRef, {
+                status: 'in_use',
+                currentHolder: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
+                lastCheckedOut: serverTimestamp(),
+                kitId: item.id
+              });
+            }
           }
         }
 
@@ -1695,7 +1835,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
         });
       }
 
-      if (initialUser?.orgId) {
+      if (isOnline && initialUser?.orgId) {
         const itemNames = checkoutItems.map(it => `• ${it.name} [${it.assetTag}]`).join('\n');
         triggerGoogleChatAlert(
           initialUser.orgId,
@@ -1713,6 +1853,10 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
         actionType: 'checkout'
       });
 
+      if (!isOnline) {
+        toast.success(`✓ Bulk check-out queued offline. ${checkoutItems.length} items set to In Use.`);
+      }
+
       setStep('receipt');
     } catch (error) {
       console.error(error);
@@ -1728,41 +1872,92 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     setIsLoading(true);
     try {
       const checkinItems: any[] = [];
+      const nowMs = Date.now();
       for (const { item, qty } of cart) {
-        // Find active checkout for this asset
-        const q = query(
-          collection(db, 'checkouts'), 
-          where('assetId', '==', item.id), 
-          where('status', '==', 'active')
-        );
-        const snapshot = await getDocs(q);
-
-        if (!snapshot.empty) {
-          for (const d of snapshot.docs) {
-            await updateDoc(doc(db, 'checkouts', d.id), {
+        if (!isOnline) {
+          const checkoutId = 'checkout_' + nowMs + '_' + Math.random().toString(36).substring(2, 7);
+          await offlineSync.queueOperation({
+            type: 'set',
+            collectionPath: ['checkouts', checkoutId],
+            docId: checkoutId,
+            data: {
+              assetId: item.id,
+              assetName: item.name,
+              assetType: 'item',
+              userId: targetUid,
+              userName: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
+              userEmail: guestInfo.email || initialUser?.email || 'guest@terminal.local',
+              checkInTime: nowMs,
               status: 'returned',
-              checkInTime: serverTimestamp()
-            });
-          }
-        }
+              notes: `Checked-in securely via Gear Terminal (Offline bulk)`
+            },
+            label: `Bulk Check-in ${item.name} (Offline)`
+          });
 
-        const userGearRef = getItemDocRef(item.id, targetUid);
-        await updateDoc(userGearRef, {
-          status: 'available',
-          currentHolder: null,
-          lastCheckedIn: serverTimestamp()
-        });
-
-        // Update child items if it's a kit
-        if (item.isKit && item.childItemIds?.length) {
-          for (const childId of item.childItemIds) {
-            const childRef = getItemDocRef(childId, targetUid);
-            await updateDoc(childRef, {
+          const userGearPath = getItemCollectionPath(item.id, targetUid);
+          await offlineSync.queueOperation({
+            type: 'update',
+            collectionPath: userGearPath,
+            docId: item.id,
+            data: {
               status: 'available',
               currentHolder: null,
-              lastCheckedIn: serverTimestamp(),
-              kitId: null
-            });
+              lastCheckedIn: nowMs
+            },
+            label: `Update status of ${item.name} to Available (Offline)`
+          });
+
+          if (item.isKit && item.childItemIds?.length) {
+            for (const childId of item.childItemIds) {
+              const childPath = getItemCollectionPath(childId, targetUid);
+              await offlineSync.queueOperation({
+                type: 'update',
+                collectionPath: childPath,
+                docId: childId,
+                data: {
+                  status: 'available',
+                  currentHolder: null,
+                  lastCheckedIn: nowMs,
+                  kitId: null
+                },
+                label: `Update kit item ${childId} status to Available (Offline)`
+              });
+            }
+          }
+        } else {
+          const q = query(
+            collection(db, 'checkouts'), 
+            where('assetId', '==', item.id), 
+            where('status', '==', 'active')
+          );
+          const snapshot = await getDocs(q);
+
+          if (!snapshot.empty) {
+            for (const d of snapshot.docs) {
+              await updateDoc(doc(db, 'checkouts', d.id), {
+                status: 'returned',
+                checkInTime: serverTimestamp()
+              });
+            }
+          }
+
+          const userGearRef = getItemDocRef(item.id, targetUid);
+          await updateDoc(userGearRef, {
+            status: 'available',
+            currentHolder: null,
+            lastCheckedIn: serverTimestamp()
+          });
+
+          if (item.isKit && item.childItemIds?.length) {
+            for (const childId of item.childItemIds) {
+              const childRef = getItemDocRef(childId, targetUid);
+              await updateDoc(childRef, {
+                status: 'available',
+                currentHolder: null,
+                lastCheckedIn: serverTimestamp(),
+                kitId: null
+              });
+            }
           }
         }
 
@@ -3146,6 +3341,13 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
         </div>
         
         <div className="flex items-center gap-4 md:gap-6">
+          {!isOnline && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl text-xs font-black uppercase tracking-widest animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+              Offline
+              {offlineQueue.length > 0 && ` (${offlineQueue.length} Queued)`}
+            </div>
+          )}
           {isActivated && (
             <button
               onClick={() => setStep('configure')}

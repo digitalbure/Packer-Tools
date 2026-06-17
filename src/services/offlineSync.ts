@@ -100,7 +100,10 @@ class OfflineSyncManager {
   // Request the latest queue from the Service Worker
   async loadQueue(): Promise<OfflineOperation[]> {
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
-      return [];
+      const fallback = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('packer_offline_queue_fallback') || '[]') : [];
+      this.queue = fallback;
+      this.notify();
+      return fallback;
     }
 
     return new Promise((resolve) => {

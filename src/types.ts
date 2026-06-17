@@ -107,6 +107,15 @@ export interface UserProfile {
   enabledFeatures?: FeatureKey[]; // Overrides for specific users
   disabledFeatures?: FeatureKey[]; // Overrides for specific users
   onboardingCompleted?: boolean;
+  configOnboardingCompleted?: boolean;
+  activeWorkspacePreset?: string;
+  customPresets?: { id: string; name: string; disabledFeatures: FeatureKey[] }[];
+  onboardingConfig?: {
+    industry: string;
+    role: string;
+    intent: string;
+    isLiteMode: boolean;
+  };
   createdAt: string;
   extraSeats?: number;
   isProfilePublic?: boolean;
