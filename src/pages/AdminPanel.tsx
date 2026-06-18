@@ -14,7 +14,7 @@ import AdminDocsTab from '../components/AdminDocsTab';
 import FirebaseMigrator from '../components/FirebaseMigrator';
 import BillingSettings from '../components/BillingSettings';
 import BillingDashboard from '../components/BillingDashboard';
-import { BrandingSettingsTab, BillingSettingsTab, MultiIndustrySettingsTab, MarketplaceSettingsTab, WidgetsSettingsTab, EmailBrandingSettingsTab } from '../components/AdminSettingsPages';
+import { BrandingSettingsTab, BillingSettingsTab, MultiIndustrySettingsTab, MarketplaceSettingsTab, WidgetsSettingsTab, EmailBrandingSettingsTab, SmtpSettingsTab } from '../components/AdminSettingsPages';
 import EmailTemplates from '../components/EmailTemplates';
 import OrganizationAdmin from '../components/OrganizationAdmin';
 import { AreaChart, Area, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cell, CartesianGrid } from 'recharts';
@@ -462,7 +462,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const hasActiveBugs = bugReports.some(b => b.status === 'open' || b.status === 'in_review');
 
   // Currency and payment gateway states
-  const [settingsSubTab, setSettingsSubTab] = useState<'branding' | 'emails' | 'billing' | 'multi_industry' | 'marketplace' | 'widgets' | 'bugs'>('branding');
+  const [settingsSubTab, setSettingsSubTab] = useState<'branding' | 'emails' | 'billing' | 'multi_industry' | 'marketplace' | 'widgets' | 'bugs' | 'smtp'>('branding');
   const [isAddingCurrency, setIsAddingCurrency] = useState(false);
   const [newCurrencyCode, setNewCurrencyCode] = useState('');
   const [newCurrencyName, setNewCurrencyName] = useState('');
@@ -6825,6 +6825,23 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     )}
                   </div>
                 </button>
+
+                {/* SMTP Server Tab */}
+                <button
+                  type="button"
+                  onClick={() => setSettingsSubTab('smtp')}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all font-bold ${
+                    settingsSubTab === 'smtp' 
+                      ? 'bg-neutral-900 text-white shadow-xl shadow-neutral-900/10' 
+                      : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-950'
+                  }`}
+                >
+                  <Server size={16} className={settingsSubTab === 'smtp' ? 'text-primary' : 'text-neutral-400'} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-extrabold text-[11px] leading-none uppercase tracking-wider">SMTP Server</p>
+                    <span className={`text-[8px] block mt-1 font-sans font-bold leading-none ${settingsSubTab === 'smtp' ? 'text-neutral-450' : 'text-neutral-355'}`}>Host, port, user secure configuration</span>
+                  </div>
+                </button>
               </div>
 
               {/* Action Save Quick Card */}
@@ -6849,6 +6866,9 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             <div className="col-span-1 md:col-span-3 space-y-6">
               {settingsSubTab === 'branding' && (
                 <BrandingSettingsTab settings={settings} setSettings={setSettings} />
+              )}
+              {settingsSubTab === 'smtp' && (
+                <SmtpSettingsTab settings={settings} setSettings={setSettings} />
               )}
               {settingsSubTab === 'emails' && (
                 <EmailBrandingSettingsTab settings={settings} setSettings={setSettings} />

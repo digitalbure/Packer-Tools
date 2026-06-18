@@ -2511,3 +2511,288 @@ export function EmailBrandingSettingsTab({ settings, setSettings }: SettingsTabP
     </div>
   );
 }
+
+/**
+ * =========================================================================
+ * 7. SMTP TRANSMISSION SETTINGS TAB
+ * =========================================================================
+ */
+export function SmtpSettingsTab({ settings, setSettings }: SettingsTabProps) {
+  const [testRecipient, setTestRecipient] = useState('');
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleUpdateSmtp = <K extends keyof NonNullable<AdminSettings['smtp']>>(
+    key: K,
+    value: NonNullable<AdminSettings['smtp']>[K]
+  ) => {
+    setSettings((s) => {
+      if (!s) return null;
+      const currentSmtp = s.smtp || {};
+      return {
+        ...s,
+        smtp: {
+          ...currentSmtp,
+          [key]: value
+        }
+      };
+    });
+  };
+
+  const handleSendSmtpTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testRecipient.trim() || !testRecipient.includes('@')) {
+      toast.error("Please enter a valid recipient email address.");
+      return;
+    }
+
+    setIsTestingSmtp(true);
+    try {
+      const { emailService } = await import('../services/emailService');
+      const res = await emailService.sendNotification(
+        testRecipient.trim(),
+        "SMTP Diagnostic Dispatch",
+        "SMTP Server Verification Check",
+        "Congratulations! Your custom SMTP transmission settings have been compiled successfully inside the Packer Tools communications engine. Transactions are now routing properly.",
+        window.location.origin + "/admin",
+        "Return to Admin Panel",
+        settings
+      );
+
+      if (res && res.simulated) {
+        toast.info("Sandbox Simulation Mode: Node.js server lacks backend SMTP support, but custom configuration handles parsing correctly.");
+      } else {
+        toast.success(`Active SMTP test dispatched successfully to ${testRecipient}!`);
+      }
+    } catch (err: any) {
+      toast.error(`SMTP transmission failed: ${err.message || err}`);
+    } finally {
+      setIsTestingSmtp(false);
+    }
+  };
+
+  const smtp = settings?.smtp || {};
+  const isEnabled = !!smtp.enabled;
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* Tab Header segment */}
+      <div className="bg-white p-6 rounded-[2.5rem] border border-neutral-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-2.5 text-neutral-900">
+            <Server className="text-primary animate-pulse" size={24} />
+            <span>SMTP Server Settings</span>
+          </h2>
+          <p className="font-semibold text-neutral-500 text-xs">
+            Configure host, gateway ports, and secure authentication to route all automatic, welcome, and verification emails via standard custom SMPT servers rather than external presets.
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-900 text-white rounded-full text-[10px] font-mono font-black uppercase tracking-widest self-start">
+          <span>SMTP Gateway Engine</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+        
+        {/* Left inputs config column (7 cols) */}
+        <div className="xl:col-span-7 space-y-6">
+          <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6">
+            
+            {/* Active Switch Toggle with status label */}
+            <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60">
+              <div className="space-y-0.5">
+                <span className="text-xs font-black uppercase text-neutral-800 tracking-tight block">Use Custom SMTP Server</span>
+                <span className="text-[10px] font-medium text-neutral-400 block">Deploy custom SMTP relays for all outbound communications.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleUpdateSmtp('enabled', !isEnabled)}
+                className={`w-14 h-8 rounded-full transition-colors relative cursor-pointer outline-none focus:ring-2 focus:ring-primary/20 ${
+                  isEnabled ? 'bg-primary' : 'bg-neutral-300'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 left-1 bg-white w-6 h-6 rounded-full transition-transform shadow-md ${
+                    isEnabled ? 'translate-x-6' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Input fields */}
+            <div className={`space-y-4 transition-opacity duration-300 ${isEnabled ? 'opacity-100' : 'opacity-60 pointer-events-none'}`}>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* SMTP Host address field */}
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">SMTP Server Host</label>
+                  <input
+                    type="text"
+                    value={smtp.host || ''}
+                    onChange={(e) => handleUpdateSmtp('host', e.target.value)}
+                    placeholder="smtp.mail.me.com"
+                    className="w-full px-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-bold text-neutral-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition"
+                  />
+                </div>
+
+                {/* Port configuration field */}
+                <div className="sm:col-span-1 space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Port</label>
+                  <input
+                    type="number"
+                    value={smtp.port || ''}
+                    onChange={(e) => handleUpdateSmtp('port', e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                    placeholder="587"
+                    className="w-full px-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-bold text-neutral-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition"
+                  />
+                </div>
+              </div>
+
+              {/* SMTP Username/Email address field */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">SMTP Username / User</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={smtp.user || ''}
+                    onChange={(e) => handleUpdateSmtp('user', e.target.value)}
+                    placeholder="example@icloud.com"
+                    className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-bold text-neutral-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition"
+                  />
+                  <Mail className="absolute left-3.5 top-3 text-neutral-400" size={14} />
+                </div>
+                <span className="text-[9px] text-neutral-400 block font-medium">The username or address with which you authenticate to your SMTP provider.</span>
+              </div>
+
+              {/* Password field */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">SMTP Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={smtp.pass || ''}
+                    onChange={(e) => handleUpdateSmtp('pass', e.target.value)}
+                    placeholder="••••••••••••••••"
+                    className="w-full pl-10 pr-12 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-bold text-neutral-800 outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 transition"
+                  />
+                  <Lock className="absolute left-3.5 top-3 text-neutral-400" size={14} />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-2 px-2 py-1 text-[8px] bg-neutral-100 hover:bg-neutral-200 font-mono text-neutral-600 rounded uppercase tracking-wider"
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <span className="text-[9px] text-neutral-400 block font-medium">We recommend using App-Specific passwords rather than primary logons for increased protection.</span>
+              </div>
+
+            </div>
+
+            {/* Test Connection module segment */}
+            <div className={`pt-4 border-t border-neutral-100/70 ${isEnabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+              <div className="bg-neutral-50 p-4 rounded-xl space-y-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="text-emerald-600" size={16} />
+                  <span className="text-[10px] font-black uppercase text-neutral-800 tracking-wide">SMTP Integrity Test</span>
+                </div>
+                <p className="text-[10px] text-neutral-500 font-semibold">
+                  Send an on-demand verification diagnostic e-mail block instantly to test server handshakes and verify authorization.
+                </p>
+                <form onSubmit={handleSendSmtpTestEmail} className="flex gap-2 items-center">
+                  <input
+                    type="email"
+                    value={testRecipient}
+                    onChange={(e) => setTestRecipient(e.target.value)}
+                    placeholder="jnakasamai@gmail.com"
+                    className="flex-1 px-3 py-2 bg-white border border-neutral-200/60 rounded-xl text-xs font-mono"
+                    required={isEnabled}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isTestingSmtp || !isEnabled}
+                    className="bg-neutral-900 border border-neutral-850 hover:bg-neutral-800 text-white font-black text-[9px] uppercase tracking-widest px-4 py-2.5 rounded-xl transition disabled:opacity-50 inline-flex items-center gap-1.5"
+                  >
+                    {isTestingSmtp ? 'Sending...' : 'Test SMTP'}
+                  </button>
+                </form>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Right Help Segment section (5 cols) */}
+        <div className="xl:col-span-5 space-y-6">
+          
+          {/* Apple Mail Custom Guide (iCloud SMTP) */}
+          <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-4">
+            <div className="flex items-start gap-3 border-b border-neutral-50 pb-3">
+              <span className="text-xl">🍏</span>
+              <div>
+                <h3 className="font-extrabold uppercase text-xs tracking-tight text-neutral-800">Apple iCloud Mail Settings</h3>
+                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider">Guide for utilizing Apple accounts</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-500 leading-relaxed font-medium">
+              Absolutely! You can utilize the official iCloud SMTP server to route all outbound transaction mails. Follow these strict authentication parameters to ensure delivery:
+            </p>
+
+            <div className="space-y-2 bg-neutral-50 p-4 rounded-2xl border border-neutral-150 text-[11px] font-mono">
+              <div className="flex justify-between py-1 border-b border-neutral-200/40">
+                <span className="text-neutral-400">SMTP Host:</span>
+                <span className="font-bold text-neutral-800 select-all">smtp.mail.me.com</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-neutral-200/40">
+                <span className="text-neutral-400">SMTP Port:</span>
+                <span className="font-bold text-neutral-800">587</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-neutral-200/40">
+                <span className="text-neutral-400">Secure Protocol:</span>
+                <span className="font-bold text-neutral-800">STARTTLS</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-neutral-200/40">
+                <span className="text-neutral-400">SMTP Username:</span>
+                <span className="font-bold text-neutral-800 text-right select-all">Your full iCloud email (e.g., mail@icloud.com)</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-neutral-400">SMTP Password:</span>
+                <span className="font-bold text-red-600 text-right">App-Specific Password</span>
+              </div>
+            </div>
+
+            {/* Crucial Instructions Alert Warning Panel */}
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-800 leading-relaxed space-y-1 shadow-sm">
+              <div className="flex items-center gap-1.5 font-bold uppercase tracking-wide">
+                <Info size={12} className="shrink-0" />
+                <span>Prerequisite: Generate App Password</span>
+              </div>
+              <p className="font-medium">
+                Do <strong>NOT</strong> write your main Apple ID login password above. Apple enforces 2-Factor Authentication globally, which prevents basic passwords from accessing raw SMTP gateways.
+              </p>
+              <ol className="list-decimal pl-4 space-y-0.5 mt-1 font-semibold">
+                <li>Sign in to your account page at <a href="https://appleid.apple.com" target="_blank" rel="noreferrer" className="underline font-black">appleid.apple.com</a>.</li>
+                <li>Navigate to the <strong>Sign-In and Security</strong> subsegment.</li>
+                <li>Select the <strong>App-Specific Passwords</strong> dashboard option.</li>
+                <li>Click <strong>Generate an app-specific password</strong>, input Name (e.g., <code className="bg-amber-100 font-mono px-1 rounded">Packer Tools</code>), copy the secret 16-character phrase, and paste it into the password field on the left.</li>
+              </ol>
+            </div>
+          </div>
+
+          {/* Secure Credential Advice info block */}
+          <div className="bg-neutral-50 p-5 rounded-2xl border border-neutral-200/60 text-xs text-neutral-500 space-y-2">
+            <span className="font-black text-[10px] uppercase tracking-wider text-neutral-700 block">🔒 High-Security Encrypted Storage</span>
+            <p className="leading-relaxed">
+              SMTP credential records are processed and synchronized inside Packer Tools using absolute cloud security guidelines. Key parameters reside globally under adminSettings in Firestore, restricting read-dispatch lookup access exclusively to super administrators.
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+

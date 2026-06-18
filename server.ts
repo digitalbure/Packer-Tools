@@ -9,6 +9,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import admin from "firebase-admin";
 import crypto from "crypto";
 import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -305,10 +306,120 @@ const isQuotaError = (error: any): boolean => {
   return status === 429 || message.includes("quota") || message.includes("resource_exhausted") || message.includes("limit exceeded") || message.includes("429");
 };
 
+// smart local spec extraction helper
+function extractSpecsFromText(textContent: string, productName: string, url: string): any {
+  const text = (textContent || "") + " " + (productName || "") + " " + (url || "");
+  const lowercaseText = text.toLowerCase();
+
+  // 1. IO Count
+  let ioCount = "Standard";
+  if (lowercaseText.includes("hdmi") && lowercaseText.includes("sdi")) {
+    ioCount = "HDMI & SDI Outputs";
+  } else if (lowercaseText.includes("xlr") && lowercaseText.includes("phantom")) {
+    ioCount = "Dual XLR Neutrik Inputs";
+  } else if (lowercaseText.includes("usb-c") || lowercaseText.includes("type-c")) {
+    ioCount = "USB-C Power & Data Port";
+  } else if (lowercaseText.includes("ethernet") || lowercaseText.includes("rj45")) {
+    ioCount = "Gigabit RJ45 Ethernet Port";
+  } else {
+    // Search for general ports
+    const portMatch = text.match(/(\d+x\s*[a-zA-Z0-9\-\/ ]+(?:port|output|input|jack|slot))/i);
+    if (portMatch) {
+      ioCount = portMatch[1];
+    } else {
+      const matchHdmi = lowercaseText.includes("hdmi") ? "HDMI" : "";
+      const matchSdi = lowercaseText.includes("sdi") ? "SDI" : "";
+      const matchXlr = lowercaseText.includes("xlr") ? "XLR" : "";
+      const foundPorts = [matchHdmi, matchSdi, matchXlr].filter(Boolean);
+      if (foundPorts.length > 0) {
+        ioCount = `${foundPorts.join(" & ")} Connectivity`;
+      }
+    }
+  }
+
+  // 2. Voltage
+  let voltage = "110-240V AC";
+  const voltageMatch = text.match(/(\d+(?:\.\d+)?\s*(?:vac|vdc|volts|volt|v))\b/i);
+  if (voltageMatch) {
+    voltage = voltageMatch[1].toUpperCase();
+  } else if (lowercaseText.includes("v-mount") || lowercaseText.includes("gold-mount")) {
+    voltage = "14.4V Nominal (V-Mount)";
+  } else if (lowercaseText.includes("battery") || lowercaseText.includes("np-f")) {
+    voltage = "7.2V (L-series compatible)";
+  } else if (lowercaseText.includes("usb-c power") || lowercaseText.includes("pd 3.0")) {
+    voltage = "5V / 9V / 15V / 20V USB-PD";
+  }
+
+  // 3. Frequency
+  let frequency = "50/60 Hz";
+  const freqMatch = text.match(/([0-9\.]+\s*(?:hz|khz|ghz|mhz))/i);
+  if (freqMatch) {
+    frequency = freqMatch[1];
+  } else if (lowercaseText.includes("wireless") || lowercaseText.includes("transmitter")) {
+    if (lowercaseText.includes("5ghz") || lowercaseText.includes("5g")) {
+      frequency = "5.1 GHz - 5.8 GHz DFS";
+    } else if (lowercaseText.includes("2.4ghz") || lowercaseText.includes("2.4g")) {
+      frequency = "2.4 GHz ISM Band";
+    }
+  } else if (lowercaseText.includes("microphone") || lowercaseText.includes("audio")) {
+    frequency = "20 Hz - 20 kHz (Audio Band)";
+  }
+
+  // 4. Dimensions
+  let dimensions = "Compact Standard Size";
+  // Look for dimensions like 100 x 200 x 300 mm etc.
+  const dimMatch = text.match(/(\d+(?:\.\d+)?\s*(?:x|by|\*)\s*\d+(?:\.\d+)?\s*(?:x|by|\*)\s*\d+(?:\.\d+)?\s*(?:mm|cm|in|inch|inches))/i);
+  if (dimMatch) {
+    dimensions = dimMatch[1];
+  } else {
+    const backupDimMatch = text.match(/([0-9\.]+\s*mm\s*(?:x|by|\*)\s*[0-9\.]+\s*mm)/i);
+    if (backupDimMatch) {
+      dimensions = backupDimMatch[1];
+    }
+  }
+
+  // 5. Weight
+  let weight = "1.2 kg";
+  const weightMatch = text.match(/(\d+(?:\.\d+)?\s*(?:kg|g|lbs|lb|oz|grams|kilograms|ounces))\b/i);
+  if (weightMatch) {
+    weight = weightMatch[1];
+  } else if (lowercaseText.includes("camera body")) {
+    weight = "650 g";
+  } else if (lowercaseText.includes("lens")) {
+    weight = "450 g";
+  }
+
+  // 6. Power Consumption
+  let powerConsumption = "Standard Operating Power";
+  const powerMatch = text.match(/(\d+(?:\.\d+)?\s*(?:w|watts|watt|wh|watt-hour|whr))\b/i);
+  if (powerMatch) {
+    powerConsumption = powerMatch[1].toUpperCase();
+  } else if (lowercaseText.includes("led") || lowercaseText.includes("aputure")) {
+    powerConsumption = lowercaseText.includes("600") ? "600W Max Draw" : "150W Nominal";
+  }
+
+  // 7. Firmware
+  let firmware = "v1.0.0";
+  const firmwareMatch = text.match(/(?:firmware|ver\.|version|v)\s*([0-9\.]+)/i);
+  if (firmwareMatch) {
+    firmware = "v" + firmwareMatch[1];
+  }
+
+  return {
+    ioCount,
+    voltage,
+    frequency,
+    dimensions,
+    weight,
+    powerConsumption,
+    firmware
+  };
+}
+
 app.post("/api/analyze-item", authenticateUser, async (req, res) => {
   const { url, productName } = req.body;
+  let webpageTextContent = "";
   try {
-    let webpageTextContent = "";
     if (url && url.startsWith("http")) {
       try {
         const fetchRes = await axios.get(url, {
@@ -332,41 +443,59 @@ app.post("/api/analyze-item", authenticateUser, async (req, res) => {
       }
     }
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: `Search for and extract technical specifications and a high-quality product image for the following product: ${productName || ""} ${url || ""}.
-      ${webpageTextContent ? `Below is the scraped text content of the product's webpage that you should analyze to extract perfect details (brand, name, specs, price):\n\n--- WEBPAGE TEXT CONTENT start ---\n${webpageTextContent}\n--- WEBPAGE TEXT CONTENT end ---\n` : ""}
-      Focus on brand, model, detailed specs like IO ports, voltage, frequency, dimensions, weight, a detailed friendly marketing/technical description, and a direct high-quality product image/photo URL (photoUrl) if you can find one via web search results or within the scraped text.
-      Return strictly JSON.`,
-      config: {
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
+    const sysInstruction = `Search for and extract technical specifications and a high-quality product image for the following product: ${productName || ""} ${url || ""}.
+    ${webpageTextContent ? `Below is the scraped text content of the product's webpage that you should analyze to extract perfect details (brand, name, specs, price):\n\n--- WEBPAGE TEXT CONTENT start ---\n${webpageTextContent}\n--- WEBPAGE TEXT CONTENT end ---\n` : ""}
+    Focus on brand, model, detailed specs like IO ports, voltage, frequency, dimensions, weight, a detailed friendly marketing/technical description, and a direct high-quality product image/photo URL (photoUrl) if you can find one via web search results or within the scraped text.
+    Return strictly JSON.`;
+
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING },
+        brand: { type: Type.STRING },
+        model: { type: Type.STRING },
+        category: { type: Type.STRING },
+        price: { type: Type.NUMBER },
+        description: { type: Type.STRING },
+        photoUrl: { type: Type.STRING },
+        specs: {
           type: Type.OBJECT,
           properties: {
-            name: { type: Type.STRING },
-            brand: { type: Type.STRING },
-            model: { type: Type.STRING },
-            category: { type: Type.STRING },
-            price: { type: Type.NUMBER },
-            description: { type: Type.STRING },
-            photoUrl: { type: Type.STRING },
-            specs: {
-              type: Type.OBJECT,
-              properties: {
-                ioCount: { type: Type.STRING },
-                voltage: { type: Type.STRING },
-                frequency: { type: Type.STRING },
-                dimensions: { type: Type.STRING },
-                weight: { type: Type.STRING },
-                powerConsumption: { type: Type.STRING },
-                firmware: { type: Type.STRING }
-              }
-            }
+            ioCount: { type: Type.STRING },
+            voltage: { type: Type.STRING },
+            frequency: { type: Type.STRING },
+            dimensions: { type: Type.STRING },
+            weight: { type: Type.STRING },
+            powerConsumption: { type: Type.STRING },
+            firmware: { type: Type.STRING }
           }
         }
       }
-    });
+    };
+
+    let response;
+    try {
+      console.info("[Analyzer] Attempting Gemini analysis with live search grounding...");
+      response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: sysInstruction,
+        config: {
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json",
+          responseSchema
+        }
+      });
+    } catch (searchError: any) {
+      console.warn("[Analyzer] Gemini live search grounding failed, retrying without tools...", searchError.message || searchError);
+      response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: sysInstruction,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema
+        }
+      });
+    }
 
     res.json(JSON.parse(response.text));
   } catch (error: any) {
@@ -407,6 +536,8 @@ app.post("/api/analyze-item", authenticateUser, async (req, res) => {
       if (gModel.length < 30) model = gModel;
     }
 
+    const dynamicSpecs = extractSpecsFromText(webpageTextContent, productName || "", url || "");
+
     res.json({
       name: productName || "Analyzed Item",
       brand,
@@ -415,15 +546,7 @@ app.post("/api/analyze-item", authenticateUser, async (req, res) => {
       price: productName ? (productName.length * 12) : 199,
       description: `A professional ${category.toLowerCase()} device (${brand} ${model}) analyzed via local workspace fallback heuristics.`,
       photoUrl: "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop",
-      specs: {
-        ioCount: nameLower.includes("camera") || nameLower.includes("audio") ? "Multiple I/O" : "Standard",
-        voltage: nameLower.includes("power") || nameLower.includes("battery") ? "14.8V" : "110-240V AC",
-        frequency: "50/60 Hz",
-        dimensions: "Compact Standard Size",
-        weight: "1.2 kg",
-        powerConsumption: "Standard Operating Power",
-        firmware: "v1.0.0"
-      },
+      specs: dynamicSpecs,
       aiWarning: isQuotaError(error) 
         ? "AI Quota Limit Exceeded (429). Operating in beautiful local offline heuristic mode."
         : "AI Heuristic standby loaded successfully."
@@ -1680,7 +1803,65 @@ app.post("/api/emails/send", authenticateUser, async (req, res) => {
     `;
   }
 
-  // Handle send logic
+  // Fetch adminSettings/global first from Firestore to see if custom SMTP is configured/enabled
+  let smtpConfig = null;
+  try {
+    const adminSettingsDoc = await dbAdmin.collection('adminSettings').doc('global').get();
+    if (adminSettingsDoc.exists) {
+      smtpConfig = adminSettingsDoc.data()?.smtp;
+    }
+  } catch (dbErr: any) {
+    console.warn("Could not retrieve global SMTP settings from Firestore db:", dbErr.message);
+  }
+
+  // If SMTP is enabled and configured, dispatch via SMTP
+  if (smtpConfig && smtpConfig.enabled && smtpConfig.host) {
+    try {
+      console.info(`[SMTP Gateway] Transmitting email to ${to} via SMTP Server: ${smtpConfig.host}:${smtpConfig.port}`);
+      
+      const transporter = nodemailer.createTransport({
+        host: smtpConfig.host,
+        port: Number(smtpConfig.port) || 587,
+        secure: Number(smtpConfig.port) === 465, // true for 465, false for 587 STARTTLS
+        auth: {
+          user: smtpConfig.user || '',
+          pass: smtpConfig.pass || ''
+        },
+        tls: {
+          rejectUnauthorized: false // avoids SSL handshake failures on self-signed or custom setups
+        }
+      });
+
+      let senderEmail = smtpConfig.user;
+      let displayName = companyName;
+      let customFromAddress = `"${displayName}" <${senderEmail}>`;
+
+      const response = await transporter.sendMail({
+        from: customFromAddress,
+        to: Array.isArray(to) ? to.join(', ') : to,
+        subject,
+        html: htmlContent
+      });
+
+      console.info("[SMTP Gateway] Email dispatched successfully:", response.messageId);
+
+      return res.json({
+        success: true,
+        simulated: false,
+        smtpMessageId: response.messageId,
+        recipient: to,
+        from: customFromAddress,
+        gateway: 'SMTP'
+      });
+    } catch (smtpErr: any) {
+      console.error("[SMTP Gateway] Transmission failed, returning SMTP error:", smtpErr.message);
+      return res.status(500).json({ 
+        error: `SMTP server dispatch failed: ${smtpErr.message || smtpErr}` 
+      });
+    }
+  }
+
+  // Handle send logic via Resend API key fallback
   const key = process.env.RESEND_API_KEY;
   if (!key || key === "YOUR_RESEND_API_KEY") {
     console.info("Resend API key missing or default. Simulated email transaction:", subject);

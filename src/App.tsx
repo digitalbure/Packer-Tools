@@ -363,7 +363,14 @@ export function getDefaultAdminSettings(): AdminSettings {
       requiresEduVerification: true,
       partnerLogosText: 'Members of Packer Network',
       partnerLogosList: ['facebook', 'amazon studios', 'HBO', 'Disney']
-    } as any
+    } as any,
+    smtp: {
+      enabled: false,
+      host: '',
+      port: 587,
+      user: '',
+      pass: ''
+    }
   };
 }
 

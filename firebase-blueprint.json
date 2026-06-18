@@ -170,6 +170,16 @@
             "callbackUrlDev": { "type": "string" },
             "callbackUrlProd": { "type": "string" }
           }
+        },
+        "smtp": {
+          "type": "object",
+          "properties": {
+            "host": { "type": "string" },
+            "port": { "type": "integer" },
+            "user": { "type": "string" },
+            "pass": { "type": "string" },
+            "enabled": { "type": "boolean" }
+          }
         }
       }
     },

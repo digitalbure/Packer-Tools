@@ -971,6 +971,15 @@ export interface AdminSettings {
     lastTriggeredAt?: string;
   };
   betaModeEnabled?: boolean;
+  smtp?: SmtpConfig;
+}
+
+export interface SmtpConfig {
+  host?: string;
+  port?: number;
+  user?: string;
+  pass?: string;
+  enabled?: boolean;
 }
 
 export interface PaymentGatewayMethod {

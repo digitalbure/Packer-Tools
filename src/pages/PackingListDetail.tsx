@@ -2152,9 +2152,9 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
   return (
     <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pb-24">
-      <div className={`grid grid-cols-1 ${isSidebarCollapsed ? 'xl:grid-cols-[72px_1fr]' : 'xl:grid-cols-[320px_1fr]'} gap-6 items-start pt-4 transition-all duration-300`}>
+      <div className={`grid grid-cols-1 ${isSidebarCollapsed ? 'lg:grid-cols-[72px_1fr]' : 'lg:grid-cols-[320px_1fr]'} gap-6 items-start pt-4 transition-all duration-300`}>
         {/* Left Side Panel: Project Context Navigator */}
-        <aside className={`space-y-6 sticky top-6 bg-neutral-50/50 rounded-[2.5rem] border border-neutral-100/80 shadow-sm transition-all duration-300 flex flex-col ${isSidebarCollapsed ? 'p-2 xl:p-3 items-center' : 'p-4 md:p-6'}`}>
+        <aside className={`hidden lg:flex space-y-6 sticky top-6 bg-neutral-50/50 rounded-[2.5rem] border border-neutral-100/80 shadow-sm transition-all duration-300 flex-col ${isSidebarCollapsed ? 'p-2 lg:p-3 items-center' : 'p-4 md:p-6'}`}>
           {/* Sidebar Toggle Header */}
           <div className={`flex items-center w-full ${isSidebarCollapsed ? 'justify-center' : 'justify-between pb-2 border-b border-neutral-200/50'}`}>
             {!isSidebarCollapsed && (
@@ -2443,7 +2443,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         </aside>
 
         {/* Right Side: Main Workspace Column */}
-        <div className="space-y-8 xl:pl-4 min-w-0">
+        <div className="space-y-8 lg:pl-4 min-w-0">
           <header className="space-y-6">
             <Link to="/dashboard" className="inline-flex items-center gap-2 text-neutral-500 hover:text-primary transition font-medium">
               <ChevronLeft size={20} />

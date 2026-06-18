@@ -37,6 +37,7 @@
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "nodemailer": "^9.0.1",
     "papaparse": "^5.5.3",
     "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
@@ -54,5 +55,8 @@
     "vite-plugin-pwa": "^1.2.0",
     "workbox-precaching": "^7.4.1",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.1"
   }
 }
