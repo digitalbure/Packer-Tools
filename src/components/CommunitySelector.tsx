@@ -413,7 +413,7 @@ export default function CommunitySelector({
               <div className="flex items-center justify-between">
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/15 text-primary rounded-full text-[10px] font-black uppercase tracking-widest">
                   <Compass size={12} className="animate-spin-slow" />
-                  <span>Workspace Portal Locator</span>
+                  <span>Community Location</span>
                 </div>
                 {isDismissible && onClose && (
                   <button 
@@ -427,8 +427,16 @@ export default function CommunitySelector({
               <h2 className="text-3xl font-black text-neutral-900 tracking-tight mt-4">
                 Select Your Active Community
               </h2>
-              <p className="text-sm text-neutral-500 font-medium mt-1 font-sans">
-                Choose your localized geographic workspace community to discover marketplace gear listings, or choose the Global site.
+              <p className="text-xs text-neutral-500 font-semibold mt-1.5 font-sans leading-relaxed">
+                {detectedCountry?.name ? (
+                  <>
+                    You seem to be logging in from "{detectedCountry.name}" do you wish to continue with the "{detectedCountry.name}" community?, Select a different Community or choose the Global site
+                  </>
+                ) : (
+                  <>
+                    Select a different Community or choose the Global site
+                  </>
+                )}
               </p>
             </div>
 
@@ -591,7 +599,7 @@ export default function CommunitySelector({
                 </span>
               </label>
               <p className="text-[10px] text-neutral-400 font-mono font-bold uppercase tracking-wider">
-                🔒 Secured & Localized via Packer Tools Multi-Tenant Architecture
+                © {new Date().getFullYear()} | Packer Tools Inside
               </p>
             </div>
           </>

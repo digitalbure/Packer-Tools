@@ -446,7 +446,20 @@ app.post("/api/analyze-item", authenticateUser, async (req, res) => {
     const sysInstruction = `Search for and extract technical specifications and a high-quality product image for the following product: ${productName || ""} ${url || ""}.
     ${webpageTextContent ? `Below is the scraped text content of the product's webpage that you should analyze to extract perfect details (brand, name, specs, price):\n\n--- WEBPAGE TEXT CONTENT start ---\n${webpageTextContent}\n--- WEBPAGE TEXT CONTENT end ---\n` : ""}
     Focus on brand, model, detailed specs like IO ports, voltage, frequency, dimensions, weight, a detailed friendly marketing/technical description, and a direct high-quality product image/photo URL (photoUrl) if you can find one via web search results or within the scraped text.
-    Return strictly JSON.`;
+
+    CRITICAL REALISM & STRICTOR NO-PLACEHOLDER CONSTRAINTS:
+    Do NOT under any circumstances output lazy placeholder developer values like 'Standard' or 'Multiple I/O' for ioCount, '110-240V AC' or '14.8V' for voltage, '50/60 Hz' for frequency, 'Compact Standard Size' for dimensions, '1.2 kg' for weight, 'Standard Operating Power' for powerConsumption, or 'v1.0.0' for firmware. These generic boilerplate presets are unacceptable and break the product integrity.
+    
+    Instead, adhere to the following rules:
+    - ioCount: Extract exact specific ports (e.g. '1x HDMI 2.0, 1x 12G-SDI, 1x USB-C' or '2x XLR mic inputs with 48V phantom power'). If no physical ports exist (e.g., a simple soft accessory), return 'None' or 'Integrated cable with USB-A'.
+    - voltage: Extract the specific operating voltage (e.g. '12V DC input, 7.2V Battery pack' or 'USB-PD 20V/3A 60W max'). Do NOT fallback to '110-240V AC' unless it connects directly to a wall/IEC socket and that rating is verified. 
+    - frequency: Look for genuine signal, audio frequency or wireless band frequency details (e.g., '20 Hz - 20 kHz' for microphones, '2.4 GHz & 5.8 GHz DFS' for wireless gear, '500 MHz - 900 MHz' for wireless microphones, or '60 Hz' screen refresh rate). If no frequency applies to this category of item (e.g., a hand tool or piece of plastic hardware), set to 'N/A' or describe the acoustic/resonance/vibration profile if relevant.
+    - dimensions: Look up and parse exact dimensions in mm or inches (e.g. '130 x 85 x 45 mm' or '5.1 x 3.3 x 1.7 in'). If unavailable, make a realistic estimate based on the standard form factor of this device type rather than saying 'Compact Standard Size'.
+    - weight: Look up the real weight of this exact device model in g, kg, lbs, or oz (e.g. '450 g', '1.6 kg', '5.5 lbs'). Make a class-based realistic weight approximation if not found, rather than defaulting to '1.2 kg'.
+    - powerConsumption: Extract specific operating wattage draw or battery hours (e.g. '15 Watts max draw' or '45W nominal charge' or 'Pass-thru power'). Do NOT return 'Standard Operating Power'.
+    - firmware: Find the current stable factory or released firmware version for the model, or state 'v1.0 (Out of factory)' or 'Not applicable (Analog device)' if it has no microcontrollers or software.
+    
+    Every single field must reflect precise, accurate details based on either the scraped text, live search results, or your deep internal knowledge of this specific product model. Return strictly JSON.`;
 
     const responseSchema = {
       type: Type.OBJECT,
