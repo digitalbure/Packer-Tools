@@ -443,23 +443,26 @@ app.post("/api/analyze-item", authenticateUser, async (req, res) => {
       }
     }
 
-    const sysInstruction = `Search for and extract technical specifications and a high-quality product image for the following product: ${productName || ""} ${url || ""}.
-    ${webpageTextContent ? `Below is the scraped text content of the product's webpage that you should analyze to extract perfect details (brand, name, specs, price):\n\n--- WEBPAGE TEXT CONTENT start ---\n${webpageTextContent}\n--- WEBPAGE TEXT CONTENT end ---\n` : ""}
-    Focus on brand, model, detailed specs like IO ports, voltage, frequency, dimensions, weight, a detailed friendly marketing/technical description, and a direct high-quality product image/photo URL (photoUrl) if you can find one via web search results or within the scraped text.
+    const sysInstruction = `You are a high-precision Gear Logistics Parser. Your task is to search for, extract, and verify high-precision technical specifications and a high-quality product photo URL for the following gear/product: ${productName || ""} ${url || ""}.
+    ${webpageTextContent ? `Analyze this scraped webpage text content to extract brand, name, specs, and price details:\n\n--- WEBPAGE TEXT CONTENT start ---\n${webpageTextContent}\n--- WEBPAGE TEXT CONTENT end ---\n` : ""}
 
-    CRITICAL REALISM & STRICTOR NO-PLACEHOLDER CONSTRAINTS:
-    Do NOT under any circumstances output lazy placeholder developer values like 'Standard' or 'Multiple I/O' for ioCount, '110-240V AC' or '14.8V' for voltage, '50/60 Hz' for frequency, 'Compact Standard Size' for dimensions, '1.2 kg' for weight, 'Standard Operating Power' for powerConsumption, or 'v1.0.0' for firmware. These generic boilerplate presets are unacceptable and break the product integrity.
+    MANDATORY STRUCTURAL CONVERGENCE & SCHEMA VALIDATION:
+    You MUST output a single structured JSON object conforming strictly to the provided responseSchema validation protocol. Every field defined in the schema must be populated with accurate, verified information.
     
-    Instead, adhere to the following rules:
-    - ioCount: Extract exact specific ports (e.g. '1x HDMI 2.0, 1x 12G-SDI, 1x USB-C' or '2x XLR mic inputs with 48V phantom power'). If no physical ports exist (e.g., a simple soft accessory), return 'None' or 'Integrated cable with USB-A'.
-    - voltage: Extract the specific operating voltage (e.g. '12V DC input, 7.2V Battery pack' or 'USB-PD 20V/3A 60W max'). Do NOT fallback to '110-240V AC' unless it connects directly to a wall/IEC socket and that rating is verified. 
-    - frequency: Look for genuine signal, audio frequency or wireless band frequency details (e.g., '20 Hz - 20 kHz' for microphones, '2.4 GHz & 5.8 GHz DFS' for wireless gear, '500 MHz - 900 MHz' for wireless microphones, or '60 Hz' screen refresh rate). If no frequency applies to this category of item (e.g., a hand tool or piece of plastic hardware), set to 'N/A' or describe the acoustic/resonance/vibration profile if relevant.
-    - dimensions: Look up and parse exact dimensions in mm or inches (e.g. '130 x 85 x 45 mm' or '5.1 x 3.3 x 1.7 in'). If unavailable, make a realistic estimate based on the standard form factor of this device type rather than saying 'Compact Standard Size'.
-    - weight: Look up the real weight of this exact device model in g, kg, lbs, or oz (e.g. '450 g', '1.6 kg', '5.5 lbs'). Make a class-based realistic weight approximation if not found, rather than defaulting to '1.2 kg'.
-    - powerConsumption: Extract specific operating wattage draw or battery hours (e.g. '15 Watts max draw' or '45W nominal charge' or 'Pass-thru power'). Do NOT return 'Standard Operating Power'.
-    - firmware: Find the current stable factory or released firmware version for the model, or state 'v1.0 (Out of factory)' or 'Not applicable (Analog device)' if it has no microcontrollers or software.
+    STRICT PROHIBITION OF CONVENTIONAL PLACEHOLDERS & DEFAULT BOILERPLATES:
+    You are strictly forbidden from reusing lazy developer shortcuts, defaults, or placeholder boilerplate text. Under no circumstances should you return values like 'Standard', 'Multiple I/O', '110-240V AC', '14.8V', '50/60 Hz', 'Compact Standard Size', '1.2 kg', 'Standard Operating Power', or 'v1.0.0' as fallback strings. Every field must represent actual verified empirical data for this specific product.
     
-    Every single field must reflect precise, accurate details based on either the scraped text, live search results, or your deep internal knowledge of this specific product model. Return strictly JSON.`;
+    VISUAL DEVICE CONTEXT & REAL-WORLD SPECIFICATION ALIGNMENT:
+    You must verify that all extracted specifications align precisely with the real-world, physical product nature, form-factor, materials, and chassis visual context of this item (via grounding search outputs, website image assets, or your exhaustive physical product knowledge cataloging the gear's anatomy):
+    - Physical I/O Layout Audit: Review the actual connector chassis configuration. The 'ioCount' field must accurately itemize real physical ports (e.g., '2x 3G-SDI Output, 1x HDMI 2.0 Output, 1x BNC Genlock' or '1x RJ45 PoE+, 1x Phoenix Terminal'). If it is a purely mechanic/analog item with zero electronic interfaces, return 'None' or describe the coupling (e.g., '1/4"-20 Threaded Mount').
+    - Voltage & Power Footprint Verification: Extract the true electrical characteristics. If it is an analog microphone or non-powered tool, list 'N/A (Passive/Analog)'. If USB-powered, return the exact profile (e.g. 'USB-C 5V DC'). If battery-operated, state the specific operating voltage (e.g. '7.2V DC L-Series' or '14.8V Gold-Mount' or 'Internal 3.7V Li-ion'). Only use mains power rating if it has an integrated IEC/AC socket.
+    - Frequency Spectrum Alignment: Determine the genuine frequency spectrum. For wireless gear, use the exact RF band (e.g., '5.18 - 5.82 GHz DFS' or '470 - 608 MHz UHF'). For visual display monitors, specify refresh rates (e.g., '60Hz' or '120Hz'). For microphonic/acoustic gear, list audio frequency response (e.g., '20 Hz - 20 kHz'). For passive utility gear, set to 'N/A' or list its operational physical frequency boundaries.
+    - Volumetric Dimensions Integrity: Do not assume compact defaults. Look up exact millimeter or inch measurements. Cross-check against the product's visual presence. A large tripod system or an LED softbox must reflect actual physical length/breadth profiles (e.g., '1100 x 180 x 180 mm') rather than a lazy standard size estimate.
+    - Mass/Weight Density Analysis: Check the weight against the physical product context. A DSLR camera body cannot have the same default weight as a light plastic clip. Return the real weight in native units (e.g. '640 g' or '1.45 kg' or '4.2 lbs').
+    - Active Power Draw & Efficiency Audit: Report verified power consumption parameters (e.g., '45 Watts operational draw' or '150W peak charging'). Do NOT default to generic descriptive tags.
+    - Microcontroller Firmware Verification: Find the actual released factory or stable system firmware version (e.g., 'v2.4.1' or 'v1.0 build 402'). If the item has no digital processing components (such as a cable, case, or mechanical bracket), return 'Not applicable (Passive hardware)'.
+
+    Be extremely critical of your data quality. Perform a validation pass to ensure that the specs in the JSON exactly match the real-world tool or device model. Return strictly JSON.`;
 
     const responseSchema = {
       type: Type.OBJECT,
