@@ -604,11 +604,8 @@ export default function CommunitySelector({
                 <span className="text-3xl">🇫🇯</span>
                 <div>
                   <h3 className="text-2xl font-black text-neutral-900 tracking-tight">
-                    Fiji Community Verification
+                    Your Community Setup
                   </h3>
-                  <p className="text-xs font-mono font-black text-[#FF5500] uppercase tracking-widest mt-0.5">
-                    Localized Setup Registry
-                  </p>
                 </div>
               </div>
               <p className="text-xs text-neutral-500 mt-3 font-sans leading-relaxed">
@@ -619,39 +616,11 @@ export default function CommunitySelector({
             {/* Main setup scroll container */}
             <div className="flex-1 overflow-y-auto p-8 space-y-6 text-left">
               
-              {/* Google Places Autocomplete Search Box */}
-              {apiKey ? (
-                <div className="space-y-2 bg-[#002f6c]/5 border border-[#002f6c]/10 p-5 rounded-3xl relative">
-                  <div className="flex items-center gap-2 text-neutral-800 font-bold text-xs uppercase tracking-wider font-sans">
-                    <Sparkles size={14} className="text-[#FF5500] animate-pulse" />
-                    <span>Instant City Autocomplete (Google Places)</span>
-                  </div>
-                  <div className="relative font-sans">
-                    <input
-                      ref={autocompleteInputRef}
-                      type="text"
-                      placeholder="Type a city or town to auto-complete..."
-                      className="w-full pl-10 pr-4 py-3 bg-white border border-neutral-200 rounded-2xl text-sm font-semibold focus:ring-2 focus:ring-primary focus:bg-white outline-none transition font-sans text-neutral-800 placeholder-neutral-400"
-                    />
-                    <Search className="absolute left-3.5 top-3.5 text-neutral-400" size={16} />
-                  </div>
-                  <p className="text-[10px] text-neutral-500 font-sans leading-normal">
-                    Fiji country code lock active. Type any town (e.g. Suva, Nadi, Lautoka, Macuata) to instantly populate City & Province fields below.
-                  </p>
-                </div>
-              ) : (
-                <div className="p-4 bg-neutral-100/60 border border-neutral-200/40 rounded-2xl">
-                  <p className="text-[10px] text-neutral-500 font-sans leading-relaxed">
-                    💡 <strong>Instant Search API available:</strong> To activate Google Autocomplete location sync, define <code>GOOGLE_MAPS_PLATFORM_KEY</code> under Admin settings or AI Studio configuration secrets.
-                  </p>
-                </div>
-              )}
-
               {/* City or Town selection */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-neutral-800 font-bold text-sm font-sans">
                   <Landmark size={16} className="text-primary" />
-                  <span>Choose City or Town</span>
+                  <span>City or Town</span>
                 </div>
                 <select
                   value={fijiCity}
@@ -710,7 +679,7 @@ export default function CommunitySelector({
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-neutral-800 font-bold text-sm font-sans">
                   <Navigation size={16} className="text-primary" />
-                  <span>Choose Province Location</span>
+                  <span>Province Location</span>
                 </div>
                 <select
                   value={fijiProvince}
@@ -745,19 +714,19 @@ export default function CommunitySelector({
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-neutral-800 font-bold text-sm font-sans">
                   <Phone size={16} className="text-primary" />
-                  <span>Operator Contact Phone Number</span>
+                  <span>Your Number</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="bg-neutral-100 border border-neutral-200 px-3.5 py-3 rounded-2xl font-mono text-xs font-black text-neutral-500">
                     +679
                   </span>
                   <input
-                    type="tel"
-                    placeholder="e.g. 9451234 or 7234567"
-                    value={fijiPhone}
-                    onChange={(e) => setFijiPhone(e.target.value)}
-                    className="flex-1 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-sm font-semibold focus:ring-2 focus:ring-primary focus:bg-white outline-none transition font-sans"
-                    required
+                     type="tel"
+                     placeholder="e.g. 9451234 or 7234567"
+                     value={fijiPhone}
+                     onChange={(e) => setFijiPhone(e.target.value)}
+                     className="flex-1 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-sm font-semibold focus:ring-2 focus:ring-primary focus:bg-white outline-none transition font-sans"
+                     required
                   />
                 </div>
                 <p className="text-[10px] text-neutral-400 font-mono leading-relaxed pl-1">
