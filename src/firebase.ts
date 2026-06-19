@@ -17,15 +17,24 @@ const app = initializeApp(firebaseConfig);
 
 const dbId = (firebaseConfig as any).firestoreDatabaseId || "ai-studio-8af96458-c1d9-4cdf-9c9a-815dee7f9c70";
 
-// Initialize Firestore with memory cache to bypass persistent IndexedDB corruption errors inside sandboxed iframes
+// Initialize Firestore with single-tab persistence to bypass multi-tab IndexedDB iframe blocks while avoiding memory-cache connection assertion bugs
 let dbInstance;
 try {
   dbInstance = initializeFirestore(app, {
-    localCache: memoryLocalCache()
+    localCache: persistentLocalCache({
+      tabManager: persistentSingleTabManager({})
+    })
   }, dbId);
 } catch (e) {
-  console.warn("Primary Firestore initialization failed. Falling back to default getFirestore.", e);
-  dbInstance = getFirestore(app, dbId);
+  console.warn("Primary persistentSingleTabManager initialization failed. Trying memory local cache fallback...", e);
+  try {
+    dbInstance = initializeFirestore(app, {
+      localCache: memoryLocalCache()
+    }, dbId);
+  } catch (e2) {
+    console.warn("Memory local cache fallback failed. Falling back to default getFirestore.", e2);
+    dbInstance = getFirestore(app, dbId);
+  }
 }
 
 export const db = dbInstance;

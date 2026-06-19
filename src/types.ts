@@ -79,6 +79,10 @@ export interface Plan {
   paddlePriceIdMonthly?: string;
   paddlePriceIdAnnual?: string;
   paddleCheckoutUrl?: string;
+  dodoProductId?: string;
+  dodoPriceIdMonthly?: string;
+  dodoPriceIdAnnual?: string;
+  dodoCheckoutUrl?: string;
 }
 
 export interface UserProfile {
@@ -631,6 +635,10 @@ export interface IntegrationConfig {
   bomRiskThreshold?: number;
   paddleApiKey?: string;
   paddleEnabled?: boolean;
+  dodoApiKey?: string;
+  dodoEnabled?: boolean;
+  dodoSandboxMode?: boolean;
+  dodoWebhookSecret?: string;
 }
 
 export interface LandingPagePair {
@@ -806,6 +814,10 @@ export interface AppCommunity {
   flag: string;
   companyName?: string;
   isActive: boolean;
+  taxName?: string;
+  taxRate?: number;
+  locationOnboardEnabled?: boolean;
+  locationOnboardRadiusKm?: number;
 }
 
 export interface AdminSettings {

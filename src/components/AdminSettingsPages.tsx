@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { db } from '../firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import {
   Sparkles, CreditCard, Building2, ShoppingBag, Wrench, Save, Upload, Plus, Trash2, AlertCircle, Coins,
   Activity, Layers, Cpu, Truck, QrCode, LogOut, CheckCircle2, User, Clock, ShieldCheck, Mail, Phone, MapPin,
@@ -2832,6 +2834,383 @@ export function SmtpSettingsTab({ settings, setSettings }: SettingsTabProps) {
 
         </div>
 
+      </div>
+    </div>
+  );
+}
+
+/** 
+ * =========================================================================
+ * 9. COUNTRIES & REGIONAL COMMUNITIES SETTINGS TAB
+ * =========================================================================
+ */
+export function CommunitiesSettingsTab({ settings, setSettings }: SettingsTabProps) {
+  const currentCommunities = settings?.communities || [
+    { id: 'fiji', name: 'Fiji Community', country: 'Fiji', countryCode: 'FJ', currency: 'FJD', flag: '🇫🇯', companyName: 'Packer Tools Fiji', isActive: true },
+    { id: 'australia', name: 'Australian Community', country: 'Australia', countryCode: 'AU', currency: 'AUD', flag: '🇦🇺', companyName: 'Packer Tools Australia', isActive: true },
+    { id: 'new_zealand', name: 'New Zealand Community', country: 'New Zealand', countryCode: 'NZ', currency: 'NZD', flag: '🇳🇿', companyName: 'Packer Tools New Zealand', isActive: true }
+  ];
+
+  const handleSave = async () => {
+    try {
+      await updateDoc(doc(db, 'adminSettings', 'global'), {
+        ...settings,
+        communities: currentCommunities
+      } as any);
+      toast.success("Localized geographical communities deploy synchronized across platform.");
+    } catch (err) {
+      toast.error("Failed to deploy communities config: " + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 text-left">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-black text-neutral-900 flex items-center gap-2">
+              <MapPin className="text-primary" />
+              <span>Regional Countries & Communities Portal</span>
+            </h3>
+            <p className="text-sm text-neutral-500 font-medium mt-1">
+              Configure localized geographic country community workspaces. Add regional presets, specify tax structures (GST, VAT), currencies, and toggle Location-Based verification and onboarding.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const newComm = {
+                id: `comm_${Date.now()}`,
+                name: 'New Community',
+                country: 'Fiji',
+                countryCode: 'FJ',
+                currency: 'FJD',
+                flag: '🇫🇯',
+                companyName: 'Packer Tools Team',
+                isActive: true,
+                taxName: 'GST',
+                taxRate: 15,
+                locationOnboardEnabled: false,
+                locationOnboardRadiusKm: 50
+              };
+              setSettings(s => {
+                if (!s) return null;
+                const list = s.communities || [
+                  { id: 'fiji', name: 'Fiji Community', country: 'Fiji', countryCode: 'FJ', currency: 'FJD', flag: '🇫🇯', companyName: 'Packer Tools Fiji', isActive: true },
+                  { id: 'australia', name: 'Australian Community', country: 'Australia', countryCode: 'AU', currency: 'AUD', flag: '🇦🇺', companyName: 'Packer Tools Australia', isActive: true },
+                  { id: 'new_zealand', name: 'New Zealand Community', country: 'New Zealand', countryCode: 'NZ', currency: 'NZD', flag: '🇳🇿', companyName: 'Packer Tools New Zealand', isActive: true }
+                ];
+                return { ...s, communities: [...list, newComm] };
+              });
+              toast.success("Blank community template added! Please customize below.");
+            }}
+            className="px-6 py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-wider hover:scale-[1.02] active:scale-95 transition flex items-center gap-2 shrink-0 h-fit"
+          >
+            <Plus size={16} />
+            <span>Add Community Hub</span>
+          </button>
+        </div>
+
+        <div className="border-t border-neutral-100 pt-6 space-y-6">
+          {currentCommunities.length === 0 ? (
+            <div className="p-8 text-center bg-neutral-50 rounded-2xl border border-dashed border-neutral-200">
+              <p className="font-bold text-neutral-400">No geographic communities configured.</p>
+              <p className="text-xs text-neutral-400 mt-1">Click the "Add Community Hub" button to deploy your first region.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {currentCommunities.map((comm, index) => (
+                <div key={comm.id} className="p-6 bg-neutral-50 border border-neutral-200/80 rounded-2xl space-y-4 relative hover:shadow-sm transition">
+                  <div className="flex items-center justify-between border-b border-neutral-200/50 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{comm.flag || '🌐'}</span>
+                      <span className="font-extrabold uppercase text-xs tracking-wider text-neutral-900">{comm.name || 'Unnamed Community'}</span>
+                      <span className="text-[10px] font-mono text-neutral-400">({comm.id})</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSettings(s => {
+                            if (!s) return null;
+                            const list = s.communities ? [...s.communities] : [
+                              { id: 'fiji', name: 'Fiji Community', country: 'Fiji', countryCode: 'FJ', currency: 'FJD', flag: '🇫🇯', companyName: 'Packer Tools Fiji', isActive: true },
+                              { id: 'australia', name: 'Australian Community', country: 'Australia', countryCode: 'AU', currency: 'AUD', flag: '🇦🇺', companyName: 'Packer Tools Australia', isActive: true },
+                              { id: 'new_zealand', name: 'New Zealand Community', country: 'New Zealand', countryCode: 'NZ', currency: 'NZD', flag: '🇳🇿', companyName: 'Packer Tools New Zealand', isActive: true }
+                            ];
+                            list[index] = { ...list[index], isActive: !list[index].isActive };
+                            return { ...s, communities: list };
+                          });
+                          toast.success(`${comm.name || 'Community'} status updated to: ${!comm.isActive ? 'Active' : 'Disabled / Deactivated'}`);
+                        }}
+                        className={`px-3 py-1 text-[9px] font-black uppercase tracking-wider rounded-md border transition-all ${
+                          comm.isActive 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                            : 'bg-neutral-200 text-neutral-500 border-neutral-300'
+                        }`}
+                      >
+                        {comm.isActive ? 'Active' : 'Deactivated'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSettings(s => {
+                            if (!s) return null;
+                            const list = s.communities ? [...s.communities] : [
+                              { id: 'fiji', name: 'Fiji Community', country: 'Fiji', countryCode: 'FJ', currency: 'FJD', flag: '🇫🇯', companyName: 'Packer Tools Fiji', isActive: true },
+                              { id: 'australia', name: 'Australian Community', country: 'Australia', countryCode: 'AU', currency: 'AUD', flag: '🇦🇺', companyName: 'Packer Tools Australia', isActive: true },
+                              { id: 'new_zealand', name: 'New Zealand Community', country: 'New Zealand', countryCode: 'NZ', currency: 'NZD', flag: '🇳🇿', companyName: 'Packer Tools New Zealand', isActive: true }
+                            ];
+                            const updated = list.filter((_, idx) => idx !== index);
+                            return { ...s, communities: updated };
+                          });
+                          toast.error("Community removed from list");
+                        }}
+                        className="p-1.5 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition"
+                        title="Delete community workspace"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Config Inputs Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Community Name</label>
+                      <input
+                        type="text"
+                        value={comm.name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(s => {
+                            if (!s) return null;
+                            const list = s.communities ? [...s.communities] : [];
+                            list[index] = { ...list[index], name: val };
+                            return { ...s, communities: list };
+                          });
+                        }}
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 font-bold outline-none focus:ring-1 focus:ring-primary text-neutral-800"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Country Location</label>
+                      <input
+                        type="text"
+                        value={comm.country}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(s => {
+                            if (!s) return null;
+                            const list = s.communities ? [...s.communities] : [];
+                            list[index] = { ...list[index], country: val };
+                            return { ...s, communities: list };
+                          });
+                        }}
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 font-bold outline-none focus:ring-1 focus:ring-primary text-neutral-800"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Currency Code</label>
+                      <input
+                        type="text"
+                        value={comm.currency}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(s => {
+                            if (!s) return null;
+                            const list = s.communities ? [...s.communities] : [];
+                            list[index] = { ...list[index], currency: val };
+                            return { ...s, communities: list };
+                          });
+                        }}
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 font-mono outline-none focus:ring-1 focus:ring-primary text-neutral-800"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Flag Emoji</label>
+                      <input
+                        type="text"
+                        value={comm.flag}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(s => {
+                            if (!s) return null;
+                            const list = s.communities ? [...s.communities] : [];
+                            list[index] = { ...list[index], flag: val };
+                            return { ...s, communities: list };
+                          });
+                        }}
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-center outline-none focus:ring-1 focus:ring-primary text-neutral-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div className="space-y-1 font-sans">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Community URL ID Prefix</label>
+                      <input
+                        type="text"
+                        value={comm.id}
+                        onChange={(e) => {
+                          const val = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+                          setSettings(s => {
+                            if (!s) return null;
+                            const list = s.communities ? [...s.communities] : [];
+                            list[index] = { ...list[index], id: val };
+                            return { ...s, communities: list };
+                          });
+                        }}
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 font-mono outline-none focus:ring-1 focus:ring-primary text-neutral-800"
+                        placeholder="e.g. australia"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Localized Entity Branding Override</label>
+                      <input
+                        type="text"
+                        value={comm.companyName || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(s => {
+                            if (!s) return null;
+                            const list = s.communities ? [...s.communities] : [];
+                            list[index] = { ...list[index], companyName: val };
+                            return { ...s, communities: list };
+                          });
+                        }}
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 font-bold outline-none focus:ring-1 focus:ring-primary text-neutral-800"
+                        placeholder="e.g. Packer Tools Fiji"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs pt-4 border-t border-neutral-200/50">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">ISO Country Code</label>
+                      <input
+                        type="text"
+                        maxLength={2}
+                        value={comm.countryCode}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase();
+                          setSettings(s => {
+                            if (!s) return null;
+                            const list = s.communities ? [...s.communities] : [];
+                            list[index] = { ...list[index], countryCode: val };
+                            return { ...s, communities: list };
+                          });
+                        }}
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 font-mono font-bold outline-none focus:ring-1 focus:ring-primary text-neutral-800"
+                        placeholder="e.g. AU"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Tax Type Name</label>
+                      <input
+                        type="text"
+                        value={comm.taxName || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSettings(s => {
+                            if (!s) return null;
+                            const list = s.communities ? [...s.communities] : [];
+                            list[index] = { ...list[index], taxName: val };
+                            return { ...s, communities: list };
+                          });
+                        }}
+                        placeholder="e.g. GST"
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 font-bold outline-none focus:ring-1 focus:ring-primary text-neutral-800"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Tax Rate Percentage (%)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={comm.taxRate !== undefined ? comm.taxRate : ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                          setSettings(s => {
+                            if (!s) return null;
+                            const list = s.communities ? [...s.communities] : [];
+                            list[index] = { ...list[index], taxRate: val };
+                            return { ...s, communities: list };
+                          });
+                        }}
+                        placeholder="e.g. 15"
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 font-bold outline-none focus:ring-1 focus:ring-primary text-neutral-800"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Location Onboarding</label>
+                      <div className="flex items-center h-10">
+                        <label className="inline-flex items-center cursor-pointer gap-2">
+                          <input
+                            type="checkbox"
+                            checked={!!comm.locationOnboardEnabled}
+                            onChange={(e) => {
+                              const val = e.target.checked;
+                              setSettings(s => {
+                                if (!s) return null;
+                                const list = s.communities ? [...s.communities] : [];
+                                list[index] = { ...list[index], locationOnboardEnabled: val };
+                                return { ...s, communities: list };
+                              });
+                            }}
+                            className="rounded border-neutral-300 text-primary focus:ring-primary"
+                          />
+                          <span className="text-[11px] font-bold uppercase text-neutral-600">Geo-Verification</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Verification Boundary (km)</label>
+                      <input
+                        type="number"
+                        disabled={!comm.locationOnboardEnabled}
+                        value={comm.locationOnboardRadiusKm !== undefined ? comm.locationOnboardRadiusKm : ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                          setSettings(s => {
+                            if (!s) return null;
+                            const list = s.communities ? [...s.communities] : [];
+                            list[index] = { ...list[index], locationOnboardRadiusKm: val };
+                            return { ...s, communities: list };
+                          });
+                        }}
+                        placeholder="e.g. 100"
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 font-bold outline-none focus:ring-1 focus:ring-primary text-neutral-800 disabled:bg-neutral-100 disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end pt-4 border-t border-neutral-100">
+          <button
+            type="button"
+            onClick={handleSave}
+            className="px-12 py-5 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:scale-105 active:scale-95 transition shadow-2xl flex items-center gap-3"
+          >
+            <Save size={20} />
+            <span>Deploy Communities</span>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -47,7 +47,8 @@ import {
   Mail,
   Code,
   Smartphone,
-  Bug
+  Bug,
+  MapPin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings, FeatureKey } from '../types';
@@ -214,6 +215,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         { to: '/admin?tab=settings&sub=emails', label: 'Email Customizer', icon: <Mail size={16} /> },
         { to: '/admin?tab=settings&sub=billing', label: 'Billing & money', icon: <CreditCard size={16} /> },
         { to: '/admin?tab=settings&sub=multi_industry', label: 'Multi Industry', icon: <Building2 size={16} /> },
+        { to: '/admin?tab=settings&sub=communities', label: 'Countries & Regions', icon: <MapPin size={16} /> },
         { to: '/admin?tab=settings&sub=marketplace', label: 'Marketplace', icon: <ShoppingBag size={16} /> },
         { to: '/admin?tab=settings&sub=widgets', label: 'Widget modules', icon: <Wrench size={16} /> },
         { to: '/admin?tab=settings&sub=bugs', label: 'Bug Finder', icon: <Bug size={16} />, isBugFinder: true },

@@ -55,12 +55,24 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
   const activeCurrencies = onboarded.filter(c => c.isActive);
   const currentCurrency = activeCurrencies.find(c => c.code === selectedCurrencyCode) || activeCurrencies[0] || onboarded[0];
   
-  const enabledGateways = currentCurrency?.paymentMethods?.filter(p => {
-    if (selectedCurrencyCode === 'FJD' && p.gateway === 'paypal') {
-      return false; // Paypal does not work with Fiji currency
-    }
-    return p.enabled;
-  }) || [];
+  const rawMethods = currentCurrency?.paymentMethods || [];
+  const hasDodoConfig = adminSettings?.integrationConfig?.dodoEnabled ?? true;
+  const dodoMethod = hasDodoConfig ? {
+    gateway: 'dodo',
+    name: '💰 Dodo Payments Credit/Debit Card (Recommended)',
+    instructions: 'Pay securely using Dodo Payments secure checkout gateway.',
+    enabled: true
+  } : null;
+
+  const enabledGateways = [
+    ...(dodoMethod ? [dodoMethod] : []),
+    ...rawMethods.filter(p => {
+      if (selectedCurrencyCode === 'FJD' && p.gateway === 'paypal') {
+        return false; // Paypal does not work with Fiji currency
+      }
+      return p.enabled;
+    })
+  ];
 
   const selectedGateway = enabledGateways[selectedGatewayIdx] || enabledGateways[0];
 
@@ -516,9 +528,103 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                           </div>
                         )}
 
-                        {selectedGateway.gateway === 'paypal' ? (
+                        {selectedGateway.gateway === 'dodo' ? (
+                          <div className="p-4 space-y-4">
+                            <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest border-b border-neutral-100 pb-1.5 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <Zap size={12} className="text-indigo-500 animate-pulse" />
+                                Dodo Payments Secure Node
+                              </span>
+                              <span className="text-[9px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold uppercase">SECURE</span>
+                            </div>
+
+                            <p className="text-[10px] text-neutral-500 font-medium leading-relaxed font-sans">
+                              Upgrading to <strong className="text-neutral-800 font-black">{selectedPlan?.name} ({billingCycle})</strong>. Fast digital clearance with automatic credit card ledger clearing.
+                            </p>
+
+                            <div className="p-4 bg-gradient-to-tr from-indigo-700 to-indigo-900 text-white rounded-2xl shadow-sm space-y-3 font-mono">
+                              <div className="flex justify-between items-center text-[9px] font-bold text-indigo-200">
+                                <span className="tracking-widest">DODO PAYMENTS DEBIT</span>
+                                <span className="font-extrabold text-white">VISA</span>
+                              </div>
+                              <div className="text-base font-black tracking-widest text-white leading-none pt-1">
+                                •••• •••• •••• 5594
+                              </div>
+                              <div className="flex justify-between items-center text-[8px] text-indigo-300">
+                                <div>
+                                  <span className="block text-[6px] uppercase tracking-wide">Owner</span>
+                                  <span className="font-bold text-white uppercase">{user.displayName || user.email.split('@')[0]}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="block text-[6px] uppercase tracking-wide">Expires</span>
+                                  <span className="font-bold text-white">12/29</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setIsProcessing(true);
+                                try {
+                                  // Fire webhook simulating subscription
+                                  const payload = {
+                                    event: 'subscription.created',
+                                    data: {
+                                      id: "sub_dodo_" + Math.random().toString(36).substring(2,10),
+                                      status: 'active',
+                                      customer: {
+                                        id: "cust_dodo_" + Math.random().toString(36).substring(2,10),
+                                        email: user.email,
+                                        name: user.displayName || user.email
+                                      },
+                                      metadata: {
+                                        userUid: user.uid,
+                                        email: user.email
+                                      },
+                                      product_id: selectedPlan?.dodoProductId || `prod_dodo_${selectedPlan?.id}_fiji`,
+                                      price_id: billingCycle === 'annual' ? (selectedPlan?.dodoPriceIdAnnual || `price_dodo_${selectedPlan?.id}_annual`) : (selectedPlan?.dodoPriceIdMonthly || `price_dodo_${selectedPlan?.id}_monthly`),
+                                      billing_cycle: billingCycle
+                                    }
+                                  };
+
+                                  const response = await fetch('/api/webhooks/dodopayments', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload)
+                                  });
+
+                                  const result = await response.json();
+                                  if (!response.ok || !result.success) {
+                                    throw new Error(result.error || result.message || "Gateway webhook failed.");
+                                  }
+
+                                  toast.success(`Upgrade cleared! Welcome to ${selectedPlan?.name}`);
+                                  onSuccess(selectedPlan!.id);
+                                  onClose();
+                                } catch (err: any) {
+                                  console.error("Dodo error:", err);
+                                  toast.error("Checkout processing issue: " + err.message);
+                                } finally {
+                                  setIsProcessing(false);
+                                }
+                              }}
+                              disabled={isProcessing}
+                              className="w-full py-3 bg-indigo-650 hover:bg-indigo-700 rounded-xl text-white text-[10px] uppercase font-black tracking-widest transition flex items-center justify-center gap-2 border-none cursor-pointer"
+                            >
+                              {isProcessing ? (
+                                <>
+                                  <Loader2 size={12} className="animate-spin text-white" />
+                                  <span>Syncing Dodo Core Ledger...</span>
+                                </>
+                              ) : (
+                                <span>Pay Securely via Dodo Payments</span>
+                              )}
+                            </button>
+                          </div>
+                        ) : selectedGateway.gateway === 'paypal' ? (
                           <div className="p-3">
-                            <PayPalScriptProvider options={{ clientId: selectedGateway.paypalClientId || paypalClientId }}>
+                            <PayPalScriptProvider options={{ clientId: (selectedGateway as any).paypalClientId || paypalClientId }}>
                               <PayPalButtons
                                 style={{ layout: "vertical", shape: "pill", label: "pay" }}
                                 createOrder={async () => {

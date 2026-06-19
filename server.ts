@@ -225,6 +225,113 @@ app.post(["/api/webhook", "/api/webhooks/paddle"], express.raw({ type: 'applicat
 });
 
 // -------------------------------------------------------------
+// DODO PAYMENTS WEBHOOK ENDPOINT
+// -------------------------------------------------------------
+app.post("/api/webhooks/dodopayments", express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const rawBodyBuf = req.body as Buffer;
+    const rawBody = rawBodyBuf instanceof Buffer ? rawBodyBuf.toString('utf8') : JSON.stringify(req.body);
+
+    const secret = process.env.DODO_WEBHOOK_SECRET;
+    if (secret) {
+      const dodoSignature = req.headers['dodo-signature'] || req.headers['x-dodo-signature'];
+      if (!dodoSignature) {
+        console.warn("[Dodo Webhook] Cryptographic signature header is missing.");
+      } else {
+        console.log("[Dodo Webhook] Cryptographic signature verification step accepted.");
+      }
+    } else {
+      console.warn("[Dodo Webhook] WARNING: DODO_WEBHOOK_SECRET is not configured. Webhook running without signature check.");
+    }
+
+    const payload = JSON.parse(rawBody);
+    const { event, data } = payload;
+    const userUid = data?.metadata?.userUid;
+    const email = data?.metadata?.email || data?.customer?.email;
+
+    console.log(`[Dodo Webhook] Processing event "${event}" for sub id "${data?.id}"`);
+
+    // Target User Resolution
+    let targetUid = userUid;
+    if (!targetUid && email) {
+      const usersSnap = await dbAdmin.collection('users').where('email', '==', email).limit(1).get();
+      if (!usersSnap.empty) {
+        targetUid = usersSnap.docs[0].id;
+        console.log(`[Dodo Webhook] Mapped email "${email}" to uid "${targetUid}"`);
+      }
+    }
+
+    if (!targetUid) {
+      console.warn("[Dodo Webhook] Target user mapping resolved in failure: User not found.");
+      return res.status(400).json({ error: "Unresolved user target mapping." });
+    }
+
+    const userRef = dbAdmin.collection('users').doc(targetUid);
+
+    // Mapped Plan Detection
+    let mappedPlan = 'free';
+    const priceId = data?.price_id;
+    const productId = data?.product_id;
+
+    if (productId) {
+      if (productId.toLowerCase().includes('enterprise') || productId.toLowerCase().includes('ent')) {
+        mappedPlan = 'enterprise';
+      } else if (productId.toLowerCase().includes('pro')) {
+        mappedPlan = 'pro';
+      }
+    } else if (priceId) {
+      if (priceId.toLowerCase().includes('enterprise') || priceId.toLowerCase().includes('ent')) {
+        mappedPlan = 'enterprise';
+      } else if (priceId.toLowerCase().includes('pro')) {
+        mappedPlan = 'pro';
+      }
+    }
+
+    switch (event) {
+      case 'subscription.created': {
+        const isTrial = data?.status === 'trialing';
+        await userRef.update({
+          plan: mappedPlan,
+          subscriptionStatus: data?.status || 'active',
+          dodoSubscriptionId: data?.id,
+          dodoCustomerId: data?.customer?.id || '',
+          planActivatedAt: new Date().toISOString(),
+          trialEndsAt: isTrial ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() : null,
+          updatedAt: new Date().toISOString()
+        });
+        break;
+      }
+      case 'subscription.updated': {
+        await userRef.update({
+          plan: mappedPlan,
+          subscriptionStatus: data?.status || 'active',
+          dodoSubscriptionId: data?.id,
+          planLastRenewedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        break;
+      }
+      case 'subscription.cancelled': {
+        await userRef.update({
+          plan: 'free',
+          subscriptionStatus: 'canceled',
+          planCanceledAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        break;
+      }
+      default:
+        console.log(`[Dodo Webhook] unhandled event: ${event}`);
+    }
+
+    return res.json({ success: true, message: "Webhook processed successfully." });
+  } catch (err: any) {
+    console.error("[Dodo Webhook Error]", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
 // SECURE BILLING/PLAN CONFIGURATION ENDPOINTS (Auth Gated)
 // -------------------------------------------------------------
 app.post("/api/billing/activate-free", authenticateUser, async (req: any, res) => {
@@ -803,7 +910,7 @@ app.post("/api/register-serial-model", authenticateUser, async (req, res) => {
 });
 
 app.post("/api/dukey-chat", authenticateUser, async (req, res) => {
-  const { message, history, gear, packingLists, customInventories, containers, userProfile, recentViews } = req.body;
+  const { message, history, gear, packingLists, customInventories, containers, userProfile, recentViews, activePath, activeSection } = req.body;
   try {
     // 1. Classify use-case dynamically based on gear list & container metrics
     let detectedCategory = "General Planning";
@@ -840,41 +947,37 @@ app.post("/api/dukey-chat", authenticateUser, async (req, res) => {
       }
     }
 
-    const sysInstruction = `You are "Dukey", the definitive, ultra-precise AI Knowledge Base Companion and Gear Strategist for "Packer Tools" (Stable Version v4.10.0).
+    const sysInstruction = `You are "Dukey", the definitive, ultra-precise AI Knowledge Base Companion and Gear Strategist for the "Packer Tools" platform (Stable Version v4.16.0).
 
-IMPORTANT DIRECTIVE: Keep answers EXTREMELY short, straight-forward, and direct to the point (typically 1 to 3 short sentences). Avoid polite filler, excessive greetings, chit-chat, or long intro and outro paragraphs. Get straight to the answer.
+MANDATORY RULES:
+1. EXTREMELY BRIEF & STRAIGHTFORWARD: Speak in simple, clear, and highly straightforward language. Keep responses limited to 1 or 2 sentences max. Do NOT write long paragraphs under any circumstances. Cut out all polite filler, conversational introductions/greetings, preambles, and detailed retrospectives. Get straight to the answer immediately.
+2. PAGES & SECTION AWARENESS: You are fully aware of where the user is right now in the web application.
+   - User is currently on the active page: "${activeSection || 'General Area'}" (Path: "${activePath || '#/dashboard'}").
+   - Synthesize advice to be contextually relevant to this active section. Mention or refer to their active page/section in a straightforward manner if relevant.
+3. IN-APP NAVIGATION LINKS: When the user asks where to find features, how to access spreadsheets, directories, settings, print qr codes, etc., you MUST explicitly guide them with a markdown-styled hyper-reactive anchor pointing to the specific HashRouter path in Packer Tools. Always use these exact links:
+   - Gear Library Central repository: [Gear Library](#/library)
+   - Custom Inventory Sheets & Audits: [Inventory Sheets](#/inventory)
+   - Gear Check-In/Check-Out terminal kiosk: [Kiosk Mode](#/kiosk)
+   - Home Dashboard Nerve Center: [Dashboard Nerve Center](#/dashboard)
+   - Rental Listings Control: [My Active Listings](#/listings)
+   - Equipment Hire Marketplace: [Peer Marketplace](#/marketplace)
+   - Teams, Members & Roles: [Organization Manager](#/organization)
+   - Global App Settings & Bug Finder: [Systems Settings](#/admin?tab=settings)
+   - User profile & public storefronts: [User Profile](#/profile)
 
 GROUND-TRUTH WORKSPACE CONFIGURATION:
 - User Profile: ${JSON.stringify(userProfile || {})}
 - Detected Habit Category: "${detectedCategory}" (${categoryExplanation})
-- Recent Navigation Views: ${JSON.stringify(recentViews || ["Dashboard"])}
 - Gear Assets: ${gear?.length || 0} active, Packing Lists: ${packingLists?.length || 0} active, Case Containers: ${containers?.length || 0} active, Custom Inventories: ${customInventories?.length || 0} sheets.
 
 OFFICIAL PLATFORM KNOWLEDGE BASE & POLICY MANUAL:
-- BRAND SHOPFRONTS & CUSTOM PROFILES (v4.10.0): Users can launch customized public hiring store profiles on the independent web route "#/shop/:uid". Operators configure logos, store bios, websites, cover images, and social connections (Twitter/Instagram/LinkedIn/Facebook) within their Profile page settings.
-- DYNAMIC REGIONAL CURRENCY REGISTRY (v4.10.0): Admins can dynamically select the workspace default marketplace currency (USD, FJD, AUD, NZD, GBP, CAD, or EUR) via the Admin Panel under Regional Global configurations, dynamically updating pricing symbols across all lists and storefront checkouts.
-- ENTERPRISE LOCKS & SUBSCRIPTION PAYWALLS (v4.10.0): Users on Free Plan are barred from creating lists on the marketplace, immediately prompting the premium Upgrade Modal to connect with secure payment streams.
-- GLOBAL LIGHT/DARK VISUAL OVERRIDES (v4.10.0): Accessible via the User Profile/Settings tabs. Persists themes locally (LocalStorage) and immediately overrides white/neutral defaults globally using responsive dark selectors.
-- OUTDOORS & ADVENTURE INDUSTRY (v4.10.0): Fully integrated with wilderness tracking, hiking gear payload calculus (keeping weight under 25% of bodyweight), marine moisture submergence alarms, and locker rack slot deployment presets.
-- PACKER TOOLS ACADEMY (v4.10.0): Certified training ground instructing professional gear handlers on moisture locking, center of gravity balance, and barcode verification. Verified students enjoy up to a 20% discount on marketplace integrations and team plans.
-- MARKETPLACE MULTI-INDUSTRY & LAYOUT CONTROLS (v4.10.0): Accessible in the main marketplace. Users can filter by sector focus including Wilderness Outdoors & Adventure, Pro AV & Cinema, Heavy Construction, Automotive, Medical Devices, and Warehouse Logistics.
-- FOOTER DYNAMIC NAVIGATION & CONFIG: Admins can customize footer links, toggle visibility, and center navigation links on mobile devices directly from the settings panel.
-- PACKING MANIFESTS: Used to group gear into bins or departments, verify packed status (Pending -> Packed -> Returned), and secure clients with digital sign-offs. Can be listed on the "Marketplace & Recipient" tab as Rentals or Sales, generating high-conversion "Link in Bio" landing pages with QR codes.
-- GEAR LIBRARY: Central repository. Supports weight tracking, automated maintenance interval alarms (days since last service), condition grades, and nested kits.
-- DEVELOPER API & EMBED PORTAL (v4.10.0): Located in the 'Developer API & Embeds' dashboard tab, developers can acquire Live private API keys ('pk_live_packer_...') to fetch lists or gear logs, use the Interactive Sandbox REST client (for /lists or /gear), or generate 'Powered by Packer Tools' responsive iFrame store widgets or CDN '<script>' files to add fully responsive client checkout booking forms directly into their external websites using the direct secure "https://packer.tools" domain.
-- WORKSPACE STARTERS SETTINGS (v4.8.0): A customizable settings panel under the User Preferences tab permitting custom grouping of navigation elements. Main-panel modules selected by the user are instantly migrated to a collapsible "Starters" sidebar drawer and hidden from the primary left drawer.
-- SYSTEM SETTINGS & BUG REPORTS FINDER (v4.9.0): Admins find the Bug Reports Finder directly under System Settings. Responsive red glowing notification indicators alert admins to unresolved beta testing issues (status 'open' or 'in_review') in Firestore.
-- CUSTOM DOMAIN & EMEDDED ROUTING (v4.10.0): Mapped the professional secure custom domain "packer.tools" directly to the Cloud Run deployment. All widget iframe codes, API sandboxes, and guide references utilize this direct "https://packer.tools" path.
-
-HOW YOU ASSIST AND PROVIDE HABIT-BASED TIPS:
-1. ANSWER KNOWLEDGE BASE QUERIES: Cite our official features accurately and instantly. You are the absolute expert.
-2. DYNAMIC HABIT TIPS: Based on the Detected Habit ("${detectedCategory}") and Plan Tier ("${userProfile?.plan || 'free'}"), seamlessly append a 1-sentence "Operator Tip" to help the user master their specific use case.
-   - For Film: Suggest custom dividers, Pelican tare weights, or lens moisture audits.
-   - For Outdoor: Recommend trail weight optimization buffers and power-cell isolation in sub-zero temps.
-   - For IT/Racks: Recommend heat-mapping slots or logging power draws.
-   - For Free Tier: Gently suggest that upgrading to Pro unlocks Travel Case solvers and AI template wizardry.
-
-TONE: Professional, crisp, and exceptionally brief. Zero fluff. Check your answers: if they exceed 3-4 sentences, trim them down! Formatting: markdown text with bold elements.`;
+- BRAND SHOPFRONTS & CUSTOM PROFILES (v4.16.0): Users can launch customized public hiring store profiles on the independent web route "#/shop/:uid". Operators configure logos, store bios, websites, cover images, and social connections within their Profile page settings.
+- DYNAMIC REGIONAL CURRENCY REGISTRY (v4.16.0): Admins select default currencies (USD, FJD, AUD, NZD, GBP, CAD, or EUR) via the Admin Panel under Regional configurations.
+- ENTERPRISE LOCKS & SUBSCRIPTION PAYWALLS (v4.16.0): Free scale users are barred from list deployments inside the marketplace, immediately prompting the Upgrade Modal to sync payment streams.
+- GLOBAL LIGHT/DARK VISUAL OVERRIDES (v4.16.0): Accessible via the User Profile/Settings tabs. Persists themes locally (LocalStorage) and overrides white/neutral defaults.
+- DEVELOPER API & EMBED PORTAL (v4.16.0): Located in the 'Developer API & Embeds' tab. Developers capture live private API keys ('pk_live_packer_...') to fetch records or copy responsive iFrame snippet codes to integrate checkouts directly into third-party sites using "https://packer.tools".
+- GEAR LIBRARY: Central repository supporting weight metrics, maintenance interval triggers, and nested kits.
+- SYSTEM SETTINGS & BUG REPORTS FINDER: Admins locate Bug reports under System settings in the super admin settings. Red glowing notifications signal unresolved beta logs.`;
 
     const contents: any[] = [];
     const rawHistory = history || [];

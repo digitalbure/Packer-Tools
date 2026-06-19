@@ -31,10 +31,12 @@ import {
   HelpCircle,
   SlidersHorizontal,
   Eye,
-  LayoutGrid
+  LayoutGrid,
+  Bot
 } from 'lucide-react';
 import { toast } from 'sonner';
 import QRPrintModal from './QRPrintModal';
+import DukeyAssistant from './DukeyAssistant';
 
 interface QuickActionsDrawerProps {
   user: UserProfile;
@@ -48,6 +50,57 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
   // Custom Workspace presets Tab configurations state
   const [activeTab, setActiveTab] = useState<'utilities' | 'calibration'>('utilities');
   const [customPresetName, setCustomPresetName] = useState('');
+
+  // Dukey AI Custom modes and resizable drawer dimensions
+  const [isDukeyMode, setIsDukeyMode] = useState(false);
+  const [drawerWidth, setDrawerWidth] = useState(385);
+  const [isResizing, setIsResizing] = useState(false);
+
+  // Handle drawer resize dragging
+  useEffect(() => {
+    const handleMove = (clientX: number) => {
+      if (!isResizing) return;
+      const newWidth = window.innerWidth - clientX;
+      // Constraint drawer width between 350px and 950px
+      if (newWidth >= 340 && newWidth <= 950) {
+        setDrawerWidth(newWidth);
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => handleMove(e.clientX);
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches && e.touches[0]) {
+        handleMove(e.touches[0].clientX);
+      }
+    };
+
+    const handleStop = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleStop);
+      window.addEventListener('touchmove', handleTouchMove);
+      window.addEventListener('touchend', handleStop);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleStop);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleStop);
+    };
+  }, [isResizing]);
+
+  // Expand width nicely for chat assistant and revert back for utilities
+  useEffect(() => {
+    if (isDukeyMode && drawerWidth === 385) {
+      setDrawerWidth(480);
+    } else if (!isDukeyMode && drawerWidth === 480) {
+      setDrawerWidth(385);
+    }
+  }, [isDukeyMode]);
   
   const CALIBRATION_FEATURES: { key: FeatureKey; label: string; desc: string }[] = [
     { key: 'gearLibrary', label: 'Gear Library', desc: 'Central items checklist & history logs' },
@@ -482,7 +535,7 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
           >
             <Zap size={16} className="text-[#ff4f3a] group-hover:rotate-12 transition-transform" />
           </motion.div>
-          <span className="absolute right-full mr-3.5 bg-neutral-955 text-white text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap shadow-xl pointer-events-none border border-neutral-800 translate-x-2 group-hover:translate-x-0 leading-none">
+          <span className="absolute right-full mr-3.5 bg-neutral-950 text-white text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap shadow-xl pointer-events-none border border-neutral-800 translate-x-3 group-hover:translate-x-0 leading-none">
             Quick Actions
           </span>
         </button>
@@ -507,9 +560,39 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="relative w-full max-w-[385px] h-full bg-white shadow-2xl border-l border-neutral-100 flex flex-col justify-between overflow-hidden"
+              style={{ width: `${drawerWidth}px`, maxWidth: '100vw' }}
+              className={`relative h-full flex flex-col justify-between overflow-hidden transition-colors duration-300 ${
+                isDukeyMode 
+                  ? 'bg-neutral-950 border-l border-neutral-850' 
+                  : 'bg-white border-l border-neutral-100 shadow-2xl'
+              }`}
             >
-              {/* Drawer Header */}
+              {/* Drag handle to resize width from left */}
+              <div 
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setIsResizing(true);
+                }}
+                onTouchStart={(e) => {
+                  setIsResizing(true);
+                }}
+                className="absolute left-0 top-0 bottom-0 w-1.5 bg-transparent hover:bg-[#ff4f3a]/30 active:bg-[#ff4f3a]/50 transition cursor-ew-resize z-[600] flex items-center justify-center group"
+                title="Drag to resize drawer width"
+              >
+                <div className="w-[1.5px] h-10 bg-neutral-300 group-hover:bg-[#ff4f3a] rounded transition opacity-0 group-hover:opacity-100" />
+              </div>
+
+              {isDukeyMode ? (
+                <DukeyAssistant 
+                  user={user} 
+                  fullHeight={true} 
+                  onBack={() => setIsDukeyMode(false)}
+                  activeSection={contextTitle} 
+                  activePath={currentPath} 
+                />
+              ) : (
+                <>
+                  {/* Drawer Header */}
               <div className="bg-neutral-50 px-6 py-5 border-b border-neutral-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 bg-neutral-900 text-white rounded-lg flex items-center justify-center">
@@ -565,15 +648,32 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 {activeTab === 'utilities' ? (
                   <>
-                    {/* Dynamically Styled Context Highlight card */}
-                    <div className="bg-neutral-900 text-white rounded-2xl p-4 border border-neutral-800 text-[10px] leading-relaxed shadow-md animate-fade-in">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#ff4f3a] animate-ping" />
-                        <span className="font-mono text-[8px] font-black uppercase tracking-widest text-[#ff4f3a]">{contextTitle}</span>
+                    {/* Launch Card for Page-Aware Dukey Assistant with customized rounded square icon preset */}
+                    <div className="bg-neutral-50/70 border border-neutral-200/60 rounded-2xl p-4.5 flex items-center gap-4 hover:bg-neutral-100/60 transition duration-150 group">
+                      {/* Vibrant modern rounded-square AI icon representing Dukey AI */}
+                      <button
+                        onClick={() => setIsDukeyMode(true)}
+                        className="w-13 h-13 bg-gradient-to-tr from-orange-500 to-red-500 hover:scale-110 active:scale-95 transition-all duration-300 rounded-[20px] flex items-center justify-center shrink-0 text-white shadow-lg hover:shadow-orange-500/10 group-hover:rotate-3 cursor-pointer relative"
+                        title="Open Dukey AI Advisor Dialog"
+                      >
+                        <Bot size={24} className="text-white" />
+                        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border border-white animate-pulse" />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 leading-none">
+                          <span className="font-extrabold text-[11px] uppercase tracking-wider text-neutral-800">Dukey AI Advisor</span>
+                          <span className="text-[7px] bg-[#ff4f3a]/10 text-[#ff4f3a] px-1 py-0.2 rounded font-black uppercase tracking-widest animate-pulse leading-none">Page Aware</span>
+                        </div>
+                        <p className="text-[9px] text-neutral-400 font-bold uppercase mt-1">
+                          Analyzing: <span className="text-neutral-750 normal-case font-bold">{contextTitle || 'System Workspace'}</span>
+                        </p>
+                        <button
+                          onClick={() => setIsDukeyMode(true)}
+                          className="text-[9px] font-black uppercase tracking-widest text-[#ff4f3a] hover:text-[#e04532] transition mt-2 flex items-center gap-1 cursor-pointer leading-none"
+                        >
+                          Launch AI Advisor &rarr;
+                        </button>
                       </div>
-                      <p className="font-semibold text-neutral-300">
-                        {contextDesc}
-                      </p>
                     </div>
 
                     {/* Primary Large Buttons (rendered dynamically based on location context!) */}
@@ -758,10 +858,12 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
               </div>
 
               {/* Drawer Footer info details */}
-              <div className="bg-neutral-50 px-6 py-4 border-t border-neutral-150 flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-neutral-400">
+              <div className="bg-neutral-50 px-6 py-4 border-t border-neutral-150 flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-neutral-400 shrink-0">
                 <span>Preset Setup Mode({user.activeWorkspacePreset || 'none'})</span>
                 <span>Calibrated</span>
               </div>
+                </>
+              )}
             </motion.div>
           </div>
         )}

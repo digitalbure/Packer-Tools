@@ -58,7 +58,6 @@ import AuthGate from './components/AuthGate';
 import BetaProspectGate from './components/BetaProspectGate';
 import QuickActionsDrawer from './components/QuickActionsDrawer';
 import Onboarding from './components/Onboarding';
-import DukeyAssistant from './components/DukeyAssistant';
 import Footer from './components/Footer';
 import CommunitySelector from './components/CommunitySelector';
 import { AdminSettings, Plan } from './types';
@@ -1432,7 +1431,6 @@ export default function App() {
                 )}
 
                 {user && !isLayoutHidden && <MobileTabBar user={user} />}
-                {user && <DukeyAssistant user={user} />}
                 {user && <AddGearModal user={user} adminSettings={adminSettings} />}
                 {user && <QuickActionsDrawer user={user} />}
                 {user && (
