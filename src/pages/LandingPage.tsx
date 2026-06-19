@@ -38,10 +38,10 @@ const DEFAULT_SCENARIOS = [
     description: "Clinical responders and field technicians deploying search/life-support kits under high-pressure scenarios. Kiosk check-in logs ensure secure, non-reputable custody verification."
   },
   {
-    title: "Asset Co-ops & Digital Garages",
+    title: "Tool Rooms & Large Repositories",
     image: "https://images.unsplash.com/photo-1533560904424-a0c61dc306fc?auto=format&fit=crop&q=80&w=800",
-    industry: "Tool Cooperatives & Shared Repots",
-    description: "Rental establishments or community gear rooms organizing items with real-time maintenance logs, health scoring, and one-click public listing deployment."
+    industry: "Corporate Tooling and Shared Repositories",
+    description: "Equipment managers or community gear rooms organizing tooling items with real-time maintenance logs, health scoring, and integrated inspection reports."
   }
 ];
 
@@ -417,7 +417,7 @@ export default function LandingPage({
             )}
 
             <p className="text-xl text-neutral-500 max-w-md leading-relaxed font-medium">
-              {lp?.hero?.description || 'Professional-grade lifecycle management for high-stakes equipment. Visual verification, asset tracking, and one-click marketplace deployment.'}
+              {lp?.hero?.description || 'Professional-grade lifecycle management for high-stakes equipment. Visual verification, asset tracking, and integrated team coordination.'}
             </p>
           </motion.div>
 
@@ -450,15 +450,6 @@ export default function LandingPage({
             >
               {lp?.hero?.secondaryButtonText || 'Explore Use Cases'}
             </a>
-            
-            <button
-              type="button"
-              onClick={() => setLandingView('marketplace')}
-              className="px-8 py-4 bg-accent/10 text-accent hover:bg-accent/20 border border-accent/20 rounded-full font-bold transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <ShoppingBag size={18} />
-              Browse Marketplace
-            </button>
           </motion.div>
 
           {(lp?.stats?.isEnabled !== false) && (
@@ -520,9 +511,9 @@ export default function LandingPage({
                 description: "Seamlessly bridge digital lists with physical hardware using our integrated QR and Asset Tag scanning system." 
               },
               { 
-                icon: 'ShoppingBag', 
-                title: "Marketplace Sync", 
-                description: "Instantly deploy gear lists to global marketplaces. One-click sharing with professional formatting and visual verification." 
+                icon: 'Truck', 
+                title: "Logistics Dispatch", 
+                description: "Assign gear bundles directly to team members, track dynamic weight thresholds, and monitor checkouts in real-time." 
               }
             ] ).map((feature: any, i: number) => (
               <div key={i} className="bg-paper p-12 space-y-8 hover:bg-white transition-all duration-500 group border-b md:border-b-0 md:border-r border-primary/5 last:border-0">

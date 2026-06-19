@@ -1,6 +1,6 @@
 {
   "name": "Packer Tools",
-  "description": "The professional visual inventory & gear lifecycle platform. Visual verification, asset tracking, and instant marketplace listings.",
+  "description": "The professional visual inventory & gear lifecycle platform. Visual verification, QR asset tracking, and team field logistics.",
   "requestFramePermissions": [
     "camera"
   ],

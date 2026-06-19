@@ -135,13 +135,13 @@ function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick, selectedCom
           </div>
         }>
           <Routes location={location}>
-            <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate adminSettings={adminSettings} /> : (selectedCommunity === 'global' ? <LandingPage user={user} adminSettings={adminSettings} landingView={landingView} setLandingView={setLandingView} /> : <Marketplace user={user} adminSettings={adminSettings} />))} />
+            <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate adminSettings={adminSettings} /> : <LandingPage user={user} adminSettings={adminSettings} landingView="saas" />)} />
             <Route path="/dashboard" element={user ? <Dashboard user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
             <Route path="/list/:id" element={<PackingListDetail user={user} adminSettings={adminSettings} />} />
             <Route path="/p/:id" element={<PackingListBioView />} />
-            <Route path="/marketplace/:id" element={<MarketplaceView />} />
-            <Route path="/shop/:uid" element={<ShopPage />} />
-            <Route path="/marketplace" element={<Marketplace user={user} adminSettings={adminSettings} />} />
+            <Route path="/marketplace/:id" element={user ? <MarketplaceView /> : <Navigate to="/" />} />
+            <Route path="/shop/:uid" element={user ? <ShopPage /> : <Navigate to="/" />} />
+            <Route path="/marketplace" element={user ? <Marketplace user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
             <Route path="/scan/:id" element={user ? <CameraScanner user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
             <Route path="/admin" element={user?.isSuperAdmin ? <AdminPanel user={user} onMenuClick={onMenuClick} /> : <Navigate to="/" />} />
             <Route path="/admin/pages" element={user?.isSuperAdmin ? <PagesManager user={user} /> : <Navigate to="/" />} />
@@ -252,9 +252,9 @@ export function getDefaultAdminSettings(): AdminSettings {
     landingPage: {
       header: { logoText: 'Packer Tools', links: [] },
       hero: {
-        title: 'Visual Inventory. Instant Market.',
+        title: 'Visual Inventory. Smarter Logistics.',
         subtitle: 'Industrial Grade Gear Tracking',
-        description: 'Professional-grade lifecycle management for high-stakes equipment. Visual verification, asset tracking, and one-click marketplace deployment.',
+        description: 'Professional-grade lifecycle management for high-stakes equipment. Visual verification, asset tracking, and integrated team logistics.',
         primaryButtonText: 'Get Started',
         secondaryButtonText: 'Explore Use Cases',
         isEnabled: true
@@ -823,9 +823,9 @@ export default function App() {
             landingPage: {
               header: { logoText: 'Packer Tools', links: [] },
               hero: {
-                title: 'Visual Inventory. Instant Market.',
+                title: 'Visual Inventory. Smarter Logistics.',
                 subtitle: 'Industrial Grade Gear Tracking',
-                description: 'Professional-grade lifecycle management for high-stakes equipment. Visual verification, asset tracking, and one-click marketplace deployment.',
+                description: 'Professional-grade lifecycle management for high-stakes equipment. Visual verification, asset tracking, and integrated team logistics.',
                 primaryButtonText: 'Get Started',
                 secondaryButtonText: 'Explore Use Cases',
                 isEnabled: true
@@ -1403,6 +1403,7 @@ export default function App() {
                         adminSettings={adminSettings} 
                         selectedCommunity={selectedCommunity}
                         onOpenSelector={() => setIsCommunitySelectorOpen(true)}
+                        user={user}
                       />
                     )}
                   </main>

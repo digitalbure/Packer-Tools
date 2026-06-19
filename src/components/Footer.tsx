@@ -9,9 +9,10 @@ interface FooterProps {
   adminSettings: AdminSettings | null;
   selectedCommunity?: string | null;
   onOpenSelector?: () => void;
+  user?: any;
 }
 
-export default function Footer({ adminSettings, selectedCommunity, onOpenSelector }: FooterProps) {
+export default function Footer({ adminSettings, selectedCommunity, onOpenSelector, user }: FooterProps) {
   const currentYear = new Date().getFullYear();
   const companyName = adminSettings?.branding?.companyName || 'Packer Tools';
 
@@ -55,27 +56,29 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
         {/* Footer Navigation Menu (Optional / Enabled by Admin) */}
         {footerConfig.enabled && footerConfig.links && footerConfig.links.length > 0 && (
           <div className={`mb-10 pb-8 border-b border-neutral-150 flex flex-wrap gap-x-8 gap-y-4 items-center ${isMobileCentred ? 'justify-center text-center' : 'justify-center md:justify-start text-left'}`}>
-            {footerConfig.links.map((link, idx) => (
-              link.isExternal ? (
-                <a
-                  key={idx}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-black text-neutral-500 hover:text-primary transition uppercase tracking-widest font-mono"
-                >
-                  {link.label}
-                </a>
-              ) : (
-                <Link
-                  key={idx}
-                  to={link.href}
-                  className="text-xs font-black text-neutral-500 hover:text-primary transition uppercase tracking-widest font-mono"
-                >
-                  {link.label}
-                </Link>
-              )
-            ))}
+            {footerConfig.links
+              .filter(link => user || link.href !== '/marketplace')
+              .map((link, idx) => (
+                link.isExternal ? (
+                  <a
+                    key={idx}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-black text-neutral-500 hover:text-primary transition uppercase tracking-widest font-mono"
+                  >
+                    {link.label}
+                  </a>
+                ) : (
+                  <Link
+                    key={idx}
+                    to={link.href}
+                    className="text-xs font-black text-neutral-500 hover:text-primary transition uppercase tracking-widest font-mono"
+                  >
+                    {link.label}
+                  </Link>
+                )
+              ))}
           </div>
         )}
 
@@ -161,11 +164,13 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
                   <span>Kiosk Terminal</span>
                 </Link>
               </li>
-              <li>
-                <Link to="/marketplace" className="hover:text-primary transition">
-                  <span>P2P Marketplace</span>
-                </Link>
-              </li>
+              {user && (
+                <li>
+                  <Link to="/marketplace" className="hover:text-primary transition">
+                    <span>P2P Marketplace</span>
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
 

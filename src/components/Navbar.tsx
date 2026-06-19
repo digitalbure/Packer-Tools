@@ -71,34 +71,6 @@ export default function Navbar({
               <span className="text-[8px] text-neutral-400">▼</span>
             </button>
           )}
-
-          {/* SaaS vs Marketplace Toggle inside navbar */}
-          {!user && (selectedCommunity === 'global' || !selectedCommunity) && setLandingView && (
-            <div className="flex bg-neutral-100 dark:bg-white/5 border border-neutral-200/50 dark:border-white/10 p-1 rounded-full text-xs font-bold gap-1 shadow-sm ml-2 shrink-0">
-              <button 
-                type="button"
-                onClick={() => setLandingView('saas')}
-                className={`px-3 py-1 rounded-full uppercase tracking-wider text-[9px] font-black transition-all cursor-pointer ${
-                  landingView !== 'marketplace' 
-                    ? 'bg-neutral-900 text-white shadow-xs' 
-                    : 'text-neutral-500 hover:text-neutral-800'
-                }`}
-              >
-                Platform
-              </button>
-              <button 
-                type="button"
-                onClick={() => setLandingView('marketplace')}
-                className={`px-3 py-1 rounded-full uppercase tracking-wider text-[9px] font-black transition-all cursor-pointer ${
-                  landingView === 'marketplace' 
-                    ? 'bg-neutral-900 text-white shadow-xs' 
-                    : 'text-neutral-550 hover:text-neutral-800'
-                }`}
-              >
-                Marketplace
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Desktop Navigation */}
