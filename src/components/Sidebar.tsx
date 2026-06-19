@@ -947,7 +947,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v4.17.0' : 'Version 4.17.0'}
+            {isCollapsed ? 'v4.18.0' : 'Version 4.18.0'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">

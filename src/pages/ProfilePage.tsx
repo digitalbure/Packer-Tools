@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import { motion } from 'motion/react';
 import { useIndustry } from '../context/IndustryContext';
-import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award, Sun, Moon, Smartphone, Download } from 'lucide-react';
+import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award, Sun, Moon, Smartphone, Download, Layout, LayoutDashboard } from 'lucide-react';
 import { getUsage } from '../lib/limitUtils';
 import PaymentModal from '../components/PaymentModal';
 import UpgradeNowModal from '../components/UpgradeNowModal';
@@ -1430,7 +1430,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
             {/* Active Beta Notifications Desk */}
             <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8">
             <header className="space-y-1">
-              <span className="micro-label bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded-full inline-block font-black">Release Build v4.15.0</span>
+              <span className="micro-label bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded-full inline-block font-black">Release Build v4.18.0</span>
               <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
                 <Mail className="text-primary shrink-0" />
                 <span>Notification Testing Desk</span>
@@ -1648,7 +1648,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
             <div className="space-y-2 relative">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] bg-primary/20 text-primary border border-primary/30 font-black px-2.5 py-1 rounded-xl uppercase tracking-widest animate-pulse">
-                  App PWA v4.14
+                  App PWA v4.18
                 </span>
                 {isInstalled && (
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black px-2.5 py-1 rounded-xl uppercase tracking-widest">
@@ -1725,6 +1725,57 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                 <Moon size={20} className={theme === 'dark' ? 'text-yellow-400' : 'text-neutral-400'} />
                 <span className="text-xs uppercase tracking-wider">Dark Mode</span>
               </button>
+            </div>
+
+            {/* Workspace Layout Mode Toggle Button Grid */}
+            <div className="mt-6 border-t border-neutral-100 pt-6 space-y-3">
+              <h4 className="text-xs uppercase tracking-widest font-black text-neutral-400">Workspace Layout Theme</h4>
+              <p className="text-xs text-neutral-400 leading-relaxed font-semibold">
+                Choose between standard sidebars or the new DaVinci Resolve-inspired tabbed workflow layout.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      const userRef = doc(db, 'users', user.uid);
+                      await updateDoc(userRef, { layoutTheme: 'standard' });
+                      onUpdate({ ...user, layoutTheme: 'standard' });
+                      toast.success("Switched workspace layout to Standard Sidebar!");
+                    } catch (err) {
+                      toast.error("Failed to update layout theme selection");
+                    }
+                  }}
+                  className={`p-4 rounded-2xl border text-center transition flex flex-col items-center justify-center gap-2 font-bold ${
+                    user.layoutTheme !== 'workflow' 
+                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg' 
+                      : 'bg-neutral-50 text-neutral-700 border-neutral-200/60 hover:bg-neutral-100'
+                  }`}
+                >
+                  <LayoutDashboard size={20} className={user.layoutTheme !== 'workflow' ? 'text-accent' : 'text-neutral-400'} />
+                  <span className="text-xs uppercase tracking-wider">Standard Sidebar</span>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    try {
+                      const userRef = doc(db, 'users', user.uid);
+                      await updateDoc(userRef, { layoutTheme: 'workflow' });
+                      onUpdate({ ...user, layoutTheme: 'workflow' });
+                      toast.success("Switched workspace layout to Resolve Professional Workflow!");
+                    } catch (err) {
+                      toast.error("Failed to update layout theme selection");
+                    }
+                  }}
+                  className={`p-4 rounded-2xl border text-center transition flex flex-col items-center justify-center gap-2 font-bold ${
+                    user.layoutTheme === 'workflow' 
+                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-lg' 
+                      : 'bg-neutral-50 text-neutral-700 border-neutral-200/60 hover:bg-neutral-100'
+                  }`}
+                >
+                  <Layout size={20} className={user.layoutTheme === 'workflow' ? 'text-accent' : 'text-neutral-400'} />
+                  <span className="text-xs uppercase tracking-wider">Professional Workflow</span>
+                </button>
+              </div>
             </div>
           </section>
         )}

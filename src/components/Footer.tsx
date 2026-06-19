@@ -43,6 +43,7 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
       { label: 'Gear Library', href: '/library' },
       { label: 'Kiosk Terminal', href: '/kiosk' },
       { label: 'Client Booking', href: '/marketplace' },
+      { label: 'Pricing Plans', href: '/prices' },
       { label: 'Technical Help', href: '/help' }
     ]
   };
@@ -197,7 +198,7 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
               </li>
               <li>
                 <span className="text-[10px] text-neutral-450 font-mono tracking-tighter block pt-1">
-                  Version v4.15.0 ({versionSuffix})
+                  Version v4.18.0 ({versionSuffix})
                 </span>
               </li>
             </ul>
@@ -216,6 +217,8 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
           <Link to="/pg/terms-of-service" className="hover:text-neutral-600 transition">Terms of Use</Link>
           <span>&bull;</span>
           <Link to="/pg/refund-policy" className="hover:text-neutral-600 transition">Refund Policy</Link>
+          <span>&bull;</span>
+          <Link to="/prices" className="hover:text-neutral-600 transition font-black text-neutral-800">Plan Prices & Tiers</Link>
         </div>
         <div className="flex items-center gap-1">
           <span>{currentComm ? `Community: ${currentComm.name}` : 'Global Site'} | App by <a href="https://digitalbure.com" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-600 transition underline decoration-neutral-300">Digital Bure</a></span>

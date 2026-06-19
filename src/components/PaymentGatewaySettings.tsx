@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   CreditCard, CheckCircle2, AlertCircle, Settings, Key, Copy, 
   Plus, Trash2, Eye, EyeOff, Activity, Terminal, Sparkles, 
-  RefreshCw, Check, ArrowRight, DollarSign, Trophy, TrendingUp, ShieldClose, HelpCircle
+  RefreshCw, Check, ArrowRight, DollarSign, Trophy, TrendingUp, ShieldClose, HelpCircle, ShieldCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Plan, AdminSettings, UserProfile } from '../types';
@@ -540,16 +540,16 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
             )}
           </div>
 
-          {/* B. Paddle credentials configurations (Deactivated elements) */}
-          <div className="bg-neutral-50 p-6 sm:p-8 rounded-[2.5rem] border border-neutral-200/60 shadow-sm space-y-6 opacity-60">
+          {/* B. Paddle credentials configurations (Active Platform Option) */}
+          <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-neutral-200/60 shadow-sm space-y-6">
             <div className="flex items-center justify-between border-b border-neutral-150 pb-4">
               <div className="space-y-1">
                 <h3 className="text-lg font-black text-neutral-950 flex items-center gap-2">
-                  <HelpCircle size={18} className="text-neutral-500 animate-spin-slow" />
-                  Paddle Configurations (Legacy Option)
+                  <ShieldCheck size={18} className="text-amber-500" />
+                  Paddle Gateway Integration
                 </h3>
-                <p className="text-xs text-neutral-450 font-medium font-sans">
-                  Legacy system configurations. Paddle checkout has been moved here and deactivated.
+                <p className="text-xs text-neutral-500 font-medium font-sans">
+                  Active billing alternative. Ideal for platforms distributing or bundling physical products.
                 </p>
               </div>
 
@@ -559,12 +559,12 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
                   const nextVal = !paddleEnabled;
                   setPaddleEnabled(nextVal);
                   if (nextVal) {
-                    toast.warning("Enabling Paddle will conflict with Dodo Payments as the main engine. Proceed with caution!");
+                    toast.success("Paddle Gateway enabled as checkout engine option!");
                   } else {
                     toast.info("Paddle has been deactivated successfully.");
                   }
                 }}
-                className={`w-12 h-6 rounded-full relative transition-colors ${paddleEnabled ? 'bg-amber-500' : 'bg-neutral-200'}`}
+                className={`w-12 h-6 rounded-full relative transition-colors cursor-pointer ${paddleEnabled ? 'bg-amber-500' : 'bg-neutral-200'}`}
               >
                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${paddleEnabled ? 'right-1' : 'left-1'}`}></div>
               </button>
@@ -595,8 +595,8 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
                     </button>
                   </div>
                 </div>
-                <div className="p-3.5 bg-neutral-100/80 rounded-2xl text-[10px] text-neutral-500 leading-relaxed font-sans font-medium">
-                  <strong>Paddle deactivation rule:</strong> Paddle is set as a fallback-only mechanism on the Packer Tools network registry. All subscriptions, payments, and checkout screens route automatically via <strong>Dodo Payments</strong>.
+                <div className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-150 text-[10px] text-neutral-500 leading-relaxed font-sans font-medium">
+                  <strong>Active Route:</strong> Enabled Paddle endpoints process currency conversions, VAT taxation, and dispatch orders safely for systems tracking hardware and bulk tool setups.
                 </div>
               </div>
             </div>
@@ -711,11 +711,11 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
                     </div>
 
                     <div className="md:col-span-2 pt-2 border-t border-dashed border-neutral-200 my-1">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 block font-mono">Legacy Paddle Keys (Dimmed)</span>
+                      <span className="text-[9px] font-black uppercase tracking-wider text-amber-600 block font-mono">Active Paddle Configuration</span>
                     </div>
 
                     {/* Paddle Product ID */}
-                    <div className="space-y-1 opacity-50">
+                    <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block font-mono">
                         Paddle Product Ref
                       </label>
@@ -728,7 +728,7 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
                     </div>
 
                     {/* Paddle Checkout URL */}
-                    <div className="space-y-1 opacity-50">
+                    <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase tracking-widest text-neutral-455 block font-mono">
                         Paddle Checkout Link
                       </label>

@@ -13,6 +13,7 @@ import { Loader2, ArrowUp } from 'lucide-react';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import MobileTabBar from './components/MobileTabBar';
+import WorkflowLayout from './components/WorkflowLayout';
 
 // Lazy-loaded Pages
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -24,6 +25,7 @@ const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const OrganizationModule = lazy(() => import('./pages/OrganizationModule'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const LegalPage = lazy(() => import('./pages/LegalPage'));
+const PricesPage = lazy(() => import('./pages/PricesPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const AITemplateWizard = lazy(() => import('./pages/AITemplateWizard'));
 const HelpCenter = lazy(() => import('./pages/HelpCenter'));
@@ -150,6 +152,8 @@ function AnimatedRoutes({ user, setUser, adminSettings, onMenuClick, selectedCom
             <Route path="/listings" element={user ? <ListingsModule user={user} adminSettings={adminSettings} /> : <Navigate to="/" />} />
             <Route path="/privacy" element={<LegalPage type="privacy" />} />
             <Route path="/terms" element={<LegalPage type="terms" />} />
+            <Route path="/prices" element={<PricesPage user={user} onUpdateUser={setUser} adminSettings={adminSettings} />} />
+            <Route path="/pricing" element={<PricesPage user={user} onUpdateUser={setUser} adminSettings={adminSettings} />} />
             <Route path="/pg/:slug" element={<PageViewer />} />
             <Route path="/kiosk" element={<KioskMode user={user} adminSettings={adminSettings} />} />
             <Route path="/ai-wizard" element={isFeatureEnabled('aiWizard', user, adminSettings) ? <AITemplateWizard user={user} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
@@ -565,11 +569,7 @@ export default function App() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(() => {
     return localStorage.getItem("packer_selected_community");
   });
-  const [isCommunitySelectorOpen, setIsCommunitySelectorOpen] = useState(() => {
-    const selected = localStorage.getItem("packer_selected_community");
-    const dontShow = localStorage.getItem("packer_dont_show_community_selector") === "true";
-    return selected === null && !dontShow;
-  });
+  const [isCommunitySelectorOpen, setIsCommunitySelectorOpen] = useState(false);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -587,16 +587,32 @@ export default function App() {
 
   const isLayoutHidden = (currentHash.startsWith('#/kiosk') && currentHash.includes('fullscreen=true')) || currentHash.includes('hideLayout=true') || currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/');
 
-  // Conditional routing and location detection for community selector
+  // Conditional routing, community sync, and location detection for community selector
   useEffect(() => {
     if (!user) return;
 
-    // 1. First-time log-in detector
-    const loginKey = `packer_has_logged_in_${user.uid}`;
-    const hasLoggedInBefore = localStorage.getItem(loginKey);
-    if (!hasLoggedInBefore) {
-      localStorage.setItem(loginKey, "true");
-      setIsCommunitySelectorOpen(true);
+    // Sync selectedCommunity from Firestore user profile if present
+    if (user.selectedCommunity) {
+      if (localStorage.getItem("packer_selected_community") !== user.selectedCommunity) {
+        localStorage.setItem("packer_selected_community", user.selectedCommunity);
+        setSelectedCommunity(user.selectedCommunity);
+        setIsCommunitySelectorOpen(false);
+      }
+    } else {
+      // If Firestore has no selected community, but localStorage has one and they are onboarded, sync it to Firestore
+      const localSelected = localStorage.getItem("packer_selected_community");
+      if (localSelected && user.onboardingCompleted) {
+        setDoc(doc(db, 'users', user.uid), { selectedCommunity: localSelected }, { merge: true })
+          .catch(err => console.warn("Failed to sync community local selection to Firestore:", err));
+      }
+    }
+
+    // 1. Initial login or session restoration prompt check
+    if (user.onboardingCompleted && !user.selectedCommunity && !localStorage.getItem("packer_selected_community")) {
+      const dontShow = localStorage.getItem("packer_dont_show_community_selector") === "true";
+      if (!dontShow) {
+        setIsCommunitySelectorOpen(true);
+      }
     }
 
     // 2. Geolocation shift detector (if user moves to a new location)
@@ -626,6 +642,21 @@ export default function App() {
 
     detectAndCheckLocationShift();
   }, [user]);
+
+  const toggleLayoutTheme = async () => {
+    if (!user) return;
+    const newTheme = user.layoutTheme === 'workflow' ? 'standard' : 'workflow';
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, { layoutTheme: newTheme }, { merge: true });
+      setUser(prev => prev ? { ...prev, layoutTheme: newTheme } : null);
+      toast.success(`Switched workspace layout to: ${newTheme === 'workflow' ? 'Resolve Professional Workflow' : 'Standard Sidebar'} Layout!`);
+    } catch (err) {
+      console.error("Failed to update layout theme:", err);
+      // Fallback update local state anyway
+      setUser(prev => prev ? { ...prev, layoutTheme: newTheme } : null);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -1350,75 +1381,108 @@ export default function App() {
             <BetaProspectGate user={user} onLogout={logout} />
           ) : (
             <Router>
-              <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans flex overflow-hidden">
-                {user && !isLayoutHidden && (
-                  <Sidebar 
-                    user={user} 
-                    adminSettings={adminSettings} 
-                    isCollapsed={isSidebarCollapsed} 
-                    setIsCollapsed={setIsSidebarCollapsed} 
-                    isMobileOpen={isMobileSidebarOpen}
-                    setIsMobileOpen={setIsMobileSidebarOpen}
-                    listsCount={listsCount}
-                  />
-                )}
-                
-                <div className="flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 font-sans">
-                  {!isLayoutHidden && (
-                    <Navbar 
+              <div className={`min-h-screen font-sans flex overflow-hidden w-full ${user && user.layoutTheme === 'workflow' && !isLayoutHidden ? 'bg-[#111113] text-[#dfdfe5]' : 'bg-neutral-50 text-neutral-900'}`}>
+                {user && user.layoutTheme === 'workflow' && !isLayoutHidden ? (
+                  <WorkflowLayout
+                    user={user}
+                    setUser={setUser}
+                    adminSettings={adminSettings}
+                    selectedCommunity={selectedCommunity}
+                    onOpenSelector={() => setIsCommunitySelectorOpen(true)}
+                    onToggleLayoutTheme={toggleLayoutTheme}
+                  >
+                    <AnimatedRoutes 
                       user={user} 
+                      setUser={setUser} 
                       adminSettings={adminSettings} 
                       onMenuClick={() => setIsMobileSidebarOpen(true)} 
                       selectedCommunity={selectedCommunity}
-                      onOpenSelector={() => setIsCommunitySelectorOpen(true)}
                       landingView={landingView}
                       setLandingView={setLandingView}
                     />
-                  )}
-                  <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
-                    isLayoutHidden 
-                      ? `max-w-none px-0 py-0 sm:px-0 sm:py-0 ${(currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/')) ? 'bg-neutral-50' : 'bg-neutral-900'}` 
-                      : 'max-w-[1700px] mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-28 md:pb-8'
-                  }`}>
-                    <div className="flex-1">
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <AnimatedRoutes 
+                  </WorkflowLayout>
+                ) : (
+                  <>
+                    {user && !isLayoutHidden && (
+                      <Sidebar 
+                        user={user} 
+                        adminSettings={adminSettings} 
+                        isCollapsed={isSidebarCollapsed} 
+                        setIsCollapsed={setIsSidebarCollapsed} 
+                        isMobileOpen={isMobileSidebarOpen}
+                        setIsMobileOpen={setIsMobileSidebarOpen}
+                        listsCount={listsCount}
+                      />
+                    )}
+                    
+                    <div className="flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 font-sans">
+                      {!isLayoutHidden && (
+                        <Navbar 
                           user={user} 
-                          setUser={setUser} 
                           adminSettings={adminSettings} 
                           onMenuClick={() => setIsMobileSidebarOpen(true)} 
                           selectedCommunity={selectedCommunity}
+                          onOpenSelector={() => setIsCommunitySelectorOpen(true)}
                           landingView={landingView}
                           setLandingView={setLandingView}
+                          onToggleLayoutTheme={toggleLayoutTheme}
                         />
-                      </motion.div>
+                      )}
+                      <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
+                        isLayoutHidden 
+                          ? `max-w-none px-0 py-0 sm:px-0 sm:py-0 ${(currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/')) ? 'bg-neutral-50' : 'bg-neutral-900'}` 
+                          : 'max-w-[1700px] mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-28 md:pb-8'
+                      }`}>
+                        <div className="flex-1">
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                          >
+                            <AnimatedRoutes 
+                              user={user} 
+                              setUser={setUser} 
+                              adminSettings={adminSettings} 
+                              onMenuClick={() => setIsMobileSidebarOpen(true)} 
+                              selectedCommunity={selectedCommunity}
+                              landingView={landingView}
+                              setLandingView={setLandingView}
+                            />
+                          </motion.div>
+                        </div>
+                        {!isLayoutHidden && (
+                          <Footer 
+                            adminSettings={adminSettings} 
+                            selectedCommunity={selectedCommunity}
+                            onOpenSelector={() => setIsCommunitySelectorOpen(true)}
+                            user={user}
+                          />
+                        )}
+                      </main>
                     </div>
-                    {!isLayoutHidden && (
-                      <Footer 
-                        adminSettings={adminSettings} 
-                        selectedCommunity={selectedCommunity}
-                        onOpenSelector={() => setIsCommunitySelectorOpen(true)}
-                        user={user}
-                      />
-                    )}
-                  </main>
-                </div>
+                  </>
+                )}
 
                 {/* Dynamic Geographic Community Router Portal */}
                 <CommunitySelector
                   user={user}
                   adminSettings={adminSettings}
                   selectedCommunity={selectedCommunity}
-                  isOpen={isCommunitySelectorOpen}
-                  onSelect={(mId) => {
+                  isOpen={isCommunitySelectorOpen && (user ? !!user.onboardingCompleted : true)}
+                  onSelect={async (mId) => {
                     localStorage.setItem("packer_selected_community", mId);
                     setSelectedCommunity(mId);
                     setIsCommunitySelectorOpen(false);
+                    if (user) {
+                      try {
+                        const userRef = doc(db, 'users', user.uid);
+                        await setDoc(userRef, { selectedCommunity: mId }, { merge: true });
+                        setUser(prev => prev ? { ...prev, selectedCommunity: mId } : null);
+                      } catch (err) {
+                        console.error("Failed to sync selected community to Firestore:", err);
+                      }
+                    }
                   }}
                   onClose={() => setIsCommunitySelectorOpen(false)}
                   isDismissible={selectedCommunity !== null}
@@ -1427,7 +1491,12 @@ export default function App() {
                 {user && !user.onboardingCompleted && (
                   <Onboarding 
                     user={user} 
-                    onComplete={() => setUser({ ...user, onboardingCompleted: true })} 
+                    onComplete={() => {
+                      setUser({ ...user, onboardingCompleted: true });
+                      if (!selectedCommunity) {
+                        setIsCommunitySelectorOpen(true);
+                      }
+                    }} 
                   />
                 )}
 

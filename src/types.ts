@@ -111,6 +111,7 @@ export interface UserProfile {
   apiKey?: string;
   enabledFeatures?: FeatureKey[]; // Overrides for specific users
   disabledFeatures?: FeatureKey[]; // Overrides for specific users
+  layoutTheme?: 'standard' | 'workflow';
   onboardingCompleted?: boolean;
   configOnboardingCompleted?: boolean;
   activeWorkspacePreset?: string;
@@ -185,6 +186,7 @@ export interface UserProfile {
   activeWorkspaceId?: string;
   workspaces?: Workspace[];
   selectedIndustry?: string;
+  selectedCommunity?: string;
   betaTrialInitialized?: boolean;
   trialEnabled?: boolean;
   permissions?: {

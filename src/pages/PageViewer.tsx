@@ -158,7 +158,7 @@ const PageViewer: React.FC = () => {
                 <p className="text-neutral-500 font-medium">If you need clarification about these terms, reach out.</p>
               </div>
               <a 
-                href="mailto:support@packertools.ai"
+                href="mailto:support@packer.tools"
                 className="px-10 py-5 bg-neutral-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition shadow-xl shadow-neutral-900/20 active:scale-95"
               >
                 Contact Support

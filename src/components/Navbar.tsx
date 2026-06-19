@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, LayoutDashboard, Settings, Package, User, Menu, X, Zap, HelpCircle, Server, Home, Truck, ShieldCheck, Briefcase, Search } from 'lucide-react';
+import { LogIn, LogOut, LayoutDashboard, Settings, Package, User, Menu, X, Zap, HelpCircle, Server, Home, Truck, ShieldCheck, Briefcase, Search, Layout, CreditCard } from 'lucide-react';
 import PackerLogo from './PackerLogo';
 import { signInWithGoogle, logout } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
@@ -13,7 +13,8 @@ export default function Navbar({
   selectedCommunity,
   onOpenSelector,
   landingView,
-  setLandingView
+  setLandingView,
+  onToggleLayoutTheme
 }: { 
   user: UserProfile | null, 
   adminSettings: AdminSettings | null, 
@@ -21,7 +22,8 @@ export default function Navbar({
   selectedCommunity?: string | null,
   onOpenSelector?: () => void,
   landingView?: string,
-  setLandingView?: (view: string) => void
+  setLandingView?: (view: string) => void,
+  onToggleLayoutTheme?: () => void
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -88,6 +90,17 @@ export default function Navbar({
                   <kbd className="px-1.5 py-0.5 rounded bg-white border border-neutral-250 text-[9px] font-mono text-neutral-450 shadow-xs leading-none">⌘K</kbd>
                 </button>
 
+                {onToggleLayoutTheme && (
+                  <button
+                    onClick={onToggleLayoutTheme}
+                    className="flex items-center gap-1.5 px-3 py-1.5 h-10 bg-neutral-50 hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900 rounded-xl transition border border-neutral-200/50 cursor-pointer text-xs font-semibold select-none active:scale-95 whitespace-nowrap"
+                    title="Switch Workspace Theme Layout Mode"
+                  >
+                    <Layout size={14} className="text-[#ff4f3a]" />
+                    <span className="text-[9px] uppercase font-black tracking-widest text-[#ff4f3a]">Workflow Mode</span>
+                  </button>
+                )}
+
                 <Link to="/profile" className="flex items-center gap-3 hover:bg-neutral-50 p-2 rounded-xl transition">
                   <div className="text-right hidden sm:block">
                     <div className="text-xs font-black uppercase tracking-tight">{user.displayName}</div>
@@ -108,6 +121,10 @@ export default function Navbar({
             </>
           ) : (
             <div className="flex items-center gap-6">
+              <Link to="/prices" className="flex items-center gap-2 text-[#ff4f3a] hover:text-[#ff4f3a]/80 transition font-bold uppercase text-xs tracking-widest">
+                <CreditCard size={18} />
+                <span>Prices</span>
+              </Link>
               <Link to="/help" className="flex items-center gap-2 text-primary/60 hover:text-primary transition font-bold uppercase text-xs tracking-widest">
                 <HelpCircle size={18} />
                 <span>Help</span>
