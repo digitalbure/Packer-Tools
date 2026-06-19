@@ -955,6 +955,8 @@ export interface AdminSettings {
   footerNavConfig?: {
     enabled: boolean;
     alignMobileCentred: boolean;
+    showHowItWorks?: boolean;
+    showJoinUs?: boolean;
     links: Array<{
       label: string;
       href: string;

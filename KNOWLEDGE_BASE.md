@@ -141,11 +141,14 @@ For operators functioning on lower-resolution tablets, laptop terminals, or port
 
 ---
 
-## 🐞 6. System Settings & Bug Reports Finder (v4.9.0)
+## 🐞 6. System Settings & Bug Reports Finder (v4.16.0)
 
-Administrator accounts now access a unified Bug Reports Finder directly situated within the core System Settings dashboard.
-1. **Real-time Diagnostic Badges:** Unresolved beta-testing requests (unresolved status tags like `open` or `in_review`) trigger an immediate red glowing alert glow on the settings panel navigation item.
-2. **Full Resolution Controls:** Allows admins to track incoming browser layouts, analyze tester diagnostics, append resolution messages, and update status logs returning live progress notifications to clients instantly.
+Administrator accounts now access all core System Settings via collapsible sub-navigation folders inside the primary application sidebar.
+1. **Collapsible Sub-navigation Portal:** The eight settings tabs (Branding & Kit, Email Customizer, Billing & money, Multi Industry, Marketplace, Widget Modules, Bug Finder, and SMTP Server) are grouped cleanly under the **"System Settings"** folder in the main sidebar, saving valuable administrative page space.
+2. **URL deep-linking & State Synchronization:** The active config tabs are synchronized directly with the URL search query parameter `sub` (e.g., `#/admin?tab=settings&sub=branding`).
+3. **Double-Nested Sidebar Deactivation:** Hiding double-nested vertical navigation columns on desktop gives forms and telemetry lists the full layout width, ending cramped workspaces or visual clipping.
+4. **Real-time Diagnostic Badges:** Unresolved beta-testing requests trigger red glowing alert badges under the primary and nested "Bug Finder" sub-links automatically.
+5. **Full Resolution Controls:** Allows admins to track incoming browser layouts, analyze tester diagnostics, append resolution messages, and update status logs returning live progress notifications to clients instantly.
 
 ---
 

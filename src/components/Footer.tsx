@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Package, ShieldCheck, Mail, HelpCircle, Heart } from 'lucide-react';
 import PackerLogo from './PackerLogo';
 import { AdminSettings } from '../types';
+import { toast } from 'sonner';
 
 interface FooterProps {
   adminSettings: AdminSettings | null;
@@ -78,10 +79,10 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
           </div>
         )}
 
-        <div className={`grid grid-cols-1 md:grid-cols-4 gap-10 items-start ${isMobileCentred ? 'text-center md:text-left' : 'text-left'}`}>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-8 sm:gap-10 items-start ${isMobileCentred ? 'text-center lg:text-left' : 'text-left'}`}>
           
           {/* Branding Column */}
-          <div className={`md:col-span-2 space-y-4 ${isMobileCentred ? 'flex flex-col items-center md:items-start text-center md:text-left' : 'text-left'}`}>
+          <div className={`sm:col-span-2 lg:col-span-2 space-y-4 ${isMobileCentred ? 'flex flex-col items-center lg:items-start text-center lg:text-left' : 'text-left'}`}>
             <Link to="/" className="inline-flex items-center gap-1 group">
               {adminSettings?.branding?.logo ? (
                 <div className="flex items-center gap-2">
@@ -94,7 +95,7 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
                 <PackerLogo variant="full" size={32} light={true} />
               )}
             </Link>
-            <p className="text-xs text-neutral-500 font-semibold leading-relaxed max-w-sm">
+            <p className="text-xs text-neutral-550 font-semibold leading-relaxed">
               Professional-grade AV logistics, rack assembly planning, and gear lifecycle orchestration. Built for high-stakes on-set execution.
             </p>
             <div 
@@ -103,29 +104,66 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
               title="Switch geographic community hub"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[10px] font-mono font-extrabold text-neutral-400 group-hover:text-primary uppercase tracking-wider transition-colors">
+              <span className="text-[10px] font-mono font-extrabold text-neutral-450 group-hover:text-primary uppercase tracking-wider transition-colors">
                 {communityLabel} • Switch Hub
               </span>
             </div>
           </div>
+
+          {/* How It Works */}
+          {footerConfig.showHowItWorks !== false && (
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-400 font-mono">How It Works</h4>
+              <ul className={`space-y-2 text-xs font-bold text-neutral-600 uppercase tracking-wide cursor-pointer ${isMobileCentred ? 'flex flex-col items-center lg:items-start' : ''}`}>
+                <li><span onClick={() => toast.info("How to list gear for rent: Custom listings are under test preview.")} className="hover:text-primary transition">Listing For Rent ›</span></li>
+                <li><span onClick={() => toast.info("How to rent gear: Standard rental booking available on Marketplace.")} className="hover:text-primary transition">Renting Gear ›</span></li>
+                <li><span onClick={() => toast.info("Verification protocols: Digital identity check before equipment release.")} className="hover:text-primary transition">Selling Gear ›</span></li>
+                <li><span onClick={() => toast.info("Security rules: Multi-signature handshake upon pickup or delivery.")} className="hover:text-primary transition">Buying Gear ›</span></li>
+                <li><span onClick={() => toast.info("Student Verification: Upload high-res institutional badge in profile.")} className="hover:text-primary transition">Student Discounts ›</span></li>
+              </ul>
+            </div>
+          )}
+
+          {/* Join Us */}
+          {footerConfig.showJoinUs !== false && (
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-400 font-mono">Join Us</h4>
+              <ul className={`space-y-2 text-xs font-bold text-neutral-600 uppercase tracking-wide cursor-pointer ${isMobileCentred ? 'flex flex-col items-center lg:items-start' : ''}`}>
+                <li><span onClick={() => toast.success("Redirecting to Official Instagram feed...")} className="hover:text-primary transition">Instagram ›</span></li>
+                <li><span onClick={() => toast.success("Opening Facebook global group...")} className="hover:text-primary transition">Facebook ›</span></li>
+                <li><span onClick={() => toast.success("Opening YouTube video instruction reel...")} className="hover:text-primary transition">Youtube ›</span></li>
+                <li><span onClick={() => toast.success("Redirecting to apparel & safety merch store...")} className="hover:text-primary transition">Merch Store ›</span></li>
+              </ul>
+            </div>
+          )}
           
           {/* Workspace Quicklinks */}
           <div className="space-y-4">
             <h4 className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Active Workspace</h4>
-            <ul className={`space-y-2.5 text-xs font-bold text-neutral-600 uppercase tracking-wide ${isMobileCentred ? 'flex flex-col items-center md:items-start' : ''}`}>
+            <ul className={`space-y-2.5 text-xs font-bold text-neutral-600 uppercase tracking-wide ${isMobileCentred ? 'flex flex-col items-center lg:items-start' : ''}`}>
               <li>
-                <Link to="/dashboard" className="hover:text-primary transition flex items-center gap-2">
+                <Link to="/dashboard" className="hover:text-primary transition">
                   <span>Dashboard Overview</span>
                 </Link>
               </li>
               <li>
-                <Link to="/library" className="hover:text-primary transition flex items-center gap-2">
+                <Link to="/library" className="hover:text-primary transition">
                   <span>Gear Library Inventory</span>
                 </Link>
               </li>
               <li>
-                <Link to="/profile" className="hover:text-primary transition flex items-center gap-2">
+                <Link to="/profile" className="hover:text-primary transition">
                   <span>Subscription Seats</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/kiosk" className="hover:text-primary transition">
+                  <span>Kiosk Terminal</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/marketplace" className="hover:text-primary transition">
+                  <span>P2P Marketplace</span>
                 </Link>
               </li>
             </ul>
@@ -134,21 +172,26 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
           {/* Resources & Help */}
           <div className="space-y-4 font-sans">
             <h4 className="text-[10px] font-black uppercase text-neutral-400 tracking-widest">Help & Support Desk</h4>
-            <ul className={`space-y-2.5 text-xs font-bold text-neutral-600 uppercase tracking-wide ${isMobileCentred ? 'flex flex-col items-center md:items-start' : ''}`}>
+            <ul className={`space-y-2.5 text-xs font-bold text-neutral-600 uppercase tracking-wide ${isMobileCentred ? 'flex flex-col items-center lg:items-start' : ''}`}>
               <li>
-                <Link to="/contact" className="hover:text-primary transition flex items-center gap-1.5">
+                <Link to="/contact" className="hover:text-primary transition flex items-center gap-1.5 justify-center lg:justify-start">
                   <Mail size={12} className="text-neutral-400 shrink-0" />
                   <span>Submit Technical Enquiry</span>
                 </Link>
               </li>
               <li>
-                <Link to="/help" className="hover:text-primary transition flex items-center gap-1.5">
+                <Link to="/help" className="hover:text-primary transition flex items-center gap-1.5 justify-center lg:justify-start">
                   <HelpCircle size={12} className="text-neutral-400 shrink-0" />
                   <span>Reference Guide Docs</span>
                 </Link>
               </li>
               <li>
-                <span className="text-[10px] text-neutral-400 font-mono tracking-tighter">
+                <span onClick={() => toast.info("Athos Equipment Insurance premium covers up to $250k standard on production gear.")} className="hover:text-primary transition cursor-pointer">
+                  About Athos Insurance ›
+                </span>
+              </li>
+              <li>
+                <span className="text-[10px] text-neutral-450 font-mono tracking-tighter block pt-1">
                   Version v4.15.0 ({versionSuffix})
                 </span>
               </li>
@@ -159,8 +202,8 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
       </div>
 
       {/* Under footer */}
-      <div className={`max-w-[1700px] mx-auto border-t border-neutral-150 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] font-mono text-neutral-400 ${isMobileCentred ? 'text-center' : ''}`}>
-        <div className="flex flex-wrap items-center gap-2">
+      <div className={`max-w-[1700px] mx-auto border-t border-neutral-150 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] font-mono text-neutral-450 ${isMobileCentred ? 'text-center' : ''}`}>
+        <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
           <span>&copy; {currentYear} {companyName}. All rights reserved.</span>
           <span>&bull;</span>
           <Link to="/pg/privacy-policy" className="hover:text-neutral-600 transition">Privacy Policy</Link>
@@ -170,7 +213,7 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
           <Link to="/pg/refund-policy" className="hover:text-neutral-600 transition">Refund Policy</Link>
         </div>
         <div className="flex items-center gap-1">
-          <span>{currentComm ? `Community: ${currentComm.name}` : 'Global Site'} | App by Digital Bure</span>
+          <span>{currentComm ? `Community: ${currentComm.name}` : 'Global Site'} | App by <a href="https://digitalbure.com" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-600 transition underline decoration-neutral-300">Digital Bure</a></span>
         </div>
       </div>
     </footer>

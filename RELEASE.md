@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.13.0`
+## Current Application Version: `v4.16.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.16.0 (Unified Administrative Hierarchy & Primary Sidebar Convergence)
+*Released on: June 19, 2026*
+- **Administrative Navigation Consolidation & Nested Routing**: Refactored the eight modular System Settings (Branding, Email, Billing, Multi-Industry, Marketplace, Widgets, Bug Finder, SMTP) out of the secondary page layouts and integrated them as real-time collapsible subItems within the primary sidebar (`Sidebar.tsx`).
+- **URL Search Parameter State Syncing**: Interfaced `settingsSubTab` in `AdminPanel.tsx` directly with URL search query parameter `sub`. Clicking the primary sidebar subItems updates URL paths seamlessly, allowing direct, deep-linked access and preserving active-item highlights.
+- **De-cluttered Desktop Dashboard Canvas**: Deactivated the double-nested vertical left rail inside System Settings on desktop screens, allowing high-contrast lists, custom tables, and forms to run on full horizontal screens without cramped boundaries.
 
 ---
 

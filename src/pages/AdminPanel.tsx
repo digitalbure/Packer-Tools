@@ -125,6 +125,9 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryId, setNewCategoryId] = useState('');
   const [newCategoryImage, setNewCategoryImage] = useState('');
+  const [newSubCategories, setNewSubCategories] = useState<any[]>([]);
+  const [tempSubName, setTempSubName] = useState('');
+  const [tempSubSubNameMap, setTempSubSubNameMap] = useState<{[subId: string]: string}>({});
 
   // Bug Report system states
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
@@ -462,7 +465,10 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const hasActiveBugs = bugReports.some(b => b.status === 'open' || b.status === 'in_review');
 
   // Currency and payment gateway states
-  const [settingsSubTab, setSettingsSubTab] = useState<'branding' | 'emails' | 'billing' | 'multi_industry' | 'marketplace' | 'widgets' | 'bugs' | 'smtp'>('branding');
+  const settingsSubTab = (searchParams.get('sub') || 'branding') as 'branding' | 'emails' | 'billing' | 'multi_industry' | 'marketplace' | 'widgets' | 'bugs' | 'smtp';
+  const setSettingsSubTab = (subTab: string) => {
+    setSearchParams({ tab: 'settings', sub: subTab });
+  };
   const [isAddingCurrency, setIsAddingCurrency] = useState(false);
   const [newCurrencyCode, setNewCurrencyCode] = useState('');
   const [newCurrencyName, setNewCurrencyName] = useState('');
@@ -911,6 +917,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       await setDoc(doc(db, 'marketplaceCategories', newCategoryId.trim().toLowerCase()), {
         name: newCategoryName.trim(),
         image: newCategoryImage.trim() || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
+        subCategories: newSubCategories,
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
@@ -921,10 +928,84 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       setNewCategoryId('');
       setNewCategoryName('');
       setNewCategoryImage('');
+      setNewSubCategories([]);
+      setTempSubName('');
+      setTempSubSubNameMap({});
     } catch (error) {
       console.error("Error saving category:", error);
       toast.error("Failed to save category.");
     }
+  };
+
+  const handleAddSubCategory = (name: string) => {
+    if (!name.trim()) return;
+    const sId = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    if (newSubCategories.some(sub => sub.id === sId)) {
+      toast.error("Sub-category with this ID already exists.");
+      return;
+    }
+    setNewSubCategories([...newSubCategories, { id: sId, name: name.trim(), subSubCategories: [] }]);
+    setTempSubName('');
+  };
+
+  const handleRenameSubCategory = (subId: string, newName: string) => {
+    if (!newName.trim()) return;
+    setNewSubCategories(newSubCategories.map(sub => {
+      if (sub.id === subId) {
+        return { ...sub, name: newName.trim() };
+      }
+      return sub;
+    }));
+  };
+
+  const handleDeleteSubCategory = (subId: string) => {
+    setNewSubCategories(newSubCategories.filter(sub => sub.id !== subId));
+  };
+
+  const handleAddSubSubCategory = (subId: string, name: string) => {
+    if (!name.trim()) return;
+    const ssId = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    setNewSubCategories(newSubCategories.map(sub => {
+      if (sub.id === subId) {
+        const subs = sub.subSubCategories || [];
+        if (subs.some((s: any) => s.id === ssId)) {
+          toast.error("Sub-sub-category already exists.");
+          return sub;
+        }
+        return {
+          ...sub,
+          subSubCategories: [...subs, { id: ssId, name: name.trim() }]
+        };
+      }
+      return sub;
+    }));
+    setTempSubSubNameMap(prev => ({ ...prev, [subId]: '' }));
+  };
+
+  const handleRenameSubSubCategory = (subId: string, subSubId: string, newName: string) => {
+    if (!newName.trim()) return;
+    setNewSubCategories(newSubCategories.map(sub => {
+      if (sub.id === subId) {
+        const subs = (sub.subSubCategories || []).map((s: any) => {
+          if (s.id === subSubId) {
+            return { ...s, name: newName.trim() };
+          }
+          return s;
+        });
+        return { ...sub, subSubCategories: subs };
+      }
+      return sub;
+    }));
+  };
+
+  const handleDeleteSubSubCategory = (subId: string, subSubId: string) => {
+    setNewSubCategories(newSubCategories.map(sub => {
+      if (sub.id === subId) {
+        const subs = (sub.subSubCategories || []).filter((s: any) => s.id !== subSubId);
+        return { ...sub, subSubCategories: subs };
+      }
+      return sub;
+    }));
   };
 
   const handleDeleteCategory = async (catId: string) => {
@@ -941,6 +1022,39 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const getCategoryListingsCount = (catId: string) => {
     return lists.filter(l => l.marketplaceEnabled && l.category === catId && l.moderationStatus !== 'suspended').length;
   };
+
+  // Background Auto-populate category synchronizer 
+  // Runs whenever lists or categories load. Automatically extracts listing categories and populates marketplaceCategories.
+  useEffect(() => {
+    if (lists.length > 0 && categories.length > 0) {
+      const syncMissingCategories = async () => {
+        const existingIds = new Set(categories.map(c => c.id));
+        for (const list of lists) {
+          const catName = list.category;
+          if (catName && catName.trim() !== '') {
+            const slug = catName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+            if (slug && !existingIds.has(slug)) {
+              existingIds.add(slug); // safe-guard local iteration
+              try {
+                // Capitalize nicely for display
+                const formattedName = catName.split(/[-_\s]+/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                await setDoc(doc(db, 'marketplaceCategories', slug), {
+                  name: formattedName || catName,
+                  image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
+                  subCategories: [],
+                  createdAt: new Date().toISOString()
+                }, { merge: true });
+                console.log(`Auto populated marketplaceCategories document: ${slug}`);
+              } catch (err) {
+                console.error(`Error auto-populating missing category ${slug}:`, err);
+              }
+            }
+          }
+        }
+      };
+      syncMissingCategories();
+    }
+  }, [lists, categories]);
 
   // Self-bootstrapping categories
   useEffect(() => {
@@ -5321,7 +5435,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
                     {/* Image Preview Area */}
                     {newCategoryImage && (
-                      <div className="relative rounded-2xl overflow-hidden aspect-video border border-neutral-100 bg-neutral-50">
+                      <div className="relative rounded-2xl overflow-hidden aspect-video border border-neutral-100 bg-neutral-50 font-sans">
                         <img 
                           src={newCategoryImage} 
                           alt="Category preview" 
@@ -5337,6 +5451,128 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                       </div>
                     )}
 
+                    {/* Hierarchy Builder: Sub-Categories & Sub-Sub-Categories */}
+                    <div className="border border-neutral-150 p-4 rounded-2xl bg-neutral-50/50 space-y-4 font-sans">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Taxonomy Hierarchy</h4>
+                        <span className="px-1.5 py-0.5 bg-neutral-200 text-neutral-700 rounded text-[9px] font-black uppercase tracking-wider">
+                          {newSubCategories.length} Sub-categories
+                        </span>
+                      </div>
+
+                      {/* Input to Add Sub-Category */}
+                      <div className="space-y-1">
+                        <div className="flex gap-1.5">
+                          <input
+                            type="text"
+                            placeholder="Add sub-category (e.g. Cinema Lenses)"
+                            value={tempSubName}
+                            onChange={(e) => setTempSubName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddSubCategory(tempSubName);
+                              }
+                            }}
+                            className="flex-1 px-3 py-1.5 bg-white border border-neutral-250 rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary font-bold text-neutral-800"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleAddSubCategory(tempSubName)}
+                            className="px-3 py-1.5 bg-neutral-900 text-white rounded-lg text-[10px] font-black uppercase hover:bg-neutral-800 transition"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Nested List of Sub-Categories and Sub-Sub-Categories */}
+                      {newSubCategories.length === 0 ? (
+                        <p className="text-[10px] text-neutral-400 italic text-center py-2">No sub-categories assigned yet.</p>
+                      ) : (
+                        <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                          {newSubCategories.map((sub) => {
+                            const subSubVal = tempSubSubNameMap[sub.id] || '';
+                            return (
+                              <div key={sub.id} className="p-3 bg-white border border-neutral-155 rounded-xl space-y-2.5">
+                                <div className="flex items-center justify-between gap-1">
+                                  <input
+                                    type="text"
+                                    value={sub.name}
+                                    onChange={(e) => handleRenameSubCategory(sub.id, e.target.value)}
+                                    className="font-black text-xs text-neutral-800 focus:bg-neutral-50 rounded px-1.5 py-0.5 outline-none w-2/3 border border-transparent focus:border-neutral-200"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteSubCategory(sub.id)}
+                                    className="text-neutral-400 hover:text-red-500 p-1 rounded hover:bg-neutral-50 transition"
+                                    title="Remove Sub-category"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+
+                                {/* Sub-Sub-Categories nested container */}
+                                <div className="pl-3.5 border-l-2 border-neutral-100 space-y-2">
+                                  <div className="flex items-center justify-between gap-1.5">
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400">Sub-Sub-Categories</span>
+                                  </div>
+
+                                  {/* Add Sub-sub-category input */}
+                                  <div className="flex gap-1">
+                                    <input
+                                      type="text"
+                                      placeholder="e.g. Cinema Primes"
+                                      value={subSubVal}
+                                      onChange={(e) => setTempSubSubNameMap(prev => ({ ...prev, [sub.id]: e.target.value }))}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          handleAddSubSubCategory(sub.id, subSubVal);
+                                        }
+                                      }}
+                                      className="flex-1 px-2.5 py-1 bg-neutral-50 border border-neutral-200 rounded text-[10px] outline-none font-bold text-neutral-700"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAddSubSubCategory(sub.id, subSubVal)}
+                                      className="px-2 py-1 bg-neutral-900 text-white rounded text-[9px] font-black uppercase hover:bg-neutral-800 transition"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+
+                                  {/* Render Existing Sub-Sub-Categories */}
+                                  {(sub.subSubCategories || []).length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                      {(sub.subSubCategories || []).map((subSub: any) => (
+                                        <div key={subSub.id} className="flex items-center gap-1 bg-neutral-50 border border-neutral-150 px-2 py-0.5 rounded text-[10px] font-bold text-neutral-700">
+                                          <input
+                                            type="text"
+                                            value={subSub.name}
+                                            onChange={(e) => handleRenameSubSubCategory(sub.id, subSub.id, e.target.value)}
+                                            className="bg-transparent focus:bg-white outline-none w-16 border border-transparent focus:border-neutral-100 px-0.5 rounded"
+                                            title="Rename sub-sub-category"
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteSubSubCategory(sub.id, subSub.id)}
+                                            className="text-neutral-450 hover:text-red-500 font-extrabold text-[11px] px-0.5"
+                                          >
+                                            ×
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex gap-3 pt-2">
                       {editingCategory && (
                         <button
@@ -5346,6 +5582,9 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                             setNewCategoryId('');
                             setNewCategoryName('');
                             setNewCategoryImage('');
+                            setNewSubCategories([]);
+                            setTempSubName('');
+                            setTempSubSubNameMap({});
                           }}
                           className="flex-1 px-4 py-2.5 bg-neutral-100 text-neutral-700 rounded-xl text-xs font-extrabold uppercase tracking-wider hover:bg-neutral-200 transition whitespace-nowrap"
                         >
@@ -5423,9 +5662,25 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                                   </div>
                                 </td>
                                 <td className="py-2">
-                                  <div>
+                                  <div className="max-w-xs sm:max-w-md">
                                     <p className="font-extrabold text-neutral-800 text-sm">{cat.name}</p>
                                     <p className="font-mono text-[9px] text-neutral-400 font-bold uppercase">{cat.id}</p>
+                                    
+                                    {/* Nested Hierarchy Tree Layout */}
+                                    {cat.subCategories && cat.subCategories.length > 0 && (
+                                      <div className="mt-2.5 space-y-2 border-l border-neutral-200 pl-2 font-sans">
+                                        {cat.subCategories.map((sub: any) => (
+                                          <div key={sub.id} className="text-[10px] text-neutral-500 font-bold leading-none">
+                                            <span className="text-neutral-700">▪ {sub.name}</span>
+                                            {sub.subSubCategories && sub.subSubCategories.length > 0 && (
+                                              <span className="text-[8px] text-neutral-400 font-black block ml-2 mt-0.5 uppercase tracking-wide">
+                                                ↳ {sub.subSubCategories.map((ss: any) => ss.name).join(', ')}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 </td>
                                 <td className="py-4 text-center font-bold">
@@ -5442,6 +5697,9 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                                         setNewCategoryId(cat.id);
                                         setNewCategoryName(cat.name);
                                         setNewCategoryImage(cat.image || '');
+                                        setNewSubCategories(cat.subCategories || []);
+                                        setTempSubName('');
+                                        setTempSubSubNameMap({});
                                       }}
                                       className="p-2 text-neutral-500 hover:text-neutral-950 hover:bg-neutral-100 rounded-xl transition"
                                       title="Edit details"
@@ -6686,7 +6944,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-start">
             {/* Left Submenu Sidebar (Desktop only) */}
-            <div className="hidden md:block col-span-1 space-y-2 sticky top-[100px]">
+            <div className="hidden col-span-1 space-y-2 sticky top-[100px]">
               <div className="bg-white p-4 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
                 <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest px-3.5 py-1 mb-2 block font-mono">Admin Console</p>
                 
@@ -6863,7 +7121,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             </div>
 
             {/* Submenu Tab Content Pages */}
-            <div className="col-span-1 md:col-span-3 space-y-6">
+            <div className="col-span-1 md:col-span-4 space-y-6">
               {settingsSubTab === 'branding' && (
                 <BrandingSettingsTab settings={settings} setSettings={setSettings} />
               )}

@@ -382,7 +382,6 @@ export default function LandingPage({
             className="space-y-8"
           >
             <div className="flex items-center gap-3">
-              <div className="px-2 py-1 bg-safety-yellow text-primary text-[10px] font-black uppercase tracking-widest rounded">System v2.4</div>
               <span className="micro-label">{lp?.hero?.subtitle || 'Industrial Grade Gear Tracking'}</span>
             </div>
                     <h1 className="text-6xl md:text-[120px] font-black tracking-tighter leading-[0.82] uppercase whitespace-pre-line">

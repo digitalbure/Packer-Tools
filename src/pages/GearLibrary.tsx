@@ -605,6 +605,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     resolved: false
   });
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'compact'>(() => {
+    if (window.innerWidth < 768) return 'list';
     return user?.viewDensity === 'compact' ? 'compact' : 'grid';
   });
 
@@ -3349,16 +3350,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           {item.brand && <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-neutral-400">{item.brand}</p>}
         </div>
 
-        <div className="flex items-center gap-3 md:gap-4 text-[9px] md:text-[10px] text-neutral-400 pt-3 md:pt-4 border-t border-neutral-100 mt-auto">
-          <div className="flex items-center gap-1.5">
-            <Weight size={10} className="text-neutral-300 md:w-3 md:h-3" />
-            <span className="font-bold">{item.weight ? `${item.weight}g` : 'N/A'}</span>
+        <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] text-neutral-400 pt-2.5 md:pt-4 border-t border-neutral-100 mt-auto">
+          <div className="flex items-center gap-1">
+            <Weight size={9} className="text-neutral-300 md:w-3 md:h-3 shrink-0" />
+            <span className="font-bold shrink-0">{item.weight ? `${item.weight}g` : 'N/A'}</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <History size={10} className="text-neutral-300 md:w-3 md:h-3" />
-            <span className="font-bold">{item.usageCount || 0}</span>
+          <div className="flex items-center gap-1">
+            <History size={9} className="text-neutral-300 md:w-3 md:h-3 shrink-0" />
+            <span className="font-bold shrink-0">{item.usageCount || 0}</span>
           </div>
-          <div className="flex-1"></div>
+          <div className="flex-grow"></div>
           <button
             type="button"
             onClick={(e) => {
@@ -3366,14 +3367,14 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               setManualCheckoutGearItem(item);
               setManualCheckoutGearType(item.isKit ? 'kit' : 'gear');
             }}
-            className={`px-2 py-1 transition rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0 ${
+            className={`px-1.5 py-0.5 md:px-2 md:py-1 transition rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-0.5 shrink-0 ${
               item.status === 'in_use'
                 ? 'bg-rose-100 hover:bg-rose-200 text-rose-700'
                 : 'bg-primary/10 hover:bg-primary/20 text-primary'
             }`}
             title={item.status === 'in_use' ? "Check In Asset" : "Check Out Asset"}
           >
-            <ArrowRightLeft size={10} />
+            <ArrowRightLeft size={9} />
             <span>{item.status === 'in_use' ? 'In' : 'Out'}</span>
           </button>
           <button
@@ -3383,13 +3384,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               setSharingGearItem(item);
               setSharingGearType(item.isKit ? 'kit' : 'gear');
             }}
-            className="px-2 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 hover:text-neutral-900 transition rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0"
+            className="px-1.5 py-0.5 md:px-2 md:py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 hover:text-neutral-900 transition rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-0.5 shrink-0"
             title="Share with Customer"
           >
-            <Share2 size={10} />
+            <Share2 size={9} strokeWidth={2.5} />
             <span>Share</span>
           </button>
-          <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${
+          <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full shrink-0 ${
             getHealthScore(item) > 70 ? 'bg-green-500' :
             getHealthScore(item) > 40 ? 'bg-amber-500' : 'bg-red-500'
           }`} title={`Health: ${getHealthScore(item)}%`} />

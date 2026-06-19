@@ -102,7 +102,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => window.innerWidth < 768 ? 'list' : 'grid');
   const [kioskActive, setKioskActive] = useState<boolean>((user as any).kioskModuleActive || false);
   const activePlan = adminSettings?.plans?.find(p => p.id === user.plan || p.name.toLowerCase() === user.plan?.toLowerCase()) || adminSettings?.plans?.[0];
 
@@ -680,19 +680,19 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         <div className="flex bg-neutral-105 p-1 rounded-2xl border border-neutral-200/60 w-fit shrink-0 shadow-sm">
           <button 
             type="button"
+            className="px-5 py-2 rounded-xl text-[10px] font-black bg-[#ff4f3a] text-white shadow-sm uppercase tracking-widest transition-all"
+          >
+            Packer Tools
+          </button>
+          <button 
+            type="button"
             onClick={() => {
               navigate('/marketplace');
               toast.success("Welcome to Peer-To-Peer Marketplace!");
             }}
             className="px-5 py-2 rounded-xl text-[10px] font-black text-neutral-500 hover:text-neutral-900 uppercase tracking-widest transition-all cursor-pointer"
           >
-            Marketplace Hub
-          </button>
-          <button 
-            type="button"
-            className="px-5 py-2 rounded-xl text-[10px] font-black bg-[#ff4f3a] text-white shadow-sm uppercase tracking-widest transition-all"
-          >
-            Packer Tools
+            Marketplace
           </button>
         </div>
       </div>

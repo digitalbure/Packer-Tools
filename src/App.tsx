@@ -7,7 +7,7 @@ import { UserProfile } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { Toaster, toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowUp } from 'lucide-react';
 
 // Components
 import Navbar from './components/Navbar';
@@ -534,6 +534,19 @@ export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [landingView, setLandingView] = useState<string>('saas');
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 400) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const hasInitializedSidebarCollapse = useRef(false);
 
@@ -1427,6 +1440,22 @@ export default function App() {
                     onToggleSidebar={() => setIsSidebarCollapsed(prev => !prev)} 
                   />
                 )}
+
+                <AnimatePresence>
+                  {showScrollTop && (
+                    <motion.button
+                      id="back-to-top"
+                      initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                      className="fixed bottom-24 right-5 z-40 p-3 rounded-full bg-neutral-900 border border-neutral-800 text-white shadow-2xl hover:bg-black active:scale-95 transition-all flex items-center justify-center pointer-events-auto group focus:outline-none"
+                      title="Back to Top"
+                    >
+                      <ArrowUp size={18} className="stroke-[3] group-hover:-translate-y-0.5 transition-transform" />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
               </div>
             </Router>
           )}

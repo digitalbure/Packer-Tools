@@ -46,7 +46,8 @@ import {
   Sun,
   Mail,
   Code,
-  Smartphone
+  Smartphone,
+  Bug
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings, FeatureKey } from '../types';
@@ -204,7 +205,21 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/admin?tab=kiosk', label: 'Kiosk Settings', icon: <QrCode size={20} /> },
     { to: '/admin?tab=landing', label: 'Landing Page', icon: <Layout size={20} /> },
     { to: '/admin/pages', label: 'Custom Pages', icon: <FileText size={20} /> },
-    { to: '/admin?tab=settings', label: 'System Settings', icon: <Settings size={20} /> },
+    { 
+      to: '/admin?tab=settings', 
+      label: 'System Settings', 
+      icon: <Settings size={20} />,
+      subItems: [
+        { to: '/admin?tab=settings&sub=branding', label: 'Branding & Kit', icon: <Sparkles size={16} /> },
+        { to: '/admin?tab=settings&sub=emails', label: 'Email Customizer', icon: <Mail size={16} /> },
+        { to: '/admin?tab=settings&sub=billing', label: 'Billing & money', icon: <CreditCard size={16} /> },
+        { to: '/admin?tab=settings&sub=multi_industry', label: 'Multi Industry', icon: <Building2 size={16} /> },
+        { to: '/admin?tab=settings&sub=marketplace', label: 'Marketplace', icon: <ShoppingBag size={16} /> },
+        { to: '/admin?tab=settings&sub=widgets', label: 'Widget modules', icon: <Wrench size={16} /> },
+        { to: '/admin?tab=settings&sub=bugs', label: 'Bug Finder', icon: <Bug size={16} />, isBugFinder: true },
+        { to: '/admin?tab=settings&sub=smtp', label: 'SMTP Server', icon: <Server size={16} /> }
+      ]
+    },
   ];
 
   const isAdminRoute = location.pathname.startsWith('/admin');
@@ -318,47 +333,105 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
 
             <nav className="space-y-1">
               {adminNavItems.map((item) => {
-                const isActive = location.pathname + location.search === item.to;
+                const currentPath = location.pathname + location.search;
+                const isActive = currentPath === item.to || (item.to === '/admin?tab=settings' && currentPath.includes('tab=settings'));
+                const hasSubItems = 'subItems' in item && (item as any).subItems?.length > 0;
+                const isSubOpen = openSubItems.includes(item.to) || (isActive && hasSubItems);
+
                 return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    onClick={() => setIsMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold transition-all group ${
-                      isActive 
-                        ? 'bg-neutral-900 text-white shadow-lg' 
-                        : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
-                    } ${isCollapsed ? 'justify-center' : ''}`}
-                    title={isCollapsed ? item.label : ''}
-                  >
-                    <div className="shrink-0 flex items-center justify-center w-6">
-                      <div className="relative">
-                        {item.icon}
-                        {hasActiveBugs && item.to === '/admin?tab=settings' && (
-                          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-650"></span>
-                          </span>
+                  <div key={item.to} className="space-y-1">
+                    <div className="flex items-center gap-1">
+                      <Link
+                        to={item.to}
+                        onClick={() => setIsMobileOpen(false)}
+                        className={`flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold transition-all group ${
+                          isActive 
+                            ? 'bg-neutral-900 text-white shadow-lg' 
+                            : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
+                        } ${isCollapsed ? 'justify-center' : ''}`}
+                        title={isCollapsed ? item.label : ''}
+                      >
+                        <div className="shrink-0 flex items-center justify-center w-6">
+                          <div className="relative">
+                            {item.icon}
+                            {hasActiveBugs && item.to === '/admin?tab=settings' && (
+                              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-650"></span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {!isCollapsed && (
+                          <div className="flex-1 flex items-center justify-between min-w-0">
+                            <motion.span
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="text-xs uppercase tracking-tight truncate pr-1"
+                            >
+                              {item.label}
+                            </motion.span>
+                            {hasActiveBugs && item.to === '/admin?tab=settings' && !isSubOpen && (
+                              <span className="px-1.5 py-0.5 text-[8px] font-black uppercase text-red-700 bg-red-50 rounded-lg tracking-wider animate-pulse border border-red-200 shrink-0">
+                                BUG
+                              </span>
+                            )}
+                          </div>
                         )}
-                      </div>
-                    </div>
-                    {!isCollapsed && (
-                      <div className="flex-1 flex items-center justify-between min-w-0">
-                        <motion.span
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="text-xs uppercase tracking-tight truncate pr-1"
+                      </Link>
+
+                      {!isCollapsed && hasSubItems && (
+                        <button
+                          onClick={() => setOpenSubItems(prev => 
+                            prev.includes(item.to) 
+                              ? prev.filter(p => p !== item.to) 
+                              : [...prev, item.to]
+                          )}
+                          className="p-3 text-neutral-400 hover:text-neutral-900 rounded-xl transition-colors shrink-0"
                         >
-                          {item.label}
-                        </motion.span>
-                        {hasActiveBugs && item.to === '/admin?tab=settings' && (
-                          <span className="px-1.5 py-0.5 text-[8px] font-black uppercase text-red-700 bg-red-50 rounded-lg tracking-wider animate-pulse border border-red-200 shrink-0">
-                            BUG
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </Link>
+                          <ChevronRight size={14} className={`transition-transform duration-300 ${isSubOpen ? 'rotate-90' : ''}`} />
+                        </button>
+                      )}
+                    </div>
+
+                    <AnimatePresence>
+                      {!isCollapsed && hasSubItems && isSubOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="pl-9 space-y-1 overflow-hidden"
+                        >
+                          {(item as any).subItems.map((sub: any) => {
+                            const isSubActive = currentPath === sub.to || (sub.to === '/admin?tab=settings&sub=branding' && currentPath === '/admin?tab=settings');
+                            const isBugItem = (sub as any).isBugFinder;
+                            return (
+                              <Link
+                                key={sub.to}
+                                to={sub.to}
+                                onClick={() => setIsMobileOpen(false)}
+                                className={`flex items-center justify-between px-3 py-2 text-[11px] font-bold transition-colors rounded-lg ${
+                                  isSubActive
+                                    ? 'text-neutral-900 bg-neutral-150' 
+                                    : 'text-neutral-450 hover:text-neutral-900 hover:bg-neutral-50/70'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0 font-extrabold uppercase">
+                                  <span className="shrink-0 opacity-70 flex items-center justify-center w-4">{sub.icon}</span>
+                                  <span className="truncate">{sub.label}</span>
+                                </div>
+                                {isBugItem && hasActiveBugs && (
+                                  <span className="px-1.5 py-0.5 text-[7px] font-black uppercase text-red-700 bg-red-50 rounded-md tracking-widest animate-pulse border border-red-100 shrink-0">
+                                    ACTIVE
+                                  </span>
+                                )}
+                              </Link>
+                            );
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 );
               })}
             </nav>
@@ -872,7 +945,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v4.15.0' : 'Version 4.15.0'}
+            {isCollapsed ? 'v4.16.0' : 'Version 4.16.0'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">

@@ -330,6 +330,46 @@ export function BrandingSettingsTab({ settings, setSettings }: SettingsTabProps)
             </button>
           </div>
 
+          <div className="flex items-center justify-between p-3.5 bg-neutral-55 rounded-xl border border-neutral-150">
+            <div>
+              <p className="text-xs font-bold uppercase text-neutral-800">Display "How It Works" Column</p>
+              <p className="text-[8.5px] text-neutral-400 font-bold uppercase tracking-widest mt-0.5">Toggle visibility of rental client guidelines column in footer</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSettings(s => {
+                  if (!s) return null;
+                  const fCfg = s.footerNavConfig || { enabled: true, alignMobileCentred: false, links: [] };
+                  return { ...s, footerNavConfig: { ...fCfg, showHowItWorks: fCfg.showHowItWorks === false ? true : false } };
+                });
+              }}
+              className={`w-10 h-5 rounded-full relative transition-colors ${settings?.footerNavConfig?.showHowItWorks !== false ? 'bg-primary' : 'bg-neutral-250'}`}
+            >
+              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.footerNavConfig?.showHowItWorks !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between p-3.5 bg-neutral-55 rounded-xl border border-neutral-150">
+            <div>
+              <p className="text-xs font-bold uppercase text-neutral-800">Display "Join Us" Column</p>
+              <p className="text-[8.5px] text-neutral-400 font-bold uppercase tracking-widest mt-0.5">Toggle visibility of social network community column in footer</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSettings(s => {
+                  if (!s) return null;
+                  const fCfg = s.footerNavConfig || { enabled: true, alignMobileCentred: false, links: [] };
+                  return { ...s, footerNavConfig: { ...fCfg, showJoinUs: fCfg.showJoinUs === false ? true : false } };
+                });
+              }}
+              className={`w-10 h-5 rounded-full relative transition-colors ${settings?.footerNavConfig?.showJoinUs !== false ? 'bg-primary' : 'bg-neutral-250'}`}
+            >
+              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.footerNavConfig?.showJoinUs !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+            </button>
+          </div>
+
           <div className="space-y-3 pt-2">
             <span className="text-[10px] font-black uppercase text-neutral-450 tracking-widest block font-mono">Current Custom Anchors</span>
             {settings?.footerNavConfig?.links && settings.footerNavConfig.links.length > 0 ? (
