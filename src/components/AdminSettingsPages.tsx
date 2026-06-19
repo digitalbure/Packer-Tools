@@ -2476,7 +2476,7 @@ export function EmailBrandingSettingsTab({ settings, setSettings }: SettingsTabP
                 <div className="p-6 bg-neutral-50 border-t border-neutral-150 text-center text-[10px] text-neutral-400 flex flex-col items-center justify-center gap-1.5 font-sans leading-relaxed">
                   {previewTemplate === 'general_notification' && (
                     <p className="mb-1 text-[9.5px] font-semibold text-neutral-500 font-sans">
-                      For dynamic assistance, drop a line to <span style={{ color: primaryColor, fontWeight: 'bold' }}>jnakasamai@gmail.com</span>.
+                      For dynamic assistance, drop a line to <span style={{ color: primaryColor, fontWeight: 'bold' }}>support@packer.tools</span>.
                     </p>
                   )}
                   
@@ -2524,7 +2524,7 @@ export function EmailBrandingSettingsTab({ settings, setSettings }: SettingsTabP
                   type="email"
                   value={testRecipientEmail}
                   onChange={(e) => setTestRecipientEmail(e.target.value)}
-                  placeholder="jnakasamai@gmail.com"
+                  placeholder="test@packer.tools"
                   className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-primary/20 outline-none"
                   required
                 />
@@ -2748,7 +2748,7 @@ export function SmtpSettingsTab({ settings, setSettings }: SettingsTabProps) {
                     type="email"
                     value={testRecipient}
                     onChange={(e) => setTestRecipient(e.target.value)}
-                    placeholder="jnakasamai@gmail.com"
+                    placeholder="test@packer.tools"
                     className="flex-1 px-3 py-2 bg-white border border-neutral-200/60 rounded-xl text-xs font-mono"
                     required={isEnabled}
                   />

@@ -454,7 +454,7 @@ export default function HelpCenter({ user }: HelpCenterProps) {
         content: newContent,
         category: newCategory,
         authorName: newAuthorName || user.displayName || "Anonymous Operator",
-        authorEmail: user.email || "jnakasamai@gmail.com",
+        authorEmail: user.email || "support@packer.tools",
         upvotes: 0,
         createdAt: serverTimestamp()
       };

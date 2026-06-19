@@ -1,12 +1,13 @@
 {
-  "name": "react-example",
+  "name": "packer-tools",
   "private": true,
-  "version": "4.18.0",
+  "description": "Production operations and equipment packing platform for broadcast, film, AV and event teams.",
+  "version": "4.19.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
-    "build": "vite build",
-    "start": "node server.ts",
+    "dev": "tsx server/index.ts",
+    "build": "vite build && esbuild server/index.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"

@@ -659,32 +659,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         ) : (
           /* Standard User Navigation */
           <div className="space-y-6">
-            {/* Dashboard First */}
-            <nav className="space-y-1">
-              <Link
-                to="/dashboard"
-                onClick={() => setIsMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl font-bold transition-all group ${
-                  location.pathname === '/dashboard' 
-                    ? 'bg-neutral-900 text-white shadow-lg' 
-                    : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
-                } ${isCollapsed ? 'justify-center' : ''}`}
-                title={isCollapsed ? 'Dashboard' : ''}
-              >
-                <div className="shrink-0 flex items-center justify-center w-6"><LayoutDashboard size={20} /></div>
-                {!isCollapsed && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-sm"
-                  >
-                    Dashboard
-                  </motion.span>
-                )}
-              </Link>
-            </nav>
-
-            {/* User Profile */}
+            {/* User Profile at the top */}
             <div className={`flex items-center gap-3 p-2.5 bg-neutral-50 rounded-2xl overflow-hidden border border-neutral-100 ${isCollapsed ? 'justify-center' : ''}`}>
               <div className="w-10 h-10 bg-neutral-900 text-white rounded-xl flex items-center justify-center font-black text-lg shrink-0 shadow-sm">
                 {user.displayName?.[0] || user.email?.[0]?.toUpperCase()}
@@ -701,20 +676,20 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
               )}
             </div>
 
-            {/* Quick Actions */}
+            {/* Quick Actions & Navigation Button Grid */}
             <div className="space-y-2">
               {!isCollapsed && (
                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 px-3">Quick Actions</h3>
               )}
               <div className="flex flex-col gap-2">
                 <Link
-                  to="/scan/new"
+                  to="/library?addGear=true"
                   onClick={() => setIsMobileOpen(false)}
                   className={`flex items-center justify-center gap-3 bg-neutral-900 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}
-                  title={isCollapsed ? 'Scan to Pack' : ''}
+                  title={isCollapsed ? 'Add Gear' : ''}
                 >
-                  <QrCode size={18} className="group-hover:scale-110 transition-transform shrink-0" />
-                  {!isCollapsed && <span className="text-sm">Scan to Pack</span>}
+                  <Plus size={18} className="group-hover:scale-110 transition-transform shrink-0" />
+                  {!isCollapsed && <span className="text-sm">Add Gear</span>}
                 </Link>
                 
                 <Link
@@ -727,14 +702,29 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                   {!isCollapsed && <span className="text-sm">New List</span>}
                 </Link>
 
+                {/* Dashboard placed just above Scan to Pack */}
                 <Link
-                  to="/library?addGear=true"
+                  to="/dashboard"
+                  onClick={() => setIsMobileOpen(false)}
+                  className={`flex items-center justify-center gap-3 px-3 py-3 rounded-xl font-bold transition-all group ${
+                    location.pathname === '/dashboard' 
+                      ? 'bg-neutral-900 text-white shadow-lg shadow-neutral-900/15' 
+                      : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900'
+                  } ${isCollapsed ? 'justify-center' : ''}`}
+                  title={isCollapsed ? 'Dashboard' : ''}
+                >
+                  <LayoutDashboard size={18} className="group-hover:scale-110 transition-transform shrink-0" />
+                  {!isCollapsed && <span className="text-sm">Dashboard</span>}
+                </Link>
+
+                <Link
+                  to="/scan/new"
                   onClick={() => setIsMobileOpen(false)}
                   className={`flex items-center justify-center gap-3 bg-neutral-900 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}
-                  title={isCollapsed ? 'Add Gear' : ''}
+                  title={isCollapsed ? 'Scan to Pack' : ''}
                 >
-                  <Plus size={18} className="group-hover:scale-110 transition-transform shrink-0" />
-                  {!isCollapsed && <span className="text-sm">Add Gear</span>}
+                  <QrCode size={18} className="group-hover:scale-110 transition-transform shrink-0" />
+                  {!isCollapsed && <span className="text-sm">Scan to Pack</span>}
                 </Link>
               </div>
             </div>
@@ -947,7 +937,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v4.18.0' : 'Version 4.18.0'}
+            {isCollapsed ? 'v4.19.0' : 'Version 4.19.0'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">

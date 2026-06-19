@@ -18,6 +18,7 @@ import ManualCheckoutModal from '../components/ManualCheckoutModal';
 import { checkLimit } from '../lib/limitUtils';
 import ShareModal from '../components/ShareModal';
 import { logActivity } from '../services/activityLog';
+import { isSuperAdmin } from '../lib/authHelpers';
 
 const InteractiveSignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
@@ -620,7 +621,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const fetchLibrary = async () => {
     if (!user) return;
     // Allow if user is pro, enterprise, or admin
-    const isProUser = user.plan === 'pro' || user.plan === 'enterprise' || user.role === 'admin' || user.email === 'jnakasamai@gmail.com';
+    const isProUser = user.plan === 'pro' || user.plan === 'enterprise' || user.role === 'admin' || isSuperAdmin(user);
     if (!isProUser) return;
 
     try {
@@ -698,7 +699,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const isOwner = user?.uid === list?.ownerId;
   const isCollaborator = user && list?.collaboratorIds?.includes(user.uid);
   const canEdit = isOwner || isCollaborator || user?.role === 'admin';
-  const isPro = user?.plan === 'pro' || user?.plan === 'enterprise' || user?.email === 'jnakasamai@gmail.com';
+  const isPro = user?.plan === 'pro' || user?.plan === 'enterprise' || isSuperAdmin(user);
   const packedCount = items.filter(i => i.status === 'packed').length;
   const progress = items.length > 0 ? (packedCount / items.length) * 100 : 0;
 

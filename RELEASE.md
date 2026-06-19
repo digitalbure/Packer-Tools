@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.17.0`
+## Current Application Version: `v4.19.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,23 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.19.0 (Navigation Ergonomics & Responsive Enhancements)
+*Released on: June 19, 2026*
+- **Symmetrical Operator Flow**: Relocated the Account metadata card to the absolute pinnacle of standard user layouts for faster identity validation.
+- **Ergonomic Dashboard Interception**: Integrated the Primary Dashboard entry directly above high-frequency utility triggers like "Scan to Pack" inside the primary navigation panel.
+- **Symmetric Action Grid**: Reordered and polished key interactive triggers to standard layout sequence: Add Gear, New List, and Scan to Pack.
+
+---
+
+### 🚀 Stable Release: v4.18.0 (Security Hardening, Package Cleansing & Production Readiness)
+*Released on: June 19, 2026*
+- **Role-Based Access Hardening**: Developed `docs/admin-setup.md` guiding secure, cryptographic provisioning of first-time `superAdmin` accounts using the Firebase Admin SDK. Emphasized role authorization over hardcoded developer context boundaries.
+- **Normalized Package Metadata**: Transformed package name metadata in `package.json` and `metadata.json` to reflect `packer-tools` matching enterprise specifications, along with fine-tuned platform descriptions.
+- **Security Vulnerability Cleansing**: Audited dependencies, successfully resolved high-severity and moderate vulnerabilities across libraries (e.g. `uuid`, `axios`, etc.), lowering overall exposure.
+- **Enterprise Readiness Certification**: Established `docs/production-readiness.md` validating complete container compatibility, secure environment isolation protocols, and robust firestore rule coverage.
 
 ---
 

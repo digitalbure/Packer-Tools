@@ -6,25 +6,35 @@ service cloud.firestore {
     // ===============================================================
 
     // Helper Functions
-    function isAuthenticated() {
+    function signedIn() {
       return request.auth != null;
     }
 
+    function isAuthenticated() {
+      return signedIn();
+    }
+
     function isSignedIn() {
-      return isAuthenticated();
+      return signedIn();
     }
 
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return signedIn() && (
+        request.auth.token.role == "superAdmin" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true)
+      );
     }
 
     function isAdmin() {
-      return isAuthenticated() && (
-        (request.auth.token.email == "jnakasamai@gmail.com" && request.auth.token.email_verified == true) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true
-        ))
+      return signedIn() && (
+        isSuperAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
     }
 
@@ -39,6 +49,21 @@ service cloud.firestore {
     function getUserOrgId() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ?
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId : "";
+    }
+
+    function isOrgMember(orgId) {
+      return signedIn() && getUserOrgId() == orgId;
+    }
+
+    function isOrgAdmin(orgId) {
+      return signedIn() && (
+        isSuperAdmin() ||
+        (exists(/databases/$(database)/documents/organizations/$(orgId)) && 
+         get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid) ||
+        (isOrgMember(orgId) && 
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
     function incoming() {
@@ -265,7 +290,7 @@ service cloud.firestore {
     match /{path=**}/gearLibrary/{itemId} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && (
-        request.auth.uid == resource.data.ownerId || request.auth.uid == request.resource.data.ownerId
+        isOwner(resource.data.ownerId) || isOwner(request.resource.data.ownerId)
       );
     }
 
@@ -276,31 +301,31 @@ service cloud.firestore {
 
     // 3. User Contacts
     match /contacts/{contactId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidContact(incoming());
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidContact(incoming());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidContact(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidContact(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
 
     // 4. Packing Lists & Subcollections (Items, Versions, RentalAgreements)
     match /packingLists/{listId} {
-      allow read: if (resource != null && resource.data.marketplaceEnabled == true) || (isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin()));
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidPackingList(incoming());
-      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isCollaborator(listId)) && (resource.data.ownerId == incoming().ownerId) && isValidPackingList(incoming());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if (resource != null && resource.data.marketplaceEnabled == true) || (isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isCollaborator(listId) || isAdmin()));
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidPackingList(incoming());
+      allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isCollaborator(listId)) && isOwner(incoming().ownerId) && isValidPackingList(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
 
       match /items/{itemId} {
-        allow read: if (get(/databases/$(database)/documents/packingLists/$(listId)).data.marketplaceEnabled == true) || (isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin()));
-        allow write: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin());
+        allow read: if (get(/databases/$(database)/documents/packingLists/$(listId)).data.marketplaceEnabled == true) || (isSignedIn() && (isOwner(get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId) || isCollaborator(listId) || isAdmin()));
+        allow write: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId) || isCollaborator(listId) || isAdmin());
       }
 
       match /versions/{versionId} {
-        allow read: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin());
-        allow write: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isAdmin());
+        allow read: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId) || isCollaborator(listId) || isAdmin());
+        allow write: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId) || isAdmin());
       }
 
       match /RentalAgreements/{agreementId} {
-        allow read, write: if isSignedIn() && (get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId == request.auth.uid || isCollaborator(listId) || isAdmin());
+        allow read, write: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId) || isCollaborator(listId) || isAdmin());
       }
     }
 
@@ -330,74 +355,74 @@ service cloud.firestore {
 
     // 9. Equipment Racks
     match /racks/{rackId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidRack(incoming());
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidRack(incoming());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidRack(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidRack(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
 
       match /items/{itemId} {
-        allow read, write: if isSignedIn() && (get(/databases/$(database)/documents/racks/$(rackId)).data.ownerId == request.auth.uid || isAdmin());
+        allow read, write: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/racks/$(rackId)).data.ownerId) || isAdmin());
       }
     }
 
     // 10. AV Build/Sandbox Projects & Subcollections (snapshots)
     match /projects/{projectId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidProject(incoming());
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidProject(incoming());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidProject(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidProject(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
 
       match /snapshots/{snapshotId} {
-        allow read, write: if isSignedIn() && (get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid || isAdmin());
+        allow read, write: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId) || isAdmin());
       }
     }
 
     // 11. Build Sandbox Items
     match /buildItems/{itemId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidBuildItem(incoming());
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidBuildItem(incoming());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidBuildItem(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidBuildItem(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
 
     // 11b. Systems Builds
     match /systemsBuilds/{buildId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidSystemsBuild(incoming());
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidSystemsBuild(incoming());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidSystemsBuild(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidSystemsBuild(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
 
     // 12. Sandbox Item Suppliers
     match /suppliers/{supplierId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidSupplier(incoming());
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidSupplier(incoming());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidSupplier(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidSupplier(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
 
     // 13. Financial Project Costs
     match /projectCosts/{costId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidCost(incoming());
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidCost(incoming());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidCost(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidCost(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
 
     // 14. Household Moving Projects
     match /movingProjects/{projectId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidMovingProject(incoming());
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidMovingProject(incoming());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidMovingProject(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidMovingProject(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
 
     // 15. Active User Reminders
     match /reminders/{reminderId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId;
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId;
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId);
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId);
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
 
     // 16. Help & Documentation Articles
@@ -408,41 +433,41 @@ service cloud.firestore {
 
     // 17. Interactive Kiosk Terminals
     match /terminals/{terminalId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerUid == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerUid && isValidTerminal(incoming());
-      allow update: if isSignedIn() && resource.data.ownerUid == request.auth.uid && request.auth.uid == incoming().ownerUid && isValidTerminal(incoming());
-      allow delete: if isSignedIn() && (resource.data.ownerUid == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerUid) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerUid) && isValidTerminal(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerUid) && isOwner(incoming().ownerUid) && isValidTerminal(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerUid) || isAdmin());
     }
 
     // 18. Checked out gear
     match /checkouts/{checkoutId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isOwner(resource.data.userId) || isAdmin());
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isOwner(resource.data.userId) || isAdmin());
       allow delete: if isAdmin();
     }
 
     // 19. Terminal / Guest orders
     match /orders/{orderId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().userId;
-      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.userId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().userId);
+      allow update: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
       allow delete: if isAdmin();
     }
 
     // 20. Organization Invites
     match /invitations/{inviteId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.email == request.auth.token.email || resource.data.invitedBy == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || resource.data.email == request.auth.token.email || isOwner(resource.data.invitedBy) || isAdmin());
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (resource.data.email == request.auth.token.email || resource.data.invitedBy == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && (resource.data.invitedBy == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (resource.data.email == request.auth.token.email || isOwner(resource.data.invitedBy) || isAdmin());
+      allow delete: if isSignedIn() && (isOwner(resource.data.invitedBy) || isAdmin());
     }
 
     // 21. Master Organizations
     match /organizations/{orgId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId && isValidOrganization(incoming());
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid && request.auth.uid == incoming().ownerId && isValidOrganization(incoming());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidOrganization(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidOrganization(incoming());
       allow delete: if isAdmin();
     }
 
@@ -450,7 +475,7 @@ service cloud.firestore {
     match /departments/{deptId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (isAdmin() || resource.data.orgId == getUserOrgId());
+      allow update: if isSignedIn() && (isAdmin() || isOrgMember(resource.data.orgId));
       allow delete: if isAdmin();
     }
 
@@ -458,21 +483,21 @@ service cloud.firestore {
     match /teams/{teamId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (isAdmin() || resource.data.orgId == getUserOrgId());
+      allow update: if isSignedIn() && (isAdmin() || isOrgMember(resource.data.orgId));
       allow delete: if isAdmin();
     }
 
     // 24. Sheet Inventories & Subcollections (Items)
     match /inventories/{inventoryId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == incoming().ownerId;
-      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.orgId == getUserOrgId() || isAdmin());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId);
+      allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isOrgMember(resource.data.orgId) || isAdmin());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
 
       match /items/{itemId} {
         allow read, write: if isSignedIn() && (
-          get(/databases/$(database)/documents/inventories/$(inventoryId)).data.ownerId == request.auth.uid ||
-          get(/databases/$(database)/documents/inventories/$(inventoryId)).data.orgId == getUserOrgId() ||
+          isOwner(get(/databases/$(database)/documents/inventories/$(inventoryId)).data.ownerId) ||
+          isOrgMember(get(/databases/$(database)/documents/inventories/$(inventoryId)).data.orgId) ||
           isAdmin()
         );
       }
@@ -482,30 +507,30 @@ service cloud.firestore {
     match /stories/{storyId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
+      allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
     }
 
     // 26. Bug Reports
     match /bugs/{bugId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().userId && isValidBugReport(incoming());
-      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.userId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().userId) && isValidBugReport(incoming());
+      allow update: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
       allow delete: if isAdmin();
     }
 
     // 27. Marketplace Bookings / Rentals
     match /gearBookings/{bookingId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || resource.data.clientEmail == request.auth.token.email || isAdmin());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || resource.data.clientEmail == request.auth.token.email || isAdmin());
       allow create: if isSignedIn() && isValidGearBooking(incoming());
-      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
 
     // 28. Platform Audit Activity Logs
     match /activityLogs/{logId} {
-      allow read: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == incoming().userId && isValidActivityLog(incoming());
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.userId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().userId) && isValidActivityLog(incoming());
       allow update, delete: if isAdmin();
     }
   }

@@ -49,7 +49,7 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
   const [isDodoCheckoutOpen, setIsDodoCheckoutOpen] = useState(false);
   const [selectedSimPlan, setSelectedSimPlan] = useState<Plan | null>(null);
   const [simBillingCycle, setSimBillingCycle] = useState<'monthly' | 'annual'>('monthly');
-  const [simEmail, setSimEmail] = useState('jnakasamai@gmail.com');
+  const [simEmail, setSimEmail] = useState('test@packer.tools');
   const [isCompletingDodoPay, setIsCompletingDodoPay] = useState(false);
 
   // Webhook publisher simulation logs
@@ -63,8 +63,8 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
         status: "active",
         customer: {
           id: "dodo_cust_01h9a8s8p",
-          email: "jnakasamai@gmail.com",
-          name: "Jone Nakasamai"
+          email: "test@packer.tools",
+          name: "Test Operator"
         },
         product_id: "prod_dodo_pro_fiji",
         billing_cycle: "monthly"
@@ -775,7 +775,7 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
                   type="email"
                   value={simEmail}
                   onChange={(e) => setSimEmail(e.target.value)}
-                  placeholder="jnakasamai@gmail.com"
+                  placeholder="test@packer.tools"
                   className="w-full px-4 py-3 bg-indigo-900/50 border border-indigo-800 rounded-2xl outline-none font-sans text-xs font-bold text-white focus:border-indigo-400 transition"
                 />
               </div>
@@ -916,7 +916,7 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
                     type="email"
                     value={simEmail}
                     onChange={(e) => setSimEmail(e.target.value)}
-                    placeholder="jnakasamai@gmail.com"
+                    placeholder="test@packer.tools"
                     className="w-full px-4 py-3 bg-white border border-neutral-200 rounded-2xl outline-none font-sans text-xs font-semibold text-neutral-800"
                   />
                 </div>

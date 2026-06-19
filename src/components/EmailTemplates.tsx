@@ -36,7 +36,7 @@ export default function EmailTemplates({ settings, onUpdateSettings }: EmailTemp
 
   // Local state helper inputs for WYSIWYG parameters
   const [recipientName, setRecipientName] = useState('John Operator');
-  const [recipientEmail, setRecipientEmail] = useState('jnakasamai@gmail.com');
+  const [recipientEmail, setRecipientEmail] = useState('recipient@example.com');
   const [customSubject, setCustomSubject] = useState('');
 
   // 1. Verification OTP Preset States
@@ -1200,7 +1200,7 @@ export default function EmailTemplates({ settings, onUpdateSettings }: EmailTemp
                     type="email"
                     value={testEmailAddress}
                     onChange={(e) => setTestEmailAddress(e.target.value)}
-                    placeholder="jnakasamai@gmail.com"
+                    placeholder="recipient@example.com"
                     className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl px-3 py-2 text-xs font-semibold focus:ring-1 focus:ring-primary outline-none"
                   />
                 </div>
