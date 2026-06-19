@@ -76,6 +76,13 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
   const isHelpRoute = location.pathname.startsWith('/help');
 
   const [hasActiveBugs, setHasActiveBugs] = useState<boolean>(false);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!user || !user.isSuperAdmin) {
@@ -247,7 +254,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         initial={false}
         animate={{ 
           width: isCollapsed ? 80 : 280,
-          x: isMobileOpen ? 0 : (window.innerWidth < 1024 ? -280 : 0)
+          x: isMobileOpen ? 0 : (windowWidth < 1024 ? -280 : 0)
         }}
         className={`fixed lg:sticky left-0 top-0 bottom-0 bg-white border-r border-neutral-200 z-[60] lg:z-40 flex flex-col transition-all duration-300 ease-in-out h-screen`}
       >

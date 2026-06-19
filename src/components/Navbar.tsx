@@ -38,17 +38,17 @@ export default function Navbar({
   return (
     <nav className="bg-paper/80 backdrop-blur-xl border-b border-primary/5 sticky top-0 z-50">
       <div className="w-full max-w-[1700px] mx-auto px-6 h-20 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/" onClick={() => setLandingView?.('saas')} className="flex items-center gap-2 group">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <Link to="/" onClick={() => setLandingView?.('saas')} className="flex items-center gap-2 group shrink-0">
             {adminSettings?.branding?.logo ? (
-              <div className="flex items-center gap-2">
-                <img src={adminSettings.branding.logo} className="h-9 w-auto max-w-[140px] object-contain shrink-0 rounded-md" alt="Logo" referrerPolicy="no-referrer" />
-                <span className="font-extrabold text-sm text-neutral-800 tracking-tight group-hover:text-primary transition-colors">
+              <div className="flex items-center gap-2 shrink-0">
+                <img src={adminSettings.branding.logo} className="h-8 sm:h-9 w-auto max-w-[100px] sm:max-w-[140px] object-contain shrink-0 rounded-md" alt="Logo" referrerPolicy="no-referrer" />
+                <span className="font-extrabold text-sm text-neutral-800 tracking-tight group-hover:text-primary transition-colors hidden sm:inline">
                   {adminSettings?.branding?.companyName || 'Packer Tools'}
                 </span>
               </div>
             ) : (
-              <div className="flex items-center">
+              <div className="flex items-center shrink-0">
                 <span className="block sm:hidden">
                   <PackerLogo variant="text-only" light={true} />
                 </span>
@@ -63,11 +63,11 @@ export default function Navbar({
           {onOpenSelector && (
             <button 
               onClick={onOpenSelector}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-600 rounded-full text-xs font-semibold font-sans transition border border-neutral-200/50 cursor-pointer inline-flex"
+              className="flex items-center gap-1 px-2.5 py-1 bg-neutral-50 hover:bg-neutral-100 text-neutral-600 rounded-full text-xs font-semibold font-sans transition border border-neutral-200/50 cursor-pointer inline-flex shrink-0"
               title="Click to switch community region"
             >
               <span>{currentComm ? currentComm.flag : '🌐'}</span>
-              <span className="text-[10px] font-black uppercase tracking-wider">{currentComm ? currentComm.name : 'Global Portal'}</span>
+              <span className="text-[10px] font-black uppercase tracking-wider hidden sm:inline">{currentComm ? currentComm.name : 'Global Portal'}</span>
               <span className="text-[8px] text-neutral-400">▼</span>
             </button>
           )}
@@ -92,7 +92,7 @@ export default function Navbar({
                 className={`px-3 py-1 rounded-full uppercase tracking-wider text-[9px] font-black transition-all cursor-pointer ${
                   landingView === 'marketplace' 
                     ? 'bg-neutral-900 text-white shadow-xs' 
-                    : 'text-neutral-500 hover:text-neutral-800'
+                    : 'text-neutral-550 hover:text-neutral-800'
                 }`}
               >
                 Marketplace
@@ -151,24 +151,25 @@ export default function Navbar({
           )}
         </div>
 
-        {/* Mobile Search Console Button */}
-        {user && (
-          <button 
-            onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
-            className="md:hidden p-2 text-primary hover:bg-neutral-100 rounded-lg transition mr-1 cursor-pointer flex items-center justify-center shrink-0"
-            title="Open Search Console"
-          >
-            <Search size={22} className="text-neutral-500 hover:text-neutral-900" />
-          </button>
-        )}
+        {/* Mobile Search & Menu Toggles Grouped */}
+        <div className="md:hidden flex items-center gap-1 shrink-0">
+          {user && (
+            <button 
+              onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+              className="p-2 text-primary hover:bg-neutral-100 rounded-lg transition cursor-pointer flex items-center justify-center shrink-0"
+              title="Open Search Console"
+            >
+              <Search size={22} className="text-neutral-500 hover:text-neutral-900" />
+            </button>
+          )}
 
-        {/* Mobile Menu Toggle */}
-        <button 
-          onClick={user ? onMenuClick : toggleMenu}
-          className="md:hidden p-2 text-primary hover:bg-primary/5 rounded-lg transition"
-        >
-          {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+          <button 
+            onClick={user ? onMenuClick : toggleMenu}
+            className="p-2 text-primary hover:bg-primary/5 rounded-lg transition flex items-center justify-center shrink-0"
+          >
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Navigation Menu */}

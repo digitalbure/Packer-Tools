@@ -12,6 +12,7 @@ import { Loader2 } from 'lucide-react';
 // Components
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
+import MobileTabBar from './components/MobileTabBar';
 
 // Lazy-loaded Pages
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -1365,7 +1366,7 @@ export default function App() {
                   <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
                     isLayoutHidden 
                       ? `max-w-none px-0 py-0 sm:px-0 sm:py-0 ${(currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/')) ? 'bg-neutral-50' : 'bg-neutral-900'}` 
-                      : 'max-w-[1700px] mx-auto px-4 sm:px-6 py-6 sm:py-8'
+                      : 'max-w-[1700px] mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-28 md:pb-8'
                   }`}>
                     <div className="flex-1">
                       <motion.div
@@ -1417,6 +1418,7 @@ export default function App() {
                   />
                 )}
 
+                {user && !isLayoutHidden && <MobileTabBar user={user} />}
                 {user && <DukeyAssistant user={user} />}
                 {user && <AddGearModal user={user} adminSettings={adminSettings} />}
                 {user && <QuickActionsDrawer user={user} />}

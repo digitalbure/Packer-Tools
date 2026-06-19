@@ -80,6 +80,8 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
   const [finderMessage, setFinderMessage] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [publicActiveImageIdx, setPublicActiveImageIdx] = useState(0);
+  const [ownerActiveImageIdx, setOwnerActiveImageIdx] = useState(0);
 
   // Online client-side booking states
   const [bookingClientName, setBookingClientName] = useState('');
@@ -394,14 +396,14 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
           </div>
           <div className="space-y-2">
             <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Security Gate</p>
-            <h2 className="text-xl font-black uppercase tracking-tight">Private Asset</h2>
+            <h2 className="text-xl font-black uppercase tracking-tight">🔒 Internal Tool</h2>
           </div>
           <p className="text-neutral-500 text-sm leading-relaxed">
-            This asset or kit has been marked as <span className="font-bold text-neutral-800">Private</span>. Access is restricted to the owner / preparer of this kit.
+            This equipment is registered as a private internal workspace asset. <span className="font-extrabold text-neutral-900">Please log in to your account to see details.</span>
           </p>
           <div className="pt-4 border-t border-neutral-100 flex flex-col gap-3">
-            <Link to="/library" className="w-full py-3 bg-neutral-900 hover:bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl transition">
-              Go to Your Library
+            <Link to="/" className="w-full py-3 bg-black hover:bg-neutral-800 text-white text-xs font-black uppercase tracking-widest rounded-xl transition">
+              Log In to Portal
             </Link>
             <Link to="/" className="text-xs font-bold text-neutral-400 hover:text-neutral-600 transition">
               Return Home
@@ -500,14 +502,50 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                 </div>
               </div>
 
-              {item.photoUrls?.[0] && (
-                <div className="aspect-square bg-neutral-50 rounded-[2rem] overflow-hidden border border-neutral-100">
+              {item.photoUrls && item.photoUrls.length > 0 ? (
+                <div className="relative aspect-square bg-neutral-50 rounded-[2rem] overflow-hidden border border-neutral-100 group">
                   <img 
-                    src={item.photoUrls[0]} 
-                    alt={item.name}
-                    className="object-cover w-full h-full"
+                    src={item.photoUrls[publicActiveImageIdx] || 'https://picsum.photos/seed/gear/400/400'} 
+                    alt={`${item.name} image ${publicActiveImageIdx + 1}`}
+                    className="object-cover w-full h-full transition-all duration-350"
                     referrerPolicy="no-referrer"
                   />
+
+                  {item.photoUrls.length > 1 && (
+                    <>
+                      <button 
+                        type="button"
+                        onClick={() => setPublicActiveImageIdx((prev) => (prev === 0 ? item.photoUrls!.length - 1 : prev - 1))}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-black flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer text-xs font-black z-10 hover:scale-110 border border-neutral-150"
+                      >
+                        ←
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setPublicActiveImageIdx((prev) => (prev === item.photoUrls!.length - 1 ? 0 : prev + 1))}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-black flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer text-xs font-black z-10 hover:scale-110 border border-neutral-150"
+                      >
+                        →
+                      </button>
+
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 bg-black/40 px-3 py-1.5 rounded-full backdrop-blur-sm">
+                        {item.photoUrls.map((_, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setPublicActiveImageIdx(idx)}
+                            className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                              publicActiveImageIdx === idx ? 'bg-white scale-125' : 'bg-white/40'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="aspect-square bg-neutral-50 rounded-[2rem] overflow-hidden border border-neutral-100 flex items-center justify-center text-neutral-400">
+                  <Camera size={48} className="stroke-1" />
                 </div>
               )}
             </div>
@@ -609,6 +647,85 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
               </div>
 
             </div>
+          </div>
+
+          {/* Device Info & Specifications Card */}
+          <div className="bg-white border border-neutral-100 rounded-[2.5rem] p-8 shadow-xl shadow-neutral-100 space-y-6">
+            <div>
+              <h3 className="text-base font-black tracking-tight uppercase flex items-center gap-2 text-neutral-800">
+                <BadgeInfo size={18} className="text-[#ff4f3a]" />
+                <span>Device Info & Specifications</span>
+              </h3>
+              <p className="text-[11px] text-neutral-400 mt-1">
+                Official specifications, condition logs, and tags verified from the active digital registry.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 bg-neutral-50 p-6 rounded-[2rem] text-left">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Condition</p>
+                <div className="mt-1">{renderConditionRating(item.condition)}</div>
+              </div>
+              {item.brand && (
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Brand</p>
+                  <p className="font-semibold text-xs mt-1 text-neutral-800">{item.brand}</p>
+                </div>
+              )}
+              {item.model && (
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Model</p>
+                  <p className="font-semibold text-xs mt-1 text-neutral-800">{item.model}</p>
+                </div>
+              )}
+              {item.modelNumber && (
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Model Number</p>
+                  <p className="font-semibold text-xs mt-1 text-neutral-800">{item.modelNumber}</p>
+                </div>
+              )}
+              {item.serialNumber && (
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Serial Number</p>
+                  <p className="font-mono text-xs mt-1 text-neutral-800 select-all">{item.serialNumber}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Primary Category</p>
+                <span className="inline-flex items-center mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white font-semibold uppercase tracking-wider">
+                  {item.primaryCategory || item.category || 'Other'}
+                </span>
+              </div>
+              {item.weight && (
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Weight</p>
+                  <p className="font-semibold text-xs mt-1 text-neutral-850">
+                    {item.weight} {item.weightUnit || 'g'}
+                  </p>
+                </div>
+              )}
+              {item.releaseYear && (
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Release Year</p>
+                  <p className="font-semibold text-xs mt-1 text-neutral-800">{item.releaseYear}</p>
+                </div>
+              )}
+              {item.dimensions && (item.dimensions.length || item.dimensions.width || item.dimensions.height) && (
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Dimensions</p>
+                  <p className="font-semibold text-xs mt-1 text-neutral-800">
+                    {item.dimensions.length}x{item.dimensions.width}x{item.dimensions.height} {item.dimensions.unit || 'cm'}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {item.description && (
+              <div className="bg-neutral-50 p-5 rounded-[1.5rem] border border-neutral-100 text-left">
+                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-450 mb-1">Equipment Description</p>
+                <p className="text-xs text-neutral-600 leading-relaxed font-semibold italic">"{item.description}"</p>
+              </div>
+            )}
           </div>
 
           {/* Secure Ping Form Card */}
@@ -746,15 +863,54 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
               <p className="text-xs font-mono text-neutral-400 mt-2">ID: {item.assetTag}</p>
             </div>
 
-            {/* Product Image */}
-            <div className="aspect-square bg-neutral-900 rounded-[2rem] overflow-hidden flex items-center justify-center border border-neutral-800">
-              <img 
-                src={item.photoUrls?.[0] || 'https://picsum.photos/seed/gear/400/400'} 
-                alt={item.name}
-                className="object-cover w-full h-full hover:scale-105 transition duration-500"
-                referrerPolicy="no-referrer"
-              />
-            </div>
+            {/* Product Image Carousel */}
+            {item.photoUrls && item.photoUrls.length > 0 ? (
+              <div className="relative aspect-square bg-neutral-900 rounded-[2rem] overflow-hidden flex items-center justify-center border border-neutral-800 group">
+                <img 
+                  src={item.photoUrls[ownerActiveImageIdx] || 'https://picsum.photos/seed/gear/400/400'} 
+                  alt={`${item.name} image ${ownerActiveImageIdx + 1}`}
+                  className="object-cover w-full h-full hover:scale-105 transition duration-500"
+                  referrerPolicy="no-referrer"
+                />
+
+                {item.photoUrls.length > 1 && (
+                  <>
+                    <button 
+                      type="button"
+                      onClick={() => setOwnerActiveImageIdx((prev) => (prev === 0 ? item.photoUrls!.length - 1 : prev - 1))}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer text-xs font-black z-10 hover:scale-110 border border-neutral-800"
+                    >
+                      ←
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setOwnerActiveImageIdx((prev) => (prev === item.photoUrls!.length - 1 ? 0 : prev + 1))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer text-xs font-black z-10 hover:scale-110 border border-neutral-800"
+                    >
+                      →
+                    </button>
+
+                    {/* Pagination Dots */}
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 bg-black/75 px-3 py-1.5 rounded-full">
+                      {item.photoUrls.map((_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setOwnerActiveImageIdx(idx)}
+                          className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                            ownerActiveImageIdx === idx ? 'bg-white scale-125' : 'bg-white/40'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="aspect-square bg-neutral-900 rounded-[2rem] overflow-hidden flex items-center justify-center border border-neutral-800 text-neutral-500">
+                <Camera size={48} className="stroke-1" />
+              </div>
+            )}
           </div>
 
           {/* Quick Specifications list */}
@@ -892,7 +1048,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                 </div>
               </div>
 
-              <div className="space-y-1 pt-2">
+               <div className="space-y-1 pt-2">
                 <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Visibility & Accessibility</label>
                 <select
                   value={editForm.visibility || 'public'}
@@ -904,6 +1060,23 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                 </select>
                 <p className="text-[9px] text-neutral-400 mt-0.5">
                   Private kits are prepped for specific internal planning/projects and block scan reports from public finders.
+                </p>
+              </div>
+
+              <div className="space-y-1 pt-2">
+                <label className="text-[9px] font-black uppercase tracking-widest text-[#ff4f3a]">Equipment Images / Carousel URLs (one URL per line)</label>
+                <textarea
+                  rows={3}
+                  value={editForm.photoUrls?.join('\n') || ''}
+                  onChange={(e) => {
+                    const urls = e.target.value.split('\n').map(u => u.trim()).filter(u => u !== '');
+                    setEditForm({ ...editForm, photoUrls: urls });
+                  }}
+                  placeholder="https://images.unsplash.com/photo-1542291026-7eec264c27ff&#10;https://images.unsplash.com/photo-1511707171634-5f897ff02aa9"
+                  className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary font-mono transition"
+                />
+                <p className="text-[9px] text-neutral-400 mt-0.5">
+                  Pasting multiple image links will automatically render a beautiful, touch-friendly image carousel for public scan views.
                 </p>
               </div>
 

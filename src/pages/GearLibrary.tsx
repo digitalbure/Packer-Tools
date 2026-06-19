@@ -87,6 +87,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [isMapping, setIsMapping] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importUrl, setImportUrl] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // States for pulling from custom inventories
@@ -334,6 +335,67 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     }
   };
 
+  const runLocalFuzzyMapping = (headers: string[]) => {
+    const newMapping: { [key: string]: number } = {};
+    const rules: { [key: string]: string[] } = {
+      name: ['name', 'item', 'title', 'device', 'equipment', 'product', 'gear'],
+      brand: ['brand', 'manufacturer', 'make', 'brandname'],
+      model: ['model', 'model name', 'type model', 'modelno'],
+      modelNumber: ['model number', 'modelno', 'part number', 'partno'],
+      serialNumber: ['serial number', 'serial', 'sn', 's/n', 'serialno'],
+      primaryCategory: ['category', 'primary category', 'type', 'group', 'class', 'tag category'],
+      weight: ['weight', 'mass', 'heavy'],
+      weightUnit: ['weight unit', 'weightunit', 'unit'],
+      price: ['price', 'cost', 'value', 'msrp', 'rate'],
+      condition: ['condition', 'state', 'wear'],
+      quantity: ['quantity', 'qty', 'count', 'amount', 'pieces', 'stock'],
+      status: ['status', 'availability', 'state status'],
+      description: ['description', 'notes', 'info', 'desc', 'details']
+    };
+
+    headers.forEach((header, index) => {
+      const normalized = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (const [field, keywords] of Object.entries(rules)) {
+        if (newMapping[field] !== undefined) continue;
+        const matched = keywords.some(kw => {
+          const kwNorm = kw.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return normalized === kwNorm || normalized.includes(kwNorm) || kwNorm.includes(normalized);
+        });
+        if (matched) {
+          newMapping[field] = index;
+        }
+      }
+    });
+    setImportMapping(newMapping);
+  };
+
+  const downloadTemplate = (format: 'csv' | 'xlsx') => {
+    const headers = ['Name', 'Brand', 'Model', 'Category', 'Quantity', 'Price', 'SerialNumber', 'ModelNumber', 'Description'];
+    const sampleRows = [
+      ['Sony FX3 Cinema Camera', 'Sony', 'ILME-FX3', 'Camera', '2', '3899', 'S01-2948192-H', 'FX3', 'Full-frame cinema line camera with XLR handle'],
+      ['Aputure LS 600d Pro', 'Aputure', 'LS-600d-Pro', 'Lighting', '1', '1890', 'AP-600D-9928', '600d Pro', 'High-output LED daylight light storm kit'],
+      ['Sennheiser MKH416 Shotgun Mic', 'Sennheiser', 'MKH416-P48U3', 'Audio', '3', '999', 'SEN-416-8819', 'MKH416', 'Industry standard RF condenser shotgun microphone']
+    ];
+
+    if (format === 'csv') {
+      const csvContent = [headers.join(','), ...sampleRows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'packer_tools_gear_import_template.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Gear Template');
+      XLSX.writeFile(wb, 'packer_tools_gear_import_template.xlsx');
+    }
+    toast.success(`Sample template ${format.toUpperCase()} downloaded!`);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -353,6 +415,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             setImportHeaders(headers);
             setImportData(rows.slice(1));
             setImportStep(2);
+            runLocalFuzzyMapping(headers);
             mapHeadersAI(headers, rows.slice(1, 4));
           }
         },
@@ -361,20 +424,26 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       });
     } else {
       reader.onload = (e) => {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-        if (json.length > 0) {
-          const headers = json[0].map(h => String(h).trim());
-          setImportHeaders(headers);
-          setImportData(json.slice(1));
-          setImportStep(2);
-          mapHeadersAI(headers, json.slice(1, 4));
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+          if (json.length > 0) {
+            const headers = json[0].map(h => String(h).trim());
+            setImportHeaders(headers);
+            setImportData(json.slice(1));
+            setImportStep(2);
+            runLocalFuzzyMapping(headers);
+            mapHeadersAI(headers, json.slice(1, 4));
+          }
+        } catch (err) {
+          console.error("Error parsing Excel file:", err);
+          toast.error("Failed to parse Excel file. Is it password-protected or corrupted?");
         }
       };
-      reader.readAsBinaryString(file);
+      reader.readAsArrayBuffer(file);
     }
   };
 
@@ -4703,39 +4772,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         </div>
       )}
 
-      {/* Quick Actions and Stats */}
-      <div className="grid lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          {/* You could add other content here or just keep it for spacing */}
-        </div>
 
-        <div className="bg-white rounded-2xl sm:rounded-[3rem] p-5 sm:p-10 border border-neutral-100 shadow-sm space-y-6 w-full">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold">Quick Actions</h3>
-            <Info size={18} className="text-neutral-300" />
-          </div>
-          <div className="space-y-3">
-            {[
-              { label: 'Export Inventory (CSV)', icon: <Package />, onClick: () => toast.info('Exporting inventory...') },
-              { label: 'Print Asset Tags', icon: <Tag />, onClick: () => setIsQRPrintModalOpen(true) },
-              { label: 'Maintenance Log', icon: <Wrench />, onClick: () => toast.info('Opening maintenance log...') },
-              { label: 'Insurance Report', icon: <Shield />, onClick: () => toast.info('Generating insurance report...') }
-            ].map((action, i) => (
-              <button 
-                key={i} 
-                onClick={action.onClick}
-                className="w-full flex items-center justify-between p-4 bg-neutral-50 hover:bg-neutral-100 rounded-2xl transition group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="text-neutral-400 group-hover:text-primary transition">{action.icon}</div>
-                  <span className="font-bold text-sm">{action.label}</span>
-                </div>
-                <ChevronRight size={16} className="text-neutral-300" />
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
 
       {/* Bulk Import Modal */}
       <AnimatePresence>
@@ -4914,7 +4951,26 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       {/* File Upload Area */}
                       <div 
                         onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-neutral-200 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center space-y-4 hover:border-black hover:bg-neutral-50 transition-all cursor-pointer group"
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsDragOver(true);
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsDragOver(false);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsDragOver(false);
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) {
+                            processFile(file);
+                          }
+                        }}
+                        className={`border-2 border-dashed ${isDragOver ? 'border-[#0066cc] bg-[#e6f0ff]/30 scale-[1.02]' : 'border-neutral-200'} rounded-[2rem] p-8 flex flex-col items-center justify-center text-center space-y-4 hover:border-black hover:bg-neutral-50 transition-all cursor-pointer group`}
                       >
                         <input 
                           type="file" 
@@ -4923,12 +4979,34 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           accept=".csv,.xlsx,.xls"
                           onChange={handleFileUpload}
                         />
-                        <div className="p-5 bg-neutral-100 rounded-3xl group-hover:bg-neutral-900 group-hover:text-white transition">
+                        <div className={`p-5 rounded-3xl transition ${isDragOver ? 'bg-[#0066cc] text-white' : 'bg-neutral-100 group-hover:bg-neutral-900 group-hover:text-white'}`}>
                           <Upload size={32} />
                         </div>
-                        <div>
+                        <div className="space-y-1">
                           <p className="text-sm font-bold uppercase tracking-tight">Upload Spreadsheet</p>
-                          <p className="text-xs text-neutral-400 mt-1">Supports CSV, Excel (.xlsx, .xls)</p>
+                          <p className="text-xs text-neutral-400">Supports CSV, Excel (.xlsx, .xls) files</p>
+                          <p className="text-[10px] text-neutral-400 font-medium">Drag & drop your file here, or click to browse</p>
+                        </div>
+                        <div className="pt-2 flex flex-col gap-1.5 w-full border-t border-neutral-100/60 mt-3" onClick={(e) => e.stopPropagation()}>
+                          <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Sample Templates</p>
+                          <div className="flex items-center gap-2 justify-center">
+                            <button
+                              type="button"
+                              onClick={() => downloadTemplate('csv')}
+                              className="px-2.5 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[9px] font-black uppercase tracking-wider rounded-lg transition flex items-center gap-1 border border-neutral-200/50"
+                            >
+                              <FileSpreadsheet size={10} />
+                              CSV
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => downloadTemplate('xlsx')}
+                              className="px-2.5 py-1.5 bg-[#e2f1e5] hover:bg-[#d0ebd6] text-green-700 text-[9px] font-black uppercase tracking-wider rounded-lg transition flex items-center gap-1 border border-green-200/50"
+                            >
+                              <FileSpreadsheet size={10} />
+                              Excel
+                            </button>
+                          </div>
                         </div>
                       </div>
 

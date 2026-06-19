@@ -1253,32 +1253,36 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       toast.error("Nothing to export on the selected table.");
       return;
     }
-    const lines = [
-      ['Asset Tag', 'Name', 'Brand', 'Model', 'Serial', 'Category', 'Price', 'Qty', 'Condition', 'Status', 'Description'].join(','),
-      ...filteredInventoryItems.map(it => [
-        `"${it.assetTag}"`,
-        `"${it.name.replace(/"/g, '""')}"`,
-        `"${(it.brand || '').replace(/"/g, '""')}"`,
-        `"${(it.model || '').replace(/"/g, '""')}"`,
-        `"${(it.serialNumber || '').replace(/"/g, '""')}"`,
-        `"${it.primaryCategory}"`,
-        it.price || 0,
-        it.quantity || 1,
-        `"${it.condition}"`,
-        `"${it.status}"`,
-        `"${(it.description || '').replace(/"/g, '""')}"`
-      ].join(','))
-    ].join('\n');
 
-    const blob = new Blob([lines], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${selectedInventory?.name.toLowerCase().replace(/\s+/g, '_')}_inventory.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Successfully exported "${selectedInventory?.name || 'custom'}" inventory list to CSV!`);
+    const dataToExport = filteredInventoryItems.map(it => ({
+      'Asset Tag': it.assetTag || '',
+      'Name': it.name || '',
+      'Brand': it.brand || '',
+      'Model': it.model || '',
+      'Serial Number': it.serialNumber || '',
+      'Category': it.primaryCategory || '',
+      'Price': it.price || 0,
+      'Qty': it.quantity || 1,
+      'Condition': it.condition || 'good',
+      'Status': it.status || 'available',
+      'Description': it.description || ''
+    }));
+
+    try {
+      const csv = PAPA.unparse(dataToExport);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `${selectedInventory?.name.toLowerCase().replace(/\s+/g, '_')}_inventory.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(`Successfully downloaded "${selectedInventory?.name || 'custom'}" inventory list as CSV!`);
+    } catch (err) {
+      console.error(err);
+      toast.error("An error occurred while generating the CSV file.");
+    }
   };
 
   // Export detailed inventory audit report
@@ -1705,7 +1709,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                     className="px-4 py-3 bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-800 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
                   >
                     <Download size={14} />
-                    <span>Export CSV</span>
+                    <span>Download Inventory</span>
                   </button>
 
                   <button

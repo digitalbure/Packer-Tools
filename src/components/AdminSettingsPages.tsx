@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import {
   Sparkles, CreditCard, Building2, ShoppingBag, Wrench, Save, Upload, Plus, Trash2, AlertCircle, Coins,
   Activity, Layers, Cpu, Truck, QrCode, LogOut, CheckCircle2, User, Clock, ShieldCheck, Mail, Phone, MapPin,
-  Globe, Info, FileText, Percent, HelpCircle, Laptop, Smartphone, Eye, Layout, Sliders, Check, Settings
+  Globe, Info, FileText, Percent, HelpCircle, Laptop, Smartphone, Eye, Layout, Sliders, Check, Settings,
+  Server, Lock
 } from 'lucide-react';
 import { AdminSettings, OnboardedCurrency, PaymentGatewayMethod, Plan } from '../types';
 import { toast } from 'sonner';
