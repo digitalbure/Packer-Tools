@@ -618,9 +618,20 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                                   <span>Syncing Dodo Core Ledger...</span>
                                 </>
                               ) : (
-                                <span>Pay Securely via Dodo Payments</span>
+                                <span>Simulate Instant Dodo Activation</span>
                               )}
                             </button>
+
+                            {selectedPlan && (billingCycle === 'annual' ? selectedPlan.dodoCheckoutUrlAnnual : selectedPlan.dodoCheckoutUrl) && (
+                              <a
+                                href={billingCycle === 'annual' ? selectedPlan.dodoCheckoutUrlAnnual : selectedPlan.dodoCheckoutUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full py-3 mt-2 block text-center bg-neutral-900 hover:bg-neutral-800 rounded-xl text-white text-[10px] uppercase font-black tracking-widest transition flex items-center justify-center gap-1 border border-neutral-800 font-bold decoration-none select-none cursor-pointer"
+                              >
+                                🚀 Go to Live Direct Checkout Page
+                              </a>
+                            )}
                           </div>
                         ) : selectedGateway.gateway === 'paypal' ? (
                           <div className="p-3">

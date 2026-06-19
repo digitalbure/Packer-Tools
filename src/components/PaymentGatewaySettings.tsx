@@ -174,7 +174,7 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
   };
 
   // Plan level property updater
-  const handleUpdatePlanDodoMapping = (planId: string, flag: 'dodoProductId'|'dodoCheckoutUrl'|'dodoPriceIdMonthly'|'dodoPriceIdAnnual'|'paddleProductId'|'paddleCheckoutUrl', val: string) => {
+  const handleUpdatePlanDodoMapping = (planId: string, flag: 'dodoProductId'|'dodoCheckoutUrl'|'dodoCheckoutUrlAnnual'|'dodoPriceIdMonthly'|'dodoPriceIdAnnual'|'paddleProductId'|'paddleCheckoutUrl', val: string) => {
     setSettings(prev => {
       if (!prev) return null;
       const updatedPlans = (prev.plans || []).map(p => {
@@ -454,10 +454,48 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
                     type="button"
                     onClick={runDodoConnectionHandshake}
                     disabled={isVerifyingDodo}
-                    className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition flex items-center gap-2 shadow-sm"
+                    className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition flex items-center gap-2 shadow-sm shrink-0 cursor-pointer"
                   >
                     {isVerifyingDodo ? <RefreshCw className="animate-spin text-white" size={14} /> : <Sparkles size={14} />}
                     Verify Handshake with Dodo Payments
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettings(prev => {
+                        if (!prev) return null;
+                        const updatedPlans = (prev.plans || []).map(p => {
+                          if (p.id === 'pro') {
+                            return {
+                              ...p,
+                              dodoProductId: 'pdt_0NhNGASkAwam6yagWGry8',
+                              dodoPriceIdMonthly: 'pdt_0NhNGASkAwam6yagWGry8',
+                              dodoPriceIdAnnual: 'pdt_0NhNHAzUVxDAi1Wke2t1l',
+                              dodoCheckoutUrl: 'https://checkout.dodopayments.com/buy/pdt_0NhNGASkAwam6yagWGry8?quantity=1',
+                              dodoCheckoutUrlAnnual: 'https://checkout.dodopayments.com/buy/pdt_0NhNHAzUVxDAi1Wke2t1l?quantity=1'
+                            };
+                          }
+                          if (p.id === 'enterprise') {
+                            return {
+                              ...p,
+                              dodoProductId: 'pdt_0NhNHdeN2xd6vpMQaNER9',
+                              dodoPriceIdMonthly: 'pdt_0NhNHdeN2xd6vpMQaNER9',
+                              dodoPriceIdAnnual: 'pdt_0NhNITdON5ujMZqQ899lk',
+                              dodoCheckoutUrl: 'https://checkout.dodopayments.com/buy/pdt_0NhNHdeN2xd6vpMQaNER9?quantity=1',
+                              dodoCheckoutUrlAnnual: 'https://checkout.dodopayments.com/buy/pdt_0NhNITdON5ujMZqQ899lk?quantity=1'
+                            };
+                          }
+                          return p;
+                        });
+                        return { ...prev, plans: updatedPlans };
+                      });
+                      toast.success("Loaded all 4 active production Dodo checkout links for Pro & Enterprise! Make sure to scroll up and click 'Save Gateway Changes' to persist.");
+                    }}
+                    className="px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition flex items-center gap-1.5 shadow-sm shrink-0 cursor-pointer"
+                  >
+                    <Sparkles size={14} className="text-amber-400" />
+                    Load Production Dodo Presets
                   </button>
                 </div>
 
@@ -619,13 +657,27 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
                     {/* Dodo Checkout URL */}
                     <div className="space-y-1">
                       <label className="text-[9px] font-black uppercase tracking-widest text-neutral-455 block font-mono">
-                        Dodo Checkout Redirect Link
+                        Dodo Checkout Redirect Link (Monthly)
                       </label>
                       <input
                         type="text"
                         value={plan.dodoCheckoutUrl || ''}
                         onChange={(e) => handleUpdatePlanDodoMapping(plan.id, 'dodoCheckoutUrl', e.target.value)}
                         placeholder={`https://buy.dodopayments.com/buy/${plan.id}`}
+                        className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-xl outline-none font-sans text-[11px] font-medium text-neutral-800 focus:border-indigo-500 transition"
+                      />
+                    </div>
+
+                    {/* Dodo Checkout URL Annual */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-455 block font-mono">
+                        Dodo Checkout Redirect Link (Annual)
+                      </label>
+                      <input
+                        type="text"
+                        value={plan.dodoCheckoutUrlAnnual || ''}
+                        onChange={(e) => handleUpdatePlanDodoMapping(plan.id, 'dodoCheckoutUrlAnnual', e.target.value)}
+                        placeholder={`https://buy.dodopayments.com/buy/${plan.id}_annual`}
                         className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-xl outline-none font-sans text-[11px] font-medium text-neutral-800 focus:border-indigo-500 transition"
                       />
                     </div>

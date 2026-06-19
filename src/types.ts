@@ -83,6 +83,7 @@ export interface Plan {
   dodoPriceIdMonthly?: string;
   dodoPriceIdAnnual?: string;
   dodoCheckoutUrl?: string;
+  dodoCheckoutUrlAnnual?: string;
 }
 
 export interface UserProfile {
