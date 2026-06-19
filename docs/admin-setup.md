@@ -141,7 +141,7 @@ export function useAdminState() {
 ## ⚠️ Security Boundaries & Warnings
 
 ### 🚫 Never Hardcode Personal Names or Emails
-Do not hardcode or commit personal email addresses (e.g., `jnakasamai@gmail.com`), hardcoded supervisor records, password hashes, or corporate admin addresses directly within public source code, build parameters, configuration scripts, or database safety rules. 
+Do not hardcode or commit personal email addresses (e.g., `admin@yourdomain.com`), hardcoded supervisor records, password hashes, or corporate admin addresses directly within public source code, build parameters, configuration scripts, or database safety rules. 
 
 * **Why?** Hardcoding emails is a high-severity security anti-pattern. If a user changes their email, or the repository is exported/exposed, administrative access keys and personal identifiable information (PII) are permanently leaked, and the permissions cannot be adjusted without recompiling and redeploying the entire codebase.
 * **Refined Alternative**: Always query database profile records, or depend purely on cryptographically verified custom claims matching the specific token payload.

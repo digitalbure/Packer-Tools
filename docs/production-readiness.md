@@ -27,7 +27,7 @@ This document contains the production-readiness verification status and checklis
 
 ### 2. Authorization & RBAC
 - [x] **Cryptographic Admin Signatures**: Custom client roles are securely evaluated from Firebase Auth ID token custom claims (`role === "superAdmin"`).
-- [x] **No Static Access Lists**: Strict embargo against hardcoding specific personal or temporary developer email addresses (e.g., `jnakasamai@gmail.com`) inside frontend views, database rule structures, or security guards.
+- [x] **No Static Access Lists**: Strict embargo against hardcoding specific personal or temporary developer email addresses (e.g., `admin@yourdomain.com`) inside frontend views, database rule structures, or security guards.
 - [x] **Iframe Security Boundaries**: Interactive checkout flows, authentication popups, and sensitive forms are fully optimized to work transparently within iframe sandbox layouts without violating same-origin web boundaries.
 
 ### 3. Database & Security Rules (`firestore.rules`)
