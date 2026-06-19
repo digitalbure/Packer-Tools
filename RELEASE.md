@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.16.0`
+## Current Application Version: `v4.17.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.17.0 (Merchant Gateway Upgrades & Core Feature Calibration)
+*Released on: June 19, 2026*
+- **Expanded Dodo Merchant Checkout Channels**: Deployed comprehensive annual checkout linkages (`dodoCheckoutUrlAnnual`) across core payment mapping settings, matching live checkout buttons for self-service subscription upgrades dynamically.
+- **Dynamic Handshake Integrations**: Enhanced the payment system console to support real-time connection checks and live production Dodo presets syncing in the admin dashboard.
+- **Module Version Alignments**: Synchronized modular schemas, feature presets, and overall system core layers to prepare for high-volume enterprise deployment.
 
 ---
 

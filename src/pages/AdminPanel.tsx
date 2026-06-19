@@ -29,10 +29,10 @@ export const MODULE_METADATA: {
     category: 'Core' | 'Logistics' | 'Operations' | 'Kiosk' | 'Integrations' | 'Advanced';
   }
 } = {
-  aiWizard: { name: 'AI Wizard Helper', description: 'Smart packing lists assistance and predictive items layout.', icon: 'Cpu', version: 'v1.4.2', category: 'Core' },
+  aiWizard: { name: 'AI Wizard Helper', description: 'Smart packing lists assistance and predictive items layout.', icon: 'Cpu', version: 'v1.5.0', category: 'Core' },
   gearLibrary: { name: 'Gear Library Registry', description: 'Master catalog for organizational and personal assets tracking.', icon: 'Layers', version: 'v2.1.0', category: 'Core' },
   reminders: { name: 'Alerts & Reminders', description: 'Configurable notifications and checklist deadline tracking.', icon: 'Calendar', version: 'v1.2.0', category: 'Core' },
-  versionHistory: { name: 'Version History logging', description: 'Version control and rollback logging for list states.', icon: 'GitBranch', version: 'v1.3.1', category: 'Core' },
+  versionHistory: { name: 'Version History logging', description: 'Version control and rollback logging for list states.', icon: 'GitBranch', version: 'v1.4.0', category: 'Core' },
   branding: { name: 'White-Label Branding', description: 'Corporate custom branding, logos, and custom accent colors.', icon: 'Zap', version: 'v1.5.0', category: 'Advanced' },
   qrSharing: { name: 'QR Code Sharing', description: 'Dynamic barcode/QR tags scanning and mobile discovery.', icon: 'QrCode', version: 'v2.0.4', category: 'Operations' },
   toolingLists: { name: 'Specialist Tooling Lists', description: 'Define structural checklists for technical and heavy tooling industries.', icon: 'Wrench', version: 'v1.1.2', category: 'Operations' },
@@ -41,7 +41,7 @@ export const MODULE_METADATA: {
   logisticsDashboard: { name: 'Logistics Dispatcher', description: 'Real-time dispatch board and transit routes overview.', icon: 'Globe', version: 'v1.4.0', category: 'Logistics' },
   movingDashboard: { name: 'Moving Coordinator', description: 'Workflow staging for residential and office moves.', icon: 'Package', version: 'v1.1.5', category: 'Logistics' },
   rackingDashboard: { name: 'Racking Console', description: 'Visual mapping for network switches and server hardware layouts.', icon: 'Layers', version: 'v1.3.2', category: 'Operations' },
-  marketplace: { name: 'Rental Marketplace', description: 'List, rent, and process escrow bookings between organizations.', icon: 'ShoppingBag', version: 'v2.0.1', category: 'Operations' },
+  marketplace: { name: 'Rental Marketplace', description: 'List, rent, and process escrow bookings between organizations.', icon: 'ShoppingBag', version: 'v2.1.0', category: 'Operations' },
   marketplaceListings: { name: 'Marketplace Listings Module', description: 'Allow users to list gear/lists to the Rent/Buy marketplace shelf.', icon: 'ShoppingBag', version: 'v1.0.0', category: 'Operations' },
   kioskMode: { name: 'Kiosk Terminal Mode', description: 'Enables safe self-service check-outs via restricted kiosk profiles.', icon: 'QrCode', version: 'v2.1.0', category: 'Kiosk' },
   orgManagement: { name: 'Org Multi-Tenancy', description: 'Provides multiple divisions, corporate entities, and custom permissions.', icon: 'Building2', version: 'v1.8.0', category: 'Advanced' },
@@ -54,11 +54,11 @@ export const MODULE_METADATA: {
   customBarcodes: { name: 'Custom Barcode Generator', description: 'Encode assets into custom localized formats (UPC, Code128).', icon: 'QrCode', version: 'v1.5.0', category: 'Operations' },
   automaticDepreciation: { name: 'Asset Depreciation Engine', description: 'Financial depreciation curves tracking based on standard intervals.', icon: 'TrendingUp', version: 'v1.3.0', category: 'Advanced' },
   digitalSignatures: { name: 'Digital Signatures Escrow', description: 'Draw and sign checkout proofs with full secure non-repudiation.', icon: 'ShieldCheck', version: 'v1.4.1', category: 'Kiosk' },
-  clientPortal: { name: 'Client Approval Portals', description: 'Share dynamic and secure manifest approvals directly with external clients.', icon: 'Globe', version: 'v1.7.2', category: 'Operations' },
+  clientPortal: { name: 'Client Approval Portals', description: 'Share dynamic and secure manifest approvals directly with external clients.', icon: 'Globe', version: 'v1.8.0', category: 'Operations' },
   apiIntegrations: { name: 'Developer Webhooks & API', description: 'Provides custom developer tokens and real-time webhook push updates.', icon: 'Cpu', version: 'v2.0.0', category: 'Integrations' },
   weightAnalytics: { name: 'Gross Weight Calculators', description: 'Real-time total list weight calculators to keep transit vehicles safe.', icon: 'TrendingUp', version: 'v1.2.3', category: 'Logistics' },
   kioskOrderMode: { name: 'Kiosk Order Basket Mode', description: 'Allow renters to bundle item baskets to submit order checkouts.', icon: 'Package', version: 'v2.1.2', category: 'Kiosk' },
-  kioskDirectCheckout: { name: 'Kiosk Direct Auto-Checkout', description: 'Automates scanning to instant self check-out without confirmation.', icon: 'Check', version: 'v2.1.1', category: 'Kiosk' }
+  kioskDirectCheckout: { name: 'Kiosk Direct Auto-Checkout', description: 'Automates scanning to instant self check-out without confirmation.', icon: 'Check', version: 'v2.2.0', category: 'Kiosk' }
 };
 
 export const renderModuleIcon = (iconName: string) => {
