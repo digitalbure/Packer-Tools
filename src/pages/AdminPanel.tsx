@@ -6368,6 +6368,167 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                         />
                       </div>
                     </div>
+
+                    {/* Brand Repositioning Block */}
+                    <div className="pt-6 border-t border-neutral-100 space-y-4">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block mb-1">
+                          ⚡ Industry & Brand Repositioning Presets
+                        </span>
+                        <p className="text-[11px] text-neutral-400 font-bold uppercase leading-relaxed">
+                          Click any preset below to instantly recalibrate all marketing copy, slogan layouts, ticker values, and target sector assets.
+                        </p>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                          {
+                            id: 'film',
+                            name: 'Film & Broadcast Production',
+                            icon: <Briefcase className="text-blue-500" size={16} />,
+                            description: 'Cine gear, active lenses, sound boards, and visual kit audits',
+                            logoText: 'Packer Film/AV',
+                            title: 'Visual Inventory. \nInstant Market.',
+                            subtitle: 'Industrial Grade Gear Tracking',
+                            heroDesc: 'Professional-grade lifecycle management for high-stakes equipment. Visual verification, asset tracking, and integrated team coordination.',
+                            pairs: [
+                              { by: "Production Crews", for: "Camera Kit Labeling" },
+                              { by: "Logistics Teams", for: "Team Kit Distribution" },
+                              { by: "Rental Houses", for: "Lifecycle Management" },
+                              { by: "Touring Artists", for: "Backstage Inventory" }
+                            ],
+                            items: [
+                              { icon: 'Camera', title: "Visual Audit", description: "Every item requires a photographic record. No more 'I thought I packed it'—absolute accountability." },
+                              { icon: 'QrCode', title: "Asset Integration", description: "Seamlessly bridge digital lists with physical hardware using our integrated QR and scanning system." },
+                              { icon: 'Truck', title: "Logistics Dispatch", description: "Assign gear bundles directly to team members, track dynamic weight thresholds, and monitor checkouts." }
+                            ]
+                          },
+                          {
+                            id: 'construction',
+                            name: 'Construction & Heavy Rigging',
+                            icon: <Wrench className="text-amber-500" size={16} />,
+                            description: 'Heavy machinery, pneumatic drills, site safety, and tool cages',
+                            logoText: 'Packer Rigid',
+                            title: 'Robust Gear. \nRigorous Safety.',
+                            subtitle: 'Heavy Rigging & Scaffold Management',
+                            heroDesc: 'Industrial-strength equipment and site inventory tracking. Enforce routine mechanical inspection cycles, compliance checklists, and secure site check-outs.',
+                            pairs: [
+                              { by: "Scaffold Crews", for: "Heavy Tool Room Auditing" },
+                              { by: "Steel Rigging Leads", for: "Harness Safety Compliance" },
+                              { by: "Project Dispatchers", for: "Site-to-Site Machinery" },
+                              { by: "Safety Directors", for: "Mechanical Health Telemetry" }
+                            ],
+                            items: [
+                              { icon: 'Shield', title: 'Compliance Safety', description: 'Mandatory routine checkups for load-bearing equipment, harness webbing, and lifting jacks.' },
+                              { icon: 'QrCode', title: 'Extreme Tagging', description: 'Tie dynamic site assets directly to QR tags, physical asset passports and engraved steel identifiers.' },
+                              { icon: 'Truck', title: 'Site Dispatch', description: 'Keep tabs on machinery deployment schedules, fuel statuses, and tool cage check-outs.' }
+                            ]
+                          },
+                          {
+                            id: 'medical',
+                            name: 'Medical Care & EMS Dispatch',
+                            icon: <Activity className="text-emerald-500" size={16} />,
+                            description: 'Surgical packs, diagnostic tools, EMS responders, and sterile storage',
+                            logoText: 'Packer Health',
+                            title: 'Resilient Health. \nPrecise Deployments.',
+                            subtitle: 'Surgical & EMT Response Gear Kits',
+                            heroDesc: 'Absolute tracking for clinical hardware, medical cabinets, and trauma response packs. Keep auxiliary supplies sterile, verified, and complete with bulletproof handshakes.',
+                            pairs: [
+                              { by: "EMS Field Operators", for: "Ambulance Locker Readiness" },
+                              { by: "Disaster Responders", for: "Sterile Traumatic Kits" },
+                              { by: "Sterile Lab Admins", for: "High-value Diagnostic Calibration" },
+                              { by: "Nurse Supervisors", for: "Ward Inventory Auditing" }
+                            ],
+                            items: [
+                              { icon: 'Shield', title: 'Zero Compliance Gaps', description: 'Confirm that defibrillators and oxygen masks are certified before dispatching teams.' },
+                              { icon: 'QrCode', title: 'Instant Scan Verification', description: 'Barcode checks ensure the right medical supplies are assigned to the correct clinical team.' },
+                              { icon: 'Zap', title: 'Sterile Kiosk Audit', description: 'Secure digital sign-off records confirm exactly which medical professional took ownership.' }
+                            ]
+                          },
+                          {
+                            id: 'athletics',
+                            name: 'Sports & Athletic Team Logistics',
+                            icon: <Truck className="text-indigo-500" size={16} />,
+                            description: 'Roster uniform sets, professional team gear, and travel schedules',
+                            logoText: 'Packer Sports',
+                            title: 'Pro Elite Teams. \nDynamic Equipment.',
+                            subtitle: 'Athletic Roster Equipment & Packing List',
+                            heroDesc: 'Roster gear organization, protective kit packing, and custom gear bags assigned to players. Ensure dynamic, high-volume athletic assets match intense road schedules.',
+                            pairs: [
+                              { by: "Athletic Directors", for: "Roster Uniform Assignments" },
+                              { by: "Gear Room Planners", for: "Protective Kit Packing Lists" },
+                              { by: "Away Match Teams", for: "Cargo Flight Weight Metrics" },
+                              { by: "Head Athletic Trainers", for: "Safety Compliance Audits" }
+                            ],
+                            items: [
+                              { icon: 'Shield', title: 'Roster Verification', description: 'Instantly confirm player protective equipment matches size and safety requirements.' },
+                              { icon: 'QrCode', title: 'Player Handshake Scans', description: 'Quick barcode scans pair specific helmets or tablets directly to the athlete or assistant coach.' },
+                              { icon: 'Truck', title: 'Stadium Freight Planners', description: 'Track weights, team palettes, away trunk inventories, and stadium arrival compliance.' }
+                            ]
+                          }
+                        ].map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => {
+                              const newLanders = [...(settings.landers || [])];
+                              const idx = newLanders.findIndex(l => l.id === settings.activeLanderId);
+                              if (idx !== -1) {
+                                const currentLander = newLanders[idx];
+                                const currentContent = currentLander.content;
+                                
+                                newLanders[idx] = {
+                                  ...currentLander,
+                                  name: `Branded Preset - ${preset.name}`,
+                                  content: {
+                                    ...currentContent,
+                                    header: {
+                                      ...currentContent.header,
+                                      logoText: preset.logoText
+                                    },
+                                    hero: {
+                                      ...currentContent.hero,
+                                      title: preset.title,
+                                      subtitle: preset.subtitle,
+                                      description: preset.heroDesc,
+                                      isEnabled: true
+                                    },
+                                    ticker: {
+                                      ...currentContent.ticker,
+                                      pairs: preset.pairs,
+                                      isEnabled: true
+                                    },
+                                    features: {
+                                      ...currentContent.features,
+                                      items: preset.items,
+                                      isEnabled: true
+                                    }
+                                  }
+                                };
+                                
+                                setSettings({ ...settings, landers: newLanders });
+                                toast.success(`Repositioned platform copy for: ${preset.name}!`);
+                              }
+                            }}
+                            className="bg-neutral-50/50 hover:bg-neutral-50 hover:border-neutral-300 border border-neutral-150 p-4 rounded-2xl text-left transition space-y-2 flex flex-col justify-between cursor-pointer"
+                          >
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                {preset.icon}
+                                <span className="text-xs font-black uppercase tracking-tight text-neutral-800">{preset.name}</span>
+                              </div>
+                              <p className="text-[10px] text-neutral-400 leading-relaxed font-semibold">
+                                {preset.description}
+                              </p>
+                            </div>
+                            <div className="pt-2 border-t border-neutral-100/60 flex items-center justify-between">
+                              <span className="text-[10px] text-neutral-400 font-bold uppercase truncate max-w-[120px]">Slogan: "{preset.title.split('\n')[0].replace('.', '')}"</span>
+                              <span className="text-[9px] bg-primary/5 text-primary border border-primary/10 px-2 py-0.5 rounded font-black uppercase tracking-widest shrink-0">Apply Preset</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Sections Editor */}
