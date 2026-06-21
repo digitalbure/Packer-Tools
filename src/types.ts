@@ -384,7 +384,7 @@ export interface GearItem {
     name: string; 
     price: number; 
     useDefaultPrice?: boolean;
-    type?: 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
+    type?: 'Organizer' | 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
     notes?: string;
   }[];
   minRentalDays?: number;
@@ -485,7 +485,7 @@ export interface PackingItem {
     name: string; 
     price: number; 
     useDefaultPrice?: boolean;
-    type?: 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
+    type?: 'Organizer' | 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
     notes?: string;
   }[];
 }

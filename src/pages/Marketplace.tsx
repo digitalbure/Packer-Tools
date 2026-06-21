@@ -86,7 +86,7 @@ interface ProductItem {
     name: string;
     price: number;
     useDefaultPrice?: boolean;
-    type?: 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
+    type?: 'Organizer' | 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
     notes?: string;
   }>;
 }
@@ -2170,6 +2170,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                                     <span className="text-[9px] text-[#ff4f3a]/80 font-bold uppercase tracking-wide">
                                       {add.type ? (() => {
                                         switch (add.type) {
+                                          case 'Organizer': return '🎒 Organizer';
                                           case 'Accessory': return '🕶️ Accessory';
                                           case 'Consumable': return '🔋 Consumable';
                                           case 'Attachment': return '⛓️ Attachment';

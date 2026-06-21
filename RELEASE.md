@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.19.0`
+## Current Application Version: `v4.22.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,13 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.22.0 (Ancillary Classification & Packing List Portals)
+*Released on: June 21, 2026*
+- **Organizational 'Organizer' Classification**: Created and integrated a dedicated 'Organizer' categories and sub-item dropdown configurations (representing pouches, bags, and cases) across AddGearModal, GearLibrary, PackingListDetail, with correct display tags in the Marketplace catalog views.
+- **Interactive Inter-Checklist Porting Engine**: Implemented full Copy / Move bulk action flows allowing packers to duplicate or migrate multiple selected items seamlessly across target packing lists with fully managed clean-up and activity tracking.
 
 ---
 

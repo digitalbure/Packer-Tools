@@ -20,6 +20,23 @@ import ShareModal from '../components/ShareModal';
 import { logActivity } from '../services/activityLog';
 import { isSuperAdmin } from '../lib/authHelpers';
 
+const cleanUndefinedFields = (obj: any): any => {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanUndefinedFields(item));
+  }
+  const clean: any = {};
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val !== undefined) {
+      clean[key] = cleanUndefinedFields(val);
+    }
+  }
+  return clean;
+};
+
 const InteractiveSignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void }) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -188,13 +205,53 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     name: string;
     price: number;
     useDefaultPrice?: boolean;
-    type?: 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
+    type?: 'Organizer' | 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
     notes?: string;
   }[]>([]);
   const [packAncillaryName, setPackAncillaryName] = useState('');
-  const [packAncillaryType, setPackAncillaryType] = useState<'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other'>('Accessory');
+  const [packAncillaryType, setPackAncillaryType] = useState<'Organizer' | 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other'>('Accessory');
   const [packAncillaryPrice, setPackAncillaryPrice] = useState<string>('0');
   const [packAncillaryNotes, setPackAncillaryNotes] = useState('');
+
+  const [packAncillaryEditIdx, setPackAncillaryEditIdx] = useState<number | null>(null);
+  const [packAncillaryEditForm, setPackAncillaryEditForm] = useState<any | null>(null);
+
+  const startTouchPress = (onLongPress: () => void) => {
+    let pressTimer: any = null;
+    const start = () => {
+      pressTimer = setTimeout(() => {
+        onLongPress();
+      }, 500);
+    };
+    const cancel = () => {
+      if (pressTimer) clearTimeout(pressTimer);
+    };
+    return {
+      onTouchStart: start,
+      onTouchEnd: cancel,
+      onTouchMove: cancel,
+      onMouseDown: start,
+      onMouseUp: cancel,
+      onMouseLeave: cancel
+    };
+  };
+
+  const handleSavePackAncillaryEdit = () => {
+    if (packAncillaryEditIdx === null || !packAncillaryEditForm) return;
+    const list = [...editAddOns];
+    list[packAncillaryEditIdx] = {
+      ...list[packAncillaryEditIdx],
+      name: packAncillaryEditForm.name.trim(),
+      type: packAncillaryEditForm.type,
+      price: packAncillaryEditForm.price,
+      notes: packAncillaryEditForm.notes.trim() || undefined
+    };
+    setEditAddOns(list);
+    setIsDirty(true);
+    setPackAncillaryEditForm(null);
+    setPackAncillaryEditIdx(null);
+    toast.success("Ancillary updated locally. Click 'Save' to apply changes permanently!");
+  };
   
   // Marketplace state
   const [editRecipientId, setEditRecipientId] = useState('');
@@ -268,6 +325,12 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     return () => window.removeEventListener('open-qr-print-modal', handleOpenQRPrint);
   }, []);
   const [showCreateKitModal, setShowCreateKitModal] = useState(false);
+  const [allUserPackingLists, setAllUserPackingLists] = useState<PackingList[]>([]);
+  const [showCopyMoveModal, setShowCopyMoveModal] = useState(false);
+  const [copyMoveMode, setCopyMoveMode] = useState<'copy' | 'move'>('copy');
+  const [targetListId, setTargetListId] = useState('');
+  const [copyMoveSearchQuery, setCopyMoveSearchQuery] = useState('');
+  const [isProcessingCopyMove, setIsProcessingCopyMove] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [sourceInput, setSourceInput] = useState('');
@@ -1261,7 +1324,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     try {
       // Small artificial delay for visual feedback of saving progress
       await new Promise(resolve => setTimeout(resolve, 800));
-      await updateDoc(doc(db, 'packingLists', id, 'items', editingItem.id), {
+      await updateDoc(doc(db, 'packingLists', id, 'items', editingItem.id), cleanUndefinedFields({
         name: editName,
         aiLabel: editLabel,
         description: editDescription,
@@ -1275,7 +1338,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         sourceUrl: editSourceUrl,
         addOns: editAddOns,
         updatedAt: new Date().toISOString()
-      });
+      }));
       setEditingItem(null);
       setIsDirty(false);
       toast.success("Item updated");
@@ -1401,6 +1464,108 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     setSelectedItems(allItemIds);
     setKitName(`${list.name} Kit`);
     setShowCreateKitModal(true);
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    const qAllLists = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid));
+    const unsubAllLists = onSnapshot(qAllLists, (snapshot) => {
+      const lists = snapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      })) as PackingList[];
+      setAllUserPackingLists(lists);
+    }, (err) => {
+      console.error("Error fetching all user packing lists:", err);
+    });
+    return () => unsubAllLists();
+  }, [user]);
+
+  const handleCopyMoveItems = async () => {
+    if (!id || !targetListId) {
+      toast.error("Please select a target packing list.");
+      return;
+    }
+    if (targetListId === id) {
+      toast.error("Target list cannot be the same as the current list.");
+      return;
+    }
+
+    const selectedIds = Array.from(selectedItems);
+    if (selectedIds.length === 0) {
+      toast.error("No items selected.");
+      return;
+    }
+
+    const targetList = allUserPackingLists.find(l => l.id === targetListId);
+    if (!targetList) {
+      toast.error("Selected target list not found.");
+      return;
+    }
+
+    setIsProcessingCopyMove(true);
+    try {
+      const itemsToProcess = items.filter(item => selectedItems.has(item.id));
+      const batch = writeBatch(db);
+      
+      itemsToProcess.forEach(rawItem => {
+        const item = rawItem as any;
+        const clonedData = {
+          name: item.name || '',
+          category: item.category || 'Other',
+          brand: item.brand || '',
+          quantity: item.quantity !== undefined ? item.quantity : 1,
+          status: 'pending',
+          checked: false,
+          aiLabel: item.aiLabel || '',
+          description: item.description || '',
+          weight: item.weight || 0,
+          price: item.price || 0,
+          notes: item.notes || '',
+          isKit: item.isKit || false,
+          childItemIds: item.childItemIds || [],
+          photoUrls: item.photoUrls || [],
+          sourceUrl: item.sourceUrl || '',
+          addOns: item.addOns || [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        const newItemRef = doc(collection(db, 'packingLists', targetListId, 'items'));
+        batch.set(newItemRef, cleanUndefinedFields(clonedData));
+        
+        if (copyMoveMode === 'move') {
+          batch.delete(doc(db, 'packingLists', id, 'items', item.id));
+        }
+      });
+      
+      await batch.commit();
+      
+      try {
+        await logActivity(
+          user?.uid || '',
+          copyMoveMode === 'copy' ? 'copy_items' : 'move_items',
+          `${copyMoveMode === 'copy' ? 'Copied' : 'Moved'} ${itemsToProcess.length} item(s) from "${list?.name || 'Packing List'}" to "${targetList.name}"`,
+          JSON.stringify({
+            srcListId: id,
+            destListId: targetListId,
+            itemCount: itemsToProcess.length
+          })
+        );
+      } catch (err) {
+        console.warn("Activity log failed:", err);
+      }
+      
+      toast.success(`Successfully ${copyMoveMode === 'copy' ? 'copied' : 'moved'} ${itemsToProcess.length} item(s) to "${targetList.name}"!`);
+      setSelectedItems(new Set());
+      setTargetListId('');
+      setShowCopyMoveModal(false);
+    } catch (error) {
+      console.error("Error copy/moving items:", error);
+      toast.error(`Failed to ${copyMoveMode} items.`);
+    } finally {
+      setIsProcessingCopyMove(false);
+    }
   };
 
   const toggleSelectItem = (itemId: string) => {
@@ -3385,6 +3550,17 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
               <span>Create Kit</span>
             </button>
             <button
+              onClick={() => {
+                setCopyMoveMode('copy');
+                setTargetListId('');
+                setShowCopyMoveModal(true);
+              }}
+              className="px-3 md:px-4 py-2 bg-neutral-800 text-white border border-neutral-700/50 rounded-xl font-bold text-xs md:text-sm hover:bg-neutral-700 transition shadow-md flex items-center gap-2 whitespace-nowrap"
+            >
+              <ArrowRightLeft size={14} />
+              <span>Copy / Move</span>
+            </button>
+            <button
               onClick={handleBulkDelete}
               className="flex items-center gap-2 px-4 md:px-6 py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition shadow-lg whitespace-nowrap text-xs md:text-sm"
             >
@@ -4717,6 +4893,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                               onChange={(e) => setPackAncillaryType(e.target.value as any)}
                               className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-[#0066cc]"
                             >
+                              <option value="Organizer">🎒 Organizer</option>
                               <option value="Accessory">🕶️ Accessory</option>
                               <option value="Consumable">🔋 Consumable</option>
                               <option value="Attachment">⛓️ Attachment</option>
@@ -4782,10 +4959,23 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       </div>
 
                       {/* Display current list of added items */}
+                      <p className="text-[9px] text-neutral-400 italic text-left mb-1">💡 Tap edit pencil or long-press on an accessory to modify specs.</p>
                       {editAddOns.length > 0 ? (
                         <div className="border border-neutral-200 rounded-lg bg-white overflow-hidden divide-y divide-neutral-100 text-xs text-left">
                           {editAddOns.map((anc, idx) => (
-                            <div key={idx} className="flex justify-between items-center p-2.5">
+                            <div 
+                              key={idx} 
+                              className="flex justify-between items-center p-2.5 hover:bg-neutral-50 transition cursor-pointer select-none"
+                              {...startTouchPress(() => {
+                                setPackAncillaryEditIdx(idx);
+                                setPackAncillaryEditForm({
+                                  name: anc.name,
+                                  type: anc.type || 'Accessory',
+                                  price: anc.price || 0,
+                                  notes: anc.notes || ''
+                                });
+                              })}
+                            >
                               <div className="flex flex-col text-left">
                                 <span className="font-bold text-neutral-800">{anc.name}</span>
                                 <div className="space-x-1.5 text-[9px] text-neutral-400">
@@ -4793,18 +4983,36 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                   {anc.notes && <span>• {anc.notes}</span>}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-black text-emerald-600 text-[10px]">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-black text-emerald-600 text-[10px] mr-1">
                                   {anc.price === 0 ? 'FREE' : `$${anc.price}`}
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPackAncillaryEditIdx(idx);
+                                    setPackAncillaryEditForm({
+                                      name: anc.name,
+                                      type: anc.type || 'Accessory',
+                                      price: anc.price || 0,
+                                      notes: anc.notes || ''
+                                    });
+                                  }}
+                                  className="text-neutral-400 hover:text-primary p-1 rounded hover:bg-neutral-100 transition"
+                                  title="Edit Accessory (or Long-Press on Mobile)"
+                                >
+                                  <Edit2 size={11} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setEditAddOns(prev => prev.filter((_, i) => i !== idx));
                                     setIsDirty(true);
                                     toast.success("Ancillary removed");
                                   }}
-                                  className="text-neutral-400 hover:text-red-500 p-1 rounded hover:bg-neutral-50 transition"
+                                  className="text-neutral-400 hover:text-red-500 p-1 rounded hover:bg-neutral-100 transition"
                                 >
                                   <X size={12} />
                                 </button>
@@ -4815,6 +5023,89 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       ) : (
                         <div className="text-center p-3.5 bg-white border border-dashed border-neutral-200 rounded-xl">
                           <p className="text-[10px] text-neutral-400 italic">No bare-gear ancillaries logged yet.</p>
+                        </div>
+                      )}
+
+                      {/* Ancillary edit modal popup inline */}
+                      {packAncillaryEditForm !== null && (
+                        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+                          <div className="w-full max-w-sm bg-white rounded-3xl p-5 border border-neutral-200/50 shadow-2xl space-y-4">
+                            <div className="flex justify-between items-center border-b border-neutral-100 pb-2.5">
+                              <h4 className="text-xs font-black uppercase tracking-wider text-neutral-800 flex items-center gap-1.5">
+                                <Edit2 size={14} className="text-primary" />
+                                <span>Edit Accessory</span>
+                              </h4>
+                              <button 
+                                type="button" 
+                                onClick={() => setPackAncillaryEditForm(null)}
+                                className="text-neutral-400 hover:text-neutral-600"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                            <div className="space-y-3 text-xs text-left">
+                              <div className="space-y-1">
+                                <label className="text-[9px] uppercase font-bold text-neutral-400">Name</label>
+                                <input
+                                  type="text"
+                                  value={packAncillaryEditForm.name}
+                                  onChange={(e) => setPackAncillaryEditForm({ ...packAncillaryEditForm, name: e.target.value })}
+                                  className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 outline-none font-bold text-xs"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] uppercase font-bold text-neutral-400">Classification Type</label>
+                                <select
+                                  value={packAncillaryEditForm.type}
+                                  onChange={(e) => setPackAncillaryEditForm({ ...packAncillaryEditForm, type: e.target.value as any })}
+                                  className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-2 py-1.5 text-xs outline-none"
+                                >
+                                  <option value="Organizer">🎒 Organizer</option>
+                                  <option value="Accessory">🕶️ Accessory</option>
+                                  <option value="Consumable">🔋 Consumable</option>
+                                  <option value="Attachment">⛓️ Attachment</option>
+                                  <option value="Add On">🔌 Add On</option>
+                                  <option value="Software">💿 Software</option>
+                                  <option value="Mod">🔧 Custom Mod</option>
+                                  <option value="Other">📦 Other</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] uppercase font-bold text-neutral-400">Estimated value ({editCurrency || '$'})</label>
+                                <input
+                                  type="number"
+                                  value={packAncillaryEditForm.price}
+                                  onChange={(e) => setPackAncillaryEditForm({ ...packAncillaryEditForm, price: parseFloat(e.target.value) || 0 })}
+                                  className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 outline-none font-bold text-xs"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] uppercase font-bold text-neutral-400">Notes (Optional)</label>
+                                <input
+                                  type="text"
+                                  value={packAncillaryEditForm.notes}
+                                  onChange={(e) => setPackAncillaryEditForm({ ...packAncillaryEditForm, notes: e.target.value })}
+                                  className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 outline-none text-xs"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setPackAncillaryEditForm(null)}
+                                className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 rounded-xl text-[9px] font-black uppercase tracking-wider text-neutral-600"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleSavePackAncillaryEdit}
+                                className="px-3 py-1.5 bg-[#0066cc] hover:bg-[#0055b3] text-white rounded-xl text-[9px] font-black uppercase tracking-wider"
+                              >
+                                Apply Changes
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -4879,6 +5170,20 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       >
                         <QrCode size={18} />
                         <span>Print QR Tag</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedItems(new Set([editingItem.id]));
+                          setCopyMoveMode('copy');
+                          setTargetListId('');
+                          setEditingItem(null);
+                          setShowCopyMoveModal(true);
+                        }}
+                        className="w-full py-3 bg-neutral-800 text-white rounded-xl font-bold hover:bg-neutral-700 transition flex items-center justify-center gap-2"
+                      >
+                        <ArrowRightLeft size={16} />
+                        <span>Copy / Move Item</span>
                       </button>
                     </div>
                   </motion.div>
@@ -5835,6 +6140,158 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
           </div>
         </div>
       )}
+
+      {/* Copy or Move Items Modal */}
+      <AnimatePresence>
+        {showCopyMoveModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 sm:p-8 space-y-6 flex-1 flex flex-col min-h-0">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black uppercase tracking-tight">Copy / Move Items</h2>
+                    <p className="text-xs text-neutral-500">
+                      Processing <strong>{selectedItems.size}</strong> selected item(s) from this list.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setShowCopyMoveModal(false)} 
+                    className="p-2 hover:bg-neutral-100 rounded-full transition"
+                  >
+                    <Plus className="rotate-45 text-neutral-400" size={24} />
+                  </button>
+                </div>
+
+                {/* Option Selector: Copy or Move */}
+                <div className="grid grid-cols-2 gap-2 bg-neutral-100 p-1 rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={() => setCopyMoveMode('copy')}
+                    className={`py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
+                      copyMoveMode === 'copy'
+                        ? 'bg-neutral-900 text-white shadow-md'
+                        : 'text-neutral-500 hover:text-neutral-900'
+                    }`}
+                  >
+                    📂 Copy Items
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCopyMoveMode('move')}
+                    className={`py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
+                      copyMoveMode === 'move'
+                        ? 'bg-neutral-900 text-white shadow-md'
+                        : 'text-neutral-500 hover:text-neutral-900'
+                    }`}
+                  >
+                    📦 Move Items
+                  </button>
+                </div>
+
+                {/* Search Target Lists Input */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">
+                    Search Destination Packing List
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
+                    <input
+                      type="text"
+                      value={copyMoveSearchQuery}
+                      onChange={(e) => setCopyMoveSearchQuery(e.target.value)}
+                      placeholder="Type name to filter lists..."
+                      className="w-full pl-11 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary outline-none transition text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* List of Target Lists */}
+                <div className="flex-1 overflow-y-auto space-y-2 min-h-[200px] border border-neutral-100 p-2 rounded-2xl bg-neutral-50 custom-scrollbar">
+                  {allUserPackingLists
+                    .filter(l => l.id !== id)
+                    .filter(l => l.name.toLowerCase().includes(copyMoveSearchQuery.toLowerCase()))
+                    .map((targetList) => (
+                      <button
+                        key={targetList.id}
+                        type="button"
+                        onClick={() => setTargetListId(targetList.id)}
+                        className={`w-full text-left p-4 rounded-xl border transition-all flex flex-col gap-1 ${
+                          targetListId === targetList.id
+                            ? 'bg-primary/10 border-primary shadow-sm text-primary-dark'
+                            : 'bg-white border-neutral-200 hover:border-neutral-300 text-neutral-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="font-extrabold text-sm">{targetList.name}</span>
+                          <span className={`text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full font-black ${
+                            targetListId === targetList.id ? 'bg-primary text-white' : 'bg-neutral-100 text-neutral-500'
+                          }`}>
+                            {targetListId === targetList.id ? 'Selected' : 'Select'}
+                          </span>
+                        </div>
+                        {targetList.description && (
+                          <p className="text-[10px] text-neutral-400 truncate w-full">{targetList.description}</p>
+                        )}
+                        <span className="text-[8px] uppercase tracking-wide font-bold text-neutral-400 font-mono">
+                          ID: {targetList.id}
+                        </span>
+                      </button>
+                    ))}
+                  {allUserPackingLists.filter(l => l.id !== id).filter(l => l.name.toLowerCase().includes(copyMoveSearchQuery.toLowerCase())).length === 0 && (
+                    <div className="text-center py-12 text-neutral-400">
+                      <p className="text-xs font-bold">No packing lists found</p>
+                      <p className="text-[10px]">Create another packing list to copy items there.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Explanation text */}
+                <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 space-y-1">
+                  <div className="flex items-center gap-2 text-primary">
+                    <Info size={12} />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Operation Detail</span>
+                  </div>
+                  <p className="text-[10px] text-neutral-600 leading-relaxed">
+                    {copyMoveMode === 'copy' 
+                      ? "Copy Mode will clone your selections to the target list. They will remain here." 
+                      : "Move Mode will transfer your selections to the target list and safely delete them from the current list."
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-6 bg-neutral-50 border-t border-neutral-100 flex gap-4">
+                <button 
+                  onClick={() => setShowCopyMoveModal(false)}
+                  disabled={isProcessingCopyMove}
+                  className="flex-1 py-3 bg-white border border-neutral-200 text-neutral-600 rounded-2xl font-bold hover:bg-neutral-100 transition text-xs uppercase tracking-wider"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleCopyMoveItems}
+                  disabled={!targetListId || isProcessingCopyMove}
+                  className="flex-1 py-3 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-neutral-850 transition shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 text-xs uppercase tracking-wider"
+                >
+                  {isProcessingCopyMove ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" />
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <span>Confirm {copyMoveMode === 'copy' ? 'Copy' : 'Move'}</span>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Create Kit Modal */}
       <AnimatePresence>

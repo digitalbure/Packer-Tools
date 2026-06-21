@@ -96,7 +96,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
 
   // Manual ancillary states
   const [tempAncillaryName, setTempAncillaryName] = useState('');
-  const [tempAncillaryType, setTempAncillaryType] = useState<'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other'>('Accessory');
+  const [tempAncillaryType, setTempAncillaryType] = useState<'Organizer' | 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other'>('Accessory');
   const [tempAncillaryPrice, setTempAncillaryPrice] = useState<string>('0');
   const [tempAncillaryNotes, setTempAncillaryNotes] = useState('');
 
@@ -282,6 +282,23 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     return ACC_PRESETS[cat] || ACC_PRESETS['Other'];
   };
 
+  const cleanUndefinedFields = (obj: any): any => {
+    if (obj === null || typeof obj !== 'object') {
+      return obj;
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(item => cleanUndefinedFields(item));
+    }
+    const clean: any = {};
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      if (val !== undefined) {
+        clean[key] = cleanUndefinedFields(val);
+      }
+    }
+    return clean;
+  };
+
   // Execute full save to Firestore!
   const saveGearItem = async () => {
     if (!user) return;
@@ -308,7 +325,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
             // Create child accessory records in Firestore
             for (const acc of selectedAccessories) {
               const accTag = `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-              const docRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), {
+              const docRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), cleanUndefinedFields({
                 name: `${form.name} [#${i}] - ${acc}`,
                 brand: form.brand || '',
                 category: 'Electronics',
@@ -322,7 +339,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                 photoUrls: ['https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=100'],
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
-              });
+              }));
               createdChildIds.push(docRef.id);
             }
           }
@@ -352,7 +369,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
             updatedAt: new Date().toISOString()
           };
 
-          const mainDocRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), mainItemData);
+          const mainDocRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), cleanUndefinedFields(mainItemData));
           if (i === 1) {
             finalMainId = mainDocRef.id;
             finalMainTag = generatedTag;
@@ -371,7 +388,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
           // Create child accessory records in Firestore
           for (const acc of selectedAccessories) {
             const accTag = `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-            const docRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), {
+            const docRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), cleanUndefinedFields({
               name: `${form.name} - ${acc}`,
               brand: form.brand || '',
               category: 'Electronics',
@@ -385,7 +402,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
               photoUrls: ['https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=100'],
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
-            });
+            }));
             createdChildIds.push(docRef.id);
           }
         }
@@ -404,7 +421,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
           updatedAt: new Date().toISOString()
         };
 
-        const mainDocRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), mainItemData);
+        const mainDocRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), cleanUndefinedFields(mainItemData));
         
         setNewlyCreatedId(mainDocRef.id);
         setNewlyCreatedTag(generatedTag);
@@ -425,10 +442,10 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     setSaving(true);
     try {
       const itemRef = doc(db, 'users', user.uid, 'gearLibrary', selectedExistingId);
-      await updateDoc(itemRef, {
+      await updateDoc(itemRef, cleanUndefinedFields({
         ...form,
         updatedAt: new Date().toISOString()
-      });
+      }));
       setNewlyCreatedId(selectedExistingId);
       const matched = allGear.find(g => g.id === selectedExistingId);
       setNewlyCreatedTag(matched?.assetTag || 'GEAR-UPDATED');
@@ -1012,6 +1029,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                           onChange={(e) => setTempAncillaryType(e.target.value as any)}
                           className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-2.5 py-2 text-xs outline-none focus:ring-1 focus:ring-primary"
                         >
+                          <option value="Organizer">🎒 Organizer (pouch, bag, rack, etc.)</option>
                           <option value="Accessory">🕶️ Accessory</option>
                           <option value="Consumable">🔋 Consumable (Battery, Cards, etc.)</option>
                           <option value="Attachment">⛓️ Attachment (Rig, mount, lens)</option>

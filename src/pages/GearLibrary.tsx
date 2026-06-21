@@ -592,6 +592,49 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [sortField, setSortField] = useState<'name' | 'createdAt' | 'weight' | 'price' | 'usageCount' | 'health'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [editingItem, setEditingItem] = useState<GearItem | null>(null);
+
+  // States for Editing Accessories / Add-Ons
+  const [accessoryEditIdx, setAccessoryEditIdx] = useState<number | null>(null);
+  const [accessoryEditForm, setAccessoryEditForm] = useState<any | null>(null);
+
+  const startTouchPress = (onLongPress: () => void) => {
+    let pressTimer: any = null;
+    const start = () => {
+      pressTimer = setTimeout(() => {
+        onLongPress();
+      }, 500); // 500ms long press duration is perfect
+    };
+    const cancel = () => {
+      if (pressTimer) clearTimeout(pressTimer);
+    };
+    return {
+      onTouchStart: start,
+      onTouchEnd: cancel,
+      onTouchMove: cancel,
+      onMouseDown: start,
+      onMouseUp: cancel,
+      onMouseLeave: cancel
+    };
+  };
+
+  const handleSaveAccessoryEdit = () => {
+    if (!editingItem || accessoryEditIdx === null || !accessoryEditForm) return;
+    const list = [...(editingItem.addOns || [])];
+    list[accessoryEditIdx] = {
+      ...list[accessoryEditIdx],
+      name: accessoryEditForm.name.trim(),
+      type: accessoryEditForm.type,
+      price: accessoryEditForm.price,
+      notes: accessoryEditForm.notes.trim() || undefined
+    };
+    setEditingItem({
+      ...editingItem,
+      addOns: list
+    });
+    setAccessoryEditForm(null);
+    setAccessoryEditIdx(null);
+    toast.success("Accessory changes applied locally. Click Save Changes at the bottom of the drawer to save permanently!");
+  };
   const [showHistory, setShowHistory] = useState(false);
   const [historyItems, setHistoryItems] = useState<GearItemVersion[]>([]);
   const [showIncidents, setShowIncidents] = useState(false);
@@ -916,7 +959,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [showAddOnCreator, setShowAddOnCreator] = useState(false);
   const [selectedAddOnItemId, setSelectedAddOnItemId] = useState('');
   const [customAddOnName, setCustomAddOnName] = useState('');
-  const [addOnType, setAddOnType] = useState<'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other'>('Accessory');
+  const [addOnType, setAddOnType] = useState<'Organizer' | 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other'>('Accessory');
   const [addOnNotes, setAddOnNotes] = useState('');
   const [addOnPriceOption, setAddOnPriceOption] = useState<'default' | 'custom'>('custom');
   const [addOnCustomPrice, setAddOnCustomPrice] = useState(0);
@@ -3040,6 +3083,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                               onChange={(e) => setAddOnType(e.target.value as any)}
                               className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1 text-[11px] outline-none"
                             >
+                              <option value="Organizer">🎒 Organizer (pouch, bag, rack, etc.)</option>
                               <option value="Accessory">🕶️ Accessory</option>
                               <option value="Consumable">🔋 Consumable (Battery, Card, etc)</option>
                               <option value="Attachment">⛓️ Attachment (Rig, mount, lens)</option>
@@ -3142,10 +3186,23 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
                   {/* Render list of active addons */}
                   <div className="space-y-2">
+                    <p className="text-[9px] text-neutral-400 italic">💡 Tap the edit icon or long-press on an item to modify details.</p>
                     {item.addOns && item.addOns.length > 0 ? (
                       <div className="border border-neutral-200 rounded-xl divide-y divide-neutral-100 overflow-hidden bg-white">
                         {item.addOns.map((add, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-2.5 text-xs">
+                          <div 
+                            key={idx} 
+                            className="flex items-center justify-between p-2.5 text-xs hover:bg-neutral-50 transition select-none cursor-pointer"
+                            {...startTouchPress(() => {
+                              setAccessoryEditIdx(idx);
+                              setAccessoryEditForm({
+                                name: add.name,
+                                type: add.type || 'Accessory',
+                                price: add.price || 0,
+                                notes: add.notes || ''
+                              });
+                            })}
+                          >
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
                                 <span className="font-bold text-neutral-800">{add.name}</span>
@@ -3162,13 +3219,35 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                                 <span className="text-[9px] text-amber-600 font-medium">Notes: {add.notes}</span>
                               )}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveAddOn(idx)}
-                              className="p-1.5 text-neutral-400 hover:text-red-500 rounded-lg hover:bg-neutral-50 transition"
-                            >
-                              <Trash2 size={13} />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setAccessoryEditIdx(idx);
+                                  setAccessoryEditForm({
+                                    name: add.name,
+                                    type: add.type || 'Accessory',
+                                    price: add.price || 0,
+                                    notes: add.notes || ''
+                                  });
+                                }}
+                                className="p-1.5 text-neutral-400 hover:text-primary rounded-lg hover:bg-neutral-100 transition"
+                                title="Edit Accessory (or Long-Press on Mobile)"
+                              >
+                                <Edit2 size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveAddOn(idx);
+                                }}
+                                className="p-1.5 text-neutral-400 hover:text-red-500 rounded-lg hover:bg-neutral-100 transition"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -3178,6 +3257,89 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       </div>
                     )}
                   </div>
+
+                  {/* Accessory Edit Modal Inline */}
+                  {accessoryEditForm !== null && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+                      <div className="w-full max-w-md bg-white rounded-3xl p-6 border border-neutral-200/50 shadow-2xl space-y-4">
+                        <div className="flex justify-between items-center border-b border-neutral-100 pb-3">
+                          <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800 flex items-center gap-1.5">
+                            <Edit2 size={16} className="text-primary" />
+                            <span>Edit Accessory Details</span>
+                          </h4>
+                          <button 
+                            type="button" 
+                            onClick={() => setAccessoryEditForm(null)}
+                            className="text-neutral-400 hover:text-neutral-600"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                        <div className="space-y-3 text-xs text-left">
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase font-bold text-neutral-400">Name</label>
+                            <input
+                              type="text"
+                              value={accessoryEditForm.name}
+                              onChange={(e) => setAccessoryEditForm({ ...accessoryEditForm, name: e.target.value })}
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 outline-none font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase font-bold text-neutral-400">Classification Type</label>
+                            <select
+                              value={accessoryEditForm.type}
+                              onChange={(e) => setAccessoryEditForm({ ...accessoryEditForm, type: e.target.value as any })}
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-2.5 py-2 text-xs outline-none"
+                            >
+                              <option value="Organizer">🎒 Organizer</option>
+                              <option value="Accessory">🕶️ Accessory</option>
+                              <option value="Consumable">🔋 Consumable</option>
+                              <option value="Attachment">⛓️ Attachment</option>
+                              <option value="Add On">🔌 Add On</option>
+                              <option value="Software">💿 Software</option>
+                              <option value="Mod">🔧 Custom Mod</option>
+                              <option value="Other">📦 Other</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase font-bold text-neutral-400">Rate / Price ({item.currency || '$'})</label>
+                            <input
+                              type="number"
+                              value={accessoryEditForm.price}
+                              onChange={(e) => setAccessoryEditForm({ ...accessoryEditForm, price: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 outline-none font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase font-bold text-neutral-400">Notes (Optional)</label>
+                            <input
+                              type="text"
+                              value={accessoryEditForm.notes}
+                              onChange={(e) => setAccessoryEditForm({ ...accessoryEditForm, notes: e.target.value })}
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 outline-none"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setAccessoryEditForm(null)}
+                            className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-xl text-[10px] font-black uppercase tracking-wider text-neutral-600"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveAccessoryEdit}
+                            className="px-4 py-2 bg-[#0066cc] hover:bg-[#0055b3] text-white rounded-xl text-[10px] font-black uppercase tracking-wider"
+                          >
+                            Apply Localy
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
