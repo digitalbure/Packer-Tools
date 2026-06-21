@@ -86,8 +86,19 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     childItemIds: []
   });
 
+  // Tracking modes and sequential copy generators
+  const [trackingMode, setTrackingMode] = useState<'bulk' | 'serialized'>('bulk');
+  const [serialPrefix, setSerialPrefix] = useState('');
+  const [serialStartNum, setSerialStartNum] = useState('');
+
   // Ancillaries checkbook
   const [selectedAccessories, setSelectedAccessories] = useState<string[]>([]);
+
+  // Manual ancillary states
+  const [tempAncillaryName, setTempAncillaryName] = useState('');
+  const [tempAncillaryType, setTempAncillaryType] = useState<'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other'>('Accessory');
+  const [tempAncillaryPrice, setTempAncillaryPrice] = useState<string>('0');
+  const [tempAncillaryNotes, setTempAncillaryNotes] = useState('');
 
   // AI Scan states
   const [scanImage, setScanImage] = useState<string | null>(null);
@@ -281,57 +292,125 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
 
     setSaving(true);
     try {
-      const generatedTag = `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-      
-      // Let's decide if this becomes a Kit. 
-      // If they selected checked accessories to make them separate logged assets, we can create them!
-      const createdChildIds: string[] = [];
-      
-      if (selectedAccessories.length > 0) {
-        // Create child accessory records in Firestore
-        for (const acc of selectedAccessories) {
-          const accTag = `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-          const docRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), {
-            name: `${form.name} - ${acc}`,
-            brand: form.brand || '',
-            category: 'Electronics',
-            primaryCategory: 'Electronics',
+      const pCategory = form.primaryCategory || form.category || 'Other';
+      const isBatchAutogen = trackingMode === 'serialized' && (form.quantity || 1) > 1;
+
+      if (isBatchAutogen) {
+        const qtyToGen = form.quantity || 1;
+        let finalMainId = '';
+        let finalMainTag = '';
+
+        for (let i = 1; i <= qtyToGen; i++) {
+          const generatedTag = `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+          const createdChildIds: string[] = [];
+
+          if (selectedAccessories.length > 0) {
+            // Create child accessory records in Firestore
+            for (const acc of selectedAccessories) {
+              const accTag = `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+              const docRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), {
+                name: `${form.name} [#${i}] - ${acc}`,
+                brand: form.brand || '',
+                category: 'Electronics',
+                primaryCategory: 'Electronics',
+                ownerId: user.uid,
+                workspaceId: user.activeWorkspaceId || null,
+                assetTag: accTag,
+                quantity: 1,
+                status: 'available',
+                condition: 'new',
+                photoUrls: ['https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=100'],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              });
+              createdChildIds.push(docRef.id);
+            }
+          }
+
+          // Generate sequential / custom serial
+          let computedSerial = form.serialNumber || '';
+          if (serialPrefix.trim()) {
+            const startNum = parseInt(serialStartNum) || 1;
+            computedSerial = `${serialPrefix.trim()}${startNum + (i - 1)}`;
+          } else if (form.serialNumber) {
+            computedSerial = `${form.serialNumber}-${i}`;
+          }
+
+          const mainItemData = {
+            ...form,
+            name: `${form.name} [#${i}]`,
+            category: pCategory,
+            primaryCategory: pCategory,
+            serialNumber: computedSerial,
             ownerId: user.uid,
             workspaceId: user.activeWorkspaceId || null,
-            assetTag: accTag,
-            quantity: 1,
-            status: 'available',
-            condition: 'new',
-            photoUrls: ['https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=100'],
+            assetTag: generatedTag,
+            quantity: 1, // Individual serialized representation
+            isKit: createdChildIds.length > 0,
+            childItemIds: createdChildIds,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
-          });
-          createdChildIds.push(docRef.id);
+          };
+
+          const mainDocRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), mainItemData);
+          if (i === 1) {
+            finalMainId = mainDocRef.id;
+            finalMainTag = generatedTag;
+          }
         }
+
+        setNewlyCreatedId(finalMainId);
+        setNewlyCreatedTag(finalMainTag);
+        setStep(3); // Go to final QR code success screen
+        toast.success(`Batch onboarded ${qtyToGen} serialized copies successfully!`);
+      } else {
+        const generatedTag = `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+        const createdChildIds: string[] = [];
+        
+        if (selectedAccessories.length > 0) {
+          // Create child accessory records in Firestore
+          for (const acc of selectedAccessories) {
+            const accTag = `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+            const docRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), {
+              name: `${form.name} - ${acc}`,
+              brand: form.brand || '',
+              category: 'Electronics',
+              primaryCategory: 'Electronics',
+              ownerId: user.uid,
+              workspaceId: user.activeWorkspaceId || null,
+              assetTag: accTag,
+              quantity: 1,
+              status: 'available',
+              condition: 'new',
+              photoUrls: ['https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=100'],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            });
+            createdChildIds.push(docRef.id);
+          }
+        }
+
+        // Insert main gear item
+        const mainItemData = {
+          ...form,
+          category: pCategory,
+          primaryCategory: pCategory,
+          ownerId: user.uid,
+          workspaceId: user.activeWorkspaceId || null,
+          assetTag: generatedTag,
+          isKit: createdChildIds.length > 0,
+          childItemIds: createdChildIds,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        const mainDocRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), mainItemData);
+        
+        setNewlyCreatedId(mainDocRef.id);
+        setNewlyCreatedTag(generatedTag);
+        setStep(3); // Go to final QR code success screen
+        toast.success("Equipment successfully onboarded into library!");
       }
-
-      const pCategory = form.primaryCategory || form.category || 'Other';
-
-      // Insert main gear item
-      const mainItemData = {
-        ...form,
-        category: pCategory,
-        primaryCategory: pCategory,
-        ownerId: user.uid,
-        workspaceId: user.activeWorkspaceId || null,
-        assetTag: generatedTag,
-        isKit: createdChildIds.length > 0,
-        childItemIds: createdChildIds,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      const mainDocRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), mainItemData);
-      
-      setNewlyCreatedId(mainDocRef.id);
-      setNewlyCreatedTag(generatedTag);
-      setStep(3); // Go to final QR code success screen
-      toast.success("Equipment successfully onboarded into library!");
     } catch (e) {
       console.error(e);
       toast.error("Failed to save gear info.");
@@ -758,6 +837,86 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                   </select>
                 </div>
 
+                {/* Tracking Strategy & Quantity Section */}
+                <div className="sm:col-span-2 bg-neutral-50 p-4 rounded-3xl border border-neutral-100/55 space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#0066cc] block">📦 Asset Tracking Strategy</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setTrackingMode('bulk')}
+                        className={`p-3.5 rounded-xl border flex flex-col items-start text-left transition-all ${
+                          trackingMode === 'bulk'
+                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-md'
+                            : 'bg-white border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                        }`}
+                      >
+                        <span className="text-xs font-black uppercase tracking-tight">Bulk Quantity Tracking</span>
+                        <span className="text-[9px] opacity-75 mt-1 leading-normal">For standard non-serialized accessories / bulk items (e.g. 10x spigots, 50x safety ropes). Single library entry with combined stock quantity.</span>
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setTrackingMode('serialized')}
+                        className={`p-3.5 rounded-xl border flex flex-col items-start text-left transition-all ${
+                          trackingMode === 'serialized'
+                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-md'
+                            : 'bg-white border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                        }`}
+                      >
+                        <span className="text-xs font-black uppercase tracking-tight">Serialized Asset Tracking</span>
+                        <span className="text-[9px] opacity-75 mt-1 leading-normal">For precious serialized parent equipment (e.g. 5x Sony Cameras, Lenses). Auto-creates distinct individual records with custom barcodes and unique serials.</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1 col-span-2 sm:col-span-1">
+                      <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">
+                        {trackingMode === 'serialized' ? 'Quantity of Copies to Deploy' : 'Quantity Owned'}
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={form.quantity || 1}
+                        onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 1 })}
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-xs outline-none focus:ring-2 focus:ring-primary transition"
+                      />
+                    </div>
+                  </div>
+
+                  {trackingMode === 'serialized' && (form.quantity || 1) > 1 && (
+                    <div className="p-4 bg-white border border-dashed border-neutral-200 rounded-2xl space-y-3">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-[#0066cc] block">⚙️ Autogenerate Sequential Serials & Labels</span>
+                      <p className="text-[9px] text-neutral-400 leading-normal">
+                        We will compile and save <strong>{form.quantity}</strong> separate database items (e.g. <em>{form.name} [#1]</em> to <em>{form.name} [#{form.quantity}]</em>) each tracking distinct health metrics and QR lines.
+                      </p>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <label className="text-[8px] uppercase font-bold text-neutral-500 block mb-1">Serial Number Prefix (Optional)</label>
+                          <input
+                            type="text"
+                            value={serialPrefix}
+                            onChange={(e) => setSerialPrefix(e.target.value)}
+                            placeholder="e.g. SN-FX6-"
+                            className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-[#0066cc]"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[8px] uppercase font-bold text-neutral-500 block mb-1">Starting Serial Number (Optional)</label>
+                          <input
+                            type="text"
+                            value={serialStartNum}
+                            onChange={(e) => setSerialStartNum(e.target.value)}
+                            placeholder="e.g. 1001"
+                            className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-[#0066cc]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Visibility setting */}
                 <div className="space-y-1 sm:col-span-2">
                   <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Visibility & Accessibility</label>
@@ -775,39 +934,188 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                 </div>
               </div>
 
-              {/* CONTEXTUAL ACCESSORIES CHECKBOX ROW */}
+              {/* CONTEXTUAL ACCESSORIES & ANCILLARIES ROW */}
               {method !== 'existing' && (
-                <div className="bg-neutral-50 p-5 rounded-[2rem] border border-neutral-100 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <ListPlus size={16} className="text-primary" />
-                    <h4 className="text-xs font-black uppercase tracking-widest text-neutral-800">
-                      Contextual Optional Accessories & Ancillaries
-                    </h4>
+                <div className="bg-neutral-50 p-6 rounded-[2rem] border border-neutral-100 space-y-4">
+                  <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+                    <div className="flex items-center gap-2">
+                      <ListPlus size={16} className="text-primary" />
+                      <h4 className="text-xs font-black uppercase tracking-widest text-neutral-800">
+                        Gear Optional Accessories & Ancillaries
+                      </h4>
+                    </div>
+                    <span className="text-[9px] font-black uppercase bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                      {(form.addOns || []).length} Added
+                    </span>
                   </div>
-                  <p className="text-[10px] text-neutral-400 mt-1 leading-normal">
-                    Select recommended ancillary components to automatically package them inside this gear bundle item record (`isKit`) in Firestore.
+                  <p className="text-[10px] text-neutral-400 leading-normal">
+                    Some gear items come bare. Select recommended presets below, or enter custom accessories, consumables, hardware attachments, or software add-ons manually!
                   </p>
 
-                  <div className="grid grid-cols-2 gap-2 pt-2">
-                    {getRecommendedAccessoryList().map((accName) => {
-                      const isChecked = selectedAccessories.includes(accName);
-                      return (
-                        <button
-                          key={accName}
-                          type="button"
-                          onClick={() => toggleAccessory(accName)}
-                          className={`flex items-center gap-2 p-2.5 rounded-xl border text-[11px] font-bold text-left transition ${
-                            isChecked 
-                              ? 'bg-neutral-900 text-white border-neutral-900 shadow-md' 
-                              : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-300'
-                          }`}
-                        >
-                          <span className={`h-2 w-2 rounded-full ${isChecked ? 'bg-primary animate-pulse' : 'bg-neutral-300'}`} />
-                          <span className="truncate">{accName}</span>
-                        </button>
-                      );
-                    })}
+                  {/* Preset Quick-Add buttons */}
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] uppercase font-black tracking-widest text-neutral-400 block">⚡ Tap Recommended Presets to Add:</span>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {getRecommendedAccessoryList().map((accName) => {
+                        const alreadyAdded = (form.addOns || []).some(a => a.name === accName);
+                        return (
+                          <button
+                            key={accName}
+                            type="button"
+                            disabled={alreadyAdded}
+                            onClick={() => {
+                              const newAnc = {
+                                name: accName,
+                                type: 'Accessory' as const,
+                                price: 0,
+                                notes: 'Recommended Preset Option'
+                              };
+                              setForm(prev => ({
+                                ...prev,
+                                addOns: [...(prev.addOns || []), newAnc]
+                              }));
+                              toast.success(`Added preset: "${accName}"`);
+                            }}
+                            className={`px-3 py-1.5 rounded-xl border text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                              alreadyAdded
+                                ? 'bg-neutral-100 text-neutral-400 border-neutral-100 cursor-not-allowed'
+                                : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-300 hover:scale-[1.02]'
+                            }`}
+                          >
+                            <span>+</span>
+                            <span>{accName}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+
+                  {/* Manual Ancillary Creator Form */}
+                  <div className="bg-white p-4 rounded-2xl border border-neutral-200 space-y-3">
+                    <span className="text-[9px] uppercase font-black text-neutral-700 tracking-widest block">➕ Add Ancillary Component Manually:</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[8px] uppercase font-bold text-neutral-400 block mb-1">Ancillary Name</label>
+                        <input
+                          type="text"
+                          value={tempAncillaryName}
+                          onChange={(e) => setTempAncillaryName(e.target.value)}
+                          placeholder="e.g. Cinema Rig / 128GB Card / software license"
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[8px] uppercase font-bold text-neutral-400 block mb-1">Classification Type</label>
+                        <select
+                          value={tempAncillaryType}
+                          onChange={(e) => setTempAncillaryType(e.target.value as any)}
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-2.5 py-2 text-xs outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          <option value="Accessory">🕶️ Accessory</option>
+                          <option value="Consumable">🔋 Consumable (Battery, Cards, etc.)</option>
+                          <option value="Attachment">⛓️ Attachment (Rig, mount, lens)</option>
+                          <option value="Add On">🔌 Add On</option>
+                          <option value="Software">💿 Software / License</option>
+                          <option value="Mod">🔧 Custom Mod</option>
+                          <option value="Other">📦 Other</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[8px] uppercase font-bold text-neutral-400 block mb-1">Rate / Value ({form.currency || '$'})</label>
+                        <input
+                          type="number"
+                          value={tempAncillaryPrice}
+                          onChange={(e) => setTempAncillaryPrice(e.target.value)}
+                          placeholder="0 for free"
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[8px] uppercase font-bold text-neutral-400 block mb-1">Ancillary Notes (Optional)</label>
+                        <input
+                          type="text"
+                          value={tempAncillaryNotes}
+                          onChange={(e) => setTempAncillaryNotes(e.target.value)}
+                          placeholder="e.g. brand, speed, or version"
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!tempAncillaryName.trim()) {
+                            toast.error("Please enter an ancillary name!");
+                            return;
+                          }
+                          const priceVal = parseFloat(tempAncillaryPrice) || 0;
+                          const newAnc = {
+                            name: tempAncillaryName.trim(),
+                            type: tempAncillaryType,
+                            price: priceVal,
+                            notes: tempAncillaryNotes.trim() || undefined
+                          };
+                          setForm(prev => ({
+                            ...prev,
+                            addOns: [...(prev.addOns || []), newAnc]
+                          }));
+                          setTempAncillaryName('');
+                          setTempAncillaryNotes('');
+                          setTempAncillaryPrice('0');
+                          toast.success(`Added custom ${tempAncillaryType} ancillary!`);
+                        }}
+                        className="px-4 py-2 bg-neutral-900 hover:bg-black text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus size={12} />
+                        <span>Add to List</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Currently Active Ancillaries List */}
+                  {form.addOns && form.addOns.length > 0 && (
+                    <div className="border border-neutral-200 rounded-2xl bg-white divide-y divide-neutral-100 overflow-hidden">
+                      {form.addOns.map((anc, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 text-xs">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-neutral-800">{anc.name}</span>
+                              <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-neutral-100 text-neutral-500 rounded-full">
+                                {anc.type || 'Accessory'}
+                              </span>
+                            </div>
+                            {anc.notes && (
+                              <span className="text-[9px] text-neutral-400 italic">Notes: {anc.notes}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-emerald-600 text-[11px]">
+                              {anc.price === 0 ? 'FREE' : `${form.currency || '$'}${anc.price}`}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const list = form.addOns || [];
+                                setForm(prev => ({
+                                  ...prev,
+                                  addOns: list.filter((_, i) => i !== idx)
+                                }));
+                                toast.success("Ancillary removed");
+                              }}
+                              className="p-1 hover:bg-neutral-50 rounded-lg text-neutral-400 hover:text-red-500 transition"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

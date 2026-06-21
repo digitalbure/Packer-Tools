@@ -156,3 +156,42 @@ Users can save custom feature sets as dynamic tab triggers in `/src/components/Q
 These custom calibration structures are stored as:
 `customPresets: { id: string, name: string, disabledFeatures: FeatureKey[] }[]`
 under the central `users/{uid}` database profile document. Adding, applying, or deleting custom layout presets instantly syncs across the browser dynamically via the existing `onSnapshot` real-time listener.
+
+---
+
+## 🕶️ Onboarding Kits & "In-The-Box" Ancillaries Constraints
+
+To enforce data structural discipline when representing high-value cameras with supplied standard components (lens caps, power batteries, strapping, and cases), agents must observe the custom `addOns` schema definitions:
+
+### 1. Unified Sub-item Typing:
+The collection of bundled in-the-box items are nested under the primary camera record in a custom list array (`addOns`). The sub-items conform strictly to the following parameters inside `src/types.ts`:
+```typescript
+addOns?: {
+  itemId?: string;
+  name: string;
+  price: number; // For free in-the-box items, this must default to 0
+  useDefaultPrice?: boolean;
+  type?: 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
+  notes?: string; // Optional detailed specification constraints (e.g. "SD-Card Speed")
+}[];
+```
+
+### 2. Operational Rules:
+- **Zero Costing Safeguard**: Factory-supplied inclusions must register with price: `0`. This keeps standard asset list calculations aligned.
+- **Dynamic Kit Conversion**: If designated as a Kit (`isKit`), other system pages inside the client terminal (such as `PackingListDetail`) automatically copy and display these nested `addOns` as checked option components inside active dispatch logs.
+
+---
+
+## 📥 Bulk Upload & Automated Quantity Decompose / Tracking Modes
+
+To handle high-volume setups smoothly while guaranteeing granular serialized control:
+
+### 1. Quantity Auto-Detection:
+- When a spreadsheet is imported, the platform's local fuzzy mapping engine automatically attempts to recognize the `quantity` columns alongside identity, make, and category headers.
+
+### 2. High-Value Decompose Flags & Individual Mode Transition:
+- Duplicate assets with quantities greater than 1 (represented as single bulk lines) are flagged upon import mapping.
+- Administrators can opt to trigger **Decompose** mode, which replaces a single bulk line with multiple unique, separate instances (e.g., appending numeric `[#1]`, `[#2]` tags and appending incremented UIDs or auto-generated serial prefixes).
+- Decomposed items automatically leverage `trackingMode: 'individual'` for precise lifecycle monitoring, barcode printing, and unique maintenance schedules, whereas batch-imported lines keep `trackingMode: 'batch'` with the aggregate counter.
+
+

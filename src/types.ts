@@ -379,7 +379,14 @@ export interface GearItem {
   marketplaceType?: 'rental' | 'sale' | 'both' | null;
   isAvailableForSale?: boolean;
   salePrice?: number;
-  addOns?: { itemId?: string; name: string; price: number; useDefaultPrice?: boolean }[];
+  addOns?: { 
+    itemId?: string; 
+    name: string; 
+    price: number; 
+    useDefaultPrice?: boolean;
+    type?: 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
+    notes?: string;
+  }[];
   minRentalDays?: number;
   maxRentalDays?: number;
 }
@@ -473,6 +480,14 @@ export interface PackingItem {
   relatedItemIds?: string[]; // IDs of other PackingItems in the same list
   sourceUrl?: string;
   createdAt: string;
+  addOns?: { 
+    itemId?: string; 
+    name: string; 
+    price: number; 
+    useDefaultPrice?: boolean;
+    type?: 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
+    notes?: string;
+  }[];
 }
 
 export interface RackItem {

@@ -55,6 +55,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, GearItem, Organization, Department, Team, AdminSettings } from '../types';
 import { toast } from 'sonner';
 import PhysicalLocationMap from '../components/PhysicalLocationMap';
+import BulkSerializeModal from '../components/BulkSerializeModal';
 import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import * as PAPA from 'papaparse';
@@ -110,6 +111,7 @@ export interface InventoryItem {
   updatedAt: string;
   isOfflinePending?: boolean;
   offlineOpId?: string;
+  trackingMode?: 'batch' | 'individual';
 }
 
 export default function InventoryModule({ user, adminSettings }: InventoryModuleProps) {
@@ -285,6 +287,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   const [isExportToAnotherOpen, setIsExportToAnotherOpen] = useState(false);
   const [targetAnotherInventoryId, setTargetAnotherInventoryId] = useState('');
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
+  const [isBulkSerializeModalOpen, setIsBulkSerializeModalOpen] = useState(false);
 
   // Clear selections on changing inventory
   useEffect(() => {
@@ -503,6 +506,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     status: 'available' | 'in_use' | 'maintenance' | 'retired' | 'missing';
     photoUrl?: string;
     visibility?: 'public' | 'private' | 'team' | 'dept' | 'org';
+    trackingMode?: 'batch' | 'individual';
   }>({
     name: '',
     description: '',
@@ -516,8 +520,12 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     condition: 'good',
     status: 'available',
     photoUrl: '',
-    visibility: 'public'
+    visibility: 'public',
+    trackingMode: 'batch'
   });
+
+  const [invSerialPrefix, setInvSerialPrefix] = useState('');
+  const [invSerialStartNum, setInvSerialStartNum] = useState('');
 
   // Spreadsheet Importer and url-loader states
   const [isImporterOpen, setIsImporterOpen] = useState(false);
@@ -530,7 +538,28 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   const [isMappingLoading, setIsMappingLoading] = useState(false);
   const [isSubmittingImport, setIsSubmittingImport] = useState(false);
   const [importProgressPercent, setImportProgressPercent] = useState(0);
+  const [autoDecomposeOnImport, setAutoDecomposeOnImport] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const flaggedItemsToDecompose = useMemo(() => {
+    const qtyIdxStr = headerMappings['quantity'];
+    const nameIdxStr = headerMappings['name'];
+    if (qtyIdxStr === undefined || qtyIdxStr === null || qtyIdxStr === '' || importData.length === 0) return [];
+    
+    const qtyIdx = parseInt(qtyIdxStr);
+    const nameIdx = nameIdxStr !== undefined && nameIdxStr !== null && nameIdxStr !== '' ? parseInt(nameIdxStr) : -1;
+    if (isNaN(qtyIdx)) return [];
+
+    const flagged: { name: string; qty: number; rowIdx: number }[] = [];
+    importData.forEach((row, rowIdx) => {
+      const nameVal = nameIdx >= 0 && row[nameIdx] ? String(row[nameIdx]).trim() : `Item Row #${rowIdx + 1}`;
+      const qtyVal = parseInt(String(row[qtyIdx] || '1'));
+      if (!isNaN(qtyVal) && qtyVal > 1) {
+        flagged.push({ name: nameVal, qty: qtyVal, rowIdx });
+      }
+    });
+    return flagged;
+  }, [importData, headerMappings]);
 
   const canUseInventory = isFeatureEnabled('inventoryManagement', user, adminSettings);
 
@@ -801,6 +830,9 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
             setImportStep(2);
             toast.success("Spreadsheet parsed successfully!", { id });
 
+            // Run instant offline-ready local auto-detection of columns
+            runLocalFuzzyMapping(headers);
+
             // Automatically call AI to suggested columns
             runAiMapping(headers, content.slice(0, 3));
           } else {
@@ -827,6 +859,9 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
             setImportData(content);
             setImportStep(2);
             toast.success("Spreadsheet workbook loaded successfully!", { id });
+
+            // Run instant offline-ready local auto-detection of columns
+            runLocalFuzzyMapping(headers);
 
             runAiMapping(headers, content.slice(0, 3));
           } else {
@@ -869,6 +904,9 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
         setImportStep(2);
         toast.success("Remote sheet downloaded and prepared successfully!", { id });
         
+        // Run instant offline-ready local auto-detection of columns
+        runLocalFuzzyMapping(headersList);
+
         runAiMapping(headersList, dataRows.slice(0, 3));
       } else {
         toast.error("The spreadsheet fetched was empty.", { id });
@@ -877,6 +915,40 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       console.error(err);
       toast.error("CORS blocks direct access. Ensure the CSV is directly accessible via a public URL.", { id });
     }
+  };
+
+  // Local offline-ready fuzzy column mapping auto-detection
+  const runLocalFuzzyMapping = (headers: string[]) => {
+    const newMapping: Record<string, string> = {};
+    const rules: Record<string, string[]> = {
+      name: ['name', 'item', 'title', 'device', 'equipment', 'product', 'gear', 'asset'],
+      brand: ['brand', 'manufacturer', 'make', 'brandname', 'mfg'],
+      model: ['model', 'model name', 'type model', 'modelno'],
+      modelNumber: ['model number', 'modelno', 'part number', 'partno'],
+      serialNumber: ['serial number', 'serial', 'sn', 's/n', 'serialno', 'serial_number'],
+      primaryCategory: ['category', 'primary category', 'type', 'group', 'class', 'tag category', 'classifier'],
+      price: ['price', 'cost', 'value', 'msrp', 'rate', 'valuation'],
+      quantity: ['quantity', 'qty', 'count', 'amount', 'pieces', 'stock', 'units', 'number', 'copies']
+    };
+
+    headers.forEach((header, index) => {
+      const normalized = header.toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (const [field, keywords] of Object.entries(rules)) {
+        if (newMapping[field] !== undefined) continue;
+        const matched = keywords.some(kw => {
+          const kwNorm = kw.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return normalized === kwNorm || normalized.includes(kwNorm) || kwNorm.includes(normalized);
+        });
+        if (matched) {
+          newMapping[field] = String(index);
+        }
+      }
+    });
+
+    setHeaderMappings(prev => ({
+      ...prev,
+      ...newMapping
+    }));
   };
 
   // Run AI Column Matching Schema Engine using /api/map-inventory
@@ -894,7 +966,10 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       
       const payload = await res.json();
       if (payload.mapping) {
-        setHeaderMappings(payload.mapping);
+        setHeaderMappings(prev => ({
+          ...prev,
+          ...payload.mapping
+        }));
         setUnmappedHeaders(payload.unmappedHeaders || []);
         toast.success("AI has auto-aligned columns with high category accuracy!");
       }
@@ -916,35 +991,70 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
     setIsSubmittingImport(true);
     setImportProgressPercent(0);
-    const id = toast.loading(`Importing ${importData.length} items to ${selectedInventory.name}...`);
+    const id = toast.loading(`Parsing and preparing items to ${selectedInventory.name}...`);
 
     try {
       const parentColRef = collection(db, 'inventories', selectedInventory.id, 'items');
       
-      // Perform batch operations (firestore batches support 500 documents max; we write in safety chunks of 400)
-      const chunkSize = 400;
-      for (let i = 0; i < importData.length; i += chunkSize) {
-        const chunk = importData.slice(i, i + chunkSize);
-        const batch = writeBatch(db);
+      const finalItemsToUpload: any[] = [];
+      
+      importData.forEach((row, rowIndex) => {
+        const getFieldVal = (fieldName: string) => {
+          const indexStr = headerMappings[fieldName];
+          if (indexStr === undefined || indexStr === null) return undefined;
+          const index = parseInt(indexStr);
+          if (isNaN(index)) return undefined;
+          return row[index];
+        };
 
-        chunk.forEach(row => {
-          const getFieldVal = (fieldName: string) => {
-            const indexStr = headerMappings[fieldName];
-            if (indexStr === undefined || indexStr === null) return undefined;
-            const index = parseInt(indexStr);
-            if (isNaN(index)) return undefined;
-            return row[index];
-          };
+        const nameVal = String(getFieldVal('name') || '').trim();
+        if (!nameVal) return; // Skip records without name
 
-          const nameVal = String(getFieldVal('name') || '').trim();
-          if (!nameVal) return; // Skip records without name
+        const parsedPrice = parseFloat(String(getFieldVal('price') || '0'));
+        const parsedQuantity = parseInt(String(getFieldVal('quantity') || '1'));
+        const finalPrice = isNaN(parsedPrice) ? 0 : parsedPrice;
+        const initialQty = isNaN(parsedQuantity) ? 1 : parsedQuantity;
 
-          const parsedPrice = parseFloat(String(getFieldVal('price') || '0'));
-          const parsedQuantity = parseInt(String(getFieldVal('quantity') || '1'));
+        if (autoDecomposeOnImport && initialQty > 1) {
+          // Decompose into individual unique tracked items
+          const baseSerial = String(getFieldVal('serialNumber') || '').trim();
+          const baseBrand = String(getFieldVal('brand') || '').trim();
+          const baseName = nameVal;
+          
+          let prefix = 'UID-';
+          if (baseSerial) {
+            prefix = baseSerial.endsWith('-') || baseSerial.match(/[-_\/]$/) ? baseSerial : `${baseSerial}-`;
+          } else if (baseBrand) {
+            prefix = `UID-${baseBrand.replace(/\s+/g, '').toUpperCase().substring(0, 4)}-`;
+          } else {
+            prefix = `UID-${baseName.replace(/\s+/g, '').toUpperCase().substring(0, 4)}-`;
+          }
 
-          const finalItemDocRef = doc(parentColRef);
-          batch.set(finalItemDocRef, {
-            id: finalItemDocRef.id,
+          const startNum = 1001;
+          for (let k = 1; k <= initialQty; k++) {
+            finalItemsToUpload.push({
+              name: `${nameVal} [#${k}]`,
+              description: String(getFieldVal('description') || ''),
+              brand: baseBrand,
+              model: String(getFieldVal('model') || ''),
+              modelNumber: String(getFieldVal('modelNumber') || ''),
+              serialNumber: `${prefix}${startNum + (k - 1)}`,
+              primaryCategory: String(getFieldVal('primaryCategory') || 'Other'),
+              weight: parseFloat(String(getFieldVal('weight') || '0')) || null,
+              weightUnit: String(getFieldVal('weightUnit') || 'g'),
+              price: finalPrice,
+              condition: (String(getFieldVal('condition') || 'good').toLowerCase() as any) || 'good',
+              quantity: 1,
+              trackingMode: 'individual',
+              status: (String(getFieldVal('status') || 'available').toLowerCase() as any) || 'available',
+              assetTag: `ASSET-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            });
+          }
+        } else {
+          // Normal batch/individual item import
+          finalItemsToUpload.push({
             name: nameVal,
             description: String(getFieldVal('description') || ''),
             brand: String(getFieldVal('brand') || ''),
@@ -954,24 +1064,48 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
             primaryCategory: String(getFieldVal('primaryCategory') || 'Other'),
             weight: parseFloat(String(getFieldVal('weight') || '0')) || null,
             weightUnit: String(getFieldVal('weightUnit') || 'g'),
-            price: isNaN(parsedPrice) ? 0 : parsedPrice,
+            price: finalPrice,
             condition: (String(getFieldVal('condition') || 'good').toLowerCase() as any) || 'good',
-            quantity: isNaN(parsedQuantity) ? 1 : parsedQuantity,
+            quantity: initialQty,
+            trackingMode: isNaN(initialQty) || initialQty <= 1 ? 'individual' : 'batch',
             status: (String(getFieldVal('status') || 'available').toLowerCase() as any) || 'available',
             assetTag: `ASSET-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           });
+        }
+      });
+
+      if (finalItemsToUpload.length === 0) {
+        toast.error("No valid entries parsed from mapping selection.", { id });
+        setIsSubmittingImport(false);
+        return;
+      }
+
+      toast.loading(`Uploading ${finalItemsToUpload.length} items (chunks of 400)...`, { id });
+
+      // Perform batch operations (firestore batches support 500 documents max; we write in safety chunks of 400)
+      const chunkSize = 400;
+      for (let i = 0; i < finalItemsToUpload.length; i += chunkSize) {
+        const chunk = finalItemsToUpload.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+
+        chunk.forEach(itemData => {
+          const finalItemDocRef = doc(parentColRef);
+          batch.set(finalItemDocRef, {
+            ...itemData,
+            id: finalItemDocRef.id
+          });
         });
 
         await batch.commit();
 
-        const progressPercent = Math.min(100, Math.round(((i + chunk.length) / importData.length) * 100));
+        const progressPercent = Math.min(100, Math.round(((i + chunk.length) / finalItemsToUpload.length) * 100));
         setImportProgressPercent(progressPercent);
-        toast.loading(`Uploading lists: ${progressPercent}% completed (${i + chunk.length}/${importData.length} uploaded)...`, { id });
+        toast.loading(`Uploading sheets: ${progressPercent}% completed (${i + chunk.length}/${finalItemsToUpload.length} processed)...`, { id });
       }
 
-      toast.success(`Successfully imported ${importData.length} sheet items with AI categories!`, { id });
+      toast.success(`Successfully imported ${finalItemsToUpload.length} items!`, { id });
       setIsImporterOpen(false);
       setImportData([]);
       setImportHeaders([]);
@@ -995,7 +1129,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
     try {
       const parentColRef = collection(db, 'inventories', selectedInventory.id, 'items');
-      const { photoUrl, ...formRest } = itemForm;
+      const { photoUrl, trackingMode, ...formRest } = itemForm;
       const photoUrls = photoUrl ? [photoUrl] : [];
 
       if (editingItem) {
@@ -1003,6 +1137,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
         const updatePayload = {
           ...formRest,
           photoUrls,
+          trackingMode: trackingMode || 'batch',
           updatedAt: new Date().toISOString()
         };
 
@@ -1020,32 +1155,87 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
           toast.success("Asset details updated successfully.");
         }
       } else {
-        const itemDocRef = doc(parentColRef);
-        const newAssetData = {
-          ...formRest,
-          photoUrls,
-          id: itemDocRef.id,
-          assetTag: `ASSET-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
+        const isBatchAutogen = trackingMode === 'individual' && formRest.quantity > 1;
 
-        if (!isOnline) {
-          await offlineSync.queueOperation({
-            type: 'set',
-            collectionPath: ['inventories', selectedInventory.id, 'items', itemDocRef.id],
-            docId: itemDocRef.id,
-            data: newAssetData,
-            label: `Add asset: ${formRest.name}`
-          });
-          toast.success("Added asset offline. Queue updated for synchronization!");
+        if (isBatchAutogen) {
+          const qtyToGen = formRest.quantity;
+          const batch = isOnline ? writeBatch(db) : null;
+
+          for (let i = 1; i <= qtyToGen; i++) {
+            const itemDocRef = doc(parentColRef);
+
+            let computedSerial = formRest.serialNumber || '';
+            if (invSerialPrefix.trim()) {
+              const startNum = parseInt(invSerialStartNum) || 1;
+              computedSerial = `${invSerialPrefix.trim()}${startNum + (i - 1)}`;
+            } else if (formRest.serialNumber) {
+              computedSerial = `${formRest.serialNumber}-${i}`;
+            }
+
+            const newAssetData = {
+              ...formRest,
+              name: `${formRest.name} [#${i}]`,
+              serialNumber: computedSerial,
+              photoUrls,
+              trackingMode: 'individual',
+              id: itemDocRef.id,
+              quantity: 1, // Individualized quantity
+              assetTag: `ASSET-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+
+            if (!isOnline) {
+              await offlineSync.queueOperation({
+                type: 'set',
+                collectionPath: ['inventories', selectedInventory.id, 'items', itemDocRef.id],
+                docId: itemDocRef.id,
+                data: newAssetData,
+                label: `Add asset: ${newAssetData.name}`
+              });
+            } else if (batch) {
+              batch.set(itemDocRef, newAssetData);
+            }
+          }
+
+          if (isOnline && batch) {
+            await batch.commit();
+          }
+
+          toast.success(`Batch generated ${qtyToGen} serialized copy records successfully!`);
         } else {
-          await setDoc(itemDocRef, newAssetData);
-          toast.success("Asset added to selected inventory list.");
+          const itemDocRef = doc(parentColRef);
+          const newAssetData = {
+            ...formRest,
+            photoUrls,
+            trackingMode: trackingMode || 'batch',
+            id: itemDocRef.id,
+            assetTag: `ASSET-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+
+          if (!isOnline) {
+            await offlineSync.queueOperation({
+              type: 'set',
+              collectionPath: ['inventories', selectedInventory.id, 'items', itemDocRef.id],
+              docId: itemDocRef.id,
+              data: newAssetData,
+              label: `Add asset: ${formRest.name}`
+            });
+            toast.success("Added asset offline. Queue updated for synchronization!");
+          } else {
+            await setDoc(itemDocRef, newAssetData);
+            toast.success("Asset added to selected inventory list.");
+          }
         }
       }
+
       setIsAddingItemManually(false);
       setEditingItem(null);
+      // Reset form options
+      setInvSerialPrefix('');
+      setInvSerialStartNum('');
     } catch (err) {
       console.error(err);
       toast.error("Oops! Database entry could not be written.");
@@ -1067,7 +1257,8 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       condition: item.condition || 'good',
       status: item.status || 'available',
       photoUrl: item.photoUrls?.[0] || '',
-      visibility: item.visibility || 'public'
+      visibility: item.visibility || 'public',
+      trackingMode: item.trackingMode || 'batch'
     });
     setIsAddingItemManually(true);
   };
@@ -1978,6 +2169,15 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                       <p className="text-[9px] font-mono text-neutral-400 uppercase tracking-widest font-bold">
                                         {item.assetTag}
                                       </p>
+                                      <span className={`text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 border rounded shrink-0 ${
+                                        item.trackingMode === 'individual'
+                                          ? 'bg-blue-50 border-[#0066cc]/20 text-[#0066cc]'
+                                          : 'bg-stone-50 border-stone-200 text-stone-500'
+                                      }`}>
+                                        {item.trackingMode === 'individual' ? '👥 UID' : '📦 Batch'}
+                                      </span>
+                                      <p className="hidden">
+                                      </p>
                                       {isAuditMode && isMaintenanceOutdated(item) && (
                                         <span className="text-[8px] font-black uppercase text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded">Maint Overdue</span>
                                       )}
@@ -2295,7 +2495,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                 </div>
                               </div>
                               <div className="flex items-center justify-between mt-1 pt-2 border-t border-neutral-50">
-                                <span className="text-[9px] font-mono font-bold text-neutral-400">Qty: {item.quantity || 1}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[9px] font-mono font-bold text-neutral-400">Qty: {item.quantity || 1}</span>
+                                  <span className={`text-[6.5px] font-black uppercase tracking-wider px-1 rounded ${
+                                    item.trackingMode === 'individual'
+                                      ? 'bg-blue-50 text-[#0066cc] border border-[#0066cc]/10 font-bold'
+                                      : 'bg-stone-50 text-stone-500 border border-stone-200 font-bold'
+                                  }`}>
+                                    {item.trackingMode === 'individual' ? 'UID' : 'Batch'}
+                                  </span>
+                                </div>
                                 <span className="text-[9px] font-bold text-neutral-900">${(item.price || 0).toLocaleString()}</span>
                               </div>
                             </div>
@@ -2463,6 +2672,15 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       </button>
 
                       <button 
+                        onClick={() => setIsBulkSerializeModalOpen(true)}
+                        className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#0066cc] hover:bg-[#0055b3] text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
+                        title="Decompose and transition selected Batch assets to Individual serial tracked assets in bulk"
+                      >
+                        <Zap className="w-4 h-4 text-blue-200" />
+                        <span>Serialize UID</span>
+                      </button>
+
+                      <button 
                         onClick={() => setIsBulkDeleteConfirmOpen(true)}
                         className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
                       >
@@ -2600,6 +2818,22 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       </div>
                     </motion.div>
                   </div>
+                )}
+              </AnimatePresence>
+
+              {/* Bulk Serialize Modal */}
+              <AnimatePresence>
+                {isBulkSerializeModalOpen && (
+                  <BulkSerializeModal
+                    isOpen={isBulkSerializeModalOpen}
+                    onClose={() => setIsBulkSerializeModalOpen(false)}
+                    selectedItems={inventoryItems.filter(item => selectedInventoryItems.has(item.id))}
+                    db={db}
+                    selectedInventoryId={selectedInventory?.id || ''}
+                    isOnline={isOnline}
+                    offlineSync={offlineSync}
+                    onComplete={() => setSelectedInventoryItems(new Set())}
+                  />
                 )}
               </AnimatePresence>
 
@@ -3272,6 +3506,63 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       ))}
                     </div>
 
+                    {/* Auto-detected Quantity field recommendation & individual tracking transition flags */}
+                    {flaggedItemsToDecompose.length > 0 && (
+                      <div className="bg-amber-50/50 border border-amber-200 rounded-3xl p-5 space-y-3">
+                        <div className="flex items-center gap-2 text-amber-800">
+                          <AlertCircle size={16} />
+                          <span className="text-xs font-black uppercase tracking-tight">Decompose / High-Value Serial Flags Detected</span>
+                        </div>
+                        <p className="text-[11px] text-neutral-600 leading-relaxed">
+                          We detected <strong>{flaggedItemsToDecompose.length}</strong> items in your list with a quantity greater than 1 (totaling <strong>{flaggedItemsToDecompose.reduce((acc, f) => acc + f.qty, 0)}</strong> units). In Packer Tools, duplicate assets with high quantity are flagged as needing <strong>Individual Mode</strong> so they have unique bar codes, tracking values, and maintenance schedules!
+                        </p>
+                        
+                        <div className="bg-white rounded-2xl border border-amber-100 p-3 max-h-[120px] overflow-y-auto space-y-1.5 divide-y divide-neutral-100">
+                          {flaggedItemsToDecompose.slice(0, 5).map((f, i) => (
+                            <div key={i} className="flex items-center justify-between text-[11px] pt-1.5 first:pt-0">
+                              <span className="font-bold text-neutral-800 truncate max-w-[70%]">{f.name}</span>
+                              <span className="text-[10px] bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full font-bold shrink-0">Qty: {f.qty}</span>
+                            </div>
+                          ))}
+                          {flaggedItemsToDecompose.length > 5 && (
+                            <p className="text-[9px] text-neutral-400 text-center pt-1.5 italic">And {flaggedItemsToDecompose.length - 5} more items...</p>
+                          )}
+                        </div>
+
+                        <div className="bg-white p-3.5 rounded-2xl border border-neutral-150 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="space-y-0.5">
+                            <span className="text-xs font-black uppercase tracking-tight text-neutral-800">Choose Individual Unique Tracking Strategy</span>
+                            <p className="text-[9px] text-neutral-500">Decompose highlighted rows instantly with auto-incremental UIDs, or preserve them as combined batch counts.</p>
+                          </div>
+                          
+                          <div className="flex gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setAutoDecomposeOnImport(true)}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border transition ${
+                                autoDecomposeOnImport 
+                                  ? 'bg-neutral-900 text-white border-neutral-900' 
+                                  : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300'
+                              }`}
+                            >
+                              👥 Decompose
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAutoDecomposeOnImport(false)}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border transition ${
+                                !autoDecomposeOnImport 
+                                  ? 'bg-neutral-900 text-white border-neutral-900' 
+                                  : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300'
+                              }`}
+                            >
+                              📦 Keep Bulk
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Progress upload box */}
                     {isSubmittingImport && (
                       <div className="space-y-2 p-4 bg-neutral-50 rounded-xl border border-neutral-150">
@@ -3454,9 +3745,87 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                   </div>
                 </div>
 
+                {/* Asset Tracking Strategy */}
+                {!editingItem ? (
+                  <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100/60 space-y-3">
+                    <label className="text-[9px] font-black uppercase tracking-widest text-[#0066cc] block">📦 Inventory Tracking Mode</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setItemForm({ ...itemForm, trackingMode: 'batch' })}
+                        className={`p-3.5 rounded-xl border flex flex-col items-start text-left transition-all ${
+                          itemForm.trackingMode === 'batch'
+                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm'
+                            : 'bg-white border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                        }`}
+                      >
+                        <span className="text-xs font-black uppercase tracking-tight">Batch Mode</span>
+                        <span className="text-[9px] opacity-75 mt-0.5 leading-normal">Quantity tracking (e.g. 5x spigots). Shared list entry with combined stock total.</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setItemForm({ ...itemForm, trackingMode: 'individual' })}
+                        className={`p-3.5 rounded-xl border flex flex-col items-start text-left transition-all ${
+                          itemForm.trackingMode === 'individual'
+                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm'
+                            : 'bg-white border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                        }`}
+                      >
+                        <span className="text-xs font-black uppercase tracking-tight">Individual Mode</span>
+                        <span className="text-[9px] opacity-75 mt-0.5 leading-normal">UID serialized tracking (e.g. 5x cameras). Generates multiple unique-tag records for item-level tracking.</span>
+                      </button>
+                    </div>
+
+                    {itemForm.trackingMode === 'individual' && itemForm.quantity > 1 && (
+                      <div className="p-3 bg-white border border-dashed border-neutral-200 rounded-xl space-y-2">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-[#0066cc] block">⚡ Auto-Sequential Serial Prefix generator</span>
+                        <p className="text-[8px] text-neutral-400 leading-normal">
+                          We will generate <strong>{itemForm.quantity}</strong> separate assets with dedicated bar codes and unique IDs (e.g. item [#1] to item [#{itemForm.quantity}]).
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <label className="text-[8px] uppercase font-bold text-neutral-500 block mb-0.5">UID Prefix</label>
+                            <input
+                              type="text"
+                              value={invSerialPrefix}
+                              onChange={(e) => setInvSerialPrefix(e.target.value)}
+                              placeholder="e.g. SPG-"
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1 text-[10px] outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[8px] uppercase font-bold text-neutral-500 block mb-0.5">Starting Start Num</label>
+                            <input
+                              type="text"
+                              value={invSerialStartNum}
+                              onChange={(e) => setInvSerialStartNum(e.target.value)}
+                              placeholder="e.g. 1001"
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1 text-[10px] outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-neutral-50/50 p-3.5 rounded-2xl border border-neutral-100 flex items-center justify-between text-xs">
+                    <span className="text-neutral-500">Tracking Strategy:</span>
+                    <span className={`font-black uppercase tracking-wider text-[9px] px-2.5 py-1 rounded-full ${
+                      itemForm.trackingMode === 'individual'
+                        ? 'bg-[#0066cc]/10 text-[#0066cc]'
+                        : 'bg-amber-600/10 text-amber-600'
+                    }`}>
+                      {itemForm.trackingMode === 'individual' ? '👥 Individual UID Mode' : '📦 Batch Quantity Mode'}
+                    </span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Quantity</label>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">
+                      {itemForm.trackingMode === 'individual' && !editingItem ? "Copies to Deploy" : "Quantity"}
+                    </label>
                     <input
                       type="number"
                       placeholder="1"

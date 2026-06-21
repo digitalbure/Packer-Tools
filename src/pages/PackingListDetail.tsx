@@ -181,6 +181,20 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [isPullingDetails, setIsPullingDetails] = useState(false);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
   const [pullError, setPullError] = useState('');
+
+  // Pack item ancillaries states
+  const [editAddOns, setEditAddOns] = useState<{
+    itemId?: string;
+    name: string;
+    price: number;
+    useDefaultPrice?: boolean;
+    type?: 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
+    notes?: string;
+  }[]>([]);
+  const [packAncillaryName, setPackAncillaryName] = useState('');
+  const [packAncillaryType, setPackAncillaryType] = useState<'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other'>('Accessory');
+  const [packAncillaryPrice, setPackAncillaryPrice] = useState<string>('0');
+  const [packAncillaryNotes, setPackAncillaryNotes] = useState('');
   
   // Marketplace state
   const [editRecipientId, setEditRecipientId] = useState('');
@@ -1172,6 +1186,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     setEditTags(item.tags?.join(', ') || '');
     setEditPhotoUrls(item.photoUrls || []);
     setEditSourceUrl(item.sourceUrl || '');
+    setEditAddOns(item.addOns || []);
     setPullError('');
     setIsDirty(false);
   };
@@ -1258,6 +1273,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         photoUrls: editPhotoUrls,
         relatedItemIds: editRelatedItemIds,
         sourceUrl: editSourceUrl,
+        addOns: editAddOns,
         updatedAt: new Date().toISOString()
       });
       setEditingItem(null);
@@ -4663,6 +4679,144 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                           <option value="oz">oz</option>
                         </select>
                       </div>
+                    </div>
+
+                    {/* Ancillaries & Optional Add-ons section */}
+                    <div className="bg-neutral-50 p-5 rounded-2xl border border-neutral-200 mt-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-black uppercase tracking-widest text-[#0066cc] flex items-center gap-1">
+                          <span>📦 Optional Accessories & Ancillaries</span>
+                        </label>
+                        <span className="text-[10px] bg-[#0066cc]/10 text-[#0066cc] px-2 py-0.5 rounded-full font-bold">
+                          {editAddOns.length} Added
+                        </span>
+                      </div>
+                      <p className="text-[9px] text-neutral-400 leading-normal">
+                        Add mods, attachments, cables, software licenses, or battery plates to this specific item.
+                      </p>
+
+                      {/* Manual addition form row */}
+                      <div className="bg-white p-3.5 rounded-xl border border-neutral-200 space-y-2.5 text-xs text-left">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-neutral-500 block">➕ Quick-Add Component:</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[8px] uppercase font-bold text-neutral-400 block mb-0.5">Ancillary Name</label>
+                            <input
+                              type="text"
+                              value={packAncillaryName}
+                              onChange={(e) => setPackAncillaryName(e.target.value)}
+                              placeholder="e.g. Cinema Rig, software patch"
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-[#0066cc]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[8px] uppercase font-bold text-neutral-400 block mb-0.5">Classification Type</label>
+                            <select
+                              value={packAncillaryType}
+                              onChange={(e) => setPackAncillaryType(e.target.value as any)}
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-[#0066cc]"
+                            >
+                              <option value="Accessory">🕶️ Accessory</option>
+                              <option value="Consumable">🔋 Consumable</option>
+                              <option value="Attachment">⛓️ Attachment</option>
+                              <option value="Add On">🔌 Add On</option>
+                              <option value="Software">💿 Software</option>
+                              <option value="Mod">🔧 Custom Mod</option>
+                              <option value="Other">📦 Other</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="text-[8px] uppercase font-bold text-neutral-400 block mb-0.5">Estimated Value / Rate</label>
+                            <input
+                              type="number"
+                              value={packAncillaryPrice}
+                              onChange={(e) => setPackAncillaryPrice(e.target.value)}
+                              placeholder="0"
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-[#0066cc]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[8px] uppercase font-bold text-neutral-400 block mb-0.5">Ancillary Notes (Optional)</label>
+                            <input
+                              type="text"
+                              value={packAncillaryNotes}
+                              onChange={(e) => setPackAncillaryNotes(e.target.value)}
+                              placeholder="Spec, length, brand etc"
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-[#0066cc]"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!packAncillaryName.trim()) {
+                                toast.error("Ancillary name is required!");
+                                return;
+                              }
+                              const val = parseFloat(packAncillaryPrice) || 0;
+                              const newAncObj = {
+                                name: packAncillaryName.trim(),
+                                type: packAncillaryType,
+                                price: val,
+                                notes: packAncillaryNotes.trim() || undefined
+                              };
+                              setEditAddOns(prev => [...prev, newAncObj]);
+                              setIsDirty(true);
+                              
+                              // Reset states
+                              setPackAncillaryName('');
+                              setPackAncillaryNotes('');
+                              setPackAncillaryPrice('0');
+                              toast.success("Added ancillary to item definition!");
+                            }}
+                            className="px-3 py-1.5 bg-neutral-900 text-white font-extrabold uppercase tracking-widest text-[9px] rounded-lg hover:bg-black transition-all cursor-pointer"
+                          >
+                            + Append Option
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Display current list of added items */}
+                      {editAddOns.length > 0 ? (
+                        <div className="border border-neutral-200 rounded-lg bg-white overflow-hidden divide-y divide-neutral-100 text-xs text-left">
+                          {editAddOns.map((anc, idx) => (
+                            <div key={idx} className="flex justify-between items-center p-2.5">
+                              <div className="flex flex-col text-left">
+                                <span className="font-bold text-neutral-800">{anc.name}</span>
+                                <div className="space-x-1.5 text-[9px] text-neutral-400">
+                                  <span className="font-bold text-neutral-500 uppercase">{anc.type || 'Accessory'}</span>
+                                  {anc.notes && <span>• {anc.notes}</span>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-black text-emerald-600 text-[10px]">
+                                  {anc.price === 0 ? 'FREE' : `$${anc.price}`}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditAddOns(prev => prev.filter((_, i) => i !== idx));
+                                    setIsDirty(true);
+                                    toast.success("Ancillary removed");
+                                  }}
+                                  className="text-neutral-400 hover:text-red-500 p-1 rounded hover:bg-neutral-50 transition"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center p-3.5 bg-white border border-dashed border-neutral-200 rounded-xl">
+                          <p className="text-[10px] text-neutral-400 italic">No bare-gear ancillaries logged yet.</p>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 )}

@@ -907,12 +907,17 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     photoUrls: ['https://picsum.photos/seed/gear/400/400']
   });
   const [addStep, setAddStep] = useState(1);
+  const [trackingMode, setTrackingMode] = useState<'bulk' | 'serialized'>('bulk');
+  const [serialPrefix, setSerialPrefix] = useState('');
+  const [serialStartNum, setSerialStartNum] = useState('');
   const [isDirty, setIsDirty] = useState(false);
   const [childItems, setChildItems] = useState<GearItem[]>([]);
   const [isAddingToKit, setIsAddingToKit] = useState(false);
   const [showAddOnCreator, setShowAddOnCreator] = useState(false);
   const [selectedAddOnItemId, setSelectedAddOnItemId] = useState('');
   const [customAddOnName, setCustomAddOnName] = useState('');
+  const [addOnType, setAddOnType] = useState<'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other'>('Accessory');
+  const [addOnNotes, setAddOnNotes] = useState('');
   const [addOnPriceOption, setAddOnPriceOption] = useState<'default' | 'custom'>('custom');
   const [addOnCustomPrice, setAddOnCustomPrice] = useState(0);
   const [inheritanceModal, setInheritanceModal] = useState<{
@@ -2400,76 +2405,115 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     try {
       const path = `users/${user.uid}/gearLibrary`;
       const pCat = newItem.primaryCategory || newItem.category || 'Other';
-      
       const colRef = collection(db, 'users', user.uid, 'gearLibrary');
-      const preGeneratedId = doc(colRef).id;
-      const newGearPayload = cleanUndefinedFields({
-        ...newItem,
-        category: pCat,
-        primaryCategory: pCat,
-        secondaryCategories: newItem.secondaryCategories || [],
-        model: newItem.model || '',
-        modelNumber: newItem.modelNumber || '',
-        serialNumber: newItem.serialNumber || '',
-        releaseYear: newItem.releaseYear || '',
-        ownerId: user.uid,
-        assetTag: `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-        usageCount: 0,
-        quantity: newItem.quantity || 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
+      
+      const isBatchAutogen = trackingMode === 'serialized' && (newItem.quantity || 1) > 1;
 
-      if (!isOnline) {
-        await offlineSync.queueOperation({
-          type: 'set',
-          collectionPath: ['users', user.uid, 'gearLibrary', preGeneratedId],
-          docId: preGeneratedId,
-          data: {
-            ...newGearPayload,
-            id: preGeneratedId
-          },
-          label: `Add gear: ${newItem.name || 'Item'}`
+      if (isBatchAutogen && isOnline) {
+        const qtyToGen = newItem.quantity || 1;
+        const batch = writeBatch(db);
+        const generatedNames: string[] = [];
+        
+        for (let i = 1; i <= qtyToGen; i++) {
+          const newDocRef = doc(colRef);
+          
+          // Generate sequential / custom serial
+          let computedSerial = newItem.serialNumber || '';
+          if (serialPrefix.trim()) {
+            const startNum = parseInt(serialStartNum) || 1;
+            computedSerial = `${serialPrefix.trim()}${startNum + (i - 1)}`;
+          } else if (newItem.serialNumber) {
+            computedSerial = `${newItem.serialNumber}-${i}`;
+          }
+          
+          const payload = cleanUndefinedFields({
+            ...newItem,
+            name: `${newItem.name} [#${i}]`,
+            category: pCat,
+            primaryCategory: pCat,
+            secondaryCategories: newItem.secondaryCategories || [],
+            model: newItem.model || '',
+            modelNumber: newItem.modelNumber || '',
+            serialNumber: computedSerial,
+            releaseYear: newItem.releaseYear || '',
+            ownerId: user.uid,
+            assetTag: `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+            usageCount: 0,
+            quantity: 1, // Individual serialized status
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+          
+          batch.set(newDocRef, payload);
+          generatedNames.push(payload.name);
+        }
+        
+        await batch.commit();
+
+        if (user.orgId) {
+          triggerGoogleChatAlert(
+            user.orgId, 
+            'gear_added', 
+            `🆕 *Batch Serialized Gear Registered*:\n• *Parent Asset*: ${newItem.name}\n• *Total Copies Onboarded*: ${qtyToGen}\n• *By*: ${user.displayName || user.email || 'Team User'}`
+          ).catch(err => console.warn('Google Chat notification skipped:', err));
+        }
+
+        await logActivity(
+          user.uid,
+          user.displayName || user.email || 'Platform User',
+          'gear_add_batch',
+          `Batch onboarded ${qtyToGen} serialized copies of "${newItem.name}"`,
+          { parentName: newItem.name, qty: qtyToGen }
+        );
+      } else {
+        const preGeneratedId = doc(colRef).id;
+        const newGearPayload = cleanUndefinedFields({
+          ...newItem,
+          category: pCat,
+          primaryCategory: pCat,
+          secondaryCategories: newItem.secondaryCategories || [],
+          model: newItem.model || '',
+          modelNumber: newItem.modelNumber || '',
+          serialNumber: newItem.serialNumber || '',
+          releaseYear: newItem.releaseYear || '',
+          ownerId: user.uid,
+          assetTag: `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+          usageCount: 0,
+          quantity: newItem.quantity || 1,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         });
-        setIsAddModalOpen(false);
-        setNewItem({
-          name: '',
-          category: 'Other',
-          primaryCategory: 'Other',
-          secondaryCategories: [],
-          model: '',
-          modelNumber: '',
-          serialNumber: '',
-          releaseYear: '',
-          condition: 'good',
-          weight: 0,
-          price: 0,
-          brand: '',
-          description: '',
-          tags: [],
-          organizationTip: '',
-          quantity: 1,
-          photoUrls: ['https://picsum.photos/seed/gear/400/400']
-        });
-        toast.success('Added gear item offline.');
-        return;
+
+        if (!isOnline) {
+          await offlineSync.queueOperation({
+            type: 'set',
+            collectionPath: ['users', user.uid, 'gearLibrary', preGeneratedId],
+            docId: preGeneratedId,
+            data: {
+              ...newGearPayload,
+              id: preGeneratedId
+            },
+            label: `Add gear: ${newItem.name || 'Item'}`
+          });
+        } else {
+          await addDoc(colRef, newGearPayload);
+          if (user.orgId) {
+            triggerGoogleChatAlert(
+              user.orgId, 
+              'gear_added', 
+              `🆕 *New Gear Registered*:\n• *Name*: ${newItem.name}\n• *Category*: ${newItem.category}\n• *Condition*: ${newItem.condition}\n• *By*: ${user.displayName || user.email || 'Team User'}`
+            ).catch(err => console.warn('Google Chat notification skipped:', err));
+          }
+          await logActivity(
+            user.uid,
+            user.displayName || user.email || 'Platform User',
+            'gear_add',
+            `Added gear "${newItem.name}" to Gear Library`,
+            { gearName: newItem.name }
+          );
+        }
       }
 
-      await addDoc(colRef, newGearPayload);
-      if (user.orgId) {
-        triggerGoogleChatAlert(
-          user.orgId, 
-          'gear_added', 
-          `🆕 *New Gear Registered*:\n• *Name*: ${newItem.name}\n• *Category*: ${newItem.category}\n• *Condition*: ${newItem.condition}\n• *By*: ${user.displayName || user.email || 'Team User'}`
-        ).catch(err => console.warn('Google Chat notification skipped:', err));
-      }
-      await logActivity(
-        user.uid,
-        user.displayName || user.email || 'Platform User',
-        'gear_add',
-        `Added gear "${newItem.name}" to Gear Library`,
-        { gearName: newItem.name }
-      );
       setIsAddModalOpen(false);
       setNewItem({
         name: '',
@@ -2490,7 +2534,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         quantity: 1,
         photoUrls: ['https://picsum.photos/seed/gear/400/400']
       });
-      toast.success('Gear added to library');
+      setTrackingMode('bulk');
+      setSerialPrefix('');
+      setSerialStartNum('');
+      toast.success(trackingMode === 'serialized' && (newItem.quantity || 1) > 1 
+        ? `Batch generated ${newItem.quantity} serialized copies successfully!` 
+        : 'Gear added to library'
+      );
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/gearLibrary`);
     }
@@ -2666,7 +2716,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         itemId: selectedAddOnItemId || undefined,
         name: addonName,
         price: finalPrice,
-        useDefaultPrice: addOnPriceOption === 'default'
+        useDefaultPrice: addOnPriceOption === 'default',
+        type: addOnType,
+        notes: addOnNotes.trim() || undefined
       };
 
       const currentAddOns = item.addOns || [];
@@ -2678,6 +2730,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       // Reset form
       setSelectedAddOnItemId('');
       setCustomAddOnName('');
+      setAddOnType('Accessory');
+      setAddOnNotes('');
       setAddOnCustomPrice(0);
       setAddOnPriceOption('custom');
       setShowAddOnCreator(false);
@@ -2977,6 +3031,35 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           placeholder="e.g. Filter Kit / SD Card / Rain Cover"
                           className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs outline-none disabled:opacity-50"
                         />
+
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div className="space-y-1">
+                            <label className="text-[8px] uppercase tracking-wide font-bold text-neutral-400 block">Classification Type</label>
+                            <select
+                              value={addOnType}
+                              onChange={(e) => setAddOnType(e.target.value as any)}
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1 text-[11px] outline-none"
+                            >
+                              <option value="Accessory">🕶️ Accessory</option>
+                              <option value="Consumable">🔋 Consumable (Battery, Card, etc)</option>
+                              <option value="Attachment">⛓️ Attachment (Rig, mount, lens)</option>
+                              <option value="Add On">🔌 Add On</option>
+                              <option value="Software">💿 Software / License</option>
+                              <option value="Mod">🔧 Custom Mod</option>
+                              <option value="Other">📦 Other</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[8px] uppercase tracking-wide font-bold text-neutral-400 block">Ancillary Notes (Optional)</label>
+                            <input
+                              type="text"
+                              value={addOnNotes}
+                              onChange={(e) => setAddOnNotes(e.target.value)}
+                              placeholder="e.g. 10m cord, speed-class"
+                              className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1 text-[11px] outline-none"
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <div className="space-y-1.5">
@@ -3064,10 +3147,20 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                         {item.addOns.map((add, idx) => (
                           <div key={idx} className="flex items-center justify-between p-2.5 text-xs">
                             <div className="flex flex-col">
-                              <span className="font-bold text-neutral-800">{add.name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-neutral-800">{add.name}</span>
+                                {add.type && (
+                                  <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-neutral-100 text-neutral-500 rounded-md">
+                                    {add.type}
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-[10px] text-neutral-400 italic">
                                 {add.itemId ? '🏷️ Catalogued Item' : '⚙️ Custom Accessory'} | Price if bundled: <strong className="text-emerald-600">{item.currency || '$'}{add.price}</strong> {add.price === 0 && ' (Free!)'}
                               </span>
+                              {add.notes && (
+                                <span className="text-[9px] text-amber-600 font-medium">Notes: {add.notes}</span>
+                              )}
                             </div>
                             <button
                               type="button"
@@ -5588,8 +5681,41 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
                         />
                       </div>
+                      <div className="space-y-2.5 sm:col-span-2 bg-neutral-50 p-4 rounded-2xl border border-neutral-100">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-[#0066cc] block">📦 Asset Tracking Strategy</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setTrackingMode('bulk')}
+                            className={`p-3.5 rounded-xl border flex flex-col items-start text-left transition-all ${
+                              trackingMode === 'bulk'
+                                ? 'bg-neutral-900 border-neutral-900 text-white shadow-md'
+                                : 'bg-white border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                            }`}
+                          >
+                            <span className="text-xs font-black uppercase tracking-tight">Bulk Quantity Tracking</span>
+                            <span className="text-[9px] opacity-75 mt-1 leading-normal">For standard non-serialized accessories / bulk items (e.g. 10x spigots, 50x safety ropes). Single library entry with combined stock quantity.</span>
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => setTrackingMode('serialized')}
+                            className={`p-3.5 rounded-xl border flex flex-col items-start text-left transition-all ${
+                              trackingMode === 'serialized'
+                                ? 'bg-neutral-900 border-neutral-900 text-white shadow-md'
+                                : 'bg-white border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                            }`}
+                          >
+                            <span className="text-xs font-black uppercase tracking-tight">Serialized Asset Tracking</span>
+                            <span className="text-[9px] opacity-75 mt-1 leading-normal">For precious serialized parent equipment (e.g. 5x Sony Cameras, Lenses). Auto-creates distinct individual records with custom barcodes and unique serials.</span>
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Quantity Owned</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                          {trackingMode === 'serialized' ? 'Quantity of Copies to Deploy' : 'Quantity Owned'}
+                        </label>
                         <input
                           type="number"
                           min="1"
@@ -5601,6 +5727,37 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
                         />
                       </div>
+
+                      {trackingMode === 'serialized' && (newItem.quantity || 1) > 1 && (
+                        <div className="p-4 bg-neutral-50 border border-dashed border-neutral-200 rounded-2xl sm:col-span-2 space-y-3">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-[#0066cc] block">⚙️ Autogenerate Sequential Serials & Labels</span>
+                          <p className="text-[9px] text-neutral-400 leading-normal">
+                            We will compile and save <strong>{newItem.quantity}</strong> separate database items (e.g. <em>{newItem.name} [#1]</em> to <em>{newItem.name} [#{newItem.quantity}]</em>) each tracking distinct health metrics and QR lines.
+                          </p>
+                          <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div>
+                              <label className="text-[8px] uppercase font-bold text-neutral-500 block mb-1">Serial Number Prefix (Optional)</label>
+                              <input
+                                type="text"
+                                value={serialPrefix}
+                                onChange={(e) => setSerialPrefix(e.target.value)}
+                                placeholder="e.g. SN-FX6-"
+                                className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-2 text-xs outline-none focus:ring-1 focus:ring-[#0066cc]"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[8px] uppercase font-bold text-neutral-500 block mb-1">Starting Serial Number (Optional)</label>
+                              <input
+                                type="text"
+                                value={serialStartNum}
+                                onChange={(e) => setSerialStartNum(e.target.value)}
+                                placeholder="e.g. 1001"
+                                className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-2 text-xs outline-none focus:ring-1 focus:ring-[#0066cc]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       
                       <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 font-bold">Last Maintenance Date</label>

@@ -212,3 +212,17 @@ Instead of waiting for an administrator to clear your email address, you can now
 Your bespoke system designs and layouts created in the **Systems Builder** module now integrate premium, server-side validated security rules:
 - **Tenant Isolation**: Only the genuine creator (`ownerId`) or system-wide Super Administrators can modify or read custom Systems Builds.
 - **Micro-validated Payload Structure**: Every incoming compile list must conform to the `isValidSystemsBuild` type constraint inside `firestore.rules`, rejecting malformed metadata and invalid payloads at the database line level.
+
+---
+
+## 📷 11. Onboarding Cameras and "In-The-Box" Bundled Components (v4.20.0)
+
+When registering premium cameras, sensors, or kits that ship with multiple critical "in-the-box" accessories, chargers, and custom batteries, Packer Tools leverages a unified **Optional Accessories & Ancillaries** model to keep your files organized without cluttering your master serial number tags or bloat bookkeeping values.
+
+### 🛠️ Step-by-Step Onboarding Strategy:
+1. **Model the Primary Asset:** Open the **Gear Library** (`#/gear`) and click **"New Item"** to register the primary camera body (e.g. *RED V-Raptor* or *Sony FX6*). Allocate standard fields (Category: Camera, Brand, Model, and initial Condition).
+2. **Configure the Ancillaries Grid:** Under the **Optional Accessories & Ancillaries** card:
+   - **Quick-Add Presets:** Click recommended Quick-Add options (e.g., *Power Cable*, *Storage Card*, or *Soft Strap*) to load standard manufacturer inclusions immediately.
+   - **Manual Custom Insertion:** Input manual accessory units that shipped together inside the factory box. Set the classification type (Accessories, Consumables, Attachments, or Software) to distinguish batteries or cages from soft goods.
+3. **Set Safe Accounting Valuations:** For standard "in-the-box" inclusions, keep the price defined as `$0` (Free Bundle offer). This preserves the accurate standalone market rental rates of the main body while ensuring crew members notice the sub-items.
+4. **Trigger Active Bundle / PWA Syncing:** Clicking save locks the sub-items to the parent asset record under the Firestore `addOns` field array. During future list creations inside the **Manifest Module**, selecting this camera instantly alerts operators to include all mapped box materials!

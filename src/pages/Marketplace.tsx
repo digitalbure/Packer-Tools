@@ -86,6 +86,8 @@ interface ProductItem {
     name: string;
     price: number;
     useDefaultPrice?: boolean;
+    type?: 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
+    notes?: string;
   }>;
 }
 
@@ -2162,7 +2164,22 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                                   />
                                   <div className="flex flex-col">
                                     <span className="font-bold text-[11px] text-neutral-800">{add.name}</span>
-                                    <span className="text-[9px] text-[#ff4f3a]/80 font-bold uppercase tracking-wide">Bundle Offer Acc.</span>
+                                    {add.notes && (
+                                      <span className="text-[9px] text-neutral-400 font-medium italic">{add.notes}</span>
+                                    )}
+                                    <span className="text-[9px] text-[#ff4f3a]/80 font-bold uppercase tracking-wide">
+                                      {add.type ? (() => {
+                                        switch (add.type) {
+                                          case 'Accessory': return '🕶️ Accessory';
+                                          case 'Consumable': return '🔋 Consumable';
+                                          case 'Attachment': return '⛓️ Attachment';
+                                          case 'Add On': return '🔌 Add-On';
+                                          case 'Software': return '💿 Software';
+                                          case 'Mod': return '🔧 Custom Mod';
+                                          default: return '📦 Ancillary';
+                                        }
+                                      })() : '🕶️ Accessory'}
+                                    </span>
                                   </div>
                                 </div>
                                 <span className="font-extrabold text-xs text-emerald-600">

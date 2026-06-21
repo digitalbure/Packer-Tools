@@ -245,6 +245,22 @@ const articles = [
     tips: ["For high-security operations, enable 'Supervisor Signature' to force manual manager overrides on all kiosk transactions."]
   },
   {
+    id: 'onboard-camera-in-the-box',
+    title: "Onboarding Cameras & 'In-The-Box' Bundles",
+    description: "How to handle onboarding a newly purchased camera body with its various factory-supplied bundled components.",
+    category: 'gear-library',
+    steps: [
+      { title: "Register Main Camera Asset", description: "Open the Gear Library or Add Gear Modal, input the primary camera body details (e.g. model, serial, brand, category) as the parent asset." },
+      { title: "Map In-the-Box Ancillaries", description: "Scroll to the 'Optional Accessories & Ancillaries' form section inside the gear registration layout." },
+      { title: "Choose Classification Types", description: "Append each in-the-box items (Lens Cap as Attachment, Battery as Consumable, Strap as Accessory, software code as Software). Set price to 0 (Free) so they do not artificially bloat rental and inventory valuations." },
+      { title: "Toggle Kit Lock Mode", description: "Save the primary record as an active Bundle/Kit to ensure those in-the-box items automatically associate with the main asset on all subsequent packing lists and manifests." }
+    ],
+    tips: [
+      "Explicitly list chargers and firmware keys under the 'Ancillary Notes' to protect equipment custody during deep wilderness or rental dispatches.",
+      "Check the 'Audit Mode' to track if any bundled consumables (such as custom rechargeable lithium batteries) require immediate replacement or scheduled cycle checks."
+    ]
+  },
+  {
     id: 'embed-rental-shop',
     title: "Embedding the Custom Rental Shop Storefront",
     description: "Learn how to instantly place a fully functioning storefront directly into your commercial website with zero backend code.",
