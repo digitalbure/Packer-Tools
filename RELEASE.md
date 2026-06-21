@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.22.0`
+## Current Application Version: `v4.25.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,33 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.25.0 (Optimized Mobile Interaction & Universal Floating Access Controls)
+*Released on: June 21, 2026*
+- **Tactile Floating Action Buttons (FAB)**: Engineered tactile, high-contrast Floating Action Buttons (FABs) in the bottom-right corner of the **Gear Library** (using deep brand black) and **Marketplace** pages (using signature brand red `#ff4f3a`) to optimize mobile interaction density and speed up entry creation workflows.
+- **Micro-haptic Tactile Triggering**: Configured native physical haptic vibration pulses (`window.navigator.vibrate`) on touch devices for FAB clicks, mirroring physical remote clicker interactions.
+- **Active Scaling Bounds**: Applied active tactile scale factors (`active:scale-90 duration-75`) on the FAB elements to deliver precise micro-interactive feedback on mobile viewports.
+
+---
+
+### 🚀 Stable Release: v4.24.0 (Performance Skeletons & Tactile Active States)
+*Released on: June 21, 2026*
+- **Integrated High-Performance Loading Skeletons**: Swapped out generic full-screen loading spinners on the Gear Library and Marketplace pages with elegant, shimmering structure skeletons which precisely mirror active grid and card layouts, completely eliminating layout shifting.
+- **Haptic Vibration Feedback**: Integrated browser-native haptic feedback (`window.navigator.vibrate`) on touch devices for critical active commands including "Add Item" and "Audit Mode Toggle".
+- **Visual Active States**: Programmed responsive active scale bounds (`active:scale-95 duration-75`) on master control buttons for instant tactile user-feedback on mobile viewports.
+- **Pull-to-Refresh Support**: Engineered full pull-to-refresh swipe down gestures with custom spinner indicators for seamless real-time data synchronization on mobile screens.
+
+---
+
+### 🚀 Stable Release: v4.23.0 (Mobile UX Optimizations & Responsive Gestures)
+*Released on: June 21, 2026*
+- **Collapsible Mobile Action Toolbars**: Designed and integrated fully responsive, collapsible filtering and action drawers across the Custom Inventories page and Gear Library view. Dense search options are hidden behind a high-contrast togglable panel on smaller screens, resolving component horizontal spillover.
+- **Visual Swipe Gestures Support**: Engineered pointer and touch-swipe observers (`onTouchStart`/`onTouchEnd`) inside the Marketplace Detail view which let users cycle fluidly through listing asset photographs with natural left/right hand gestures.
+- **Overlaid Chevron Asset Navigators**: Placed visible navigation arrows on the left and right margins of the detailed Listing illustration box—always displayed on mobile layouts and elegantly sliding in on desktop cursor-hover.
+- **Scroll-to-Head Transitions**: Improved mobile viewport shifts, aligning automatic scroll positioning (`window.scrollTo` top:0) upon selecting marketplace entries, matching the standard app design language.
+- **Scrollable Horizontal Sub-Tabs**: Upgraded the tab bars within the Active Listings module to support non-shrinkable scrollable flex containers, preventing horizontal squishing on compact screens.
 
 ---
 

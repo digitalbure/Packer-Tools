@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+
+const triggerHaptic = () => {
+  if (typeof window !== 'undefined' && window.navigator && typeof window.navigator.vibrate === 'function') {
+    try {
+      window.navigator.vibrate(12);
+    } catch (e) {
+      // safe backup fallback
+    }
+  }
+};
 import { 
   Package, 
   Cpu,
@@ -34,7 +44,8 @@ import {
   Download,
   Edit2,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Sliders
 } from 'lucide-react';
 import { 
   collection, 
@@ -226,6 +237,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   // Audit Mode states and helper functions for Inventory Items
   const [isAuditMode, setIsAuditMode] = useState(false);
   const [showOnlyAttentionNeeded, setShowOnlyAttentionNeeded] = useState(false);
+  const [showMobileControls, setShowMobileControls] = useState(false);
 
   const isMaintenanceOutdated = (item: InventoryItem | GearItem) => {
     if (item.status === 'maintenance') return true;
@@ -1645,8 +1657,11 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                   </p>
                 </div>
                 <button
-                  onClick={() => openCreateInventoryModal()}
-                  className="bg-black hover:bg-neutral-800 text-white font-black uppercase text-[10px] tracking-widest px-6 py-3.5 rounded-full flex items-center gap-2 self-start sm:self-auto transition-all shadow-md"
+                  onClick={() => {
+                    triggerHaptic();
+                    openCreateInventoryModal();
+                  }}
+                  className="bg-black hover:bg-neutral-800 active:scale-95 duration-75 text-white font-black uppercase text-[10px] tracking-widest px-6 py-3.5 rounded-full flex items-center gap-2 self-start sm:self-auto transition-all shadow-md"
                 >
                   <Plus size={16} />
                   <span>New Inventory List</span>
@@ -1826,7 +1841,8 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
               </div>
 
               {/* Custom Item Search and Action Toolbar */}
-              <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+              {/* Desktop-only view */}
+              <div className="hidden lg:flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-1">
                   <div className="relative">
                     <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -1891,7 +1907,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                         : "bg-neutral-50 border-neutral-200 text-neutral-400 cursor-not-allowed"
                     }`}
                   >
-                    <FileSpreadsheet size={14} className={isSelectedInventoryEditable ? "text-emerald-400" : "text-neutral-305 text-neutral-300"} />
+                    <FileSpreadsheet size={14} className={isSelectedInventoryEditable ? "text-emerald-400" : "text-neutral-300"} />
                     <span>Import Sheet Data</span>
                   </button>
 
@@ -1914,6 +1930,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
                   <button
                     onClick={() => {
+                      triggerHaptic();
                       setIsAuditMode(prev => {
                         const next = !prev;
                         if (next) {
@@ -1926,7 +1943,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                         return next;
                       });
                     }}
-                    className={`px-4 py-3 border rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer ${
+                    className={`px-4 py-3 border rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 duration-75 cursor-pointer ${
                       isAuditMode
                         ? "bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-100 h-11"
                         : "bg-white border-neutral-200 hover:bg-neutral-50 text-neutral-800 h-11"
@@ -1943,6 +1960,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                         return;
                       }
                       setEditingItem(null);
+                      triggerHaptic();
                       setItemForm({
                         name: '',
                         description: '',
@@ -1959,7 +1977,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       setIsAddingItemManually(true);
                     }}
                     disabled={!isSelectedInventoryEditable}
-                    className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition rounded-xl ${
+                    className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 duration-75 rounded-xl ${
                       isSelectedInventoryEditable
                         ? "bg-black hover:bg-neutral-800 text-white cursor-pointer"
                         : "bg-neutral-50 border border-neutral-200 text-neutral-400 cursor-not-allowed"
@@ -1969,6 +1987,183 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                     <span>Add Manual</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Mobile-optimized collapsible view */}
+              <div className="flex lg:hidden flex-col gap-2 w-full">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      type="text"
+                      placeholder="Search inventory..."
+                      value={inventorySearch}
+                      onChange={(e) => setInventorySearch(e.target.value)}
+                      className="w-full bg-white border border-neutral-200 rounded-xl pl-11 pr-4 py-3 text-xs outline-none focus:ring-1 focus:ring-black h-11 animate-fade-in"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileControls(p => !p)}
+                    className={`px-3 flex items-center justify-center border rounded-xl gap-1 bg-white hover:bg-neutral-50 border-neutral-200 text-xs font-black uppercase text-neutral-700 h-11 transition-all select-none ${
+                      showMobileControls ? 'bg-neutral-900 border-neutral-900 text-white hover:bg-neutral-800' : ''
+                    }`}
+                  >
+                    <Sliders size={14} className={showMobileControls ? "text-[#f59e0b]" : "text-neutral-505"} />
+                    <span>{showMobileControls ? "Hide Controls" : "Controls"}</span>
+                  </button>
+                </div>
+
+                {showMobileControls && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    className="space-y-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-200/50 mt-1"
+                  >
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-xl px-3 py-1 h-11 min-w-0">
+                        <Filter size={12} className="text-neutral-400 shrink-0" />
+                        <select
+                          value={inventoryFilterCondition}
+                          onChange={(e) => setInventoryFilterCondition(e.target.value)}
+                          className="flex-1 bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-wider h-full w-full min-w-0"
+                        >
+                          <option value="all">Every Condition</option>
+                          <option value="new">New</option>
+                          <option value="good">Good</option>
+                          <option value="fair">Fair</option>
+                          <option value="poor">Poor</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-xl px-3 py-1 h-11 min-w-0">
+                        <Tag size={12} className="text-neutral-400 shrink-0" />
+                        <select
+                          value={inventoryFilterStatus}
+                          onChange={(e) => setInventoryFilterStatus(e.target.value)}
+                          className="flex-1 bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-wider h-full w-full min-w-0"
+                        >
+                          <option value="all">Every Status</option>
+                          <option value="available">Available</option>
+                          <option value="in_use">In Use</option>
+                          <option value="maintenance">Maintenance</option>
+                          <option value="retired">Retired</option>
+                          <option value="missing">Missing</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          if (!isSelectedInventoryEditable) {
+                            toast.error("Permission Denied: You do not have edit rights on this inventory list.");
+                            return;
+                          }
+                          setImportStep(1);
+                          setImportHeaders([]);
+                          setImportData([]);
+                          setHeaderMappings({});
+                          setIsImporterOpen(true);
+                          setShowMobileControls(false);
+                        }}
+                        disabled={!isSelectedInventoryEditable}
+                        className={`py-3 border text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition rounded-xl ${
+                          isSelectedInventoryEditable
+                            ? "bg-neutral-900 border-neutral-900 text-white"
+                            : "bg-neutral-50 border-neutral-200 text-neutral-400 cursor-not-allowed"
+                        }`}
+                      >
+                        <FileSpreadsheet size={12} className={isSelectedInventoryEditable ? "text-emerald-400" : "text-neutral-300"} />
+                        <span>Import CSV</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          handleExportCSV();
+                          setShowMobileControls(false);
+                        }}
+                        className="py-3 bg-white border border-neutral-200 text-neutral-800 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition"
+                      >
+                        <Download size={12} />
+                        <span>Export CSV</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          handleExportAudit();
+                          setShowMobileControls(false);
+                        }}
+                        className="py-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition"
+                      >
+                        <FileText size={12} className="text-emerald-600" />
+                        <span>Audit PDF</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          triggerHaptic();
+                          setIsAuditMode(prev => {
+                            const next = !prev;
+                            if (next) {
+                              setShowOnlyAttentionNeeded(true);
+                              toast.success("Audit Mode Enabled: Highlighting attention needs.");
+                            } else {
+                              setShowOnlyAttentionNeeded(false);
+                              toast("Audit Mode Disabled.");
+                            }
+                            return next;
+                          });
+                          setShowMobileControls(false);
+                        }}
+                        className={`py-3 border rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all active:scale-95 duration-75 ${
+                          isAuditMode
+                            ? "bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-100"
+                            : "bg-white border-neutral-200 text-neutral-800"
+                        }`}
+                      >
+                        <ShieldAlert size={12} className={isAuditMode ? "text-white animate-bounce" : "text-amber-500"} />
+                        <span>{isAuditMode ? "Audit Active" : "Audit Mode"}</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (!isSelectedInventoryEditable) {
+                            toast.error("Permission Denied: You do not have edit rights on this inventory list.");
+                            return;
+                          }
+                          triggerHaptic();
+                          setEditingItem(null);
+                          setItemForm({
+                            name: '',
+                            description: '',
+                            brand: '',
+                            model: '',
+                            modelNumber: '',
+                            serialNumber: '',
+                            primaryCategory: 'Other',
+                            price: 0,
+                            quantity: 1,
+                            condition: 'good',
+                            status: 'available'
+                          });
+                          setIsAddingItemManually(true);
+                          setShowMobileControls(false);
+                        }}
+                        disabled={!isSelectedInventoryEditable}
+                        className={`py-3 col-span-2 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all active:scale-95 duration-75 rounded-xl ${
+                          isSelectedInventoryEditable
+                            ? "bg-black text-white hover:bg-neutral-800"
+                            : "bg-neutral-50 border border-neutral-200 text-neutral-400 cursor-not-allowed"
+                        }`}
+                      >
+                        <Plus size={12} />
+                        <span>Add Manual Item</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
               </div>
 
               {/* Dyn Categories and View Mode Switcher */}
@@ -2083,7 +2278,8 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                 <>
                   {inventoryViewMode === 'list' ? (
                     <div className="bg-white rounded-[2rem] border border-neutral-200 overflow-hidden shadow-sm">
-                      <table className="w-full text-left">
+                      <div className="hidden lg:block">
+                        <table className="w-full text-left">
                         <thead>
                           <tr className="border-b border-neutral-100 bg-neutral-50/50">
                             {isSelectedInventoryEditable && (
@@ -2297,6 +2493,172 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                         </tbody>
                       </table>
                     </div>
+
+                    {/* Mobile layout / Custom stack ensuring perfect horizontal containment */}
+                    <div className="block lg:hidden divide-y divide-neutral-100">
+                      {paginatedInventoryItems.map(item => {
+                        const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
+                        const isCheckedOut = item.status === 'in_use';
+                        return (
+                          <div 
+                            key={item.id}
+                            className={`p-4 space-y-3 transition-colors ${
+                              isAttention 
+                                ? 'bg-amber-55/40 border-l-4 border-l-amber-500' 
+                                : selectedInventoryItems.has(item.id) ? 'bg-neutral-100' : 'bg-white hover:bg-neutral-50/50'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              {isSelectedInventoryEditable && (
+                                <button
+                                  onClick={(e) => toggleInventoryItemSelection(item.id, e)}
+                                  className={`w-5 h-5 border rounded flex items-center justify-center transition-colors cursor-pointer mt-0.5 shrink-0 ${
+                                    selectedInventoryItems.has(item.id) 
+                                      ? 'bg-black border-black text-white shadow' 
+                                      : 'bg-white border-neutral-300'
+                                  }`}
+                                >
+                                  {selectedInventoryItems.has(item.id) && <Check size={12} strokeWidth={4} />}
+                                </button>
+                              )}
+                              <div className="space-y-1 min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="font-bold text-sm text-neutral-900 leading-tight break-words">{item.name}</p>
+                                  {item.isOfflinePending && (
+                                    <span className="text-[8px] font-black uppercase tracking-wider px-1 py-0.5 rounded bg-amber-500 border border-amber-600 text-white animate-pulse flex items-center gap-1 shrink-0">
+                                      <RefreshCw size={8} className="animate-spin" /> Pending Sync
+                                    </span>
+                                  )}
+                                  {isCheckedOut && (
+                                    <span className="text-[8px] font-black uppercase text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded">Checked Out</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                                  <span className="font-mono text-neutral-400 font-bold uppercase tracking-widest">{item.assetTag}</span>
+                                  <span className={`text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.5 border rounded ${
+                                    item.trackingMode === 'individual'
+                                      ? 'bg-blue-50 border-[#0066cc]/20 text-[#0066cc]'
+                                      : 'bg-stone-50 border-stone-200 text-stone-500'
+                                  }`}>
+                                    {item.trackingMode === 'individual' ? '👥 UID' : '📦 Batch'}
+                                  </span>
+                                  {isAuditMode && isMaintenanceOutdated(item) && (
+                                    <span className="text-[8px] font-black uppercase text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded">Maint Overdue</span>
+                                  )}
+                                  {isAuditMode && isLowInventory(item) && (
+                                    <span className="text-[8px] font-black uppercase text-amber-600 bg-amber-50 border border-amber-100 px-1 py-0.5 rounded">Low Stock</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-neutral-100">
+                              <div className="space-y-0.5">
+                                <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Specifications</p>
+                                {item.brand && <p className="text-neutral-700"><span className="font-semibold text-neutral-500">Brand:</span> {item.brand}</p>}
+                                {item.serialNumber && <p className="text-neutral-700"><span className="font-semibold text-neutral-500">Serial:</span> {item.serialNumber}</p>}
+                                {!item.brand && !item.serialNumber && <p className="text-neutral-400 italic font-mono">No Specs</p>}
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Status & Condition</p>
+                                <div className="flex flex-wrap gap-1 items-center">
+                                  <span className={`inline-block px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide rounded ${
+                                    item.status === 'available' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                    item.status === 'in_use' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                                    item.status === 'maintenance' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                                    'bg-neutral-100 text-neutral-600'
+                                  }`}>
+                                    {item.status}
+                                  </span>
+                                  <span className={`inline-block px-1.5 py-0.5 text-[8px] font-bold uppercase rounded ${
+                                    item.condition === 'new' ? 'bg-blue-100 text-blue-800' :
+                                    item.condition === 'good' ? 'bg-emerald-100 text-emerald-800' :
+                                    item.condition === 'fair' ? 'bg-amber-100 text-amber-800' :
+                                    'bg-red-100 text-red-800'
+                                  }`}>
+                                    {item.condition}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-neutral-100 text-xs">
+                              <div className="space-y-0.5">
+                                <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Finances</p>
+                                <p className="font-mono font-bold text-neutral-900">
+                                  {item.quantity || 1} units @ ${(item.price || 0).toLocaleString()}
+                                </p>
+                                <p className="text-[9px] text-[#0066cc] font-black uppercase tracking-wide">Total: ${((item.price || 0) * (item.quantity || 1)).toLocaleString()}</p>
+                              </div>
+
+                              <div className="flex gap-1.5 shrink-0 items-center justify-end">
+                                {isSelectedInventoryEditable ? (
+                                  <>
+                                    <button
+                                      onClick={async () => {
+                                        const id = toast.loading(`Copying "${item.name}"...`);
+                                        try {
+                                          await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), {
+                                            name: item.name || '',
+                                            description: item.description || '',
+                                            brand: item.brand || '',
+                                            model: item.model || '',
+                                            modelNumber: item.modelNumber || '',
+                                            serialNumber: item.serialNumber || '',
+                                            primaryCategory: item.primaryCategory || 'Other',
+                                            category: item.primaryCategory || 'Other',
+                                            weight: Number(item.weight) || 0,
+                                            weightUnit: (item.weightUnit || 'g'),
+                                            price: Number(item.price) || 0,
+                                            condition: (item.condition || 'good'),
+                                            quantity: Number(item.quantity) || 1,
+                                            status: (item.status || 'available'),
+                                            ownerId: user.uid,
+                                            assetTag: item.assetTag || `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+                                            usageCount: 0,
+                                            photoUrls: ['https://picsum.photos/seed/gear/400/400'],
+                                            createdAt: new Date().toISOString(),
+                                            updatedAt: new Date().toISOString()
+                                          });
+                                          toast.success(`"${item.name}" copied to Gear Library!`, { id });
+                                        } catch (err) {
+                                          console.error(err);
+                                          toast.error("Failed to copy.", { id });
+                                        }
+                                      }}
+                                      className="p-1 px-1.5 text-emerald-600 hover:bg-emerald-50 rounded-xl border border-emerald-100 transition flex items-center justify-center cursor-pointer font-black uppercase text-[8px] tracking-wider gap-1"
+                                      title="Copy to central Gear Library"
+                                    >
+                                      <Layers size={10} />
+                                      <span>Add</span>
+                                    </button>
+                                    <button
+                                      onClick={() => openEditItemModal(item)}
+                                      className="p-1.5 text-neutral-700 hover:bg-neutral-100 border border-neutral-200 rounded-xl transition flex items-center justify-center cursor-pointer"
+                                      title="Edit Item"
+                                    >
+                                      <Edit2 size={11} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteItem(item.id)}
+                                      className="p-1.5 text-red-500 hover:bg-red-50 border border-red-200 rounded-xl transition flex items-center justify-center cursor-pointer"
+                                      title="Delete Item"
+                                    >
+                                      <Trash2 size={11} />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 bg-neutral-50 px-2 py-1 rounded border border-neutral-100 italic">
+                                    Read-Only
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                   ) : inventoryViewMode === 'grid' ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
                       {paginatedInventoryItems.map((item) => {

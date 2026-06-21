@@ -28,7 +28,9 @@ import {
   Lock,
   Calendar,
   DollarSign,
-  MessageSquare
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
@@ -48,6 +50,7 @@ export default function MarketplaceView() {
 
   // Dynamic gallery active image
   const [activeMediaUrl, setActiveMediaUrl] = useState<string>('');
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   // Booking & Purchase Inputs
   const [bookingClientName, setBookingClientName] = useState('');
@@ -86,6 +89,7 @@ export default function MarketplaceView() {
   }, []);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
     const fetchData = async () => {
       if (!id) return;
       try {
@@ -424,6 +428,33 @@ export default function MarketplaceView() {
 
   const isRentalOffer = list.transactionType === 'Rental' || !list.transactionType;
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX - touchEndX;
+
+    // Swipe threshold
+    if (Math.abs(diff) > 40) {
+      const currentIndex = galleryList.indexOf(activeMediaUrl);
+      if (currentIndex !== -1) {
+        if (diff > 0) {
+          // Swipe Left -> Next
+          const nextIndex = (currentIndex + 1) % galleryList.length;
+          setActiveMediaUrl(galleryList[nextIndex]);
+        } else {
+          // Swipe Right -> Prev
+          const prevIndex = (currentIndex - 1 + galleryList.length) % galleryList.length;
+          setActiveMediaUrl(galleryList[prevIndex]);
+        }
+      }
+    }
+    setTouchStartX(null);
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F5F4] text-[#1A1A1A] font-sans">
       <main className="grid lg:grid-cols-2 min-h-screen">
@@ -444,7 +475,11 @@ export default function MarketplaceView() {
 
             {/* Premium Media Gallery Section */}
             <div className="space-y-4">
-              <div className="aspect-[16/10] bg-neutral-100 rounded-[2rem] overflow-hidden border border-neutral-100 relative group shadow-sm flex items-center justify-center">
+              <div 
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                className="aspect-[16/10] bg-neutral-100 rounded-[2rem] overflow-hidden border border-neutral-100 relative group shadow-sm flex items-center justify-center select-none"
+              >
                 {isVideoActive ? (
                   activeMediaUrl.endsWith('.mp4') ? (
                     <video 
@@ -471,6 +506,42 @@ export default function MarketplaceView() {
                       setActiveMediaUrl('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600');
                     }}
                   />
+                )}
+
+                {/* Left & Right arrow controls overlaid always on mobile, and hovered on desktop */}
+                {galleryList.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const currentIndex = galleryList.indexOf(activeMediaUrl);
+                        if (currentIndex !== -1) {
+                          const prevIndex = (currentIndex - 1 + galleryList.length) % galleryList.length;
+                          setActiveMediaUrl(galleryList[prevIndex]);
+                        }
+                      }}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center transition-all z-10 backdrop-blur-sm shadow-sm md:opacity-0 md:group-hover:opacity-100 cursor-pointer border border-white/10"
+                      title="Previous Asset"
+                    >
+                      <ChevronLeft size={16} className="stroke-[2.5]" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const currentIndex = galleryList.indexOf(activeMediaUrl);
+                        if (currentIndex !== -1) {
+                          const nextIndex = (currentIndex + 1) % galleryList.length;
+                          setActiveMediaUrl(galleryList[nextIndex]);
+                        }
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center transition-all z-10 backdrop-blur-sm shadow-sm md:opacity-0 md:group-hover:opacity-100 cursor-pointer border border-white/10"
+                      title="Next Asset"
+                    >
+                      <ChevronRight size={16} className="stroke-[2.5]" />
+                    </button>
+                  </>
                 )}
                 
                 {/* Overlay Indicators */}

@@ -1039,7 +1039,7 @@ export const INDUSTRIES = [
   { id: 'it', name: 'IT & Cloud Infrastructure', icon: 'Cpu', gearLabelSingular: 'Hardware/Server', gearLabelPlural: 'Hardware & Servers', listLabelSingular: 'Rack Manifest', listLabelPlural: 'Server Rack Manifests', description: 'Manage server racks, networking switches, fiber arrays, and desk allocations.' },
   { id: 'event', name: 'Event & Banquet Planning', icon: 'Cake', gearLabelSingular: 'Event Item', gearLabelPlural: 'Chairs, Tables & Cables', listLabelSingular: 'Event Checklist', listLabelPlural: 'Event Checklists', description: 'Track table layouts, banquet chairs, audio/visual inputs, stage decors, and caterings.' },
   { id: 'sports', name: 'Sports & Teams Training', icon: 'Trophy', gearLabelSingular: 'Athletic Gear/Kit', gearLabelPlural: 'Athletic Gear & Kits', listLabelSingular: 'Roster Checklist', listLabelPlural: 'Roster & Team Lists', description: 'Catalog team sports equipment, jerseys, dynamic training cones, helmets, soccer balls, custom team sports gear bags, and specialized athletic trainer accessories.' },
-  { id: 'general', name: 'General Equipment', icon: 'Package', gearLabelSingular: 'Asset', gearLabelPlural: 'Inventory Assets', listLabelSingular: 'Packing List', listLabelPlural: 'Packing Lists', description: 'Universal tracking for multi-disciplinary gear libraries and general utilities.' }
+  { id: 'general', name: 'General Equipment', icon: 'Package', gearLabelSingular: 'Asset', gearLabelPlural: 'Gear Library', listLabelSingular: 'Packing List', listLabelPlural: 'Packing Lists', description: 'Universal tracking for multi-disciplinary gear libraries and general utilities.' }
 ];
 
 export interface BugReport {

@@ -370,6 +370,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
   useEffect(() => {
     if (!id) return;
+    window.scrollTo({ top: 0, behavior: 'instant' });
 
     const listRef = doc(db, 'packingLists', id);
     const unsubscribeList = onSnapshot(listRef, (docSnap) => {

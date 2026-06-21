@@ -57,6 +57,16 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { compressImage } from '../lib/imageUtils';
+
+const triggerHaptic = () => {
+  if (typeof window !== 'undefined' && window.navigator && typeof window.navigator.vibrate === 'function') {
+    try {
+      window.navigator.vibrate(12);
+    } catch (e) {
+      // safe backup fallback
+    }
+  }
+};
 import { Camera, Sparkles, Wand2, Lightbulb, Check, Layers, Luggage, Box, Briefcase, QrCode, Loader2, RefreshCw, Server, HelpCircle } from 'lucide-react';
 import QRPrintModal from '../components/QRPrintModal';
 import { suggestItemMetadata, identifyItem } from '../services/geminiService';
@@ -566,10 +576,60 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [settings, setSettings] = useState<AdminSettings | null>(propAdminSettings);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showMobileControls, setShowMobileControls] = useState(false);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullProgress, setPullProgress] = useState(0);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [isPulling, setIsPulling] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    const toastId = toast.loading("Synchronizing Gear Library...");
+    try {
+      await getDocs(collection(db, 'users', user.uid, 'gearLibrary'));
+      toast.success("Synchronized: Gear Library is up-to-date!", { id: toastId });
+    } catch (err) {
+      console.warn("Pull-to-refresh sync failed:", err);
+      toast.error("Synchronization failed.", { id: toastId });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      setTouchStartY(e.touches[0].pageY);
+      setIsPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling || touchStartY === null || window.scrollY > 0) return;
+    const currentY = e.touches[0].pageY;
+    const diffY = currentY - touchStartY;
+    if (diffY > 0) {
+      const progress = Math.min((diffY / 120) * 100, 100);
+      setPullProgress(progress);
+    } else {
+      setPullProgress(0);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (isPulling) {
+      if (pullProgress >= 85) {
+        handleRefresh();
+      }
+      setIsPulling(false);
+      setTouchStartY(null);
+      setPullProgress(0);
+    }
+  };
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -3997,14 +4057,76 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="max-w-7xl mx-auto px-4 md:px-6 space-y-6 md:space-y-8 pb-20 w-full animate-pulse select-none">
+        {/* Header Skeleton */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 pt-4 border-b border-neutral-100 pb-6">
+          <div className="space-y-3">
+            <div className="h-4 bg-neutral-200/60 rounded w-24 animate-pulse" />
+            <div className="h-8 bg-neutral-200/60 rounded w-64 md:w-80 animate-pulse" />
+            <div className="h-3 bg-neutral-200/60 rounded w-48 animate-pulse" />
+          </div>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="h-10 bg-neutral-200/60 rounded-xl flex-1 sm:w-32 animate-pulse" />
+            <div className="h-12 bg-neutral-200/60 rounded-full w-40 animate-pulse" />
+          </div>
+        </header>
+
+        {/* Toolbar Filter / Search Ribbon Skeleton */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-neutral-50 px-6 py-5 rounded-2xl md:rounded-[2.5rem] border border-neutral-100 gap-y-4">
+          <div className="relative flex-1 max-w-lg h-12 bg-neutral-200/60 rounded-xl animate-pulse" />
+          <div className="flex flex-wrap sm:flex-nowrap gap-3 w-full lg:w-auto">
+            <div className="h-10 bg-neutral-200/60 rounded-xl w-32 animate-pulse" />
+            <div className="h-10 bg-neutral-200/60 rounded-xl w-36 animate-pulse" />
+            <div className="h-10 bg-neutral-200/60 rounded-xl w-40 animate-pulse" />
+          </div>
+        </div>
+
+        {/* Category Pills Ribbon Skeleton */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-8 bg-neutral-200/50 border border-neutral-100 rounded-full px-4 inline-flex items-center shrink-0 w-24 animate-pulse" />
+          ))}
+        </div>
+
+        {/* Grid Cards List Skeleton */}
+        <div className="grid grid-cols-1 min-[450px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 w-full">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-xl md:rounded-[2rem] border border-neutral-100 overflow-hidden flex flex-col h-[380px] w-full animate-pulse">
+              <div className="aspect-[16/10] bg-neutral-200/60 w-full animate-pulse" />
+              <div className="p-4 md:p-6 space-y-4 flex-1 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="h-3 bg-neutral-200/60 rounded w-1/4 animate-pulse" />
+                  <div className="h-6 bg-neutral-200/60 rounded w-3/4 animate-pulse" />
+                  <div className="h-3 bg-neutral-200/60 rounded w-1/2 animate-pulse" />
+                </div>
+                <div className="flex justify-between pt-4 border-t border-neutral-50 items-center">
+                  <div className="h-3 bg-neutral-200/60 rounded w-1/4 animate-pulse" />
+                  <div className="h-3 bg-neutral-200/60 rounded w-1/3 animate-pulse" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-6 space-y-6 md:space-y-8 pb-20 overflow-x-hidden w-full">
+    <div 
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="max-w-7xl mx-auto px-4 md:px-6 space-y-6 md:space-y-8 pb-20 overflow-x-hidden w-full relative"
+    >
+      {/* Mobile Pull-to-Refresh Visual Indicator */}
+      <div 
+        style={{ height: isRefreshing ? '50px' : `${pullProgress * 0.4}px`, opacity: isRefreshing || pullProgress > 10 ? 1 : 0 }}
+        className="w-full flex items-center justify-center overflow-hidden transition-all duration-155 bg-white/40 rounded-2xl border border-neutral-200/50 text-neutral-600 gap-2 text-xs font-mono font-black uppercase tracking-wider select-none mb-4"
+      >
+        <RefreshCw size={14} className={`text-primary ${isRefreshing ? 'animate-spin' : ''}`} style={{ transform: isRefreshing ? 'none' : `rotate(${pullProgress * 3.6}deg)` }} />
+        <span>{isRefreshing ? 'Synchronizing...' : pullProgress >= 85 ? 'Release to Sync' : 'Pull to Refresh'}</span>
+      </div>
+
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
         <div className="space-y-1 min-w-0">
           <div className="flex items-center gap-3 md:gap-4 flex-wrap">
@@ -4077,8 +4199,11 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             </button>
           </div>
           <button 
-            onClick={() => setSearchParams({ addGear: 'true' })}
-            className="bg-black text-white px-5 py-2.5 md:px-8 md:py-4 rounded-full font-black uppercase text-[10px] md:text-xs tracking-widest flex items-center justify-center gap-2 hover:bg-neutral-800 transition shadow-xl sm:flex-none flex-1 w-full sm:w-auto"
+            onClick={() => {
+              triggerHaptic();
+              setSearchParams({ addGear: 'true' });
+            }}
+            className="bg-black text-white px-5 py-2.5 md:px-8 md:py-4 rounded-full font-black uppercase text-[10px] md:text-xs tracking-widest flex items-center justify-center gap-2 hover:bg-neutral-800 transition-all active:scale-95 duration-75 shadow-xl sm:flex-none flex-1 w-full sm:w-auto"
           >
             <Plus size={16} />
             <span>Add Item</span>
@@ -4583,7 +4708,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
       {/* Filters & Search */}
       <div className="space-y-4 w-full">
-        <div className="flex flex-col lg:flex-row gap-3 md:gap-4">
+        {/* Desktop Filters & Search Block */}
+        <div className="hidden lg:flex flex-col lg:flex-row gap-3 md:gap-4">
           <div className="flex-1 relative w-full">
             <Search className="absolute left-3.5 md:left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
             <input
@@ -4599,8 +4725,11 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             <button
               type="button"
               id="audit-mode-toggle"
-              onClick={() => setIsAuditMode(prev => !prev)}
-              className={`px-4 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition cursor-pointer select-none ${
+              onClick={() => {
+                triggerHaptic();
+                setIsAuditMode(prev => !prev);
+              }}
+              className={`px-4 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all cursor-pointer select-none active:scale-95 duration-75 ${
                 isAuditMode 
                   ? "bg-amber-500 text-white border-amber-500 shadow-md animate-pulse"
                   : "bg-white text-neutral-500 border-neutral-200 hover:text-black hover:border-black"
@@ -4647,6 +4776,104 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Mobile Filters & Search Block */}
+        <div className="flex lg:hidden flex-col gap-2 w-full">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
+              <input
+                type="text"
+                placeholder="Search library..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-white border border-neutral-200 rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-1 focus:ring-primary transition shadow-sm text-xs"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMobileControls(prev => !prev)}
+              className={`px-3 flex items-center justify-center border rounded-xl gap-1 bg-white hover:bg-neutral-50 border-neutral-200 text-xs font-black uppercase text-neutral-700 h-11 transition-all select-none ${
+                showMobileControls ? 'bg-neutral-900 border-neutral-900 text-white' : ''
+              }`}
+            >
+              <Sliders size={14} className={showMobileControls ? "text-[#f59e0b]" : "text-neutral-500"} />
+              <span>{showMobileControls ? "Hide Filters" : "Filters"}</span>
+            </button>
+          </div>
+
+          {showMobileControls && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="space-y-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-200/50 mt-1"
+            >
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  id="audit-mode-toggle-mobile"
+                  onClick={() => {
+                    triggerHaptic();
+                    setIsAuditMode(prev => !prev);
+                    setShowMobileControls(false);
+                  }}
+                  className={`w-full py-3 rounded-xl border text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer select-none active:scale-95 duration-75 ${
+                    isAuditMode 
+                      ? "bg-amber-500 text-white border-amber-500 shadow-md animate-pulse"
+                      : "bg-white text-neutral-500 border-neutral-200 hover:text-black hover:border-black"
+                  }`}
+                >
+                  <Sliders size={12} className={isAuditMode ? "text-white animate-bounce" : "text-amber-500"} />
+                  <span>Audit Mode {isAuditMode ? "ON" : "OFF"}</span>
+                </button>
+
+                <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-xl px-3 py-1 h-11 min-w-0">
+                  <Filter size={14} className="text-neutral-400 shrink-0" />
+                  <select 
+                    value={selectedCondition}
+                    onChange={(e) => {
+                      setSelectedCondition(e.target.value);
+                      setShowMobileControls(false);
+                    }}
+                    className="bg-transparent text-[10px] font-bold outline-none cursor-pointer uppercase tracking-widest w-full truncate h-full"
+                  >
+                    <option value="all">Every Condition</option>
+                    <option value="new">New</option>
+                    <option value="good">Good</option>
+                    <option value="fair">Fair</option>
+                    <option value="poor">Poor</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-xl px-3 py-1 h-11 min-w-0">
+                  <TrendingUp size={14} className="text-neutral-400 shrink-0" />
+                  <select 
+                    value={sortField}
+                    onChange={(e) => {
+                      setSortField(e.target.value as any);
+                      setShowMobileControls(false);
+                    }}
+                    className="bg-transparent text-[10px] font-bold outline-none cursor-pointer uppercase tracking-widest w-full truncate h-full"
+                  >
+                    <option value="createdAt">Sort: Date</option>
+                    <option value="name">Sort: Name</option>
+                    <option value="weight">Sort: Weight</option>
+                    <option value="price">Sort: Value</option>
+                    <option value="usageCount">Sort: Usage</option>
+                    <option value="health">Sort: Health</option>
+                  </select>
+                  <button 
+                    onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                    className="p-1.5 hover:bg-neutral-100 rounded-lg transition shrink-0 ml-auto border border-neutral-150"
+                  >
+                    {sortOrder === 'asc' ? <SortAsc size={14} /> : <SortDesc size={14} />}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {isAuditMode && (
@@ -8576,6 +8803,22 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           />
         )}
       </AnimatePresence>
+
+      {/* Floating Action Button (FAB) for Quick Add */}
+      <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-40">
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic();
+            setSearchParams({ addGear: 'true' });
+          }}
+          className="bg-black hover:bg-neutral-800 text-white p-4 rounded-full shadow-2xl flex items-center justify-center transition-all active:scale-90 duration-75 border border-neutral-800 focus:outline-none hover:shadow-neutral-300"
+          aria-label="Quick Add Item"
+          title="Quick Add Item"
+        >
+          <Plus size={24} className="text-white" />
+        </button>
+      </div>
     </div>
   );
 }

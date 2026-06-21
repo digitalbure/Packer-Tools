@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+
+const triggerHaptic = () => {
+  if (typeof window !== 'undefined' && window.navigator && typeof window.navigator.vibrate === 'function') {
+    try {
+      window.navigator.vibrate(12);
+    } catch (e) {
+      // safe backup fallback
+    }
+  }
+};
 import { UserProfile, AdminSettings } from '../types';
 import { db, handleFirestoreError, OperationType, signInWithGoogle } from '../firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDocs } from 'firebase/firestore';
@@ -39,7 +49,8 @@ import {
   LayoutGrid,
   List,
   ArrowUpDown,
-  Plus
+  Plus,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -177,6 +188,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   const [searchQuery, setSearchQuery] = useState('');
   const [userListings, setUserListings] = useState<any[]>([]);
   const [dbCategories, setDbCategories] = useState<any[]>([]);
+  const [loadingListings, setLoadingListings] = useState(true);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'marketplaceCategories'), (snapshot) => {
@@ -235,8 +247,10 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
         };
       }).filter(item => item.moderationStatus !== 'suspended' && item.status !== 'Draft');
       setUserListings(dbListings);
+      setLoadingListings(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'packingLists (marketplaceEnabled)');
+      setLoadingListings(false);
     });
     return () => unsubscribe();
   }, []);
@@ -304,6 +318,55 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
 
   const [isSearchDrawerOpen, setIsSearchDrawerOpen] = useState(false);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullProgress, setPullProgress] = useState(0);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [isPulling, setIsPulling] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    const toastId = toast.loading("Synchronizing Marketplace catalog...");
+    try {
+      await getDocs(collection(db, 'listings'));
+      toast.success("Synchronized: Marketplace listings up-to-date!", { id: toastId });
+    } catch (err) {
+      console.warn("Pull-to-refresh sync failed:", err);
+      toast.error("Synchronization failed.", { id: toastId });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      setTouchStartY(e.touches[0].pageY);
+      setIsPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling || touchStartY === null || window.scrollY > 0) return;
+    const currentY = e.touches[0].pageY;
+    const diffY = currentY - touchStartY;
+    if (diffY > 0) {
+      const progress = Math.min((diffY / 120) * 100, 100);
+      setPullProgress(progress);
+    } else {
+      setPullProgress(0);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (isPulling) {
+      if (pullProgress >= 85) {
+        handleRefresh();
+      }
+      setIsPulling(false);
+      setTouchStartY(null);
+      setPullProgress(0);
+    }
+  };
   
   // Filtering & Modal parameters
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -650,7 +713,21 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   };
 
   return (
-    <div id="marketplace-landing-root" className="min-h-screen bg-white text-neutral-900 pb-20 font-sans selection:bg-neutral-900 selection:text-white">
+    <div 
+      id="marketplace-landing-root" 
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="min-h-screen bg-white text-neutral-900 pb-20 font-sans selection:bg-neutral-900 selection:text-white relative"
+    >
+      {/* Mobile Pull-to-Refresh Visual Indicator */}
+      <div 
+        style={{ height: isRefreshing ? '50px' : `${pullProgress * 0.4}px`, opacity: isRefreshing || pullProgress > 10 ? 1 : 0 }}
+        className="w-full flex items-center justify-center overflow-hidden transition-all duration-155 bg-white/40 rounded-2xl border border-neutral-200/50 text-neutral-600 gap-2 text-xs font-mono font-black uppercase tracking-wider select-none mb-4"
+      >
+        <RefreshCw size={14} className={`text-primary ${isRefreshing ? 'animate-spin' : ''}`} style={{ transform: isRefreshing ? 'none' : `rotate(${pullProgress * 3.6}deg)` }} />
+        <span>{isRefreshing ? 'Synchronizing...' : pullProgress >= 85 ? 'Release to Sync' : 'Pull to Refresh'}</span>
+      </div>
       
       {/* Clean Modern Symmetrical Top Navigation & Scheduler Section */}
       <div className="max-w-7xl mx-auto px-6 md:px-12 py-8 space-y-6">
@@ -1319,10 +1396,52 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
             <h3 className="text-sm font-black tracking-widest text-[#ff4f3a]">
               {currentMode === 'rent' ? 'Popular Products for Rent' : 'Equipment Listed for Sale'}
             </h3>
-            <span className="text-[9px] font-mono font-bold text-neutral-400">Total Items: {filteredProducts.length}</span>
+            <span className="text-[9px] font-mono font-bold text-neutral-400">Total Items: {loadingListings ? 'Loading...' : filteredProducts.length}</span>
           </div>
 
-          {filteredProducts.length === 0 ? (
+          {loadingListings ? (
+            viewType === 'grid' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {Array.from({ length: 10 }).map((_, index) => (
+                  <div key={index} className="bg-white rounded-2xl overflow-hidden border border-neutral-100 flex flex-col justify-between h-[360px] animate-pulse">
+                    <div className="h-44 w-full bg-neutral-100" />
+                    <div className="p-4 space-y-3 flex-grow flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="h-3 bg-neutral-200/60 rounded w-1/4 animate-pulse" />
+                        <div className="h-5 bg-neutral-200/60 rounded w-3/4 animate-pulse" />
+                        <div className="h-3 bg-neutral-200/60 rounded w-1/2 animate-pulse" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="h-3 bg-neutral-200/60 rounded w-1/3 animate-pulse" />
+                        <div className="h-4 bg-neutral-200/60 rounded w-1/4 animate-pulse" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 w-full max-w-full overflow-hidden">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="bg-white rounded-2xl border border-neutral-100 p-4 flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center w-full animate-pulse">
+                    <div className="h-40 sm:h-32 w-full sm:w-44 bg-neutral-100 rounded-xl shrink-0" />
+                    <div className="flex-1 space-y-3 py-2 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <div className="h-3 bg-neutral-200/60 rounded w-16" />
+                        <div className="h-3 bg-neutral-200/60 rounded w-12" />
+                      </div>
+                      <div className="h-6 bg-neutral-200/60 rounded w-2/3" />
+                      <div className="h-4 bg-neutral-200/60 rounded w-1/2" />
+                      <div className="h-3 bg-neutral-200/60 rounded w-24" />
+                    </div>
+                    <div className="w-full sm:w-32 flex flex-col items-stretch sm:items-end gap-2 shrink-0">
+                      <div className="h-4 bg-neutral-200/60 rounded w-16" />
+                      <div className="h-8 bg-neutral-200/60 rounded w-24 sm:w-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : filteredProducts.length === 0 ? (
             <div className="text-center py-16 border-2 border-dashed border-neutral-100 rounded-[2rem] space-y-4">
               <ShieldAlert size={32} className="mx-auto text-neutral-300 animate-pulse" />
               <p className="text-[10px] font-black tracking-widest uppercase">No exact matches in catalog database</p>
@@ -1464,7 +1583,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
             </div>
           ) : (
             /* Premium List View Row Layout */
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 w-full max-w-full overflow-hidden">
               {filteredProducts.map((product) => {
                 const isFav = favoriteItems.has(product.id);
                 return (
@@ -1478,13 +1597,13 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                         setIsBookingModalOpen(true);
                       }
                     }}
-                    className={`group cursor-pointer bg-white rounded-2xl overflow-hidden hover:shadow-xl transition duration-300 border p-4 flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center ${
+                    className={`group cursor-pointer bg-white rounded-2xl overflow-hidden hover:shadow-xl transition duration-300 border p-4 flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center w-full max-w-full ${
                       product.sponsored ? 'border-indigo-600/30 bg-indigo-55/10 bg-indigo-50/5' :
                       product.featured ? 'border-amber-500/30' : 'border-neutral-100'
                     }`}
                   >
                     {/* List Left: Visual image frame */}
-                    <div className="h-32 w-full sm:w-44 bg-neutral-50 relative overflow-hidden rounded-xl shrink-0">
+                    <div className="h-40 sm:h-32 w-full sm:w-44 bg-neutral-50 relative overflow-hidden rounded-xl shrink-0">
                       <img 
                         src={product.image} 
                         alt={product.name} 
@@ -2581,6 +2700,22 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
           </div>
         )}
       </AnimatePresence>
+
+      {/* Floating Action Button (FAB) for Quick Listing */}
+      <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-40">
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic();
+            handleOpenListGear();
+          }}
+          className="bg-[#ff4f3a] hover:bg-[#e43f2a] text-white p-4 rounded-full shadow-2xl flex items-center justify-center transition-all active:scale-90 duration-75 border border-[#ff4f3a] focus:outline-none hover:shadow-[#ff4f3a]/30"
+          aria-label="List your gear"
+          title="List your gear"
+        >
+          <Plus size={24} className="text-white" />
+        </button>
+      </div>
 
     </div>
   );

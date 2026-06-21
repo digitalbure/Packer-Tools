@@ -572,10 +572,10 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
       </header>
 
       {/* Tabs Menu */}
-      <div className="flex items-center gap-1 bg-neutral-150 p-1 rounded-2xl w-fit">
+      <div className="flex items-center gap-1 bg-neutral-150 p-1 rounded-2xl w-full overflow-x-auto md:w-fit scrollbar-none">
         <button
           onClick={() => setActiveSubTab('console')}
-          className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 ${
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shrink-0 ${
             activeSubTab === 'console' 
               ? 'bg-white text-primary shadow-sm' 
               : 'text-neutral-500 hover:text-neutral-700'
@@ -586,7 +586,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
         </button>
         <button
           onClick={() => setActiveSubTab('bookings')}
-          className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 ${
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shrink-0 ${
             activeSubTab === 'bookings' 
               ? 'bg-white text-primary shadow-sm' 
               : 'text-neutral-500 hover:text-neutral-700'
@@ -597,7 +597,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
         </button>
         <button
           onClick={() => setActiveSubTab('gear-bookings')}
-          className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 ${
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shrink-0 ${
             activeSubTab === 'gear-bookings' 
               ? 'bg-white text-primary shadow-sm' 
               : 'text-neutral-500 hover:text-neutral-700'
@@ -608,7 +608,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
         </button>
         <button
           onClick={() => setActiveSubTab('settings')}
-          className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 ${
+          className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shrink-0 ${
             activeSubTab === 'settings' 
               ? 'bg-white text-primary shadow-sm' 
               : 'text-neutral-500 hover:text-neutral-700'
