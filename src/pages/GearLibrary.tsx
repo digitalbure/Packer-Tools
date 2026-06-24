@@ -67,7 +67,7 @@ const triggerHaptic = () => {
     }
   }
 };
-import { Camera, Sparkles, Wand2, Lightbulb, Check, Layers, Luggage, Box, Briefcase, QrCode, Loader2, RefreshCw, Server, HelpCircle } from 'lucide-react';
+import { Camera, Sparkles, Wand2, Lightbulb, Check, Layers, Luggage, Box, Briefcase, QrCode, Loader2, RefreshCw, Server, HelpCircle, ClipboardCheck } from 'lucide-react';
 import QRPrintModal from '../components/QRPrintModal';
 import { suggestItemMetadata, identifyItem } from '../services/geminiService';
 import { checkLimit, canUseAI, trackAIUsage } from '../lib/limitUtils';
@@ -1074,6 +1074,64 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       }
     }
   };
+
+  const processPasteFile = async (file: File) => {
+    try {
+      const compressed = await compressImage(file);
+      handlePhotoPicked([compressed]);
+      toast.success("Successfully added pasted photo!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to process pasted image file.");
+    }
+  };
+
+  const handleClipboardPasteForPicker = async () => {
+    try {
+      const items = await navigator.clipboard.read();
+      let found = false;
+      for (const item of items) {
+        for (const type of item.types) {
+          if (type.startsWith("image/")) {
+            const blob = await item.getType(type);
+            const file = new File([blob], "pasted-image.png", { type });
+            await processPasteFile(file);
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
+      }
+      if (!found) {
+        toast.error("No image found on clipboard. Try copying an image first or press Ctrl+V / Command+V.");
+      }
+    } catch (err) {
+      toast.error("Clipboard permission denied or no image found. Try pressing Ctrl+V / Command+V.");
+    }
+  };
+
+  useEffect(() => {
+    if (!photoPickerModal.isOpen) return;
+    const handleGlobalPaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            await processPasteFile(file);
+            setPhotoPickerModal(prev => ({ ...prev, isOpen: false }));
+            break;
+          }
+        }
+      }
+    };
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => {
+      window.removeEventListener('paste', handleGlobalPaste);
+    };
+  }, [photoPickerModal.isOpen, photoPickerModal.target, editingItem, newItem]);
 
   const getSystemPhotosAvailable = () => {
     const photos: { url: string; itemName: string; itemBrand?: string; isChild: boolean }[] = [];
@@ -8586,7 +8644,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {/* Mode Selector Row */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <button
                     type="button"
                     onClick={() => {
@@ -8611,6 +8669,17 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       <Camera size={18} />
                     </div>
                     <span className="text-xs font-black uppercase tracking-widest text-neutral-700">Take Photo (Camera)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleClipboardPasteForPicker}
+                    className="flex flex-col items-center justify-center p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-2"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm">
+                      <ClipboardCheck size={18} />
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-widest text-neutral-700">Paste Clipboard</span>
                   </button>
                 </div>
 

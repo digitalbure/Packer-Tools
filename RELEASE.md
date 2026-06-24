@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.25.0`
+## Current Application Version: `v4.26.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.26.0 (Universal Image Paste & Multi-Channel Photo Sourcing)
+*Released on: June 24, 2026*
+- **Universal Clipboard Image Paste**: Integrated seamless paste event listeners across both the Quick Add Modal and the Gear Library Photo Picker, enabling users to instantly copy an image from their web browser or file system and paste it (`Ctrl+V` or `Cmd+V`) directly to upload.
+- **Multi-Channel Media Inputs**: Expanded Manual Gear Onboarding step 1 to allow full local file uploads, native device camera captures, and direct clipboard image pasting rather than just text URL references.
+- **Client-Side Image Auto-Compression**: Applied clean Canvas-based client-side image compression (`compressImage`) to all newly pasted/uploaded photos, preserving high-contrast detail while minimizing Firestore record sizes and accelerating page loads.
 
 ---
 

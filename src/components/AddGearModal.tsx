@@ -10,9 +10,10 @@ import { authenticatedFetch } from '../lib/api';
 import { 
   X, Plus, Camera, Sparkles, Wand2, QrCode, ClipboardCheck, 
   Search, ShieldCheck, DollarSign, Wrench, Package, ListPlus, 
-  HelpCircle, RefreshCw, Layers, CheckCircle2, Ticket, ArrowRight, Printer
+  HelpCircle, RefreshCw, Layers, CheckCircle2, Ticket, ArrowRight, Printer, Upload
 } from 'lucide-react';
 import { identifyItem } from '../services/geminiService';
+import { compressImage } from '../lib/imageUtils';
 
 interface AddGearModalProps {
   user: UserProfile | null;
@@ -170,17 +171,78 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     });
   };
 
+  const processFileAndSetImage = async (file: File) => {
+    try {
+      const compressedBase64 = await compressImage(file);
+      if (method === 'ai_scan') {
+        setScanImage(compressedBase64);
+        toast.success("Successfully loaded photo! You can now execute the AI Scan pipeline.");
+      } else {
+        setForm(prev => ({
+          ...prev,
+          photoUrls: [compressedBase64]
+        }));
+        toast.success("Photo successfully attached to equipment!");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to process image file.");
+    }
+  };
+
+  const handleClipboardPaste = async () => {
+    try {
+      const items = await navigator.clipboard.read();
+      let foundImage = false;
+      for (const item of items) {
+        for (const type of item.types) {
+          if (type.startsWith("image/")) {
+            const blob = await item.getType(type);
+            const file = new File([blob], "clipboard-image.png", { type });
+            await processFileAndSetImage(file);
+            foundImage = true;
+            break;
+          }
+        }
+        if (foundImage) break;
+      }
+      if (!foundImage) {
+        toast.error("No image found on clipboard. Try copying an image or press Ctrl+V / Command+V.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Could not access clipboard. Try pressing Ctrl+V / Command+V directly while this modal is open.");
+    }
+  };
+
   // Convert uploaded image to base64 for Gemini
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setScanImage(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    await processFileAndSetImage(file);
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleGlobalPaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            await processFileAndSetImage(file);
+            break;
+          }
+        }
+      }
+    };
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => {
+      window.removeEventListener('paste', handleGlobalPaste);
+    };
+  }, [isOpen, method]);
 
   const handlePhotoUrlSubmit = async (url: string) => {
     if (!url.trim()) return;
@@ -569,11 +631,11 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                   Upload an equipment photo or choose a sample pre-loaded hardware item to simulate the real-time AI scanning pipeline.
                 </p>
 
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                   {/* Real file uploader link */}
-                  <label className="bg-white text-black hover:bg-neutral-200 px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest cursor-pointer transition flex items-center gap-2">
-                    <Camera size={14} />
-                    <span>Upload Gear Image</span>
+                  <label className="bg-white text-black hover:bg-neutral-200 px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-widest cursor-pointer transition flex items-center gap-2 shadow-md">
+                    <Upload size={14} />
+                    <span>Upload file</span>
                     <input 
                       type="file" 
                       accept="image/*" 
@@ -582,12 +644,35 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                     />
                   </label>
 
+                  {/* Camera capture option */}
+                  <label className="bg-neutral-800 text-white hover:bg-neutral-700 px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-widest cursor-pointer transition flex items-center gap-2 border border-neutral-700">
+                    <Camera size={14} />
+                    <span>Take Photo</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment"
+                      onChange={handleImageUpload} 
+                      className="hidden" 
+                    />
+                  </label>
+
+                  {/* Paste from Clipboard option */}
+                  <button
+                    type="button"
+                    onClick={handleClipboardPaste}
+                    className="bg-neutral-800 text-white hover:bg-neutral-700 px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-widest transition flex items-center gap-2 border border-neutral-700"
+                  >
+                    <ClipboardCheck size={14} />
+                    <span>Paste Image</span>
+                  </button>
+
                   {scanImage && (
                     <button
                       type="button"
                       onClick={runAIScan}
                       disabled={scanning}
-                      className="bg-primary hover:bg-primary/95 text-white px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest transition flex items-center gap-1.5"
+                      className="bg-primary hover:bg-primary/95 text-white px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-widest transition flex items-center gap-1.5 shadow-md animate-bounce"
                     >
                       {scanning ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
                       <span>{scanning ? 'Analyzing Image...' : 'Execute Scan Pipeline'}</span>
@@ -716,31 +801,83 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
             (method === 'existing' && selectedExistingId)) && step === 1 && (
             <div className="space-y-6">
               
-              {/* Photo Link Input Block */}
-              <div className="bg-neutral-50 p-5 rounded-[2rem] border border-neutral-100/80 space-y-3">
+              {/* Photo Attachment & Link block */}
+              <div className="bg-neutral-50 p-6 rounded-[2rem] border border-neutral-100/80 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Camera size={16} className="text-primary animate-pulse" />
+                    <Camera size={16} className="text-primary" />
                     <h4 className="text-xs font-black uppercase tracking-widest text-neutral-800">
-                      Equipment Photo URL / Image Link
+                      Equipment Photo
                     </h4>
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#0066cc]">Optional URL link</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#0066cc]">Optional URL, upload or paste</span>
                 </div>
+
+                {/* Direct quick-actions buttons */}
+                <div className="grid grid-cols-3 gap-2">
+                  <label className="bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
+                    <Upload size={12} />
+                    <span>Upload file</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleImageUpload} 
+                      className="hidden" 
+                    />
+                  </label>
+
+                  <label className="bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
+                    <Camera size={12} />
+                    <span>Take Photo</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment"
+                      onChange={handleImageUpload} 
+                      className="hidden" 
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={handleClipboardPaste}
+                    className="bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <ClipboardCheck size={12} />
+                    <span>Paste Image</span>
+                  </button>
+                </div>
+
+                <div className="relative flex items-center">
+                  <div className="flex-grow border-t border-neutral-200"></div>
+                  <span className="flex-shrink mx-4 text-[9px] uppercase font-bold tracking-wider text-neutral-400">Or Paste Direct URL</span>
+                  <div className="flex-grow border-t border-neutral-200"></div>
+                </div>
+
                 <div className="flex gap-4 items-center">
                   <input
                     type="url"
-                    placeholder="e.g. https://images.unsplash.com/photo-1516035069371-29a1b244cc32"
+                    placeholder="Paste direct photo URL (e.g. Unsplash, Imgur)..."
                     value={form.photoUrls?.[0] || ''}
                     onChange={(e) => setForm({ ...form, photoUrls: e.target.value ? [e.target.value] : [] })}
-                    className="flex-1 bg-white border border-neutral-200 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 font-medium"
+                    className="flex-1 bg-white border border-neutral-200 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 font-medium placeholder-neutral-400"
                   />
                   {(form.photoUrls?.[0]) && (
-                    <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-neutral-200 bg-neutral-100 shadow-md">
+                    <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-neutral-200 bg-neutral-100 shadow-md relative group">
                       <img src={form.photoUrls[0]} alt="Gear Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, photoUrls: [] })}
+                        className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
                   )}
                 </div>
+                <p className="text-[9px] text-neutral-400 text-center font-bold uppercase tracking-wider">
+                  Tip: Press Ctrl+V (or Command+V) anywhere while this modal is open to instantly paste an image.
+                </p>
               </div>
 
               {/* Form specs */}
