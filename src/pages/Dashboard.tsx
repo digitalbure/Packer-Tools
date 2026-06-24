@@ -6,7 +6,7 @@ import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar
 import { QRCodeCanvas } from 'qrcode.react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { UserProfile, PackingList, Reminder, AdminSettings, FeatureKey, GearItem, Organization, Workspace, INDUSTRIES } from '../types';
+import { UserProfile, PackingList, Reminder, AdminSettings, FeatureKey, GearItem, Organization, Workspace, INDUSTRIES, Project } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { updateDoc, getDoc } from 'firebase/firestore';
 import { isFeatureEnabled } from '../lib/featureUtils';
@@ -75,6 +75,8 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const [checkoutList, setCheckoutList] = useState<PackingList | null>(null);
   const [gear, setGear] = useState<GearItem[]>([]);
   const [newListName, setNewListName] = useState('');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [allItems, setAllItems] = useState<any[]>([]);
   
@@ -412,6 +414,14 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       setLoading(false);
     });
 
+    const qProjects = query(collection(db, 'projects'), where('ownerId', '==', user.uid));
+    const unsubscribeProjects = onSnapshot(qProjects, (snapshot) => {
+      const fetchedProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Project[];
+      setProjects(fetchedProjects);
+    }, (error) => {
+      console.warn("Dashboard: Error listening to projects:", error);
+    });
+
     const fetchSettings = async () => {
       try {
         const settingsDoc = await getDoc(doc(db, 'adminSettings', 'global'));
@@ -461,6 +471,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
     return () => {
       unsubscribeLists();
       unsubscribeReminders();
+      unsubscribeProjects();
       unsubscribeGear();
       unsubscribeAllItems();
       unsubscribeUsers();
@@ -521,10 +532,18 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         description: '',
         isTemplate: activeTab === 'templates',
         workspaceId: currentWorkspaceId,
+        projectId: selectedProjectId || '',
         shareToken: Math.random().toString(36).substring(2, 15), // Generate token by default
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+
+      if (selectedProjectId) {
+        await updateDoc(doc(db, 'projects', selectedProjectId), {
+          listIds: arrayUnion(docRef.id)
+        });
+      }
+
       await logActivity(
         user.uid,
         user.displayName || user.email || 'Platform User',
@@ -537,6 +556,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         localStorage.removeItem(`packer_autosave_newlist_${user.uid}`);
       }
       setNewListName('');
+      setSelectedProjectId('');
       setIsCreating(false);
       navigate(`/list/${docRef.id}`);
     } catch (error) {
@@ -2440,6 +2460,11 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                                   Template
                                 </span>
                               )}
+                              {list.projectId && projects.find(p => p.id === list.projectId) && (
+                                <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[7px] font-black uppercase tracking-widest">
+                                  📁 {projects.find(p => p.id === list.projectId)?.name}
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 text-[10px] text-neutral-400">
                               <Clock size={10} />
@@ -2497,13 +2522,22 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-100">
-                      {filteredLists.map((list) => (
-                        <tr key={list.id} className="group hover:bg-neutral-50 transition-colors">
-                          <td className="px-6 py-4">
-                            <Link to={`/list/${list.id}`} className="font-bold text-neutral-900 hover:text-primary transition-colors">
-                              {list.name}
-                            </Link>
-                          </td>
+                      {filteredLists.map((list) => {
+                        const linkedProject = list.projectId ? projects.find(p => p.id === list.projectId) : null;
+                        return (
+                          <tr key={list.id} className="group hover:bg-neutral-50 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="flex flex-col text-left">
+                                <Link to={`/list/${list.id}`} className="font-bold text-neutral-900 hover:text-primary transition-colors leading-tight">
+                                  {list.name}
+                                </Link>
+                                {linkedProject && (
+                                  <span className="text-[9px] font-mono font-extrabold text-amber-600 uppercase tracking-widest mt-0.5">
+                                    📁 Project: {linkedProject.name}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                           <td className="px-6 py-4">
                             <span className="px-2 py-1 bg-neutral-100 text-neutral-600 rounded-full text-[9px] font-black uppercase tracking-widest">
                               {list.status || 'Draft'}
@@ -2543,7 +2577,8 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      );
+                    })}
                     </tbody>
                   </table>
                 </div>
@@ -3018,6 +3053,21 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                     className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
                   />
                 </div>
+                {projects.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider block">Link to Project (Optional)</label>
+                    <select
+                      value={selectedProjectId}
+                      onChange={(e) => setSelectedProjectId(e.target.value)}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition text-sm font-medium text-neutral-800"
+                    >
+                      <option value="">-- No Project (Standalone List) --</option>
+                      {projects.map(proj => (
+                        <option key={proj.id} value={proj.id}>{proj.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="flex gap-3">
                   <button
                     type="button"

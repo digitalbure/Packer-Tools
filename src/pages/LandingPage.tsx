@@ -621,13 +621,13 @@ export default function LandingPage({
       )}
 
       {/* Pricing - Minimalist */}
-      <section className="py-24 px-8" id="pricing">
-        <div className="max-w-7xl mx-auto bg-primary text-white rounded-[3rem] p-12 md:p-24 relative overflow-hidden">
+      <section className="py-24 px-4 sm:px-8" id="pricing">
+        <div className="max-w-7xl mx-auto bg-primary text-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 md:p-24 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-1/2 h-full bg-accent/10 blur-[120px] rounded-full" />
           
-          <div className="relative z-10 grid lg:grid-cols-2 gap-16 items-center">
-            <div className="space-y-8">
-              <h2 className="text-5xl md:text-7xl font-black tracking-tighter uppercase leading-[0.85]">
+          <div className="relative z-10 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            <div className="space-y-8 text-left">
+              <h2 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tighter uppercase leading-[0.85]">
                 {lp?.cta?.title ? lp.cta.title.split(' ').map((word, i) => (
                   <React.Fragment key={i}>
                     {i === lp.cta.title.split(' ').length - 1 ? <span className="text-white/40">{word}</span> : word}
@@ -640,7 +640,7 @@ export default function LandingPage({
                   </>
                 )}
               </h2>
-              <p className="text-xl text-white/60 leading-relaxed max-w-md">
+              <p className="text-lg text-white/60 leading-relaxed max-w-md">
                 {lp?.cta?.description || "Professional tools shouldn't have complex pricing. Choose the tier that matches your scale."}
               </p>
               
@@ -648,21 +648,21 @@ export default function LandingPage({
                 <button 
                   type="button"
                   onClick={() => setBillingCycle('monthly')}
-                  className={`flex-1 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${billingCycle === 'monthly' ? 'bg-white text-primary shadow-lg' : 'text-white/60 hover:text-white'}`}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${billingCycle === 'monthly' ? 'bg-white text-primary shadow-lg' : 'text-white/60 hover:text-white'}`}
                 >
                   Monthly
                 </button>
                 <button 
                   type="button"
                   onClick={() => setBillingCycle('annual')}
-                  className={`flex-1 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${billingCycle === 'annual' ? 'bg-white text-primary shadow-lg' : 'text-white/60 hover:text-white'}`}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${billingCycle === 'annual' ? 'bg-white text-primary shadow-lg' : 'text-white/60 hover:text-white'}`}
                 >
                   Annual
                 </button>
               </div>
             </div>
 
-            <div className="grid gap-6">
+            <div className="grid gap-6 w-full">
               {plans.length > 0 ? (
                 plans.map((plan) => {
                   const isPaid = plan.price > 0;
@@ -686,28 +686,28 @@ export default function LandingPage({
                   return (
                     <div 
                       key={plan.id} 
-                      className={`p-8 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-all relative overflow-hidden ${
+                      className={`p-6 sm:p-8 rounded-[2rem] flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-all relative overflow-hidden text-left ${
                         isPaid ? 'bg-white text-primary shadow-2xl scale-102 border border-neutral-100' : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
                       }`}
                     >
                       {savingPct > 0 && (
-                        <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                        <div className="absolute top-4 right-4 bg-emerald-500 text-white text-[8px] sm:text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-sm animate-pulse">
                           Save {savingPct}%
                         </div>
                       )}
                       
-                      <div className="space-y-4 flex-1">
+                      <div className="space-y-4 flex-1 w-full">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-xl font-bold uppercase tracking-tight">{plan.name}</h3>
+                          <h3 className="text-lg sm:text-xl font-bold uppercase tracking-tight">{plan.name}</h3>
                           {trialInfo && (
-                            <span className="text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md bg-accent/15 text-accent shrink-0 animate-pulse">
+                            <span className="text-[8px] sm:text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md bg-accent/15 text-accent shrink-0 animate-pulse">
                               {trialInfo}
                             </span>
                           )}
                         </div>
 
                         {/* Quantitative Plan Limits */}
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] uppercase font-bold tracking-wider opacity-90">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider opacity-90">
                           <div className="flex items-center gap-1.5">
                             <span className="text-accent">■</span>
                             <span>{plan.maxGearItems >= 10000 ? 'Unlimited' : `${plan.maxGearItems.toLocaleString()}`} Items</span>
@@ -727,15 +727,15 @@ export default function LandingPage({
                         </div>
 
                         {/* Feature Tags list */}
-                        <div className="flex flex-wrap gap-1 pt-1">
+                        <div className="flex flex-wrap gap-1.5 pt-1">
                           {Array.isArray(plan.features) ? plan.features.slice(0, 3).map((f) => {
                             const label = featureKeyLabels[f] || f.replace(/([A-Z])/g, ' $1');
                             return (
                               <span 
                                 key={f} 
-                                className={`text-[8px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md ${
+                                className={`text-[8px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md ${
                                   isPaid 
-                                    ? 'bg-neutral-100 text-neutral-600 border border-neutral-200/50' 
+                                    ? 'bg-neutral-150 text-neutral-600 border border-neutral-200/50' 
                                     : 'bg-white/10 text-white/80 border border-white/5'
                                 }`}
                               >
@@ -744,8 +744,8 @@ export default function LandingPage({
                             );
                           }) : null}
                           {Array.isArray(plan.features) && plan.features.length > 3 && (
-                            <span className={`text-[8px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md ${
-                              isPaid ? 'bg-neutral-50 text-neutral-400' : 'bg-white/5 text-white/45'
+                            <span className={`text-[8px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md ${
+                              isPaid ? 'bg-neutral-100 text-neutral-400' : 'bg-white/5 text-white/45'
                             }`}>
                               +{plan.features.length - 3} More
                             </span>
@@ -753,13 +753,15 @@ export default function LandingPage({
                         </div>
                       </div>
 
-                      <div className="text-left md:text-right shrink-0">
-                        <div className="text-3xl font-black tracking-tighter">${calculatedPrice}</div>
-                        <div className={`micro-label uppercase font-black tracking-widest text-[9px] ${isPaid ? 'text-primary/45' : 'text-white/45'}`}>
-                          {isPaid ? periodLabel : 'Forever'}
+                      <div className="text-left md:text-right shrink-0 w-full md:w-auto pt-4 md:pt-0 border-t border-neutral-100 md:border-t-0 flex md:flex-col justify-between md:justify-center items-center md:items-end">
+                        <div>
+                          <div className="text-2xl sm:text-3xl font-black tracking-tighter">${calculatedPrice}</div>
+                          <div className={`micro-label uppercase font-black tracking-widest text-[8px] sm:text-[9px] ${isPaid ? 'text-primary/45' : 'text-white/45'}`}>
+                            {isPaid ? periodLabel : 'Forever'}
+                          </div>
                         </div>
                         {equivalentText && (
-                          <div className={`text-[9px] font-bold uppercase tracking-wider ${isPaid ? 'text-primary/30' : 'text-white/30'} mt-0.5`}>
+                          <div className={`text-[8px] sm:text-[9px] font-bold uppercase tracking-wider ${isPaid ? 'text-primary/30' : 'text-white/30'} mt-1`}>
                             {equivalentText}
                           </div>
                         )}
@@ -775,7 +777,7 @@ export default function LandingPage({
 
               <button 
                 onClick={signInWithGoogle}
-                className="w-full py-5 bg-accent text-white rounded-2xl font-black uppercase tracking-widest hover:bg-accent/90 transition shadow-xl mt-4"
+                className="w-full py-4 bg-accent text-white rounded-2xl font-black uppercase tracking-widest hover:bg-accent/90 transition shadow-xl mt-4"
               >
                 {lp?.cta?.buttonText || 'Get Started Now'}
               </button>

@@ -1822,7 +1822,7 @@ export function WidgetsSettingsTab({ settings, setSettings }: SettingsTabProps) 
                     setSettings(s => {
                       if (!s) return null;
                       const confs = s.moduleWidgetConfigs || {};
-                      const ai = confs.aiWizard || { activeModel: 'gemini-2.5-flash', maxTokens: 4000, confidenceThreshold: 70 };
+                      const ai = confs.aiWizard || { activeModel: 'gemini-3.5-flash', maxTokens: 4000, confidenceThreshold: 70 };
                       return { ...s, moduleWidgetConfigs: { ...confs, aiWizard: { ...ai, confidenceThreshold: val } } };
                     });
                   }}
@@ -2007,16 +2007,16 @@ export function WidgetsSettingsTab({ settings, setSettings }: SettingsTabProps) 
           <div className="space-y-1.5">
             <span className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Gemini Core Model Foundation</span>
             <select
-              value={settings?.aiConfig?.model || 'gemini-2.5-flash'}
+              value={settings?.aiConfig?.model || 'gemini-3.5-flash'}
               onChange={(e) => {
                 const val = e.target.value;
                 setSettings(s => s ? { ...s, aiConfig: { ...s.aiConfig, model: val } } : null);
               }}
               className="w-full bg-neutral-50 border border-neutral-200/60 rounded-xl px-4 py-2.5 text-xs text-neutral-800 font-extrabold outline-none"
             >
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash (Ultra-Fast Auto Labeling)</option>
-              <option value="gemini-2.5-pro">Gemini 2.5 Pro (Extreme Precision & Reasoning)</option>
-              <option value="gemini-2.0-flash">Gemini 2.0 Flash (Legacy compatible)</option>
+              <option value="gemini-3.5-flash">Gemini 3.5 Flash (Ultra-Fast Auto Labeling & Speed)</option>
+              <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Extreme Precision & Reasoning)</option>
+              <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (High Efficiency)</option>
             </select>
           </div>
 

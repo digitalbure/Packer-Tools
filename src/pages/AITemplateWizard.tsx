@@ -46,7 +46,7 @@ export default function AITemplateWizard({ user, adminSettings }: { user: UserPr
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-      const model = adminSettings?.aiConfig?.model || "gemini-3-flash-preview";
+      const model = adminSettings?.aiConfig?.model || "gemini-3.5-flash";
 
       const prompt = `
         You are an expert gear manager. 

@@ -175,7 +175,7 @@ export function getDefaultAdminSettings(): AdminSettings {
     billingEnabled: false,
     aiConfig: {
       enabled: true,
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.5-flash',
       monthlyGlobalLimit: 10000,
       currentMonthlyUsage: 0,
       maxTokensPerRequest: 2048,
@@ -655,7 +655,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             billingEnabled: false,
             aiConfig: {
               enabled: true,
-              model: 'gemini-3-flash-preview',
+              model: 'gemini-3.5-flash',
               monthlyGlobalLimit: 10000,
               currentMonthlyUsage: 0,
               maxTokensPerRequest: 2048,

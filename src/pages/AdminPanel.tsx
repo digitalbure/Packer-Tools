@@ -264,7 +264,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
   // Resource Monitor & Telemetry States
   const [simulatedLoadMultiplier, setSimulatedLoadMultiplier] = useState<number>(1.0);
-  const [telemetryModel, setTelemetryModel] = useState<'gemini-1.5-flash' | 'gemini-1.5-pro' | 'gemini-2.0-flash'>('gemini-1.5-flash');
+  const [telemetryModel, setTelemetryModel] = useState<'gemini-3.5-flash' | 'gemini-3.1-pro-preview' | 'gemini-3.1-flash-lite'>('gemini-3.5-flash');
   const [costChartType, setCostChartType] = useState<'cumulative' | 'breakdown'>('cumulative');
   const [uptimePing, setUptimePing] = useState<number>(38);
   const [isPinging, setIsPinging] = useState<boolean>(false);
@@ -377,7 +377,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   };
 
   const getSimulatedCost = () => {
-    return (lists.length * 0.03 + users.length * 0.15 + (lists.length * 6000 * (telemetryModel === 'gemini-1.5-pro' ? 2.19/1000000 : 0.13/1000000))) * simulatedLoadMultiplier;
+    return (lists.length * 0.03 + users.length * 0.15 + (lists.length * 6000 * (telemetryModel === 'gemini-3.1-pro-preview' ? 2.19/1000000 : 0.13/1000000))) * simulatedLoadMultiplier;
   };
 
   const getBillingTrendData = () => {
@@ -449,7 +449,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                             (firestoreStorageGb * rates.firestore.storageGbMonth);
 
       const actualTotal = Number((actualRunCost + actualFsCost).toFixed(2));
-      const simTotal = Number(((lCount * 0.03 + uCount * 0.15 + (lCount * 6000 * (telemetryModel === 'gemini-1.5-pro' ? 2.19/1000000 : 0.13/1000000)))).toFixed(2));
+      const simTotal = Number(((lCount * 0.03 + uCount * 0.15 + (lCount * 6000 * (telemetryModel === 'gemini-3.1-pro-preview' ? 2.19/1000000 : 0.13/1000000)))).toFixed(2));
 
       return {
         month,
@@ -1226,7 +1226,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const baseRun = (0.45 + lists.length * 0.008) * simulatedLoadMultiplier;
   const baseFire = ((users.length * 45 + lists.length * 15 + checkoutLogs.length * 20) * 0.06 / 100000 + (lists.length * 5 + checkoutLogs.length * 10) * 0.18 / 100000) * simulatedLoadMultiplier;
   const baseStorage = (0.02 + lists.length * 0.0002) * simulatedLoadMultiplier;
-  const baseGemini = ((lists.length * 4500 * (telemetryModel === 'gemini-1.5-pro' ? 1.25/1000000 : 0.075/1000000) + lists.length * 1500 * (telemetryModel === 'gemini-1.5-pro' ? 5.00/1000000 : 0.30/1000000)) * simulatedLoadMultiplier);
+  const baseGemini = ((lists.length * 4500 * (telemetryModel === 'gemini-3.1-pro-preview' ? 1.25/1000000 : 0.075/1000000) + lists.length * 1500 * (telemetryModel === 'gemini-3.1-pro-preview' ? 5.00/1000000 : 0.30/1000000)) * simulatedLoadMultiplier);
 
   const monthsList = [
     { name: 'Dec 25', year: 2025, month: 11, scale: 0.45 },
@@ -1255,7 +1255,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     const runCost = Number(((0.45 + scaleListsCount * 0.008) * simulatedLoadMultiplier).toFixed(2));
     const fireCost = Number((((users.length * 45 + scaleListsCount * 15 + checkoutLogs.length * 20) * 0.06 / 100000 + 0.12) * simulatedLoadMultiplier).toFixed(2));
     const storageCost = Number(((0.02 + scaleListsCount * 0.0002) * simulatedLoadMultiplier).toFixed(2));
-    const geminiCost = Number((((scaleListsCount * 4500 * (telemetryModel === 'gemini-1.5-pro' ? 1.25/1000000 : 0.075/1000000) + scaleListsCount * 1500 * (telemetryModel === 'gemini-1.5-pro' ? 5.00/1000000 : 0.30/1000000))) * simulatedLoadMultiplier).toFixed(2));
+    const geminiCost = Number((((scaleListsCount * 4500 * (telemetryModel === 'gemini-3.1-pro-preview' ? 1.25/1000000 : 0.075/1000000) + scaleListsCount * 1500 * (telemetryModel === 'gemini-3.1-pro-preview' ? 5.00/1000000 : 0.30/1000000))) * simulatedLoadMultiplier).toFixed(2));
     const total = Number((runCost + fireCost + storageCost + geminiCost).toFixed(2));
 
     return {
@@ -3107,7 +3107,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-xl outline-none text-xs"
                   >
                     <option value="gemini-3.5-flash">Gemini 3.5 Flash (Default - High Speed)</option>
-                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (Precision Context)</option>
+                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Precision Context)</option>
                     <option value="custom_heuristic">Rule-based Standby Crawler</option>
                   </select>
                 </div>
@@ -3139,7 +3139,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     className="w-full px-4 py-2.5 bg-white border border-neutral-200 rounded-xl outline-none text-xs"
                   >
                     <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-                    <option value="gemini-1.5-pro">Gemini 1.5 Pro Ultra-Specs Analyzer</option>
+                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Ultra-Specs Analyzer</option>
                   </select>
                 </div>
               </div>
@@ -3483,7 +3483,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             {[
               { 
                 label: 'Simulated Platform Cost (Mo.)', 
-                value: `$${((lists.length * 0.03 + users.length * 0.15 + (lists.length * 6000 * (telemetryModel === 'gemini-1.5-pro' ? 2.19/1000000 : 0.13/1000000))) * simulatedLoadMultiplier).toFixed(2)}`, 
+                value: `$${((lists.length * 0.03 + users.length * 0.15 + (lists.length * 6000 * (telemetryModel === 'gemini-3.1-pro-preview' ? 2.19/1000000 : 0.13/1000000))) * simulatedLoadMultiplier).toFixed(2)}`, 
                 subtext: `At ${simulatedLoadMultiplier}x average current activity load`,
                 icon: <Coins size={22} className="text-emerald-500" />, 
                 color: 'bg-emerald-50/50 border border-emerald-100'
@@ -3737,9 +3737,9 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     onChange={(e) => setTelemetryModel(e.target.value as any)}
                     className="bg-white px-3 py-1.5 border border-neutral-200 rounded-xl text-xs font-bold outline-none"
                   >
-                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                    <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                    <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
+                    <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
                   </select>
                 </div>
               </div>
@@ -3837,8 +3837,8 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-black text-neutral-900">
-                        ${((lists.length * 4500 * (telemetryModel === 'gemini-1.5-pro' ? 1.25/1000000 : 0.075/1000000) + 
-                            lists.length * 1500 * (telemetryModel === 'gemini-1.5-pro' ? 5.00/1000000 : 0.30/1000000)) * simulatedLoadMultiplier).toFixed(4)}
+                        ${((lists.length * 4500 * (telemetryModel === 'gemini-3.1-pro-preview' ? 1.25/1000000 : 0.075/1000000) + 
+                            lists.length * 1500 * (telemetryModel === 'gemini-3.1-pro-preview' ? 5.00/1000000 : 0.30/1000000)) * simulatedLoadMultiplier).toFixed(4)}
                       </p>
                       <span className="text-[9px] bg-neutral-100 text-neutral-400 border border-neutral-200 rounded-full px-2 py-0.5 uppercase font-bold font-mono">Per-Million Base</span>
                     </div>

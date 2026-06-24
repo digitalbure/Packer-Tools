@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Project, PackingList, UserProfile, Rack } from '../types';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { Briefcase, ChevronLeft, Plus, Trash2, Package, Calendar, Settings2, Info, Loader2, Search, CheckCircle2, X, MapPin, Flag, AlertCircle, Truck, Building, Target, Server, History, RotateCcw, Zap, Hammer, LayoutDashboard, DollarSign, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import BuildModule from '../components/BuildModule';
@@ -72,7 +72,14 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
         id: doc.id,
         ...doc.data()
       })) as PackingList[];
-      setPackingLists(lists);
+      
+      const sortedLists = [...lists].sort((a, b) => {
+        const indexA = (project?.listIds || []).indexOf(a.id);
+        const indexB = (project?.listIds || []).indexOf(b.id);
+        return indexA - indexB;
+      });
+      
+      setPackingLists(sortedLists);
     }, (error) => {
       console.warn("ProjectDetail: Error listening to packing lists:", error);
     });
@@ -704,35 +711,61 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Reorder.Group
+                      axis="y"
+                      values={packingLists}
+                      onReorder={async (newLists) => {
+                        setPackingLists(newLists);
+                        const newListIds = newLists.map(l => l.id);
+                        if (!id) return;
+                        try {
+                          await updateDoc(doc(db, 'projects', id), {
+                            listIds: newListIds
+                          });
+                        } catch (error) {
+                          console.error("Error updating project listIds order:", error);
+                          toast.error("Failed to save reordered list hierarchy");
+                        }
+                      }}
+                      className="space-y-4"
+                    >
                       {packingLists.map((list) => (
-                        <div
+                        <Reorder.Item
                           key={list.id}
-                          className="bg-white rounded-[2rem] p-8 border border-neutral-100 shadow-sm hover:shadow-xl transition-all group relative"
+                          value={list}
+                          className="bg-white rounded-[2rem] p-6 sm:p-8 border border-neutral-150/60 shadow-sm hover:shadow-md transition-all group relative cursor-grab active:cursor-grabbing flex flex-col sm:flex-row sm:items-center justify-between gap-6"
                         >
-                          <button
-                            onClick={() => handleRemoveList(list.id)}
-                            className="absolute top-6 right-6 p-2 text-neutral-200 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                          <div className="w-12 h-12 bg-neutral-50 rounded-2xl flex items-center justify-center text-primary mb-6 group-hover:scale-110 transition-transform">
-                            <Package size={24} />
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-neutral-50 rounded-2xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform shrink-0">
+                              <Package size={24} />
+                            </div>
+                            <div className="text-left">
+                              <h4 className="text-lg sm:text-xl font-black uppercase tracking-tighter mb-1 leading-none text-neutral-900">{list.name}</h4>
+                              <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">
+                                {(list.items?.length || 0)} Items • {list.status || 'Active'}
+                              </p>
+                            </div>
                           </div>
-                          <h4 className="text-xl font-black uppercase tracking-tighter mb-2 leading-none">{list.name}</h4>
-                          <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest mb-6">
-                            {(list.items?.length || 0)} Items • {list.status || 'Active'}
-                          </p>
-                          <Link
-                            to={`/list/${list.id}`}
-                            className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary hover:gap-3 transition-all"
-                          >
-                            <span>Open List</span>
-                            <ChevronLeft size={14} className="rotate-180" />
-                          </Link>
-                        </div>
+                          
+                          <div className="flex items-center gap-4 self-end sm:self-auto shrink-0">
+                            <Link
+                              to={`/list/${list.id}`}
+                              className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-neutral-900 hover:bg-primary hover:text-white text-white px-4 py-2.5 rounded-xl transition-all"
+                            >
+                              <span>Open List</span>
+                              <ChevronLeft size={14} className="rotate-180" />
+                            </Link>
+                            <button
+                              onClick={() => handleRemoveList(list.id)}
+                              className="p-2.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                              title="Detach List"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </Reorder.Item>
                       ))}
-                    </div>
+                    </Reorder.Group>
                   )}
                 </section>
 

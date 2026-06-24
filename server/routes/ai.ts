@@ -7,26 +7,163 @@ import { isQuotaError, extractSpecsFromText } from "../utils/ai";
 
 const router = express.Router();
 
+function extractMetadataFromHtml(html: string): {
+  title?: string;
+  description?: string;
+  price?: number;
+  photoUrl?: string;
+  brand?: string;
+  model?: string;
+  specsTableText?: string;
+} {
+  const result: any = {};
+
+  if (!html || typeof html !== "string") return result;
+
+  // Extract <title>
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (titleMatch && titleMatch[1]) {
+    result.title = titleMatch[1].trim();
+  }
+
+  // Helper for meta tags
+  const getMeta = (nameOrProperty: string): string | undefined => {
+    const escaped = nameOrProperty.replace(/:/g, '\\:');
+    const regex = new RegExp(`<meta[^>]*(?:name|property)=["']${escaped}["'][^>]*content=["']([^"']+)["']`, 'i');
+    const match = html.match(regex);
+    if (match) return match[1];
+
+    const reverseRegex = new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*(?:name|property)=["']${escaped}["']`, 'i');
+    const reverseMatch = html.match(reverseRegex);
+    if (reverseMatch) return reverseMatch[1];
+
+    return undefined;
+  };
+
+  // Extract meta title
+  const ogTitle = getMeta("og:title") || getMeta("twitter:title");
+  if (ogTitle) result.title = ogTitle;
+
+  // Extract meta description
+  const desc = getMeta("description") || getMeta("og:description") || getMeta("twitter:description");
+  if (desc) result.description = desc;
+
+  // Extract image
+  const image = getMeta("og:image") || getMeta("twitter:image") || getMeta("image");
+  if (image) result.photoUrl = image;
+
+  // Extract brand
+  const brand = getMeta("brand") || getMeta("product:brand") || getMeta("og:brand");
+  if (brand) result.brand = brand;
+
+  // Extract price
+  const priceAmount = getMeta("og:price:amount") || getMeta("product:price:amount") || getMeta("price") || getMeta("product:retailer_item_id");
+  if (priceAmount) {
+    const parsed = parseFloat(priceAmount.replace(/[^0-9.]/g, ""));
+    if (!isNaN(parsed)) result.price = parsed;
+  }
+
+  // Parse JSON-LD scripts
+  const jsonLdRegex = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let jsonLdMatch;
+  while ((jsonLdMatch = jsonLdRegex.exec(html)) !== null) {
+    try {
+      const parsedJson = JSON.parse(jsonLdMatch[1].trim());
+      const objects = Array.isArray(parsedJson) ? parsedJson : [parsedJson];
+      for (const obj of objects) {
+        if (obj && (obj["@type"] === "Product" || obj["type"] === "Product" || String(obj["@type"]).includes("Product"))) {
+          if (obj.name && !result.title) result.title = obj.name;
+          if (obj.description && !result.description) result.description = obj.description;
+          if (obj.image) {
+            if (typeof obj.image === "string") result.photoUrl = obj.image;
+            else if (Array.isArray(obj.image) && typeof obj.image[0] === "string") result.photoUrl = obj.image[0];
+            else if (obj.image.url) result.photoUrl = obj.image.url;
+          }
+          if (obj.brand) {
+            if (typeof obj.brand === "string") result.brand = obj.brand;
+            else if (obj.brand.name) result.brand = obj.brand.name;
+          }
+          if (obj.model) {
+            if (typeof obj.model === "string") result.model = obj.model;
+            else if (obj.model.name) result.model = obj.model.name;
+          }
+          if (obj.offers) {
+            const offers = Array.isArray(obj.offers) ? obj.offers : [obj.offers];
+            for (const offer of offers) {
+              if (offer && offer.price) {
+                const parsed = parseFloat(String(offer.price).replace(/[^0-9.]/g, ""));
+                if (!isNaN(parsed)) result.price = parsed;
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore JSON parsing errors
+    }
+  }
+
+  // Extract spec tables / list structures if visible
+  const tables: string[] = [];
+  const tableRegex = /<table\b[^>]*>([\s\S]*?)<\/table>/gi;
+  let tableMatch;
+  let count = 0;
+  while ((tableMatch = tableRegex.exec(html)) !== null && count < 5) {
+    const cleanTable = tableMatch[1]
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (cleanTable.length > 50) {
+      tables.push(cleanTable);
+      count++;
+    }
+  }
+  if (tables.length > 0) {
+    result.specsTableText = tables.join("\n\n");
+  }
+
+  return result;
+}
+
 router.post("/api/analyze-item", authenticateUser, async (req, res) => {
   const { url, productName } = req.body;
   let webpageTextContent = "";
+  let extractedMeta: any = {};
   try {
     if (url && url.startsWith("http")) {
       try {
         const fetchRes = await axios.get(url, {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
           },
           timeout: 6000
         });
         const html = fetchRes.data;
         if (typeof html === "string") {
+          extractedMeta = extractMetadataFromHtml(html);
+          
           let cleanText = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
           cleanText = cleanText.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
           cleanText = cleanText.replace(/<[^>]+>/g, " ");
           cleanText = cleanText.replace(/\s+/g, " ");
-          webpageTextContent = cleanText.slice(0, 15000);
+          webpageTextContent = cleanText.slice(0, 12000);
+
+          // Build a high-reliability structured metadata dump for Gemini
+          const structuredDump = `
+[STRUCTURED WEB METADATA EXTRACTED]:
+- Extracted Web Title: ${extractedMeta.title || "None"}
+- Extracted Web Description: ${extractedMeta.description || "None"}
+- Extracted Direct Web Price: ${extractedMeta.price !== undefined ? `$${extractedMeta.price}` : "None"}
+- Extracted Web Photo URL: ${extractedMeta.photoUrl || "None"}
+- Extracted Web Brand: ${extractedMeta.brand || "None"}
+- Extracted Web Model: ${extractedMeta.model || "None"}
+${extractedMeta.specsTableText ? `\n- Extracted Web Specifications Tables:\n${extractedMeta.specsTableText.slice(0, 3000)}` : ""}
+`;
+          webpageTextContent = structuredDump + "\n" + webpageTextContent;
         }
       } catch (scrapingError: any) {
         console.error("Scraper failed to download product URL:", scrapingError.message);
@@ -107,22 +244,25 @@ router.post("/api/analyze-item", authenticateUser, async (req, res) => {
   } catch (error: any) {
     console.error("Gemini Analysis Error (falling back to heuristics):", error);
     
-    let brand = "Standard";
-    let model = "Generic Model";
+    let brand = extractedMeta.brand || "Standard";
+    let model = extractedMeta.model || "Generic Model";
     let category = "Electronics";
-    const nameLower = (productName || url || "").toLowerCase();
+    const titleVal = extractedMeta.title || productName || url || "";
+    const nameLower = titleVal.toLowerCase();
     
-    if (nameLower.includes("sony")) brand = "Sony";
-    else if (nameLower.includes("canon")) brand = "Canon";
-    else if (nameLower.includes("nikon")) brand = "Nikon";
-    else if (nameLower.includes("red")) brand = "RED";
-    else if (nameLower.includes("arri")) brand = "ARRI";
-    else if (nameLower.includes("blackmagic")) brand = "Blackmagic Design";
-    else if (nameLower.includes("shure")) brand = "Shure";
-    else if (nameLower.includes("dji")) brand = "DJI";
-    else if (nameLower.includes("rode") || nameLower.includes("røde")) brand = "RØDE";
-    else if (nameLower.includes("sennheiser")) brand = "Sennheiser";
-    else if (nameLower.includes("aputure")) brand = "Aputure";
+    if (brand === "Standard") {
+      if (nameLower.includes("sony")) brand = "Sony";
+      else if (nameLower.includes("canon")) brand = "Canon";
+      else if (nameLower.includes("nikon")) brand = "Nikon";
+      else if (nameLower.includes("red")) brand = "RED";
+      else if (nameLower.includes("arri")) brand = "ARRI";
+      else if (nameLower.includes("blackmagic")) brand = "Blackmagic Design";
+      else if (nameLower.includes("shure")) brand = "Shure";
+      else if (nameLower.includes("dji")) brand = "DJI";
+      else if (nameLower.includes("rode") || nameLower.includes("røde")) brand = "RØDE";
+      else if (nameLower.includes("sennheiser")) brand = "Sennheiser";
+      else if (nameLower.includes("aputure")) brand = "Aputure";
+    }
     
     if (nameLower.includes("camera") || nameLower.includes("body")) category = "Camera";
     else if (nameLower.includes("lens") || nameLower.includes("focal") || nameLower.includes("mm")) category = "Lens";
@@ -132,22 +272,24 @@ router.post("/api/analyze-item", authenticateUser, async (req, res) => {
     else if (nameLower.includes("cable") || nameLower.includes("sdi") || nameLower.includes("hdmi") || nameLower.includes("xlr")) category = "Cables";
     else if (nameLower.includes("battery") || nameLower.includes("power") || nameLower.includes("charger") || nameLower.includes("v-mount")) category = "Power";
     
-    const words = (productName || "").split(/\s+/);
-    if (words.length > 1) {
-      const gModel = words.slice(1).join(" ");
-      if (gModel.length < 30) model = gModel;
+    if (model === "Generic Model") {
+      const words = titleVal.split(/\s+/);
+      if (words.length > 1) {
+        const gModel = words.slice(1).join(" ");
+        if (gModel.length < 30) model = gModel;
+      }
     }
 
-    const dynamicSpecs = extractSpecsFromText(webpageTextContent, productName || "", url || "");
+    const dynamicSpecs = extractSpecsFromText(webpageTextContent, titleVal, url || "");
 
     res.json({
-      name: productName || "Analyzed Item",
+      name: titleVal || "Analyzed Item",
       brand,
       model,
       category,
-      price: productName ? (productName.length * 12) : 199,
-      description: `A professional ${category.toLowerCase()} device (${brand} ${model}) analyzed via local workspace fallback heuristics.`,
-      photoUrl: "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop",
+      price: extractedMeta.price || (productName ? (productName.length * 12) : 199),
+      description: extractedMeta.description || `A professional ${category.toLowerCase()} device (${brand} ${model}) analyzed via local workspace fallback heuristics.`,
+      photoUrl: extractedMeta.photoUrl || "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop",
       specs: dynamicSpecs,
       aiWarning: isQuotaError(error) 
         ? "AI Quota Limit Exceeded (429). Operating in beautiful local offline heuristic mode."

@@ -4303,18 +4303,23 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
             {/* Background Accent */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -mr-16 -mt-16 pointer-events-none"></div>
 
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-2xl font-black uppercase tracking-tighter">Quick Add</h2>
-                <div className="flex items-center gap-1 mt-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-neutral-100 relative text-left">
+              <div className="space-y-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-full inline-block">
+                  Quick Add Item
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tighter text-neutral-900 mt-1">
+                  Manifest Addition
+                </h2>
+                <div className="flex items-center gap-1 mt-1.5">
                   {[1, 2].map(i => (
-                    <div key={i} className={`h-1 rounded-full transition-all duration-300 ${quickAddStep >= i ? 'w-4 bg-primary' : 'w-2 bg-neutral-200'}`}></div>
+                    <div key={i} className={`h-1 rounded-full transition-all duration-300 ${quickAddStep >= i ? 'w-5 bg-primary' : 'w-2 bg-neutral-200'}`}></div>
                   ))}
                 </div>
               </div>
               <button 
                 onClick={() => { setShowQuickAddModal(false); setQuickAddStep(1); }}
-                className="p-2 hover:bg-neutral-100 rounded-full transition"
+                className="absolute top-0 right-0 sm:relative p-2 hover:bg-neutral-100 rounded-full transition bg-neutral-50 shadow-sm sm:shadow-none"
               >
                 <Plus className="rotate-45 text-neutral-400" size={24} />
               </button>
