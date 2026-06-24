@@ -347,6 +347,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /marketplaceBrands/{brandId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // 8. Custom Compliance Pages
     match /pages/{pageId} {
       allow read: if true;

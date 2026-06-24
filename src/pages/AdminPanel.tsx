@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch, setDoc, startAfter, orderBy, getCountFromServer } from 'firebase/firestore';
-import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Compass, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Smartphone, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin, Bug, Sparkles, Server, Flame, LayoutGrid, List, ArrowUpDown } from 'lucide-react';
+import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Compass, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Smartphone, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin, Bug, Sparkles, Server, Flame, LayoutGrid, List, ArrowUpDown, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project, INDUSTRIES, BugReport } from '../types';
 import { getDefaultAdminSettings } from '../App';
 import { motion, AnimatePresence } from 'motion/react';
 import { authenticatedFetch } from '../lib/api';
+import { compressImage } from '../lib/imageUtils';
 import PagesManager from './PagesManager';
 import PackerLogo from '../components/PackerLogo';
 import AdminDocsTab from '../components/AdminDocsTab';
@@ -121,7 +122,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
   // Category Settings States
   const [categories, setCategories] = useState<any[]>([]);
-  const [listingsSubTab, setListingsSubTab] = useState<'moderate' | 'categories'>('moderate');
+  const [listingsSubTab, setListingsSubTab] = useState<'moderate' | 'categories' | 'brands'>('moderate');
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryId, setNewCategoryId] = useState('');
@@ -129,6 +130,18 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const [newSubCategories, setNewSubCategories] = useState<any[]>([]);
   const [tempSubName, setTempSubName] = useState('');
   const [tempSubSubNameMap, setTempSubSubNameMap] = useState<{[subId: string]: string}>({});
+
+  // Brand Settings States
+  const [brands, setBrands] = useState<any[]>([]);
+  const [editingBrand, setEditingBrand] = useState<any | null>(null);
+  const [newBrandName, setNewBrandName] = useState('');
+  const [newBrandId, setNewBrandId] = useState('');
+  const [newBrandImage, setNewBrandImage] = useState('');
+  const [newBrandDescription, setNewBrandDescription] = useState('');
+  const [newBrandOrigin, setNewBrandOrigin] = useState('');
+  const [newBrandCategories, setNewBrandCategories] = useState<string[]>([]);
+  const [isDragOverBrandLogo, setIsDragOverBrandLogo] = useState(false);
+  const [isUploadingBrandLogo, setIsUploadingBrandLogo] = useState(false);
 
   // Bug Report system states
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
@@ -845,6 +858,12 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       console.warn("AdminPanel: Error catching marketplaceCategories:", error);
     });
 
+    const unsubscribeBrands = onSnapshot(collection(db, 'marketplaceBrands'), (snapshot) => {
+      setBrands(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.warn("AdminPanel: Error catching marketplaceBrands:", error);
+    });
+
     const unsubscribeInvitedEmails = onSnapshot(collection(db, 'betaInvitations'), (snapshot) => {
       setInvitedEmails(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any)));
     }, (error) => {
@@ -869,6 +888,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       unsubscribeTeams();
       unsubscribeBugs();
       unsubscribeCategories();
+      unsubscribeBrands();
       unsubscribeInvitedEmails();
       unsubscribeWaitingList();
     };
@@ -1022,6 +1042,98 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
   const getCategoryListingsCount = (catId: string) => {
     return lists.filter(l => l.marketplaceEnabled && l.category === catId && l.moderationStatus !== 'suspended').length;
+  };
+
+  const handleBrandLogoFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please upload an image file (PNG, JPG, SVG, etc).");
+      return;
+    }
+    setIsUploadingBrandLogo(true);
+    try {
+      const base64 = await compressImage(file, 600, 600, 0.85);
+      setNewBrandImage(base64);
+      toast.success("Logo uploaded and compressed successfully!");
+    } catch (err) {
+      console.error("Error compressing logo image:", err);
+      toast.error("Failed to process logo image.");
+    } finally {
+      setIsUploadingBrandLogo(false);
+    }
+  };
+
+  const handleSaveBrand = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBrandName || !newBrandId) {
+      toast.error("Brand DB Slug (Id) and Display Name are required.");
+      return;
+    }
+    try {
+      await setDoc(doc(db, 'marketplaceBrands', newBrandId.trim().toLowerCase()), {
+        name: newBrandName.trim(),
+        logo: newBrandImage.trim() || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
+        description: newBrandDescription.trim(),
+        origin: newBrandOrigin.trim() || 'Global',
+        categories: newBrandCategories,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      toast.success(editingBrand ? "Brand updated successfully!" : "Brand created successfully!");
+      
+      // Reset form
+      setEditingBrand(null);
+      setNewBrandId('');
+      setNewBrandName('');
+      setNewBrandImage('');
+      setNewBrandDescription('');
+      setNewBrandOrigin('');
+      setNewBrandCategories([]);
+    } catch (error) {
+      console.error("Error saving brand:", error);
+      toast.error("Failed to save brand.");
+    }
+  };
+
+  const handleDeleteBrand = async (brandId: string) => {
+    if (!confirm(`Are you sure you want to delete brand "${brandId}"?`)) return;
+    try {
+      await deleteDoc(doc(db, 'marketplaceBrands', brandId));
+      toast.success("Brand deleted.");
+    } catch (error) {
+      console.error("Error deleting brand:", error);
+      toast.error("Failed to delete brand.");
+    }
+  };
+
+  const handleAutoPopulateBrands = async () => {
+    try {
+      const defaultBrands = [
+        { id: 'sony', name: 'Sony', logo: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?auto=format&fit=crop&q=80&w=400', description: 'Premium Japanese cameras, professional cinema gears, and E-mount lenses.', origin: 'Japan', categories: ['cinema-cameras', 'still-hybrid', 'photography-lenses', 'cinema-lenses'] },
+        { id: 'canon', name: 'Canon', logo: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?auto=format&fit=crop&q=80&w=400', description: 'Industry-standard DSLR, RF mirrorless systems, and cinema EF/RF primes.', origin: 'Japan', categories: ['cinema-cameras', 'still-hybrid', 'photography-lenses', 'cinema-lenses'] },
+        { id: 'arri', name: 'ARRI', logo: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=400', description: 'World premier cinematic camera systems (Alexa) and professional PL mounts.', origin: 'Germany', categories: ['cinema-cameras', 'cinema-lenses'] },
+        { id: 'red', name: 'RED Digital Cinema', logo: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&q=80&w=400', description: 'High-resolution cinema production giants capturing RAW workflows.', origin: 'United States', categories: ['cinema-cameras'] },
+        { id: 'blackmagic', name: 'Blackmagic Design', logo: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&q=80&w=400', description: 'Aesthetic production monitors, switchers, and pocket cameras.', origin: 'Australia', categories: ['cinema-cameras', 'audio'] },
+        { id: 'zeiss', name: 'ZEISS', logo: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&q=80&w=400', description: 'Legendary premium optical lenses, Supreme Cinema Primes, and CP.3 series.', origin: 'Germany', categories: ['cinema-lenses', 'photography-lenses'] },
+        { id: 'sigma', name: 'Sigma', logo: 'https://images.unsplash.com/photo-1616440347437-b1c73416efc2?auto=format&fit=crop&q=80&w=400', description: 'Award-winning photography and high-speed Cine Zoom Art series.', origin: 'Japan', categories: ['cinema-lenses', 'photography-lenses'] },
+        { id: 'cooke', name: 'Cooke Optics', logo: 'https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?auto=format&fit=crop&q=80&w=400', description: 'The famous "Cooke Look" vintage optical masterpieces from Leicester.', origin: 'United Kingdom', categories: ['cinema-lenses'] },
+        { id: 'pelican', name: 'Pelican', logo: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&q=80&w=400', description: 'Indestructible transport protection cases and equipment organizers.', origin: 'United States', categories: ['ge-packages', 'site-scaffolding', 'power-tools'] }
+      ];
+
+      for (const brand of defaultBrands) {
+        await setDoc(doc(db, 'marketplaceBrands', brand.id), {
+          name: brand.name,
+          logo: brand.logo,
+          description: brand.description,
+          origin: brand.origin,
+          categories: brand.categories,
+          createdAt: new Date().toISOString()
+        }, { merge: true });
+      }
+      toast.success("Default marketplace brands successfully populated / restored!");
+    } catch (error) {
+      console.error("Error populating default brands:", error);
+      toast.error("Failed to populate default brands.");
+    }
   };
 
   // Background Auto-populate category synchronizer 
@@ -5174,6 +5286,13 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             >
               🏷️ Category Settings
             </button>
+            <button
+              type="button"
+              onClick={() => setListingsSubTab('brands')}
+              className={`pb-2 text-xs font-black uppercase tracking-wider border-b-2 transition ${listingsSubTab === 'brands' ? 'border-primary text-neutral-900 font-extrabold' : 'border-transparent text-neutral-400 hover:text-neutral-700 font-bold'}`}
+            >
+              🏅 Brands Directory
+            </button>
           </div>
 
           {listingsSubTab === 'moderate' && (
@@ -5719,6 +5838,347 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                               </tr>
                             );
                           })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {listingsSubTab === 'brands' && (
+            <div className="space-y-6 animate-in fade-in duration-350">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                
+                {/* Brand Creator / Editor Form */}
+                <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-neutral-950">
+                      {editingBrand ? '✏️ Edit Brand Manufacturer' : '✨ Add Brand Manufacturer'}
+                    </h3>
+                    <p className="text-[11px] text-neutral-400">
+                      Register equipment brands to link with equipment specs, models, and listings.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleSaveBrand} className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-450 block">Brand DB Slug / ID</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. sony"
+                        value={newBrandId}
+                        onChange={(e) => setNewBrandId(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, ''))}
+                        className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-150 rounded-xl text-xs font-semibold focus:outline-none focus:border-primary disabled:opacity-50"
+                        disabled={!!editingBrand}
+                        required
+                      />
+                      <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest leading-none">
+                        Lowercase alphanumeric only. Unique identifier.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-450 block">Display Brand Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Sony"
+                        value={newBrandName}
+                        onChange={(e) => setNewBrandName(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-150 rounded-xl text-xs font-semibold focus:outline-none focus:border-primary"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-450 block">Brand Logo Image</label>
+                      
+                      {/* Drag & Drop File Upload Zone */}
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsDragOverBrandLogo(true);
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsDragOverBrandLogo(false);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsDragOverBrandLogo(false);
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) {
+                            handleBrandLogoFile(file);
+                          }
+                        }}
+                        onClick={() => {
+                          const el = document.getElementById('brand-logo-file-picker');
+                          if (el) el.click();
+                        }}
+                        className={`border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center text-center space-y-1.5 transition-all cursor-pointer group ${
+                          isDragOverBrandLogo 
+                            ? 'border-primary bg-primary/5 scale-[1.01]' 
+                            : 'border-neutral-200 bg-neutral-50 hover:bg-neutral-100 hover:border-neutral-300'
+                        }`}
+                      >
+                        <input
+                          type="file"
+                          id="brand-logo-file-picker"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleBrandLogoFile(file);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        {isUploadingBrandLogo ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            <span className="text-[10px] text-neutral-400 font-bold uppercase">Processing...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Upload size={18} className="text-neutral-400 group-hover:text-primary transition" />
+                            <p className="text-[10px] font-bold text-neutral-600">
+                              Drag & drop logo here or <span className="text-primary underline">browse</span>
+                            </p>
+                            <p className="text-[8px] text-neutral-400 uppercase tracking-wider">PNG, JPG, or SVG up to 5MB</p>
+                          </>
+                        )}
+                      </div>
+
+                      {/* URL Fallback */}
+                      <div className="space-y-1">
+                        <span className="text-[8px] font-black uppercase text-neutral-400 tracking-wider block text-center">— OR —</span>
+                        <input
+                          type="text"
+                          placeholder="Or paste Logo Image URL (e.g. https://...)"
+                          value={newBrandImage}
+                          onChange={(e) => setNewBrandImage(e.target.value)}
+                          className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-150 rounded-xl text-xs font-semibold focus:outline-none focus:border-primary"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Image Preview Area */}
+                    {newBrandImage && (
+                      <div className="relative group rounded-2xl overflow-hidden border border-neutral-150 bg-neutral-50 aspect-video flex items-center justify-center p-2">
+                        <img 
+                          src={newBrandImage} 
+                          alt="Brand logo preview" 
+                          className="max-h-full max-w-full object-contain rounded-lg"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400';
+                            toast.error("Image link failed to load, falling back to default.");
+                          }}
+                          referrerPolicy="no-referrer"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setNewBrandImage('')}
+                          className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition shadow-sm"
+                          title="Remove Image"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-450 block">Country of Origin</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Japan, Germany"
+                        value={newBrandOrigin}
+                        onChange={(e) => setNewBrandOrigin(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-150 rounded-xl text-xs font-semibold focus:outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-450 block">Short Description</label>
+                      <textarea
+                        placeholder="Brief summary of their main equipment specialties..."
+                        value={newBrandDescription}
+                        onChange={(e) => setNewBrandDescription(e.target.value)}
+                        rows={3}
+                        className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-150 rounded-xl text-xs font-semibold focus:outline-none focus:border-primary resize-none"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-450 block">Linked Categories</label>
+                      <div className="max-h-36 overflow-y-auto border border-neutral-100 rounded-xl p-2 bg-neutral-50/55 space-y-1">
+                        {categories.map((cat) => (
+                          <label key={cat.id} className="flex items-center gap-2 p-1 hover:bg-neutral-100 rounded-lg cursor-pointer text-[10.5px] font-bold text-neutral-700">
+                            <input
+                              type="checkbox"
+                              checked={newBrandCategories.includes(cat.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setNewBrandCategories([...newBrandCategories, cat.id]);
+                                } else {
+                                  setNewBrandCategories(newBrandCategories.filter(id => id !== cat.id));
+                                }
+                              }}
+                              className="rounded border-neutral-350 text-neutral-900 focus:ring-neutral-900 h-3 w-3"
+                            />
+                            <span>{cat.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      {editingBrand && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingBrand(null);
+                            setNewBrandId('');
+                            setNewBrandName('');
+                            setNewBrandImage('');
+                            setNewBrandDescription('');
+                            setNewBrandOrigin('');
+                            setNewBrandCategories([]);
+                          }}
+                          className="flex-1 px-4 py-2.5 bg-neutral-100 text-neutral-700 rounded-xl text-xs font-extrabold uppercase tracking-wider hover:bg-neutral-200 transition whitespace-nowrap"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        className="flex-1 px-4 py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-extrabold uppercase tracking-wider hover:bg-neutral-800 transition whitespace-nowrap"
+                      >
+                        {editingBrand ? 'Update' : 'Create'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Brands Directory table */}
+                <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm lg:col-span-2 space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900 flex items-center gap-2">
+                        <span>Brands & Manufacturers</span>
+                        <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded-full text-[10px] font-black uppercase">
+                          {brands.length} Total
+                        </span>
+                      </h3>
+                      <p className="text-xs text-neutral-500">
+                        Central directory of registered brands for smart camera and gear logistics.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAutoPopulateBrands}
+                        className="flex items-center gap-2 px-4 py-2 bg-neutral-100 text-neutral-700 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-neutral-200 transition"
+                        title="Auto populate standard brands"
+                      >
+                        <Zap size={14} className="text-[#ff4f3a]" />
+                        <span>Auto Defaults</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {brands.length === 0 ? (
+                    <div className="p-16 border-2 border-dashed border-neutral-100 rounded-2xl text-center space-y-4">
+                      <p className="text-neutral-450 italic text-xs">
+                        No brands found in Firestore database. Click "Auto Defaults" above to seed industry leaders (Sony, Canon, ARRI, RED, ZEISS, Cooke, etc.) or use the form to add manually!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-neutral-100 text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                            <th className="pb-4 shrink-0">Logo</th>
+                            <th className="pb-4">Brand / Manufacturer</th>
+                            <th className="pb-4">Details & Origin</th>
+                            <th className="pb-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-50 text-xs">
+                          {brands.map((brand) => (
+                            <tr key={brand.id} className="hover:bg-neutral-50/20 group">
+                              <td className="py-4 pr-4">
+                                <div className="w-12 h-12 rounded-xl overflow-hidden border border-neutral-150 bg-neutral-50 flex items-center justify-center p-1.5">
+                                  <img 
+                                    src={brand.logo || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400'} 
+                                    alt={brand.name} 
+                                    className="max-w-full max-h-full object-contain rounded-lg"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                </div>
+                              </td>
+                              <td className="py-4">
+                                <div className="max-w-xs sm:max-w-md">
+                                  <p className="font-extrabold text-neutral-800 text-sm">{brand.name}</p>
+                                  <p className="font-mono text-[9px] text-neutral-400 font-bold uppercase">{brand.id}</p>
+                                </div>
+                              </td>
+                              <td className="py-4">
+                                <div className="space-y-1 max-w-xs">
+                                  {brand.origin && (
+                                    <span className="px-1.5 py-0.5 bg-neutral-100 text-neutral-500 rounded text-[9px] font-bold uppercase font-mono mr-1.5 animate-in fade-in">
+                                      {brand.origin}
+                                    </span>
+                                  )}
+                                  <p className="text-[11px] text-neutral-500 font-medium leading-normal">{brand.description || 'No description listed.'}</p>
+                                  {brand.categories && brand.categories.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                      {brand.categories.map((catId: string) => {
+                                        const cat = categories.find(c => c.id === catId);
+                                        return (
+                                          <span key={catId} className="px-1.5 py-0.5 bg-neutral-50 text-neutral-400 border border-neutral-100 rounded text-[8.5px] font-extrabold uppercase font-sans">
+                                            {cat ? cat.name : catId}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-4 text-right">
+                                <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingBrand(brand);
+                                      setNewBrandId(brand.id);
+                                      setNewBrandName(brand.name);
+                                      setNewBrandImage(brand.logo || '');
+                                      setNewBrandDescription(brand.description || '');
+                                      setNewBrandOrigin(brand.origin || '');
+                                      setNewBrandCategories(brand.categories || []);
+                                    }}
+                                    className="p-2 text-neutral-500 hover:text-neutral-950 hover:bg-neutral-100 rounded-xl transition"
+                                    title="Edit details"
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteBrand(brand.id)}
+                                    className="p-2 text-neutral-400 hover:text-red-500 hover:bg-neutral-100 rounded-xl transition"
+                                    title="Delete Brand"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>

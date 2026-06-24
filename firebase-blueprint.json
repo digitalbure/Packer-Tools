@@ -412,6 +412,20 @@
       },
       "required": ["name"]
     },
+    "MarketplaceBrand": {
+      "title": "Marketplace Brand",
+      "description": "Premium brand taxonomy with logos and categories.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "logo": { "type": "string" },
+        "description": { "type": "string" },
+        "origin": { "type": "string" },
+        "categories": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name"]
+    },
     "Invitation": {
       "title": "Invitation",
       "description": "Invitation to join an organization.",
@@ -547,6 +561,10 @@
     "/marketplaceCategories/{categoryId}": {
       "schema": "MarketplaceCategory",
       "description": "Marketplace gear categories."
+    },
+    "/marketplaceBrands/{brandId}": {
+      "schema": "MarketplaceBrand",
+      "description": "Premium brand taxonomy with logos and categories."
     },
     "/invitations/{inviteId}": {
       "schema": "Invitation",

@@ -277,6 +277,14 @@ export interface PackingList {
   dropoffCustomAddress?: string;
   createdAt: string;
   updatedAt: string;
+  brand?: string;
+  model?: string;
+  lensType?: string;
+  lensMount?: string;
+  focalLength?: string;
+  maxAperture?: string;
+  formatCoverage?: string;
+  focusType?: string;
 }
 
 export interface RentalAgreement {
@@ -488,6 +496,12 @@ export interface PackingItem {
     type?: 'Organizer' | 'Accessory' | 'Consumable' | 'Attachment' | 'Add On' | 'Software' | 'Mod' | 'Other';
     notes?: string;
   }[];
+  lensType?: string;
+  lensMount?: string;
+  focalLength?: string;
+  maxAperture?: string;
+  formatCoverage?: string;
+  focusType?: string;
 }
 
 export interface RackItem {

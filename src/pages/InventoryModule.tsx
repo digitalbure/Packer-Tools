@@ -45,7 +45,8 @@ import {
   Edit2,
   FileText,
   RefreshCw,
-  Sliders
+  Sliders,
+  Printer
 } from 'lucide-react';
 import { 
   collection, 
@@ -72,6 +73,8 @@ import { isFeatureEnabled } from '../lib/featureUtils';
 import * as PAPA from 'papaparse';
 import * as XLSX from 'xlsx';
 import { authenticatedFetch } from '../lib/api';
+import { useNavigate } from 'react-router-dom';
+import NfcScannerModal from '../components/NfcScannerModal';
 
 interface InventoryModuleProps {
   user: UserProfile | null;
@@ -128,6 +131,56 @@ export interface InventoryItem {
 export default function InventoryModule({ user, adminSettings }: InventoryModuleProps) {
   // Global Active State & Mode switcher
   const [activeTab, setActiveTab] = useState<'custom_inventories' | 'global_allocations' | 'physical_map'>('custom_inventories');
+
+  const navigate = useNavigate();
+
+  // NFC Scanner State variables
+  const [isNfcModalOpen, setIsNfcModalOpen] = useState(false);
+  const [nfcScanMode, setNfcScanMode] = useState<'associate' | 'search'>('search');
+  const [nfcTargetItem, setNfcTargetItem] = useState<{ id: string; name: string; type: 'gear' | 'inventory'; inventoryId?: string } | undefined>(undefined);
+  const [pendingNfcEditItemId, setPendingNfcEditItemId] = useState<string | null>(null);
+
+  // Redirect from other pages after an NFC search match
+  useEffect(() => {
+    const redirectInvId = localStorage.getItem('nfc_redirect_inventory_id');
+    const redirectItemId = localStorage.getItem('nfc_redirect_item_id');
+    if (redirectInvId && redirectItemId && inventories.length > 0) {
+      localStorage.removeItem('nfc_redirect_inventory_id');
+      localStorage.removeItem('nfc_redirect_item_id');
+      
+      const foundInv = inventories.find(inv => inv.id === redirectInvId);
+      if (foundInv) {
+        setSelectedInventory(foundInv);
+        setPendingNfcEditItemId(redirectItemId);
+      }
+    }
+  }, [inventories]);
+
+  // Open item detail modal once effective items have loaded
+  useEffect(() => {
+    if (pendingNfcEditItemId && effectiveInventoryItems.length > 0) {
+      const foundItem = effectiveInventoryItems.find(it => it.id === pendingNfcEditItemId);
+      if (foundItem) {
+        setPendingNfcEditItemId(null);
+        setEditingItem(foundItem);
+      }
+    }
+  }, [pendingNfcEditItemId, effectiveInventoryItems]);
+
+  const handleNfcSearchSuccess = (foundItem: any, type: 'gear' | 'inventory', inventoryId?: string) => {
+    if (type === 'gear') {
+      localStorage.setItem('nfc_redirect_gear_id', foundItem.id);
+      navigate('/library');
+    } else {
+      if (inventoryId) {
+        const foundInv = inventories.find(inv => inv.id === inventoryId);
+        if (foundInv) {
+          setSelectedInventory(foundInv);
+          setPendingNfcEditItemId(foundItem.id);
+        }
+      }
+    }
+  };
   
   // Data Model states loaded from database
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -166,6 +219,12 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     user?.role === 'owner' ||
     (user?.permissions?.locations && user.permissions.locations[selectedInventory.id] === 'editor') ||
     user?.isSuperAdmin;
+
+  // Print & PDF Export report states
+  const [isPrintView, setIsPrintView] = useState(false);
+  const [printWithPhotos, setPrintWithPhotos] = useState(true);
+  const [printCompact, setPrintCompact] = useState(true);
+  const [printGrouping, setPrintGrouping] = useState(true);
 
   // BOM Lead Time & Supply Chain Risk Analyzer states
   const [bomAnalysisResult, setBomAnalysisResult] = useState<any | null>(null);
@@ -519,6 +578,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     photoUrl?: string;
     visibility?: 'public' | 'private' | 'team' | 'dept' | 'org';
     trackingMode?: 'batch' | 'individual';
+    nfcTag?: string;
   }>({
     name: '',
     description: '',
@@ -533,7 +593,8 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     status: 'available',
     photoUrl: '',
     visibility: 'public',
-    trackingMode: 'batch'
+    trackingMode: 'batch',
+    nfcTag: ''
   });
 
   const [invSerialPrefix, setInvSerialPrefix] = useState('');
@@ -1270,7 +1331,9 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       status: item.status || 'available',
       photoUrl: item.photoUrls?.[0] || '',
       visibility: item.visibility || 'public',
-      trackingMode: item.trackingMode || 'batch'
+      trackingMode: item.trackingMode || 'batch',
+      // @ts-ignore
+      nfcTag: item.nfcTag || ''
     });
     setIsAddingItemManually(true);
   };
@@ -1596,6 +1659,260 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     );
   }
 
+  if (isPrintView) {
+    const activeItems = filteredInventoryItems;
+    const statsTotal = activeItems.length;
+    const totalQty = activeItems.reduce((acc, it) => acc + (it.quantity || 1), 0);
+    const totalVal = activeItems.reduce((acc, it) => acc + ((it.price || 0) * (it.quantity || 1)), 0);
+    const attentionNeeded = activeItems.filter(it => it.condition === 'poor' || it.status === 'maintenance').length;
+
+    const printGroups = (printGrouping 
+      ? Object.entries(
+          activeItems.reduce<{ [key: string]: any[] }>((acc, item) => {
+            const grp = item.primaryCategory || 'Uncategorized';
+            if (!acc[grp]) acc[grp] = [];
+            acc[grp].push(item);
+            return acc;
+          }, {})
+        )
+      : [['All Inventory Items', activeItems]]) as [string, any[]][];
+
+    return (
+      <div className="min-h-screen bg-neutral-900 text-neutral-100 flex flex-col font-sans">
+        <style>{`
+          @media print {
+            body {
+              background: white !important;
+              color: #171717 !important;
+            }
+            nav, .navbar, .sidebar, footer, .no-print, button, aside, header, #hubspot-messages-iframe-container {
+              display: none !important;
+            }
+            body * {
+              visibility: hidden;
+            }
+            #print-area, #print-area * {
+              visibility: visible;
+            }
+            #print-area {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100%;
+              margin: 0 !important;
+              padding: 0 !important;
+              box-shadow: none !important;
+              border: none !important;
+              background: white !important;
+              color: black !important;
+            }
+            tr {
+              page-break-inside: avoid !important;
+            }
+            .text-print-black {
+              color: #000000 !important;
+            }
+            .border-print-gray {
+              border-color: #d1d5db !important;
+            }
+          }
+        `}</style>
+        
+        <div className="no-print bg-neutral-950 border-b border-neutral-800 p-4 sticky top-0 z-50 shadow-xl flex flex-wrap justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsPrintView(false)}
+              className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold transition duration-200 cursor-pointer"
+            >
+              <ChevronLeft size={16} />
+              <span>Back to Sheets</span>
+            </button>
+            <div className="h-4 w-px bg-neutral-800" />
+            <h2 className="text-sm font-extrabold uppercase tracking-wider text-neutral-300">
+              Print Inventory Report Preview
+            </h2>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={printWithPhotos}
+                onChange={(e) => setPrintWithPhotos(e.target.checked)}
+                className="rounded border-neutral-700 bg-neutral-900 text-[#F27D26] focus:ring-[#F27D26] w-4 h-4 cursor-pointer"
+              />
+              <span>Include Status & Condition</span>
+            </label>
+            
+            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={printCompact}
+                onChange={(e) => setPrintCompact(e.target.checked)}
+                className="rounded border-neutral-700 bg-neutral-900 text-[#F27D26] focus:ring-[#F27D26] w-4 h-4 cursor-pointer"
+              />
+              <span>Compact Row Spacing</span>
+            </label>
+
+            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={printGrouping}
+                onChange={(e) => setPrintGrouping(e.target.checked)}
+                className="rounded border-neutral-700 bg-neutral-900 text-[#F27D26] focus:ring-[#F27D26] w-4 h-4 cursor-pointer"
+              />
+              <span>Group by Category</span>
+            </label>
+
+            <div className="h-4 w-px bg-neutral-800" />
+
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-2 px-5 py-2 bg-[#F27D26] hover:bg-[#F27D26]/90 text-white rounded-xl text-xs font-black uppercase tracking-wider transition duration-200 shadow-md shadow-primary/20 cursor-pointer"
+            >
+              <Printer size={16} />
+              <span>Print Report / Save PDF</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 bg-neutral-900 overflow-y-auto py-8 px-4 no-print flex justify-center">
+          <div
+            id="print-area"
+            className="w-full max-w-4xl bg-white text-neutral-900 p-10 shadow-2xl rounded-2xl border border-neutral-200 font-sans print:shadow-none print:border-none"
+          >
+            <div className="space-y-6 text-print-black">
+              <div className="flex justify-between items-start border-b-2 border-neutral-900 pb-5">
+                <div className="space-y-1">
+                  <h1 className="text-2xl font-black uppercase tracking-tight text-neutral-950">
+                    {selectedInventory?.name || 'Departmental Inventory'}
+                  </h1>
+                  <p className="text-xs text-neutral-500 uppercase tracking-widest font-black">
+                    Master Asset Registry & Inventory Sheet
+                  </p>
+                  <p className="text-[10px] text-neutral-400 font-bold mt-1">
+                    Generated: {new Date().toLocaleString()}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-mono font-black text-white bg-neutral-950 px-3 py-1.5 rounded-lg uppercase tracking-wider">
+                    Packer Tools Report
+                  </span>
+                </div>
+              </div>
+
+              {/* Stat Boxes */}
+              <div className="grid grid-cols-4 gap-4 bg-neutral-50 border border-neutral-200 p-4 rounded-2xl border-print-gray">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Unique Models</p>
+                  <p className="text-xl font-black text-neutral-900">{statsTotal}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Total Stock Quantity</p>
+                  <p className="text-xl font-black text-neutral-900">{totalQty}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Financial Valuation</p>
+                  <p className="text-xl font-black text-emerald-700">${totalVal.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Attention Needed</p>
+                  <p className="text-xl font-black text-amber-600">{attentionNeeded}</p>
+                </div>
+              </div>
+
+              {/* Table Data */}
+              <div className="space-y-6">
+                {printGroups.map(([groupName, groupItems]) => (
+                  <div key={groupName} className="space-y-2">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-neutral-800 border-b border-neutral-300 pb-1 flex items-center justify-between border-print-gray">
+                      <span>{groupName}</span>
+                      <span className="text-[10px] text-neutral-500 font-normal">({groupItems.length} items)</span>
+                    </h3>
+                    
+                    <div className="border border-neutral-200 rounded-xl overflow-hidden border-print-gray">
+                      <table className="w-full text-left border-collapse text-[10px]">
+                        <thead>
+                          <tr className="bg-neutral-50 text-neutral-500 uppercase tracking-widest font-black border-b border-neutral-200 border-print-gray">
+                            <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[100px]`}>Asset Tag</th>
+                            <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'}`}>Item Details</th>
+                            <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[120px]`}>Brand / Model</th>
+                            <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[60px] text-center`}>Qty</th>
+                            <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[80px] text-right`}>Price</th>
+                            {printWithPhotos && (
+                              <>
+                                <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[70px] text-center`}>Condition</th>
+                                <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[85px] text-center`}>Status</th>
+                              </>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100 divide-print-gray">
+                          {groupItems.map(item => (
+                            <tr key={item.id} className="hover:bg-neutral-50/50">
+                              <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} font-mono text-neutral-400 font-bold`}>
+                                {item.assetTag || 'N/A'}
+                              </td>
+                              <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'}`}>
+                                <p className="font-extrabold text-neutral-900 text-[10.5px]">{item.name}</p>
+                                {item.description && !printCompact && (
+                                  <p className="text-[9px] text-neutral-400 mt-0.5 leading-snug line-clamp-1">{item.description}</p>
+                                )}
+                              </td>
+                              <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-neutral-600 truncate`}>
+                                {item.brand || '-'} {item.model ? `• ${item.model}` : ''}
+                              </td>
+                              <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-center font-bold text-neutral-900`}>
+                                {item.quantity || 1}
+                              </td>
+                              <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-right font-mono font-bold text-neutral-900`}>
+                                ${item.price ? item.price.toLocaleString() : '0'}
+                              </td>
+                              {printWithPhotos && (
+                                <>
+                                  <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-center uppercase text-[9px] font-black`}>
+                                    <span className={`px-1.5 py-0.5 rounded ${
+                                      item.condition === 'new' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                      item.condition === 'good' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                                      item.condition === 'fair' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                                      'bg-red-50 text-red-700 border border-red-100'
+                                    }`}>
+                                      {item.condition || 'good'}
+                                    </span>
+                                  </td>
+                                  <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-center uppercase text-[9px] font-black`}>
+                                    <span className={`px-1.5 py-0.5 rounded ${
+                                      item.status === 'available' ? 'bg-emerald-950 text-white' :
+                                      item.status === 'in_use' ? 'bg-[#F27D26] text-white' :
+                                      item.status === 'maintenance' ? 'bg-red-500 text-white' :
+                                      'bg-neutral-500 text-white'
+                                    }`}>
+                                      {item.status || 'available'}
+                                    </span>
+                                  </td>
+                                </>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Disclaimer */}
+              <div className="border-t border-neutral-200 pt-5 text-center text-[9px] text-neutral-400 font-bold uppercase tracking-wider flex justify-between border-print-gray">
+                <span>Certified Offline Asset Audit Slip</span>
+                <span>Powering corporate equipment and logistics workflow</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8 select-none">
       
@@ -1851,8 +2168,20 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       placeholder="Search inventory..."
                       value={inventorySearch}
                       onChange={(e) => setInventorySearch(e.target.value)}
-                      className="w-full bg-white border border-neutral-200 rounded-xl pl-11 pr-4 py-3 text-xs outline-none focus:ring-1 focus:ring-black h-11"
+                      className="w-full bg-white border border-neutral-200 rounded-xl pl-11 pr-10 py-3 text-xs outline-none focus:ring-1 focus:ring-black h-11 font-semibold"
                     />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNfcScanMode('search');
+                        setNfcTargetItem(undefined);
+                        setIsNfcModalOpen(true);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-neutral-100 rounded-xl transition text-neutral-500 hover:text-black"
+                      title="Scan NFC Tag"
+                    >
+                      <Cpu size={14} className="text-[#F27D26]" />
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-xl px-4 py-1 h-11">
@@ -1930,6 +2259,21 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
                   <button
                     onClick={() => {
+                      if (filteredInventoryItems.length === 0) {
+                        toast.error("Nothing to print on the selected table.");
+                        return;
+                      }
+                      setIsPrintView(true);
+                    }}
+                    className="px-4 py-3 bg-[#F27D26] hover:bg-[#F27D26]/90 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition cursor-pointer"
+                    title="Generate printable PDF report layout"
+                  >
+                    <Printer size={14} />
+                    <span>Print Report / PDF</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
                       triggerHaptic();
                       setIsAuditMode(prev => {
                         const next = !prev;
@@ -1999,8 +2343,20 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       placeholder="Search inventory..."
                       value={inventorySearch}
                       onChange={(e) => setInventorySearch(e.target.value)}
-                      className="w-full bg-white border border-neutral-200 rounded-xl pl-11 pr-4 py-3 text-xs outline-none focus:ring-1 focus:ring-black h-11 animate-fade-in"
+                      className="w-full bg-white border border-neutral-200 rounded-xl pl-11 pr-10 py-3 text-xs outline-none focus:ring-1 focus:ring-black h-11 animate-fade-in font-semibold"
                     />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNfcScanMode('search');
+                        setNfcTargetItem(undefined);
+                        setIsNfcModalOpen(true);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-neutral-100 rounded-xl transition text-neutral-500 hover:text-black"
+                      title="Scan NFC Tag"
+                    >
+                      <Cpu size={12} className="text-[#F27D26]" />
+                    </button>
                   </div>
                   <button
                     type="button"
@@ -3334,8 +3690,20 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                 placeholder="Search asset tag numbers..." 
                 value={allocationSearch}
                 onChange={(e) => setAllocationSearch(e.target.value)}
-                className="w-full bg-white border border-neutral-200 rounded-xl pl-11 pr-4 py-3 text-xs outline-none focus:ring-1 focus:ring-black h-11"
+                className="w-full bg-white border border-neutral-200 rounded-xl pl-11 pr-10 py-3 text-xs outline-none focus:ring-1 focus:ring-black h-11 font-semibold"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  setNfcScanMode('search');
+                  setNfcTargetItem(undefined);
+                  setIsNfcModalOpen(true);
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-neutral-100 rounded-xl transition text-neutral-500 hover:text-black"
+                title="Scan NFC Tag"
+              >
+                <Cpu size={14} className="text-[#F27D26]" />
+              </button>
             </div>
 
             <div className="flex items-center gap-2 bg-white border border-neutral-200 rounded-xl px-4 py-1 h-11">
@@ -4079,6 +4447,38 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                   </div>
                 </div>
 
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">NFC Tag Identifier / Serial</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="No NFC tag linked"
+                      value={itemForm.nfcTag || ''}
+                      onChange={(e) => setItemForm({ ...itemForm, nfcTag: e.target.value })}
+                      className="flex-1 bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-xs outline-none focus:ring-1 focus:ring-black h-11 font-mono uppercase"
+                    />
+                    {editingItem && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNfcTargetItem({
+                            id: editingItem.id,
+                            name: editingItem.name,
+                            type: 'inventory',
+                            inventoryId: selectedInventory?.id
+                          });
+                          setNfcScanMode('associate');
+                          setIsNfcModalOpen(true);
+                        }}
+                        className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition flex items-center gap-1.5 shrink-0 border border-neutral-800"
+                      >
+                        <Cpu size={12} className="text-[#F27D26]" />
+                        <span>Link NFC Tag</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1 font-mono">Original category</label>
@@ -4552,6 +4952,18 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
           </div>
         )}
       </AnimatePresence>
+
+      <NfcScannerModal
+        isOpen={isNfcModalOpen}
+        onClose={() => setIsNfcModalOpen(false)}
+        mode={nfcScanMode}
+        targetItem={nfcTargetItem}
+        currentUser={user}
+        onAssociateSuccess={(tagId) => {
+          setItemForm(prev => ({ ...prev, nfcTag: tagId }));
+        }}
+        onSearchSuccess={handleNfcSearchSuccess}
+      />
     </div>
   );
 }

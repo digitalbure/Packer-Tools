@@ -57,6 +57,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { compressImage } from '../lib/imageUtils';
+import NfcScannerModal from '../components/NfcScannerModal';
 
 const triggerHaptic = () => {
   if (typeof window !== 'undefined' && window.navigator && typeof window.navigator.vibrate === 'function') {
@@ -89,6 +90,14 @@ import {
 
 export default function GearLibrary({ user, adminSettings: propAdminSettings }: { user: UserProfile, adminSettings: AdminSettings | null }) {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [dbBrands, setDbBrands] = useState<any[]>([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'marketplaceBrands'), (snapshot) => {
+      setDbBrands(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => console.warn(err));
+    return () => unsub();
+  }, []);
   const [importStep, setImportStep] = useState(1);
   const [importData, setImportData] = useState<any[]>([]);
   const [importHeaders, setImportHeaders] = useState<string[]>([]);
@@ -99,6 +108,12 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [importUrl, setImportUrl] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Import Sandbox interactive states
+  const [sandboxPreset, setSandboxPreset] = useState<'standard' | 'av_manuals' | 'production_bom'>('standard');
+  const [sandboxEditableData, setSandboxEditableData] = useState<any[][]>([]);
+  const [activeEditingCell, setActiveEditingCell] = useState<{ rowIdx: number, colIdx: number } | null>(null);
+  const [cellInputValue, setCellInputValue] = useState('');
 
   // States for pulling from custom inventories
   const [inventories, setInventories] = useState<any[]>([]);
@@ -424,6 +439,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             const headers = rows[0].map(h => String(h).trim());
             setImportHeaders(headers);
             setImportData(rows.slice(1));
+            setSandboxEditableData(rows.slice(1));
             setImportStep(2);
             runLocalFuzzyMapping(headers);
             mapHeadersAI(headers, rows.slice(1, 4));
@@ -444,6 +460,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             const headers = json[0].map(h => String(h).trim());
             setImportHeaders(headers);
             setImportData(json.slice(1));
+            setSandboxEditableData(json.slice(1));
             setImportStep(2);
             runLocalFuzzyMapping(headers);
             mapHeadersAI(headers, json.slice(1, 4));
@@ -495,15 +512,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   };
 
   const executeImport = async () => {
-    if (!user || importData.length === 0) return;
+    const finalData = sandboxEditableData.length > 0 ? sandboxEditableData : importData;
+    if (!user || finalData.length === 0) return;
     setIsImporting(true);
-    const toastId = toast.loading(`Importing ${importData.length} items...`);
+    const toastId = toast.loading(`Importing ${finalData.length} items...`);
     
     try {
       // Chunking for Firestore (max 500 per batch)
       const batchSize = 400; // conservative
-      for (let i = 0; i < importData.length; i += batchSize) {
-        const chunk = importData.slice(i, i + batchSize);
+      for (let i = 0; i < finalData.length; i += batchSize) {
+        const chunk = finalData.slice(i, i + batchSize);
         const batch = writeBatch(db);
         
         chunk.forEach(row => {
@@ -519,9 +537,25 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           const newItemRef = doc(collection(db, 'users', user.uid, 'gearLibrary'));
           const pCat = String(getItemValue('primaryCategory') || 'Other');
           
+          let description = String(getItemValue('description') || '');
+          let addOns: any[] = [];
+          let isKit = false;
+          let notes = '';
+
+          if (sandboxPreset === 'av_manuals') {
+            notes = `AV Integration Documented. Manual: https://support.google.com/search?q=${encodeURIComponent(name + ' manual')}`;
+            description = description ? `${description}\n${notes}` : notes;
+          } else if (sandboxPreset === 'production_bom') {
+            isKit = true;
+            addOns = [
+              { name: 'Standard Power Cable', price: 0, type: 'Accessory', notes: 'Factory Supplied' },
+              { name: 'Heavy Duty Pelican Case', price: 0, type: 'Add On', notes: 'Waterproof protective enclosure' }
+            ];
+          }
+
           batch.set(newItemRef, {
             name,
-            description: String(getItemValue('description') || ''),
+            description,
             brand: String(getItemValue('brand') || ''),
             model: String(getItemValue('model') || ''),
             modelNumber: String(getItemValue('modelNumber') || ''),
@@ -537,21 +571,25 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             ownerId: user.uid,
             assetTag: `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
             usageCount: 0,
-            photoUrls: ['https://picsum.photos/seed/gear/400/400'],
+            photoUrls: ['https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80'],
             createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
+            isKit,
+            addOns,
+            sandboxPreset
           });
         });
 
         await batch.commit();
-        const progress = Math.min(100, Math.round(((i + chunk.length) / importData.length) * 100));
+        const progress = Math.min(100, Math.round(((i + chunk.length) / finalData.length) * 100));
         toast.loading(`Importing: ${progress}%...`, { id: toastId });
       }
 
-      toast.success(`Successfully imported ${importData.length} items!`, { id: toastId });
+      toast.success(`Successfully imported ${finalData.length} items!`, { id: toastId });
       setIsImportModalOpen(false);
       setImportStep(1);
       setImportData([]);
+      setSandboxEditableData([]);
     } catch (error) {
       console.error("Import Error:", error);
       toast.error("Failed to complete import. See console for details.", { id: toastId });
@@ -848,6 +886,35 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       window.removeEventListener('offline', handleOffline);
     };
   }, [user?.uid]);
+
+  // NFC Scanner State variables
+  const [isNfcModalOpen, setIsNfcModalOpen] = useState(false);
+  const [nfcScanMode, setNfcScanMode] = useState<'associate' | 'search'>('search');
+  const [nfcTargetItem, setNfcTargetItem] = useState<{ id: string; name: string; type: 'gear' | 'inventory'; inventoryId?: string } | undefined>(undefined);
+
+  // Read NFC redirect triggers (if redirected from Inventory page after an NFC match)
+  useEffect(() => {
+    const redirectGearId = localStorage.getItem('nfc_redirect_gear_id');
+    if (redirectGearId && gear.length > 0) {
+      localStorage.removeItem('nfc_redirect_gear_id');
+      const foundItem = gear.find(i => i.id === redirectGearId);
+      if (foundItem) {
+        setEditingItem(foundItem);
+      }
+    }
+  }, [gear]);
+
+  const handleNfcSearchSuccess = (foundItem: any, type: 'gear' | 'inventory', inventoryId?: string) => {
+    if (type === 'gear') {
+      setEditingItem(foundItem);
+    } else {
+      if (inventoryId) {
+        localStorage.setItem('nfc_redirect_inventory_id', inventoryId);
+        localStorage.setItem('nfc_redirect_item_id', foundItem.id);
+        navigate('/inventory');
+      }
+    }
+  };
 
   const toggleItemSelection = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -2251,6 +2318,12 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               secondaryCategories: data.secondaryCategories || [],
               minRentalDays: data.minRentalDays || 1,
               maxRentalDays: data.maxRentalDays || 30,
+              lensType: data.lensType || '',
+              lensMount: data.lensMount || '',
+              focalLength: data.focalLength || '',
+              maxAperture: data.maxAperture || '',
+              formatCoverage: data.formatCoverage || '',
+              focusType: data.focusType || '',
               updatedAt: updatedAt
             });
           });
@@ -3720,8 +3793,43 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               </span>
             )}
           </div>
-          {item.brand && <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-neutral-400">{item.brand}</p>}
+          {item.brand && (
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {(() => {
+                const brandObj = dbBrands.find(b => b.name?.toLowerCase() === item.brand.toLowerCase() || b.id?.toLowerCase() === item.brand.toLowerCase());
+                return brandObj?.logo ? (
+                  <img
+                    src={brandObj.logo}
+                    alt={item.brand}
+                    className="h-3 w-auto object-contain rounded opacity-75 animate-in fade-in"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : null;
+              })()}
+              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-neutral-400">{item.brand}</p>
+            </div>
+          )}
         </div>
+
+        {(item.primaryCategory === 'Lens' || item.category === 'Lens') && (item.lensType || item.lensMount || item.focalLength) && (
+          <div className="flex flex-wrap gap-1 pt-1.5">
+            {item.lensType && (
+              <span className="px-1.5 py-0.5 bg-neutral-100 text-neutral-600 rounded text-[9px] font-bold uppercase tracking-wider font-sans border border-neutral-150">
+                {item.lensType}
+              </span>
+            )}
+            {item.lensMount && (
+              <span className="px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded text-[9px] font-bold uppercase tracking-wider font-sans">
+                {item.lensMount}
+              </span>
+            )}
+            {item.focalLength && (
+              <span className="px-1.5 py-0.5 bg-neutral-900 text-white rounded text-[9px] font-bold uppercase tracking-wider font-mono">
+                {item.focalLength}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] text-neutral-400 pt-2.5 md:pt-4 border-t border-neutral-100 mt-auto">
           <div className="flex items-center gap-1">
@@ -3937,7 +4045,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 <span className="text-[8px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded">Checked Out</span>
               )}
             </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
               <p className="text-xs text-neutral-400 font-mono">{item.assetTag}</p>
               {isAuditMode && isMaintenanceOutdated(item) && (
                 <span className="text-[8px] font-black uppercase text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded">Maint Overdue</span>
@@ -3946,6 +4054,30 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 <span className="text-[8px] font-black uppercase text-amber-600 bg-amber-50 border border-amber-100 px-1 py-0.5 rounded">Low Stock</span>
               )}
             </div>
+            {(item.primaryCategory === 'Lens' || item.category === 'Lens') && (item.lensType || item.lensMount || item.focalLength || item.maxAperture) && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {item.lensType && (
+                  <span className="px-1.5 py-0.5 bg-neutral-100 text-neutral-600 rounded text-[9px] font-bold uppercase tracking-wider font-sans border border-neutral-150">
+                    {item.lensType}
+                  </span>
+                )}
+                {item.lensMount && (
+                  <span className="px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded text-[9px] font-bold uppercase tracking-wider font-sans">
+                    {item.lensMount}
+                  </span>
+                )}
+                {item.focalLength && (
+                  <span className="px-1.5 py-0.5 bg-neutral-900 text-white rounded text-[9px] font-bold uppercase tracking-wider font-mono">
+                    {item.focalLength}
+                  </span>
+                )}
+                {item.maxAperture && (
+                  <span className="px-1.5 py-0.5 bg-amber-50 border border-amber-100 text-amber-800 rounded text-[9px] font-bold uppercase tracking-wider font-mono">
+                    {item.maxAperture}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </td>
@@ -4775,8 +4907,20 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               placeholder="Search library..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white border border-neutral-200 rounded-xl md:rounded-2xl pl-10 md:pl-12 pr-4 py-3 md:py-4 outline-none focus:ring-2 focus:ring-primary transition shadow-sm text-sm"
+              className="w-full bg-white border border-neutral-200 rounded-xl md:rounded-2xl pl-10 md:pl-12 pr-12 py-3 md:py-4 outline-none focus:ring-2 focus:ring-primary transition shadow-sm text-sm font-semibold"
             />
+            <button
+              type="button"
+              onClick={() => {
+                setNfcScanMode('search');
+                setNfcTargetItem(undefined);
+                setIsNfcModalOpen(true);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-neutral-100 rounded-xl transition text-neutral-500 hover:text-primary"
+              title="Scan NFC Tag"
+            >
+              <Cpu size={16} className="text-[#F27D26]" />
+            </button>
           </div>
           
           <div className="flex flex-wrap sm:flex-nowrap gap-2 md:gap-3 w-full lg:w-auto">
@@ -4846,8 +4990,20 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 placeholder="Search library..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-white border border-neutral-200 rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-1 focus:ring-primary transition shadow-sm text-xs"
+                className="w-full bg-white border border-neutral-200 rounded-xl pl-10 pr-12 py-3 outline-none focus:ring-1 focus:ring-primary transition shadow-sm text-xs font-semibold"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  setNfcScanMode('search');
+                  setNfcTargetItem(undefined);
+                  setIsNfcModalOpen(true);
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-neutral-100 rounded-xl transition text-neutral-500 hover:text-primary"
+                title="Scan NFC Tag"
+              >
+                <Cpu size={14} className="text-[#F27D26]" />
+              </button>
             </div>
             <button
               type="button"
@@ -5627,84 +5783,275 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-8">
-                    {/* Mapping Review Section */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                          <Zap size={16} className="text-primary" />
-                          Confirm Data Mapping
-                        </h3>
-                        {isMapping && (
-                          <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-widest">
-                            <RotateCcw size={12} className="animate-spin" />
-                            AI Mapping in progress...
-                          </div>
-                        )}
+                  <div className="space-y-6">
+                    {/* Header Controls & Scenario Presets */}
+                    <div className="p-5 bg-neutral-900 text-white rounded-[2rem] space-y-4 shadow-xl border border-neutral-850">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div>
+                          <span className="text-[8px] bg-[#ff4f3a] text-white px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                            Interactive Playground
+                          </span>
+                          <h3 className="text-sm font-black uppercase tracking-widest mt-1 text-white flex items-center gap-2">
+                            ⚙️ Temporary Import Sandbox
+                          </h3>
+                        </div>
+
+                        {/* Presets Selector */}
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] font-bold text-neutral-400 uppercase">Scenario Profile:</label>
+                          <select
+                            value={sandboxPreset}
+                            onChange={(e) => {
+                              const p = e.target.value as any;
+                              setSandboxPreset(p);
+                              if (p === 'av_manuals') {
+                                toast.info("AV technical manuals scenario activated. Device documentation URLs will be auto-generated.");
+                              } else if (p === 'production_bom') {
+                                toast.info("Production BOM scenario activated. Standard protective cases & power cables will be bundled.");
+                              } else {
+                                toast.info("Standard inventory scenario profile selected.");
+                              }
+                            }}
+                            className="bg-neutral-800 border border-neutral-700 text-white text-xs font-bold rounded-xl px-3 py-1.5 outline-none cursor-pointer hover:bg-neutral-750 transition"
+                          >
+                            <option value="standard">Standard Gear Setup</option>
+                            <option value="av_manuals">AV Technical Manuals & Integration</option>
+                            <option value="production_bom">Production BOM (Kits & Bundle Accessories)</option>
+                          </select>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {[
-                          { field: 'name', label: 'Item Name', required: true },
-                          { field: 'brand', label: 'Brand' },
-                          { field: 'model', label: 'Model' },
-                          { field: 'primaryCategory', label: 'Category' },
-                          { field: 'quantity', label: 'Quantity' },
-                          { field: 'price', label: 'Price' },
-                          { field: 'serialNumber', label: 'Serial Number' },
-                          { field: 'modelNumber', label: 'Model Number' },
-                        ].map((item) => (
-                          <div key={item.field} className="bg-neutral-50 rounded-2xl p-4 border border-neutral-100 space-y-2">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 flex items-center justify-between">
-                              {item.label}
-                              {item.required && <span className="text-red-500">*</span>}
-                            </label>
-                            <select 
-                              value={importMapping[item.field] ?? ''}
-                              onChange={(e) => setImportMapping({ ...importMapping, [item.field]: parseInt(e.target.value) })}
-                              className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-[10px] outline-none focus:ring-2 focus:ring-[#0066cc]"
-                            >
-                              <option value="">No Mapping</option>
-                              {importHeaders.map((header, idx) => (
-                                <option key={idx} value={idx}>{header}</option>
-                              ))}
-                            </select>
-                          </div>
-                        ))}
+                      {/* Informational Profile Header */}
+                      <p className="text-xs text-neutral-400 leading-relaxed">
+                        {sandboxPreset === 'standard' && "Standard mode: Imports spreadsheet records using simple column bindings."}
+                        {sandboxPreset === 'av_manuals' && "🔧 AV Integration Profile: Automatically appends technical document references and search queries for manuals onto every imported hardware record."}
+                        {sandboxPreset === 'production_bom' && "🎬 Production BOM Profile: Automatically converts listings to Kit format and registers heavy duty Pelican cases and standard power cabling under standard in-the-box add-ons."}
+                      </p>
+
+                      {/* Fast operations bar */}
+                      <div className="pt-3 border-t border-neutral-800 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newRow = Array(importHeaders.length || 6).fill('');
+                            setSandboxEditableData([newRow, ...sandboxEditableData]);
+                            toast.success("Inserted a new blank draft row at the top of the sandbox!");
+                          }}
+                          className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-750 text-white border border-neutral-700 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition"
+                        >
+                          ➕ Add New Row
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nameIdx = importMapping['name'];
+                            const catIdx = importMapping['primaryCategory'];
+                            if (nameIdx !== undefined && catIdx !== undefined) {
+                              const updated = sandboxEditableData.map(row => {
+                                const r = [...row];
+                                const nameLower = String(r[nameIdx] || '').toLowerCase();
+                                if (!r[catIdx]) {
+                                  if (nameLower.includes('camera') || nameLower.includes('red') || nameLower.includes('sony')) r[catIdx] = 'Cameras';
+                                  else if (nameLower.includes('lens') || nameLower.includes('cooke') || nameLower.includes('prime')) r[catIdx] = 'Lenses';
+                                  else if (nameLower.includes('light') || nameLower.includes('led') || nameLower.includes('aputure')) r[catIdx] = 'Lighting';
+                                  else if (nameLower.includes('audio') || nameLower.includes('mic') || nameLower.includes('sound')) r[catIdx] = 'Audio';
+                                  else r[catIdx] = 'Support';
+                                }
+                                return r;
+                              });
+                              setSandboxEditableData(updated);
+                              toast.success("AI auto-classified blank categories from item names!");
+                            } else {
+                              toast.error("Please map columns to both Name and Category first.");
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-neutral-850 hover:bg-neutral-850 border border-neutral-700 text-neutral-300 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition"
+                        >
+                          🏷️ Auto-Classify Categories
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const qtyIdx = importMapping['quantity'];
+                            if (qtyIdx !== undefined) {
+                              const updated = sandboxEditableData.map(row => {
+                                const r = [...row];
+                                if (!r[qtyIdx] || isNaN(Number(r[qtyIdx]))) r[qtyIdx] = '1';
+                                return r;
+                              });
+                              setSandboxEditableData(updated);
+                              toast.success("Set empty/invalid quantities to 1!");
+                            } else {
+                              toast.error("Please map a column to 'Quantity' first.");
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-neutral-850 hover:bg-neutral-850 border border-neutral-700 text-neutral-300 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition"
+                        >
+                          🔢 Set Quantities to 1
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSandboxEditableData(importData);
+                            toast.success("Restored sandbox rows to original file layout.");
+                          }}
+                          className="px-3 py-1.5 bg-neutral-850 hover:bg-neutral-850 border border-neutral-700 text-[#ff4f3a] rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition ml-auto"
+                        >
+                          🔄 Reset Sandbox
+                        </button>
                       </div>
                     </div>
 
-                    {/* Preview Table */}
+                    {/* Mapping Matrix & Sandbox Grid */}
                     <div className="space-y-3">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Data Preview (Rows mapped for import)</p>
-                      <div className="border border-neutral-200 rounded-2xl overflow-hidden overflow-x-auto">
-                        <table className="w-full text-left text-[10px]">
-                          <thead className="bg-neutral-50 border-b border-neutral-200 uppercase font-bold tracking-wider text-neutral-500">
-                            <tr>
-                              <th className="px-4 py-3">#</th>
-                              {['name', 'brand', 'primaryCategory', 'quantity'].map(f => (
-                                <th key={f} className="px-4 py-3 whitespace-nowrap text-xs">{f}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-neutral-100">
-                            {importData.slice(0, 10).map((row, i) => (
-                              <tr key={i} className="hover:bg-neutral-50 transition">
-                                <td className="px-4 py-2.5 text-neutral-400 font-mono">{i + 1}</td>
-                                {['name', 'brand', 'primaryCategory', 'quantity'].map(f => {
-                                  const idx = importMapping[f];
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500">
+                          Interactive Sandbox Spreadsheet Grid
+                        </h4>
+                        <span className="text-[10px] text-neutral-400 font-medium">
+                          💡 Click any cell to edit content inline • Set bindings in column headers
+                        </span>
+                      </div>
+
+                      <div className="border border-neutral-200 rounded-[2rem] overflow-hidden shadow-sm bg-white">
+                        <div className="overflow-x-auto max-h-[450px]">
+                          <table className="w-full text-left border-collapse table-fixed min-w-[900px]">
+                            <thead className="bg-neutral-100 border-b border-neutral-200 uppercase font-black text-neutral-600 sticky top-0 z-10 text-[9px] tracking-wider">
+                              <tr>
+                                <th className="px-3 py-4 w-[60px] text-center border-r border-neutral-200">Index</th>
+                                {importHeaders.map((header, colIdx) => {
+                                  // Find if this col index is mapped to any field
+                                  const currentField = Object.keys(importMapping).find(k => importMapping[k] === colIdx) || '';
                                   return (
-                                    <td key={f} className="px-4 py-2.5 whitespace-nowrap font-medium text-xs">
-                                      {idx !== undefined ? String(row[idx] || '-') : '-'}
-                                    </td>
+                                    <th key={colIdx} className="px-4 py-3 border-r border-neutral-200 w-[200px] bg-neutral-50">
+                                      <div className="flex flex-col">
+                                        <span className="text-neutral-700 truncate block font-bold text-[11px]" title={header}>
+                                          {header}
+                                        </span>
+                                        <select
+                                          value={currentField}
+                                          onChange={(e) => {
+                                            const f = e.target.value;
+                                            const newMapping = { ...importMapping };
+                                            if (f) {
+                                              // Remove existing mapping of this field from other columns
+                                              Object.keys(newMapping).forEach(key => {
+                                                if (newMapping[key] === colIdx) {
+                                                  delete newMapping[key];
+                                                }
+                                              });
+                                              newMapping[f] = colIdx;
+                                            } else {
+                                              Object.keys(newMapping).forEach(key => {
+                                                if (newMapping[key] === colIdx) {
+                                                  delete newMapping[key];
+                                                }
+                                              });
+                                            }
+                                            setImportMapping(newMapping);
+                                            toast.success(`Mapped column "${header}" to field: ${f || 'Unmapped'}`);
+                                          }}
+                                          className="mt-1.5 w-full text-[9px] bg-neutral-900 text-white rounded-lg px-2 py-1 outline-none font-black tracking-widest cursor-pointer hover:bg-neutral-800 transition"
+                                        >
+                                          <option value="">(No Field Mapped)</option>
+                                          <option value="name">Map to Name *</option>
+                                          <option value="brand">Map to Brand</option>
+                                          <option value="model">Map to Model</option>
+                                          <option value="primaryCategory">Map to Category</option>
+                                          <option value="quantity">Map to Quantity</option>
+                                          <option value="price">Map to Price</option>
+                                          <option value="serialNumber">Map to Serial Number</option>
+                                          <option value="modelNumber">Map to Model Number</option>
+                                          <option value="weight">Map to Weight</option>
+                                          <option value="condition">Map to Condition</option>
+                                          <option value="status">Map to Status</option>
+                                        </select>
+                                      </div>
+                                    </th>
                                   );
                                 })}
+                                <th className="px-3 py-3 w-[80px] text-center">Actions</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+
+                            <tbody className="divide-y divide-neutral-150 text-[11px]">
+                              {sandboxEditableData.slice(0, 50).map((row, rowIdx) => (
+                                <tr key={rowIdx} className="hover:bg-neutral-50 transition font-medium group">
+                                  <td className="px-3 py-3 text-center text-neutral-400 font-mono border-r border-neutral-150 bg-neutral-50">
+                                    {rowIdx + 1}
+                                  </td>
+                                  {row.map((cell, colIdx) => {
+                                    const isEditing = activeEditingCell?.rowIdx === rowIdx && activeEditingCell?.colIdx === colIdx;
+                                    const currentField = Object.keys(importMapping).find(k => importMapping[k] === colIdx) || '';
+                                    return (
+                                      <td 
+                                        key={colIdx} 
+                                        onClick={() => {
+                                          setActiveEditingCell({ rowIdx, colIdx });
+                                          setCellInputValue(String(cell || ''));
+                                        }}
+                                        className={`px-4 py-2.5 border-r border-neutral-150 relative truncate cursor-pointer transition-all ${
+                                          isEditing ? 'bg-primary/5 ring-1 ring-primary' : ''
+                                        } ${currentField ? 'bg-emerald-50/25 text-neutral-900 font-semibold' : 'text-neutral-500'}`}
+                                      >
+                                        {isEditing ? (
+                                          <input
+                                            type="text"
+                                            value={cellInputValue}
+                                            autoFocus
+                                            onChange={(e) => setCellInputValue(e.target.value)}
+                                            onBlur={() => {
+                                              const updated = [...sandboxEditableData];
+                                              updated[rowIdx][colIdx] = cellInputValue;
+                                              setSandboxEditableData(updated);
+                                              setActiveEditingCell(null);
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') {
+                                                const updated = [...sandboxEditableData];
+                                                updated[rowIdx][colIdx] = cellInputValue;
+                                                setSandboxEditableData(updated);
+                                                setActiveEditingCell(null);
+                                              }
+                                            }}
+                                            className="w-full bg-white text-xs p-1 outline-none font-bold text-neutral-900 rounded border border-primary shadow-sm"
+                                          />
+                                        ) : (
+                                          <span>{String(cell || '-')}</span>
+                                        )}
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="px-3 py-2 text-center border-l border-neutral-150">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const updated = sandboxEditableData.filter((_, idx) => idx !== rowIdx);
+                                        setSandboxEditableData(updated);
+                                        toast.success(`Removed draft row #${rowIdx + 1}`);
+                                      }}
+                                      className="p-1 hover:bg-red-50 text-red-500 rounded-lg transition"
+                                      title="Delete Row"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Pagination notes info */}
+                        <div className="p-4 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
+                          <span>📋 Live Sandboxed: {sandboxEditableData.length} records detected</span>
+                          <span>🔍 Showing top 50 rows for performance optimization</span>
+                        </div>
                       </div>
-                      <p className="text-[10px] text-neutral-400 text-center italic">Showing first 10 rows of {importData.length} total items</p>
                     </div>
                   </div>
                 )}
@@ -5828,18 +6175,55 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           required
                         />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Brand</label>
-                        <input
-                          type="text"
-                          value={newItem.brand}
-                          onChange={e => {
-                            setNewItem({ ...newItem, brand: e.target.value });
-                            setIsDirty(true);
-                          }}
-                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
-                          placeholder="e.g. Sony"
-                        />
+                      <div className="space-y-2 relative">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Brand</label>
+                          {dbBrands.length > 0 && (
+                            <span className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest">
+                              Matches loaded directory
+                            </span>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={newItem.brand || ''}
+                            onChange={e => {
+                              setNewItem({ ...newItem, brand: e.target.value });
+                              setIsDirty(true);
+                            }}
+                            placeholder="Type or select a manufacturer..."
+                            className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
+                            list="add-brands-datalist"
+                          />
+                          <datalist id="add-brands-datalist">
+                            {dbBrands.map(b => (
+                              <option key={b.id} value={b.name}>{b.origin ? `${b.name} (${b.origin})` : b.name}</option>
+                            ))}
+                          </datalist>
+                        </div>
+                        {/* Top Brand recommendation chips for single click */}
+                        {dbBrands.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-1.5">
+                            {dbBrands.slice(0, 5).map(b => (
+                              <button
+                                type="button"
+                                key={b.id}
+                                onClick={() => {
+                                  setNewItem({ ...newItem, brand: b.name });
+                                  setIsDirty(true);
+                                }}
+                                className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-lg border transition ${
+                                  newItem.brand === b.name
+                                    ? 'bg-primary/10 border-primary text-primary'
+                                    : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:border-neutral-300'
+                                }`}
+                              >
+                                {b.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Primary Category</label>
@@ -5942,6 +6326,133 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           </button>
                         )}
                       </div>
+
+                      {/* Lens-Specific Smart Taxonomy Specifications Panel */}
+                      {(newItem.primaryCategory === 'Lens' || newItem.category === 'Lens') && (
+                        <div className="space-y-4 col-span-full border border-neutral-200/50 p-5 rounded-[2rem] bg-neutral-50/50 animate-in fade-in duration-200">
+                          <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
+                            <span className="text-sm font-black text-neutral-800">📸 Lens Taxonomy Specifications</span>
+                            <span className="px-2 py-0.5 bg-neutral-200 text-neutral-600 rounded-full text-[8px] font-black uppercase tracking-wider">
+                              Smart Fields
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-neutral-400">
+                            Capture precise attributes to power advanced sorting, filtering, and cross-mount inspections.
+                          </p>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Lens Classification</label>
+                              <select
+                                value={newItem.lensType || ''}
+                                onChange={e => {
+                                  setNewItem({ ...newItem, lensType: e.target.value });
+                                  setIsDirty(true);
+                                }}
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
+                              >
+                                <option value="">Select classification...</option>
+                                <option value="Prime">Prime (Single Focal Length)</option>
+                                <option value="Zoom">Zoom (Variable Focal Length)</option>
+                                <option value="Cinema Prime">Cinema Prime (Manual, T-Stops)</option>
+                                <option value="Cinema Zoom">Cinema Zoom (Manual, Parfocal)</option>
+                                <option value="Anamorphic">Anamorphic (Cinema Aspect Squeeze)</option>
+                                <option value="Broadcast">Broadcast / ENG (Servo Integrated)</option>
+                                <option value="Macro">Macro (Extreme Close-Up)</option>
+                                <option value="Fisheye">Fisheye (Ultra-Wide Distortion)</option>
+                              </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Bayonet Mount Type</label>
+                              <select
+                                value={newItem.lensMount || ''}
+                                onChange={e => {
+                                  setNewItem({ ...newItem, lensMount: e.target.value });
+                                  setIsDirty(true);
+                                }}
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
+                              >
+                                <option value="">Select mount compatibility...</option>
+                                <option value="Sony E-Mount">Sony E-Mount</option>
+                                <option value="Canon EF-Mount">Canon EF-Mount</option>
+                                <option value="Canon RF-Mount">Canon RF-Mount</option>
+                                <option value="Nikon F-Mount">Nikon F-Mount</option>
+                                <option value="Nikon Z-Mount">Nikon Z-Mount</option>
+                                <option value="ARRI PL-Mount">ARRI PL-Mount</option>
+                                <option value="L-Mount">L-Mount Alliance</option>
+                                <option value="Micro Four Thirds">Micro Four Thirds (MFT)</option>
+                                <option value="Fujifilm X-Mount">Fujifilm X-Mount</option>
+                                <option value="Hasselblad H-Mount">Hasselblad H-Mount</option>
+                              </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Focal Length (e.g. 50mm or 24-70mm)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. 50mm, 24-70mm"
+                                value={newItem.focalLength || ''}
+                                onChange={e => {
+                                  setNewItem({ ...newItem, focalLength: e.target.value });
+                                  setIsDirty(true);
+                                }}
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
+                              />
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Max Aperture (e.g. f/1.4 or T1.5)</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. f/1.4, T1.5, f/2.8"
+                                value={newItem.maxAperture || ''}
+                                onChange={e => {
+                                  setNewItem({ ...newItem, maxAperture: e.target.value });
+                                  setIsDirty(true);
+                                }}
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
+                              />
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Format Coverage / Sensor Circle</label>
+                              <select
+                                value={newItem.formatCoverage || ''}
+                                onChange={e => {
+                                  setNewItem({ ...newItem, formatCoverage: e.target.value });
+                                  setIsDirty(true);
+                                }}
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
+                              >
+                                <option value="">Select sensor coverage...</option>
+                                <option value="Full Frame">Full Frame (35mm Standard)</option>
+                                <option value="Super35">Super35 / APS-C</option>
+                                <option value="Medium Format">Medium Format (Large Circle)</option>
+                                <option value="Micro Four Thirds">Micro Four Thirds (MFT)</option>
+                                <option value="VistaVision">VistaVision / Large Format (LF)</option>
+                              </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Focus Control Mechanism</label>
+                              <select
+                                value={newItem.focusType || ''}
+                                onChange={e => {
+                                  setNewItem({ ...newItem, focusType: e.target.value });
+                                  setIsDirty(true);
+                                }}
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
+                              >
+                                <option value="">Select focus control...</option>
+                                <option value="Manual Focus Only">Manual Focus Only (Cinema Gear Ring)</option>
+                                <option value="Autofocus / Manual">Autofocus with Manual Override</option>
+                                <option value="Electronic Focus-by-wire">Electronic Focus-by-wire</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Equipment Registry Details (Serial, Model, release year, model numbers) */}
                       <div className="border border-neutral-200/65 rounded-[2rem] p-5 bg-neutral-50/50 space-y-4 col-span-full border-t border-b py-5 my-2">
@@ -6533,14 +7044,49 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Brand</label>
-                    <input
-                      type="text"
-                      value={editingItem.brand || ''}
-                      onChange={e => setEditingItem({ ...editingItem, brand: e.target.value })}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
-                    />
+                  <div className="space-y-2 relative">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Brand</label>
+                      {dbBrands.length > 0 && (
+                        <span className="text-[8px] font-bold text-neutral-400 uppercase tracking-widest">
+                          Matches loaded directory
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={editingItem.brand || ''}
+                        onChange={e => setEditingItem({ ...editingItem, brand: e.target.value })}
+                        placeholder="Type or select a manufacturer..."
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
+                        list="editing-brands-datalist"
+                      />
+                      <datalist id="editing-brands-datalist">
+                        {dbBrands.map(b => (
+                          <option key={b.id} value={b.name}>{b.origin ? `${b.name} (${b.origin})` : b.name}</option>
+                        ))}
+                      </datalist>
+                    </div>
+                    {/* Top Brand recommendation chips for single click */}
+                    {dbBrands.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1.5">
+                        {dbBrands.slice(0, 5).map(b => (
+                          <button
+                            type="button"
+                            key={b.id}
+                            onClick={() => setEditingItem({ ...editingItem, brand: b.name })}
+                            className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-lg border transition ${
+                              editingItem.brand === b.name
+                                ? 'bg-primary/10 border-primary text-primary'
+                                : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:border-neutral-300'
+                            }`}
+                          >
+                            {b.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Primary Category</label>
@@ -6618,6 +7164,115 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     )}
                   </div>
 
+                  {/* Lens-Specific Smart Taxonomy Specifications Panel */}
+                  {(editingItem.primaryCategory === 'Lens' || editingItem.category === 'Lens') && (
+                    <div className="space-y-4 col-span-full border border-neutral-200/50 p-5 rounded-[2rem] bg-neutral-50/50 animate-in fade-in duration-200">
+                      <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
+                        <span className="text-sm font-black text-neutral-800">📸 Lens Taxonomy Specifications</span>
+                        <span className="px-2 py-0.5 bg-neutral-200 text-neutral-600 rounded-full text-[8px] font-black uppercase tracking-wider">
+                          Smart Fields
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-neutral-400">
+                        Capture precise attributes to power advanced sorting, filtering, and cross-mount inspections.
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Lens Classification</label>
+                          <select
+                            value={editingItem.lensType || ''}
+                            onChange={e => setEditingItem({ ...editingItem, lensType: e.target.value })}
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
+                          >
+                            <option value="">Select classification...</option>
+                            <option value="Prime">Prime (Single Focal Length)</option>
+                            <option value="Zoom">Zoom (Variable Focal Length)</option>
+                            <option value="Cinema Prime">Cinema Prime (Manual, T-Stops)</option>
+                            <option value="Cinema Zoom">Cinema Zoom (Manual, Parfocal)</option>
+                            <option value="Anamorphic">Anamorphic (Cinema Aspect Squeeze)</option>
+                            <option value="Broadcast">Broadcast / ENG (Servo Integrated)</option>
+                            <option value="Macro">Macro (Extreme Close-Up)</option>
+                            <option value="Fisheye">Fisheye (Ultra-Wide Distortion)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Bayonet Mount Type</label>
+                          <select
+                            value={editingItem.lensMount || ''}
+                            onChange={e => setEditingItem({ ...editingItem, lensMount: e.target.value })}
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
+                          >
+                            <option value="">Select mount compatibility...</option>
+                            <option value="Sony E-Mount">Sony E-Mount</option>
+                            <option value="Canon EF-Mount">Canon EF-Mount</option>
+                            <option value="Canon RF-Mount">Canon RF-Mount</option>
+                            <option value="Nikon F-Mount">Nikon F-Mount</option>
+                            <option value="Nikon Z-Mount">Nikon Z-Mount</option>
+                            <option value="ARRI PL-Mount">ARRI PL-Mount</option>
+                            <option value="L-Mount">L-Mount Alliance</option>
+                            <option value="Micro Four Thirds">Micro Four Thirds (MFT)</option>
+                            <option value="Fujifilm X-Mount">Fujifilm X-Mount</option>
+                            <option value="Hasselblad H-Mount">Hasselblad H-Mount</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Focal Length (e.g. 50mm or 24-70mm)</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 50mm, 24-70mm"
+                            value={editingItem.focalLength || ''}
+                            onChange={e => setEditingItem({ ...editingItem, focalLength: e.target.value })}
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Max Aperture (e.g. f/1.4 or T1.5)</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. f/1.4, T1.5, f/2.8"
+                            value={editingItem.maxAperture || ''}
+                            onChange={e => setEditingItem({ ...editingItem, maxAperture: e.target.value })}
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Format Coverage / Sensor Circle</label>
+                          <select
+                            value={editingItem.formatCoverage || ''}
+                            onChange={e => setEditingItem({ ...editingItem, formatCoverage: e.target.value })}
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
+                          >
+                            <option value="">Select sensor coverage...</option>
+                            <option value="Full Frame">Full Frame (35mm Standard)</option>
+                            <option value="Super35">Super35 / APS-C</option>
+                            <option value="Medium Format">Medium Format (Large Circle)</option>
+                            <option value="Micro Four Thirds">Micro Four Thirds (MFT)</option>
+                            <option value="VistaVision">VistaVision / Large Format (LF)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Focus Control Mechanism</label>
+                          <select
+                            value={editingItem.focusType || ''}
+                            onChange={e => setEditingItem({ ...editingItem, focusType: e.target.value })}
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
+                          >
+                            <option value="">Select focus control...</option>
+                            <option value="Manual Focus Only">Manual Focus Only (Cinema Gear Ring)</option>
+                            <option value="Autofocus / Manual">Autofocus with Manual Override</option>
+                            <option value="Electronic Focus-by-wire">Electronic Focus-by-wire</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Equipment Registry Details (Serial, Model, release year, model numbers) */}
                   <div className="border border-neutral-200/65 rounded-[2rem] p-5 bg-neutral-50/50 space-y-4 col-span-full border-t border-b py-5 my-2">
                     <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
@@ -6676,6 +7331,34 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary transition"
                           placeholder="2021"
                         />
+                      </div>
+                      <div className="space-y-1 col-span-2 lg:col-span-2">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">NFC Tag ID / Serial</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editingItem.nfcTag || ''}
+                            onChange={e => setEditingItem({ ...editingItem, nfcTag: e.target.value })}
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary transition font-mono uppercase"
+                            placeholder="No NFC Tag Associated"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNfcTargetItem({
+                                id: editingItem.id,
+                                name: editingItem.name,
+                                type: 'gear'
+                              });
+                              setNfcScanMode('associate');
+                              setIsNfcModalOpen(true);
+                            }}
+                            className="px-3 py-2 bg-neutral-950 hover:bg-neutral-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition flex items-center gap-1.5 shrink-0 border border-neutral-800"
+                          >
+                            <Cpu size={12} className="text-[#F27D26]" />
+                            <span>Link Tag</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -8872,6 +9555,20 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           />
         )}
       </AnimatePresence>
+
+      <NfcScannerModal
+        isOpen={isNfcModalOpen}
+        onClose={() => setIsNfcModalOpen(false)}
+        mode={nfcScanMode}
+        targetItem={nfcTargetItem}
+        currentUser={user}
+        onAssociateSuccess={(tagId) => {
+          if (editingItem) {
+            setEditingItem({ ...editingItem, nfcTag: tagId });
+          }
+        }}
+        onSearchSuccess={handleNfcSearchSuccess}
+      />
 
       {/* Floating Action Button (FAB) for Quick Add */}
       <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-40">

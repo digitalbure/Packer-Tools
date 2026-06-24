@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, query, onSnapshot, deleteDoc, updateDoc, addDoc, getDocs, writeBatch, where, orderBy, arrayUnion } from 'firebase/firestore';
-import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield } from 'lucide-react';
+import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Reorder, AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
+import * as PAPA from 'papaparse';
 import { toast } from 'sonner';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, PackingList, PackingItem, PackingListVersion, AdminSettings, Contact, GearItem, Project, RentalAgreement } from '../types';
@@ -198,6 +199,14 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [isPullingDetails, setIsPullingDetails] = useState(false);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
   const [pullError, setPullError] = useState('');
+
+  // Lens taxonomy state fields
+  const [editLensType, setEditLensType] = useState('');
+  const [editLensMount, setEditLensMount] = useState('');
+  const [editFocalLength, setEditFocalLength] = useState('');
+  const [editMaxAperture, setEditMaxAperture] = useState('');
+  const [editFormatCoverage, setEditFormatCoverage] = useState('');
+  const [editFocusType, setEditFocusType] = useState('');
 
   // Pack item ancillaries states
   const [editAddOns, setEditAddOns] = useState<{
@@ -515,6 +524,46 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
     return result;
   }, [items, statusFilter, searchQuery, sortBy]);
+
+  const handleExportCSV = () => {
+    if (!canExportList) {
+      toast.error("Permission denied: You do not have 'Export' permissions to export data.");
+      return;
+    }
+    if (filteredItems.length === 0) {
+      toast.error("No items to export.");
+      return;
+    }
+
+    const dataToExport = filteredItems.map(it => ({
+      'Item Name': it.name || '',
+      'Asset Tag': it.assetTag || '',
+      'Status': it.status || 'pending',
+      'Category': it.aiLabel || 'Uncategorized',
+      'Priority': it.priority || 'Medium',
+      'Weight': it.weight ? `${it.weight} ${it.weightUnit || 'kg'}` : '',
+      'Dimensions': it.dimensions ? `${it.dimensions.length}x${it.dimensions.width}x${it.dimensions.height} ${it.dimensions.unit || 'cm'}` : '',
+      'Tags': it.tags ? it.tags.join(', ') : '',
+      'Notes': it.notes || '',
+      'Description': it.description || ''
+    }));
+
+    try {
+      const csv = PAPA.unparse(dataToExport);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `${list?.name?.toLowerCase().replace(/\s+/g, '_')}_manifest.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Packing list exported to CSV successfully!");
+    } catch (err) {
+      console.error("CSV export error:", err);
+      toast.error("Failed to export packing list to CSV.");
+    }
+  };
 
   const groupedItems = useMemo<{ [key: string]: PackingItem[] }>(() => {
     if (!isGroupingEnabled) return { "All Items": filteredItems };
@@ -1251,6 +1300,12 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     setEditPhotoUrls(item.photoUrls || []);
     setEditSourceUrl(item.sourceUrl || '');
     setEditAddOns(item.addOns || []);
+    setEditLensType(item.lensType || '');
+    setEditLensMount(item.lensMount || '');
+    setEditFocalLength(item.focalLength || '');
+    setEditMaxAperture(item.maxAperture || '');
+    setEditFormatCoverage(item.formatCoverage || '');
+    setEditFocusType(item.focusType || '');
     setPullError('');
     setIsDirty(false);
   };
@@ -1338,6 +1393,12 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         relatedItemIds: editRelatedItemIds,
         sourceUrl: editSourceUrl,
         addOns: editAddOns,
+        lensType: editLensType,
+        lensMount: editLensMount,
+        focalLength: editFocalLength,
+        maxAperture: editMaxAperture,
+        formatCoverage: editFormatCoverage,
+        focusType: editFocusType,
         updatedAt: new Date().toISOString()
       }));
       setEditingItem(null);
@@ -2904,6 +2965,13 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     <Printer size={18} className="text-[#F27D26]" />
                   </button>
                   <button
+                    onClick={handleExportCSV}
+                    className="p-2.5 bg-white border border-neutral-200 rounded-xl font-bold hover:bg-neutral-50 transition shadow-sm text-neutral-400 hover:text-primary shrink-0 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-600"
+                    title="Export Manifest to CSV"
+                  >
+                    <Download size={18} className="text-emerald-500" />
+                  </button>
+                  <button
                     onClick={() => setShowHistoryModal(true)}
                     className="p-2.5 bg-white border border-neutral-200 rounded-xl font-bold hover:bg-neutral-50 transition shadow-sm text-neutral-400 hover:text-primary shrink-0"
                     title="Version History"
@@ -3701,12 +3769,20 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                   ? 'bg-primary text-white shadow-md' 
                                   : item.status === 'returned'
                                   ? 'bg-green-500 text-white shadow-md'
-                                  : 'bg-neutral-100 text-neutral-300 hover:bg-neutral-200'
+                                  : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200 border border-neutral-200'
                               }`}
                             >
-                              {item.status === 'packed' && <CheckCircle2 size={20} />}
-                              {item.status === 'returned' && <RotateCcw size={20} />}
-                              {item.status === 'pending' && <Circle size={20} />}
+                              {item.status === 'packed' && (
+                                <div className="w-5 h-5 rounded-lg bg-white text-primary flex items-center justify-center animate-in zoom-in-50 duration-250">
+                                  <svg className="w-3.5 h-3.5 stroke-[4] stroke-primary" fill="none" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              )}
+                              {item.status === 'returned' && <RotateCcw size={18} />}
+                              {item.status === 'pending' && (
+                                <div className="w-5 h-5 rounded-lg border-2 border-neutral-300 group-hover:border-primary/50 transition-all bg-white" />
+                              )}
                             </button>
                           </div>
 
@@ -3767,12 +3843,12 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
                           <div className={`flex-1 min-w-0 ${viewMode === 'list' ? 'space-y-0.5 md:space-y-1' : 'space-y-2'}`}>
                             <div className="flex items-start justify-between gap-2">
-                              <h3 className={`font-bold truncate ${
-                                viewMode === 'list' ? 'text-base md:text-xl' : 'text-sm md:text-lg'
+                              <h3 className={`font-bold truncate text-neutral-800 ${
+                                viewMode === 'list' ? 'text-xs sm:text-base md:text-lg' : 'text-[11px] sm:text-sm md:text-base'
                               } ${
                                 item.status === 'packed' ? 'line-through text-neutral-400' : 
-                                item.status === 'returned' ? 'text-green-600' : ''
-                              }`}>
+                                item.status === 'returned' ? 'text-green-600 font-extrabold' : ''
+                              }`} style={{ paddingLeft: '4px' }}>
                                 <ReactMarkdown components={{ p: 'span' }}>{item.name}</ReactMarkdown>
                               </h3>
                               {isOwner && viewMode !== 'list' && (
@@ -4860,6 +4936,129 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                           <option value="lb">lb</option>
                           <option value="oz">oz</option>
                         </select>
+                      </div>
+                    </div>
+
+                    {/* Smart Lens Taxonomy Section */}
+                    <div className="bg-white p-5 rounded-2xl border border-neutral-200 mt-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-black uppercase tracking-widest text-[#10b981] flex items-center gap-1">
+                          <span>🔍 Smart Lens Taxonomy Specs</span>
+                        </label>
+                      </div>
+                      <p className="text-[9px] text-neutral-400 leading-normal">
+                        Configure professional optics properties to translate accurately to active marketplace lists and smart searches.
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-neutral-400">Lens Type</label>
+                          <select
+                            value={editLensType}
+                            onChange={(e) => {
+                              setEditLensType(e.target.value);
+                              setIsDirty(true);
+                            }}
+                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-800"
+                          >
+                            <option value="">Select Type...</option>
+                            <option value="Prime">Prime</option>
+                            <option value="Zoom">Zoom</option>
+                            <option value="Anamorphic">Anamorphic Prime</option>
+                            <option value="Anamorphic Zoom">Anamorphic Zoom</option>
+                            <option value="Macro">Macro</option>
+                            <option value="Cine Prime">Cine Prime</option>
+                            <option value="Cine Zoom">Cine Zoom</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-neutral-400">Lens Mount</label>
+                          <select
+                            value={editLensMount}
+                            onChange={(e) => {
+                              setEditLensMount(e.target.value);
+                              setIsDirty(true);
+                            }}
+                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-800"
+                          >
+                            <option value="">Select Mount...</option>
+                            <option value="PL">Arri PL Mount</option>
+                            <option value="EF">Canon EF Mount</option>
+                            <option value="RF">Canon RF Mount</option>
+                            <option value="E-Mount">Sony E Mount</option>
+                            <option value="L-Mount">L-Mount (Leica/Panasonic/Sigma)</option>
+                            <option value="F-Mount">Nikon F Mount</option>
+                            <option value="Z-Mount">Nikon Z Mount</option>
+                            <option value="X-Mount">Fujifilm X Mount</option>
+                            <option value="MFT">Micro Four Thirds (MFT)</option>
+                            <option value="M-Mount">Leica M Mount</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-neutral-400">Focal Length</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 50mm, 24-70mm"
+                            value={editFocalLength}
+                            onChange={(e) => {
+                              setEditFocalLength(e.target.value);
+                              setIsDirty(true);
+                            }}
+                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-900 font-semibold"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-neutral-400">Max Aperture</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. T1.5, f/2.8"
+                            value={editMaxAperture}
+                            onChange={(e) => {
+                              setEditMaxAperture(e.target.value);
+                              setIsDirty(true);
+                            }}
+                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-900 font-semibold"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-neutral-400">Format Coverage</label>
+                          <select
+                            value={editFormatCoverage}
+                            onChange={(e) => {
+                              setEditFormatCoverage(e.target.value);
+                              setIsDirty(true);
+                            }}
+                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-800"
+                          >
+                            <option value="">Select Coverage...</option>
+                            <option value="Full Frame">Full Frame (35mm)</option>
+                            <option value="Super 35">Super 35 (APS-C)</option>
+                            <option value="Large Format">Large Format / VistaVision</option>
+                            <option value="Medium Format">Medium Format</option>
+                            <option value="Micro Four Thirds">Micro Four Thirds (M4/3)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-neutral-400">Focus Type</label>
+                          <select
+                            value={editFocusType}
+                            onChange={(e) => {
+                              setEditFocusType(e.target.value);
+                              setIsDirty(true);
+                            }}
+                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-800"
+                          >
+                            <option value="">Select Focus...</option>
+                            <option value="Manual Only">Manual Focus (MF)</option>
+                            <option value="Autofocus">Autofocus (AF)</option>
+                            <option value="Cine Focus">Cine Follow-Focus Geared</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
 

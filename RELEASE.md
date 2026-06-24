@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.26.0`
+## Current Application Version: `v4.29.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,30 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.29.0 (Structured CSV Export & Elegant PDF Report Generation)
+*Released on: June 24, 2026*
+- **Packing List CSV Export**: Empowered coordinators to export detailed packing lists and load manifest items (Item Name, Asset Tag, Status, Category, Priority, Weight, Dimensions, Tags, Notes, and Descriptions) as structured, standard CSV reports for offline record-keeping.
+- **Departmental Inventory PDF Report & Print Mode**: Integrated a gorgeous, print-ready, high-fidelity PDF layout generator for departmental inventory sheets. Includes complete financial valuation aggregates, stock status metrics, and responsive category-grouped visual boards.
+- **Custom Print Customization Controls**: Granted administrators complete toggles to live-render lists with/without status descriptions, apply ultra-compact line heights for massive lists, and group assets by category prior to saving or printing.
+
+---
+
+### 🚀 Stable Release: v4.28.0 (Brand Image & Logo Upload and Display Integration)
+*Released on: June 24, 2026*
+- **Seamless Local Image Upload Support**: Integrated a file-drag-and-drop & browse local uploader inside the Brand Creator form in the Admin Panel, compressing images on-the-fly to robust base64 strings using browser canvas capabilities.
+- **Dynamic Brand Logo Fallback/URL paste**: Preserved full URL pasting capabilities as an alternative to file uploads, allowing complete multi-sourcing flexibility for administrators.
+- **Unified Brand Image Display**: Rendered matching brand logo images dynamically across the primary Gear Library inventory item cards, active Marketplace listings cards, and public booking/purchase modals.
+
+---
+
+### 🚀 Stable Release: v4.27.0 (Smart Optics Lens Taxonomy & Multi-Profile Interactive Import Sandbox)
+*Released on: June 24, 2026*
+- **Seamless Lens Taxonomy Integration**: Propagated high-fidelity lens-specific details (`lensType`, `lensMount`, `focalLength`, `maxAperture`, `formatCoverage`, `focusType`) from the individual item lists directly to the Marketplace listings, avoiding redundant duplicate data entry.
+- **Auto-Populated Marketplace Listing Specs**: Configured the Edit Offer modal inside the Listings Module to automatically and asynchronously look up sub-items, detect optics/lenses, and pre-populate brand, model, and taxonomy specs.
+- **Interactive Import Sandbox Playground**: Replaced the static CSV column mapping with an advanced interactive spreadsheet sandbox. Users can choose industry-tailored scenario profiles (Standard, AV Technical Manuals, or Production BOMs), dynamically add/delete draft rows, edit cell values inline, and batch-apply rules like Auto-Classifying categories or setting quantities.
 
 ---
 

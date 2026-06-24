@@ -226,3 +226,77 @@ When registering premium cameras, sensors, or kits that ship with multiple criti
    - **Manual Custom Insertion:** Input manual accessory units that shipped together inside the factory box. Set the classification type (Accessories, Consumables, Attachments, or Software) to distinguish batteries or cages from soft goods.
 3. **Set Safe Accounting Valuations:** For standard "in-the-box" inclusions, keep the price defined as `$0` (Free Bundle offer). This preserves the accurate standalone market rental rates of the main body while ensuring crew members notice the sub-items.
 4. **Trigger Active Bundle / PWA Syncing:** Clicking save locks the sub-items to the parent asset record under the Firestore `addOns` field array. During future list creations inside the **Manifest Module**, selecting this camera instantly alerts operators to include all mapped box materials!
+
+---
+
+## 🔍 12. Smart Optics Lens Taxonomy & Marketplace Integration (v4.27.0)
+
+Packer Tools includes dedicated, deep metadata structures for professional photography and cinematography lenses. This "Smart Lens Taxonomy" ensures optical specifications sync across the Gear Library, Packing Lists, and the public Marketplace without needing duplicate data entry.
+
+### 🌐 Captured Optics Specs:
+- **Lens Type:** Prime, Zoom, Anamorphic Prime, Anamorphic Zoom, Macro, Cine Prime, Cine Zoom.
+- **Lens Mount:** Arri PL, Canon EF, Canon RF, Sony E-Mount, L-Mount, Nikon F/Z, Micro Four Thirds (MFT), Leica M-Mount.
+- **Focal Length:** Single focal lengths (e.g. `50mm`) or range bounds (e.g. `24-70mm`).
+- **Max Aperture:** Standard speed values (e.g. `T1.5` or `f/1.2`).
+- **Format Coverage:** Full Frame, Super 35, Large Format / VistaVision, Medium Format, MFT.
+- **Focus Type:** Manual Only (MF), Autofocus (AF), or Cine Geared Follow-Focus.
+
+### 🔄 Zero-Double-Entry Flow:
+1. **Onboard Items with Lens Specs:** Create your lists and specify lens specifications within the Packing List items.
+2. **Auto-Populating Listings:** When you list a Packing List to the Marketplace and edit the offer, Packer Tools automatically queries the sub-items, detects any lens-specific item, and populates the listing's master brand, model, and lens taxonomy fields.
+3. **Fine-Tuning:** Administrators can review, adjust, or override these specs directly inside the Marketplace edit panel before saving.
+4. **Marketplace Filtering:** The public and internal marketplace leverages these specs to allow precise, high-speed filtering by mount, focal length, or coverage.
+
+---
+
+## ⚙️ 13. Temporary Import Sandbox & Scenario Profiles (v4.27.0)
+
+For high-volume operations, importing bulk spreadsheets can be prone to column mismatches and broken formatting. Packer Tools includes a **Temporary Import Sandbox** that acts as an interactive playground to map, clean, and preview spreadsheet data before importing it to the database.
+
+### 📈 Industry Scenario Profiles:
+- **Standard Gear Profile:** Standard database mapping for tool name, brand, model, serials, category, and price.
+- **AV Technical Manuals Profile:** Automatically matches hardware names and generates direct documentation links for technical user manuals in the cloud, embedding searchable links into the item description.
+- **Production BOM Profile:** Recognizes equipment bills of materials, converts the newly generated assets to Kits, and automatically attaches default accessories like heavy-duty cases and supply cabling.
+
+### 🛠️ Interactive Sandbox Operations:
+- **Interactive Mapping:** Bind columns visually using select dropdowns placed in the header of each spreadsheet column. Mapped columns immediately change color.
+- **Inline Cell Editing:** Click directly on any cell in the preview grid to edit its text on-the-fly to correct typos, serials, or categories before the database import.
+- **Add Draft Row:** Click **"+ Add New Row"** to append a blank draft item directly within the sandbox.
+- **Delete Row:** Delete a spreadsheet row from the import list using the trash icon.
+- **Auto-Classify Categories:** Click **"Auto-Classify Categories"** to run an AI classification sweep that automatically populates empty categories based on keywords in the item's name.
+- **Batch Quantities Solver:** Fill empty or zero quantities instantly to `1` with a single click.
+- **Reset Sandbox:** Restore the sandbox back to the raw, unedited rows of the original file at any point.
+
+---
+
+## 🎨 14. Brand Logo Image Upload & Consolidated Visual Displays (v4.28.0)
+
+Packer Tools includes an advanced, end-to-end Brand and Manufacturer registry. This ensures that gear item cards, catalog lines, and public marketplace listings are clearly marked with verified company logo insignias.
+
+### 📤 Multi-Channel Sourcing Options:
+1. **Interactive File Drop & Upload:** Administrators can drag-and-drop or browse a local logo file (PNG, JPG, SVG). Packer Tools compresses and serializes the image instantly to a highly compatible Base64 string for direct Firestore persistence.
+2. **Dynamic URL Pasting:** Paste external image links as needed. The form verifies loadability asynchronously and includes a default visual placeholder fallback if the host goes offline.
+3. **One-Click Logo Removal:** An overlay button in the live preview box allows administrators to clear out logo files immediately.
+
+### 🖼️ Consolidated Display Outlets:
+- **Gear Library Cards:** Individual inventory sheets and item grids automatically scan the brand registry and mount corresponding verified logos inline with the equipment category.
+- **Marketplace Listings Shelf:** Each listed offer renders its manufacturer logo in high contrast alongside the product brand name.
+- **Booking Modal Header:** Booking requests and transaction receipts print high-fidelity logo assets to secure a certified look-and-feel.
+
+---
+
+## 📊 15. Structured Exporting & PDF/Print Report Engine (v4.29.0)
+
+Packer Tools offers advanced data portability utilities allowing coordinators to share their inventories and load manifests with external logistics partners.
+
+### 📥 CSV Load Manifest Exports:
+1. **Fidelity Preservation:** Inside any active Packing List Detail view, clicking the **Export Manifest to CSV** button generates an instant, standard-compliant CSV.
+2. **Metadata Columns:** Exports capture exact item names, asset tags, current status, categorizations, packing priorities, unit weights, dimensions, custom tags, private notes, and general descriptions.
+3. **Instant Downloads:** Files are generated locally via the `papaparse` engine to guarantee maximum security and data privacy.
+
+### 📋 Professional Inventory PDF / Print Generation:
+1. **Interactive Print Controls:** Selecting **Print Report / PDF** inside the Departmental Inventory sheets opens a custom-styled live report sandbox.
+2. **Dynamic Aggregates:** Calculates precise metrics on-the-fly, displaying unique models, total stock quantities, complete financial valuations, and active items requiring urgent maintenance attention.
+3. **Visual Formats:** Supports grouping items by category, toggling the visibility of long descriptions, and applying compact spacing layouts to ensure even the longest gear lists fit cleanly on standard-sized paper or print-to-PDF files.
+
+

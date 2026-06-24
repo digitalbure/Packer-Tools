@@ -188,7 +188,23 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   const [searchQuery, setSearchQuery] = useState('');
   const [userListings, setUserListings] = useState<any[]>([]);
   const [dbCategories, setDbCategories] = useState<any[]>([]);
+  const [dbBrands, setDbBrands] = useState<any[]>([]);
   const [loadingListings, setLoadingListings] = useState(true);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'marketplaceBrands'), (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name || '',
+        logo: doc.data().logo || '',
+        description: doc.data().description || ''
+      }));
+      setDbBrands(docs);
+    }, (error) => {
+      console.warn('marketplaceBrands subscription skipped or failed:', error);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'marketplaceCategories'), (snapshot) => {
@@ -371,6 +387,9 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   // Filtering & Modal parameters
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  const [selectedLensType, setSelectedLensType] = useState<string | null>(null);
+  const [selectedLensMount, setSelectedLensMount] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string>('default');
   const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
   const [favoriteItems, setFavoriteItems] = useState<Set<string>>(new Set());
@@ -669,7 +688,44 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                             item.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             item.model.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
-      return matchesSearch && matchesCategory;
+
+      // Smart Brand Filter
+      let matchesBrand = true;
+      if (selectedBrandId) {
+        const targetBrand = dbBrands.find(b => b.id === selectedBrandId);
+        if (targetBrand) {
+          const itemBrandLower = item.brand?.toLowerCase() || '';
+          const targetBrandLower = targetBrand.name?.toLowerCase() || '';
+          matchesBrand = itemBrandLower === targetBrandLower || itemBrandLower === selectedBrandId.toLowerCase();
+        }
+      }
+
+      // Smart Lens Taxonomy filters
+      let matchesLensSpec = true;
+      if (selectedCategory === 'cinema-lenses' || selectedCategory === 'photography-lenses') {
+        if (selectedLensType) {
+          const itemLensType = (item.lensType || '').toLowerCase();
+          const targetLensType = selectedLensType.toLowerCase();
+          if (itemLensType !== targetLensType) {
+            const nameLower = item.name.toLowerCase();
+            const descLower = (item.description || '').toLowerCase();
+            const matchesFuzzy = nameLower.includes(targetLensType) || descLower.includes(targetLensType);
+            if (!matchesFuzzy) matchesLensSpec = false;
+          }
+        }
+        if (selectedLensMount) {
+          const itemLensMount = (item.lensMount || '').toLowerCase();
+          const targetLensMount = selectedLensMount.toLowerCase();
+          if (!itemLensMount.includes(targetLensMount)) {
+            const nameLower = item.name.toLowerCase();
+            const descLower = (item.description || '').toLowerCase();
+            const matchesFuzzy = nameLower.includes(targetLensMount) || descLower.includes(targetLensMount);
+            if (!matchesFuzzy) matchesLensSpec = false;
+          }
+        }
+      }
+
+      return matchesSearch && matchesCategory && matchesBrand && matchesLensSpec;
     })
     .sort((a: any, b: any) => {
       if (sortBy === 'price-asc') {
@@ -1316,6 +1372,73 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
             </div>
           </div>
 
+          {/* Brand Logo Directory Horizontal Slider */}
+          {dbBrands.length > 0 && (
+            <div className="space-y-3 bg-neutral-50/50 p-5 rounded-[2rem] border border-neutral-150 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-neutral-800">Filter by Brand Directory</h3>
+                  <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider">Quickly drill down to equipment from your favorite manufacturer</p>
+                </div>
+                {selectedBrandId && (
+                  <button
+                    onClick={() => {
+                      setSelectedBrandId(null);
+                      toast.success("Cleared brand filter");
+                    }}
+                    className="text-[10px] font-black uppercase tracking-wider text-rose-500 hover:text-rose-600 transition"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+              <div className="flex overflow-x-auto gap-3 py-1 pr-4 scrollbar-hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                {dbBrands.map((brand) => {
+                  const isSelected = selectedBrandId === brand.id;
+                  const brandListingsCount = userListings.filter(l => l.brand?.toLowerCase() === brand.name?.toLowerCase() || l.brand?.toLowerCase() === brand.id?.toLowerCase()).length;
+                  return (
+                    <button
+                      key={brand.id}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedBrandId(null);
+                          toast.success("Cleared brand filter");
+                        } else {
+                          setSelectedBrandId(brand.id);
+                          toast.success(`Filtering by ${brand.name}`);
+                        }
+                      }}
+                      className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl border transition duration-200 shrink-0 text-left ${
+                        isSelected
+                          ? 'border-primary bg-primary/5 shadow-sm text-neutral-900'
+                          : 'border-neutral-100 bg-white hover:border-neutral-200 hover:bg-neutral-50 text-neutral-600'
+                      }`}
+                    >
+                      <div className="w-6 h-6 rounded-lg overflow-hidden bg-white border border-neutral-150 flex items-center justify-center p-0.5 shrink-0">
+                        {brand.logo ? (
+                          <img
+                            src={brand.logo}
+                            alt={brand.name}
+                            className="max-w-full max-h-full object-contain"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-neutral-400 bg-neutral-100 text-[8px] font-black uppercase">
+                            {brand.name.slice(0, 2)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-tight leading-none">{brand.name}</p>
+                        <p className="text-[8px] text-neutral-400 font-bold uppercase mt-0.5 font-mono">{brandListingsCount} listings</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Categories grid horizontal layout */}
           <div className="flex overflow-x-auto gap-4 py-2 pr-4 scrollbar-hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {activeCategories.map((cat) => {
@@ -1389,6 +1512,78 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
             )}
           </div>
         </div>
+
+        {/* Smart Lens Sub-Taxonomy Filter Panel */}
+        {(selectedCategory === 'cinema-lenses' || selectedCategory === 'photography-lenses') && (
+          <div className="bg-neutral-50/50 rounded-2xl p-5 border border-neutral-150 space-y-4 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+              <span className="text-xs font-black text-neutral-800 uppercase tracking-wider">🔬 Smart Lens Taxonomy filters</span>
+              <button
+                onClick={() => {
+                  setSelectedLensType(null);
+                  setSelectedLensMount(null);
+                  toast.success("Lens sub-filters reset");
+                }}
+                className="text-[9px] font-black uppercase text-rose-500 hover:text-rose-600 transition"
+              >
+                Reset Specs
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">Filter Lens Type</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { id: null, label: 'All Types' },
+                    { id: 'Prime', label: 'Prime' },
+                    { id: 'Zoom', label: 'Zoom' },
+                    { id: 'Cinema Prime', label: 'Cinema Prime' },
+                    { id: 'Cinema Zoom', label: 'Cinema Zoom' },
+                    { id: 'Anamorphic', label: 'Anamorphic' }
+                  ].map((t) => (
+                    <button
+                      key={t.id || 'all'}
+                      onClick={() => setSelectedLensType(t.id)}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition ${
+                        selectedLensType === t.id
+                          ? 'bg-neutral-900 text-white shadow-xs'
+                          : 'bg-white border border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:border-neutral-300'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">Filter Lens Mount</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { id: null, label: 'All Mounts' },
+                    { id: 'PL-Mount', label: 'PL Mount' },
+                    { id: 'E-Mount', label: 'Sony E' },
+                    { id: 'EF-Mount', label: 'Canon EF' },
+                    { id: 'RF-Mount', label: 'Canon RF' },
+                    { id: 'Z-Mount', label: 'Nikon Z' }
+                  ].map((m) => (
+                    <button
+                      key={m.id || 'all'}
+                      onClick={() => setSelectedLensMount(m.id)}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition ${
+                        selectedLensMount === m.id
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'bg-white border border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:border-neutral-300'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 5A. CURRENT MODE FILTERED PRODUCTS GRID */}
         <div className="space-y-6">
@@ -1529,12 +1724,39 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                     {/* Meta data */}
                     <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                       <div className="space-y-1">
-                        <p className="text-[9px] font-mono font-bold text-neutral-400 uppercase tracking-widest">
-                          {product.brand}
-                        </p>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {product.brand && (() => {
+                            const brandObj = dbBrands.find(b => b.name?.toLowerCase() === product.brand.toLowerCase() || b.id?.toLowerCase() === product.brand.toLowerCase());
+                            return brandObj?.logo ? (
+                              <img
+                                src={brandObj.logo}
+                                alt={product.brand}
+                                className="h-3 w-auto object-contain rounded opacity-75 shrink-0"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : null;
+                          })()}
+                          <p className="text-[9px] font-mono font-bold text-neutral-400 uppercase tracking-widest truncate">
+                            {product.brand}
+                          </p>
+                        </div>
                         <h4 className="text-[10.5px] font-black uppercase text-neutral-800 line-clamp-2 leading-snug group-hover:text-black" title={product.name}>
                           {product.name}
                         </h4>
+                        {(product.category === 'cinema-lenses' || product.category === 'photography-lenses') && (product.lensType || product.lensMount) && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {product.lensType && (
+                              <span className="px-1.5 py-0.5 bg-neutral-100 text-neutral-600 rounded text-[7.5px] font-black uppercase tracking-wider font-sans border border-neutral-150">
+                                {product.lensType}
+                              </span>
+                            )}
+                            {product.lensMount && (
+                              <span className="px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded text-[7.5px] font-black uppercase tracking-wider font-sans">
+                                {product.lensMount}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {product.sponsored && product.adHeadline && (
                           <div className="mt-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-lg text-[8px] font-extrabold text-indigo-700 select-none leading-normal">
                             📢 {product.adHeadline}
@@ -2139,8 +2361,19 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <span className="text-[8px] font-black uppercase tracking-widest text-[#ff4f3a]">
-                    {selectedProduct.brand} • {selectedProduct.model || 'GENERIC'}
+                  <span className="text-[8px] font-black uppercase tracking-widest text-[#ff4f3a] flex items-center gap-1.5">
+                    {selectedProduct.brand && (() => {
+                      const brandObj = dbBrands.find(b => b.name?.toLowerCase() === selectedProduct.brand.toLowerCase() || b.id?.toLowerCase() === selectedProduct.brand.toLowerCase());
+                      return brandObj?.logo ? (
+                        <img
+                          src={brandObj.logo}
+                          alt={selectedProduct.brand}
+                          className="h-2.5 w-auto object-contain rounded opacity-75 inline"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : null;
+                    })()}
+                    <span>{selectedProduct.brand} • {selectedProduct.model || 'GENERIC'}</span>
                   </span>
                   <h3 className="text-lg font-black uppercase tracking-tighter text-neutral-800 mt-1">
                     Book Placement: {selectedProduct.name}
