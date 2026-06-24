@@ -3585,20 +3585,20 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
             >
               {isGroupingEnabled && (
                 <div
-                  className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 w-full text-left group outline-none focus-visible:ring-2 focus-visible:ring-primary/20 rounded-xl px-2 py-1"
+                  className="flex items-center gap-2.5 sm:gap-3 w-full text-left group outline-none focus-visible:ring-2 focus-visible:ring-primary/20 rounded-xl px-2 py-1"
                 >
                   <div 
                     onClick={() => toggleGroup(groupName)}
-                    className="flex-shrink-0 w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center text-neutral-500 group-hover:bg-neutral-200 transition cursor-pointer"
+                    className="flex-shrink-0 w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center text-neutral-500 group-hover:bg-neutral-200 transition cursor-pointer shrink-0"
                   >
                     {collapsedGroups.has(groupName) ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
                   </div>
                   <h2 
                     onClick={() => toggleGroup(groupName)}
-                    className="text-sm sm:text-lg font-black uppercase tracking-widest text-neutral-900 flex items-center gap-2 sm:gap-3 flex-1 cursor-pointer min-w-0 break-all"
+                    className="text-xs sm:text-lg font-black uppercase tracking-widest text-neutral-900 flex items-center gap-1.5 sm:gap-3 flex-1 cursor-pointer min-w-0 break-words leading-tight"
                   >
                     {groupName}
-                    <span className="text-xs font-bold bg-neutral-100 text-neutral-400 px-2 py-0.5 rounded-full shrink-0">
+                    <span className="text-[10px] sm:text-xs font-bold bg-neutral-100 text-neutral-400 px-2 py-0.5 rounded-full shrink-0">
                       {groupItems.length}
                     </span>
                   </h2>
@@ -3678,7 +3678,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                               {isOwner && (
                                 <button
                                   onClick={() => toggleSelectItem(item.id)}
-                                  className={`w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                                  className={`w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 aspect-square ${
                                     selectedItems.has(item.id) 
                                       ? 'bg-primary border-primary text-white' 
                                       : 'border-neutral-200 bg-white hover:border-neutral-300'
@@ -3696,7 +3696,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             
                             <button
                               onClick={() => toggleItemStatus(item)}
-                              className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all ${
+                              className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all shrink-0 aspect-square ${
                                 item.status === 'packed' 
                                   ? 'bg-primary text-white shadow-md' 
                                   : item.status === 'returned'

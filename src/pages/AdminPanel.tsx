@@ -6544,15 +6544,15 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     }} 
                   />
                   
-                  {/* AI Recognition Settings (Remains Global or per-lander? User said "Lander module... should have settings for all sections". AI Recognition was previously global but is displayed on hero.) */}
+                  {/* AI Recognition Settings / Hero Slide Images */}
                   <div className="bg-white p-8 rounded-[3rem] border border-neutral-100 shadow-sm space-y-6">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between border-b border-neutral-50 pb-4">
                       <div className="space-y-1">
                         <h3 className="text-xl font-bold flex items-center gap-2">
-                          <Activity size={20} className="text-primary" />
-                          <span>AI Recognition Panel (Global)</span>
+                          <ImageIcon size={20} className="text-primary" />
+                          <span>Hero Slides & AI Recognition Showcase (Global)</span>
                         </h3>
-                        <p className="text-xs text-neutral-400">This config applies platform-wide to the Hero section card</p>
+                        <p className="text-xs text-neutral-400">Configure the high-fidelity slideshow images and metadata displayed on the main landing page hero section.</p>
                       </div>
                       <button 
                         onClick={() => setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, enabled: !s.aiRecognitionConfig!.enabled } } : null)}
@@ -6561,7 +6561,113 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                         <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${settings.aiRecognitionConfig?.enabled ? 'right-1' : 'left-1'}`}></div>
                       </button>
                     </div>
-                    {/* ... rest of AI Recognition config (can be moved here or kept global) ... */}
+
+                    {settings.aiRecognitionConfig?.enabled && (
+                      <div className="space-y-6">
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Rotation Interval (ms)</label>
+                            <input
+                              type="number"
+                              value={settings.aiRecognitionConfig.interval || 6000}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 6000;
+                                setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, interval: val } } : null);
+                              }}
+                              className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                            />
+                          </div>
+                          <div className="flex items-end justify-end">
+                            <button
+                              onClick={() => {
+                                const newItems = [...(settings.aiRecognitionConfig?.items || [])];
+                                newItems.push({
+                                  id: Math.random().toString(36).substr(2, 9),
+                                  name: 'New Asset',
+                                  details: 'Detected spec details',
+                                  image: 'https://images.unsplash.com/photo-1542332213-9b5a5a3fad35?auto=format&fit=crop&q=80&w=2000',
+                                  icon: 'Camera'
+                                });
+                                setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, items: newItems } } : null);
+                              }}
+                              className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                            >
+                              <Plus size={14} /> Add Hero Slide Image
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 no-scrollbar">
+                          {(settings.aiRecognitionConfig.items || []).map((item, idx) => (
+                            <div key={item.id || idx} className="bg-neutral-50 rounded-2xl border border-neutral-150 p-4 space-y-3 group relative">
+                              <button 
+                                onClick={() => {
+                                  const newItems = (settings.aiRecognitionConfig?.items || []).filter((_, i) => i !== idx);
+                                  setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, items: newItems } } : null);
+                                }}
+                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-500 hover:scale-110 transition p-1"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                              <div className="grid grid-cols-3 gap-3">
+                                <div className="col-span-1">
+                                  {item.image ? (
+                                    <div className="h-full w-full rounded-xl overflow-hidden border border-neutral-200">
+                                      <img src={item.image} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                    </div>
+                                  ) : (
+                                    <div className="h-full w-full rounded-xl bg-neutral-200 flex items-center justify-center text-neutral-400">
+                                      <ImageIcon size={20} />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="col-span-2 space-y-2">
+                                  <div className="space-y-1">
+                                    <label className="text-[8px] font-black uppercase text-neutral-400">Asset Name</label>
+                                    <input
+                                      type="text"
+                                      value={item.name}
+                                      onChange={(e) => {
+                                        const newItems = [...(settings.aiRecognitionConfig?.items || [])];
+                                        newItems[idx].name = e.target.value;
+                                        setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, items: newItems } } : null);
+                                      }}
+                                      className="w-full px-2 py-1 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold outline-none"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[8px] font-black uppercase text-neutral-400 font-mono">Status Details</label>
+                                    <input
+                                      type="text"
+                                      value={item.details}
+                                      onChange={(e) => {
+                                        const newItems = [...(settings.aiRecognitionConfig?.items || [])];
+                                        newItems[idx].details = e.target.value;
+                                        setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, items: newItems } } : null);
+                                      }}
+                                      className="w-full px-2 py-1 bg-white border border-neutral-200 rounded-lg text-[10px] outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[8px] font-black uppercase text-neutral-400 font-mono">Image URL</label>
+                                <input
+                                  type="text"
+                                  value={item.image}
+                                  onChange={(e) => {
+                                    const newItems = [...(settings.aiRecognitionConfig?.items || [])];
+                                    newItems[idx].image = e.target.value;
+                                    setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, items: newItems } } : null);
+                                  }}
+                                  className="w-full px-2 py-1 bg-white border border-neutral-200 rounded-lg text-[9px] outline-none"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -8863,6 +8969,11 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                         }}
                         className="w-full px-2 py-1.5 bg-white border border-neutral-200 rounded-lg text-[10px]"
                       />
+                      {item.image && (
+                        <div className="mt-1 h-16 w-full rounded-lg overflow-hidden border border-neutral-200/60">
+                          <img src={item.image} alt={item.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -2054,38 +2054,44 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
             </div>
 
             {/* Core values block columns */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left border-y border-neutral-200/60 py-10">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left py-6 md:py-10">
               {/* Sub column 1 */}
-              <div className="space-y-2">
-                <div className="w-10 h-10 bg-rose-50 text-[#ff4f3a] rounded-xl flex items-center justify-center">
+              <div className="bg-white border border-neutral-150 rounded-3xl p-6 md:p-6 space-y-3.5 shadow-md hover:shadow-lg transition-all duration-300">
+                <div className="w-10 h-10 bg-rose-50 text-[#ff4f3a] rounded-xl flex items-center justify-center shrink-0">
                   <DollarSign size={18} />
                 </div>
-                <h4 className="text-[11px] font-black uppercase text-neutral-800 tracking-wider">Earn money renting your gear</h4>
-                <p className="text-[10px] text-neutral-400 leading-relaxed font-semibold uppercase">
-                  Put your gear to work while you aren\'t using it. Meet local creatives and make extra cash renting your scope to them. Soon, your gear will pay for itself!
-                </p>
+                <div className="space-y-1.5">
+                  <h4 className="text-xs font-black uppercase text-neutral-800 tracking-wider">Earn money renting your gear</h4>
+                  <p className="text-[10px] text-neutral-500 leading-relaxed font-semibold uppercase">
+                    Put your gear to work while you aren't using it. Meet local creatives and make extra cash renting your scope to them. Soon, your gear will pay for itself!
+                  </p>
+                </div>
               </div>
 
               {/* Sub column 2 */}
-              <div className="space-y-2">
-                <div className="w-10 h-10 bg-orange-50 text-orange-500 rounded-xl flex items-center justify-center">
+              <div className="bg-white border border-neutral-150 rounded-3xl p-6 md:p-6 space-y-3.5 shadow-md hover:shadow-lg transition-all duration-300">
+                <div className="w-10 h-10 bg-orange-50 text-orange-500 rounded-xl flex items-center justify-center shrink-0">
                   <ShoppingBag size={18} />
                 </div>
-                <h4 className="text-[11px] font-black uppercase text-neutral-800 tracking-wider">Sell your gear, keep more of your money</h4>
-                <p className="text-[10px] text-[#ff4f3a] leading-relaxed font-black uppercase">
-                  Promote your gear to a vibrant community of filmmakers and photographers nationwide, enjoy significant seller protections, and only pay a 5% fee - with a maximum cap of $500.
-                </p>
+                <div className="space-y-1.5">
+                  <h4 className="text-xs font-black uppercase text-neutral-800 tracking-wider">Sell your gear, keep more of your money</h4>
+                  <p className="text-[10px] text-[#ff4f3a] leading-relaxed font-black uppercase">
+                    Promote your gear to a vibrant community of filmmakers and photographers nationwide, enjoy significant seller protections, and only pay a 5% fee - with a maximum cap of $500.
+                  </p>
+                </div>
               </div>
 
               {/* Sub column 3 */}
-              <div className="space-y-2">
-                <div className="w-10 h-10 bg-indigo-50 text-indigo-505 rounded-xl flex items-center justify-center">
+              <div className="bg-white border border-neutral-150 rounded-3xl p-6 md:p-6 space-y-3.5 shadow-md hover:shadow-lg transition-all duration-300">
+                <div className="w-10 h-10 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center shrink-0">
                   <CheckCircle2 size={18} />
                 </div>
-                <h4 className="text-[11px] font-black uppercase text-neutral-800 tracking-wider">Renter & Seller Guarantees</h4>
-                <p className="text-[10px] text-neutral-400 leading-relaxed font-semibold uppercase">
-                  Integrate premium insurance coverages. Packer Tools offers an extensive selection of coverage options as well as renter and seller guarantees to ensure everyone feels safe and protected.
-                </p>
+                <div className="space-y-1.5">
+                  <h4 className="text-xs font-black uppercase text-neutral-800 tracking-wider">Renter & Seller Guarantees</h4>
+                  <p className="text-[10px] text-neutral-500 leading-relaxed font-semibold uppercase">
+                    Integrate premium insurance coverages. Packer Tools offers an extensive selection of coverage options as well as renter and seller guarantees to ensure everyone feels safe and protected.
+                  </p>
+                </div>
               </div>
             </div>
 

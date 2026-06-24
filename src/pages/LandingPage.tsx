@@ -479,21 +479,21 @@ export default function LandingPage({
           <div className="absolute top-0 left-0 w-64 h-64 bg-accent/5 blur-[100px] rounded-full -translate-x-1/2 -translate-y-1/2" />
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-safety-yellow/5 blur-[120px] rounded-full translate-x-1/2 translate-y-1/2" />
 
-          <div className="grid md:grid-cols-2 gap-24 items-end mb-24 relative z-10">
-            <h2 className="text-5xl md:text-7xl font-black tracking-tighter uppercase leading-[0.85]">
+          <div className="grid md:grid-cols-2 gap-8 md:gap-24 items-center md:items-end mb-12 md:mb-24 relative z-10 text-center md:text-left">
+            <h2 className="text-3xl sm:text-4xl md:text-7xl font-black tracking-tighter uppercase leading-[0.95] md:leading-[0.85]">
               {lp?.features?.title ? lp.features.title.split(' ').map((word, i) => (
                 <React.Fragment key={i}>
                   {i === lp.features.title.split(' ').length - 1 ? <span className="text-neutral-400">{word}</span> : word}
-                  {i < lp.features.title.split(' ').length - 1 && <br />}
+                  {i < lp.features.title.split(' ').length - 1 && <br className="hidden md:inline" />}
                 </React.Fragment>
               )) : (
                 <>
-                  Built for <br />
+                  Built for <br className="hidden md:inline" />
                   <span className="text-neutral-400">The Field.</span>
                 </>
               )}
             </h2>
-            <p className="text-xl text-neutral-500 leading-relaxed font-medium pb-2">
+            <p className="text-base md:text-xl text-neutral-500 leading-relaxed font-medium pb-2 max-w-md mx-auto md:mx-0">
               {lp?.features?.description || "We've engineered a system that thrives in high-pressure environments. From remote expeditions to back-to-back production schedules."}
             </p>
           </div>
@@ -516,13 +516,13 @@ export default function LandingPage({
                 description: "Assign gear bundles directly to team members, track dynamic weight thresholds, and monitor checkouts in real-time." 
               }
             ] ).map((feature: any, i: number) => (
-              <div key={i} className="bg-paper p-12 space-y-8 hover:bg-white transition-all duration-500 group border-b md:border-b-0 md:border-r border-primary/5 last:border-0">
-                <div className="w-12 h-12 flex items-center justify-center text-primary group-hover:text-accent transition-colors">
+              <div key={i} className="bg-paper p-6 md:p-12 space-y-4 md:space-y-8 hover:bg-white transition-all duration-500 group border-b md:border-b-0 md:border-r border-primary/5 last:border-0">
+                <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-primary group-hover:text-accent transition-colors">
                   {iconMap[feature.icon] || <Package />}
                 </div>
-                <div className="space-y-4">
-                  <h3 className="text-2xl font-black tracking-tight uppercase">{feature.title}</h3>
-                  <p className="text-neutral-500 leading-relaxed text-sm">{feature.description}</p>
+                <div className="space-y-2 md:space-y-4">
+                  <h3 className="text-lg md:text-2xl font-black tracking-tight uppercase">{feature.title}</h3>
+                  <p className="text-neutral-500 leading-relaxed text-xs md:text-sm">{feature.description}</p>
                 </div>
               </div>
             ))}
@@ -781,6 +781,20 @@ export default function LandingPage({
               >
                 {lp?.cta?.buttonText || 'Get Started Now'}
               </button>
+
+              <div className="text-center pt-4 space-y-2 border-t border-white/5">
+                <p className="text-[10px] sm:text-xs text-white/50 leading-relaxed font-semibold uppercase tracking-wider">
+                  Looking for custom team size seats, single tenant dedicated clouds, or high-throughput API keys? We provide customizable enterprise SLA agreements.
+                </p>
+                <div>
+                  <Link 
+                    to="/prices"
+                    className="inline-block text-[10px] sm:text-xs text-accent hover:text-accent/90 font-bold uppercase tracking-widest underline decoration-2 underline-offset-4"
+                  >
+                    View detailed plan comparison & FAQs →
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         </div>
