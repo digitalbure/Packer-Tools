@@ -139,48 +139,6 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   const [nfcScanMode, setNfcScanMode] = useState<'associate' | 'search'>('search');
   const [nfcTargetItem, setNfcTargetItem] = useState<{ id: string; name: string; type: 'gear' | 'inventory'; inventoryId?: string } | undefined>(undefined);
   const [pendingNfcEditItemId, setPendingNfcEditItemId] = useState<string | null>(null);
-
-  // Redirect from other pages after an NFC search match
-  useEffect(() => {
-    const redirectInvId = localStorage.getItem('nfc_redirect_inventory_id');
-    const redirectItemId = localStorage.getItem('nfc_redirect_item_id');
-    if (redirectInvId && redirectItemId && inventories.length > 0) {
-      localStorage.removeItem('nfc_redirect_inventory_id');
-      localStorage.removeItem('nfc_redirect_item_id');
-      
-      const foundInv = inventories.find(inv => inv.id === redirectInvId);
-      if (foundInv) {
-        setSelectedInventory(foundInv);
-        setPendingNfcEditItemId(redirectItemId);
-      }
-    }
-  }, [inventories]);
-
-  // Open item detail modal once effective items have loaded
-  useEffect(() => {
-    if (pendingNfcEditItemId && effectiveInventoryItems.length > 0) {
-      const foundItem = effectiveInventoryItems.find(it => it.id === pendingNfcEditItemId);
-      if (foundItem) {
-        setPendingNfcEditItemId(null);
-        setEditingItem(foundItem);
-      }
-    }
-  }, [pendingNfcEditItemId, effectiveInventoryItems]);
-
-  const handleNfcSearchSuccess = (foundItem: any, type: 'gear' | 'inventory', inventoryId?: string) => {
-    if (type === 'gear') {
-      localStorage.setItem('nfc_redirect_gear_id', foundItem.id);
-      navigate('/library');
-    } else {
-      if (inventoryId) {
-        const foundInv = inventories.find(inv => inv.id === inventoryId);
-        if (foundInv) {
-          setSelectedInventory(foundInv);
-          setPendingNfcEditItemId(foundItem.id);
-        }
-      }
-    }
-  };
   
   // Data Model states loaded from database
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -1401,6 +1359,48 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
     return items;
   }, [inventoryItems, offlineQueue, selectedInventory]);
+
+  // Redirect from other pages after an NFC search match
+  useEffect(() => {
+    const redirectInvId = localStorage.getItem('nfc_redirect_inventory_id');
+    const redirectItemId = localStorage.getItem('nfc_redirect_item_id');
+    if (redirectInvId && redirectItemId && inventories.length > 0) {
+      localStorage.removeItem('nfc_redirect_inventory_id');
+      localStorage.removeItem('nfc_redirect_item_id');
+      
+      const foundInv = inventories.find(inv => inv.id === redirectInvId);
+      if (foundInv) {
+        setSelectedInventory(foundInv);
+        setPendingNfcEditItemId(redirectItemId);
+      }
+    }
+  }, [inventories]);
+
+  // Open item detail modal once effective items have loaded
+  useEffect(() => {
+    if (pendingNfcEditItemId && effectiveInventoryItems.length > 0) {
+      const foundItem = effectiveInventoryItems.find(it => it.id === pendingNfcEditItemId);
+      if (foundItem) {
+        setPendingNfcEditItemId(null);
+        setEditingItem(foundItem);
+      }
+    }
+  }, [pendingNfcEditItemId, effectiveInventoryItems]);
+
+  const handleNfcSearchSuccess = (foundItem: any, type: 'gear' | 'inventory', inventoryId?: string) => {
+    if (type === 'gear') {
+      localStorage.setItem('nfc_redirect_gear_id', foundItem.id);
+      navigate('/library');
+    } else {
+      if (inventoryId) {
+        const foundInv = inventories.find(inv => inv.id === inventoryId);
+        if (foundInv) {
+          setSelectedInventory(foundInv);
+          setPendingNfcEditItemId(foundItem.id);
+        }
+      }
+    }
+  };
 
   // Dynamic unique category list in selected inventory
   const inventoryCategories = useMemo(() => {

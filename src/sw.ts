@@ -1,10 +1,82 @@
-import { precacheAndRoute } from 'workbox-precaching';
+import { precacheAndRoute, createHandlerBoundToURL } from 'workbox-precaching';
+import { registerRoute, NavigationRoute } from 'workbox-routing';
+import { StaleWhileRevalidate, NetworkFirst, CacheFirst } from 'workbox-strategies';
+import { ExpirationPlugin } from 'workbox-expiration';
+import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
 declare const self: any;
 const swSelf = self as any;
 
 // Precache resources compiled by VitePWA
 precacheAndRoute(self.__WB_MANIFEST || []);
+
+// SPA Navigation Fallback (forces offline refreshes of deep-links like /library to fall back to index.html)
+try {
+  const handler = createHandlerBoundToURL('/index.html');
+  const navigationRoute = new NavigationRoute(handler);
+  registerRoute(navigationRoute);
+} catch (e) {
+  console.warn('[SW] NavigationRoute registration failed:', e);
+}
+
+// Cache Google Fonts stylesheets with StaleWhileRevalidate
+registerRoute(
+  ({ url }) => url.origin === 'https://fonts.googleapis.com',
+  new StaleWhileRevalidate({
+    cacheName: 'google-fonts-stylesheets',
+  })
+);
+
+// Cache Google Fonts webfonts with CacheFirst
+registerRoute(
+  ({ url }) => url.origin === 'https://fonts.gstatic.com',
+  new CacheFirst({
+    cacheName: 'google-fonts-webfonts',
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
+      new ExpirationPlugin({
+        maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+        maxEntries: 30,
+      }),
+    ],
+  })
+);
+
+// Cache images (local and remote/CDN) with CacheFirst strategy
+registerRoute(
+  ({ request }) => request.destination === 'image',
+  new CacheFirst({
+    cacheName: 'images-cache',
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
+      new ExpirationPlugin({
+        maxEntries: 100,
+        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+      }),
+    ],
+  })
+);
+
+// Cache dynamic API fetch requests (like check-compatibility, suppliers, etc.) with NetworkFirst
+registerRoute(
+  ({ url }) => url.pathname.startsWith('/api/'),
+  new NetworkFirst({
+    cacheName: 'api-cache',
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
+      new ExpirationPlugin({
+        maxEntries: 50,
+        maxAgeSeconds: 7 * 24 * 60 * 60, // 7 Days
+      }),
+    ],
+  })
+);
 
 const DB_NAME = 'packer-offline-sync';
 const STORE_NAME = 'operations';
