@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.29.0`
+## Current Application Version: `v4.30.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,15 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.30.0 (Smart Quick Add Safeguards & Multi-Channel Background Asset Integration)
+*Released on: June 25, 2026*
+- **Aesthetic Duplicate Detection Safeguards**: Integrated duplicate item detection in the Packing List Quick Add widget, prompting coordinators for confirmations before committing duplicate names to prevent accidental redundant entries.
+- **Smart Background Photo & Metadata Lookup**: Programmed real-time background queries matching user-input names to existing Gear Library records, auto-loading matching item photographs and organizational categories on-the-fly without manual input.
+- **High-Velocity Multi-Photo Local Sourcing**: Upgraded file capture selectors inside the Quick Add component to support simultaneous, multi-file uploads from device drives, applying automated client-side canvas-based compression to maintain fast rendering.
+- **Robust User Interface Mechanics**: Integrated responsive, fluid loader transitions, and disabled state bindings during concurrent database executions to prevent system latency.
 
 ---
 

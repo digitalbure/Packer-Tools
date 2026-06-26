@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, query, onSnapshot, deleteDoc, updateDoc, addDoc, getDocs, writeBatch, where, orderBy, arrayUnion } from 'firebase/firestore';
-import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download } from 'lucide-react';
+import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download, AlertTriangle } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Reorder, AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -318,6 +318,9 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [quickAddGroup, setQuickAddGroup] = useState('');
   const [quickAddPhotos, setQuickAddPhotos] = useState<string[]>([]);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [showDuplicateConfirmation, setShowDuplicateConfirmation] = useState(false);
+  const [bgGearItems, setBgGearItems] = useState<GearItem[]>([]);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editListName, setEditListName] = useState('');
   const [isReidentifying, setIsReidentifying] = useState(false);
@@ -843,15 +846,30 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   }, [items]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     try {
       setIsUploadingPhoto(true);
       const { compressImage } = await import('../lib/imageUtils');
-      const base64 = await compressImage(file);
-      setQuickAddPhotos(prev => [...prev, base64]);
-      toast.success("Photo attached");
+      const uploadedUrls: string[] = [];
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        try {
+          const base64 = await compressImage(file);
+          uploadedUrls.push(base64);
+        } catch (singleErr) {
+          console.error("Failed to compress single file:", file.name, singleErr);
+        }
+      }
+      
+      if (uploadedUrls.length > 0) {
+        setQuickAddPhotos(prev => [...prev, ...uploadedUrls]);
+        toast.success(`Attached ${uploadedUrls.length} photo${uploadedUrls.length > 1 ? 's' : ''}`);
+      } else {
+        toast.error("Failed to process photo uploads");
+      }
     } catch (error) {
       console.error("Upload error:", error);
       toast.error("Failed to process photo");
@@ -940,19 +958,61 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     }
   };
 
-  const handleQuickAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!id || !quickAddName.trim()) return;
-    
-    if (!canEditList) {
-      toast.error("Permission denied: You do not have 'Editor' permissions inside this matrix.");
-      return;
+  // Load background gear items for autocomplete/photos when Quick Add modal is open
+  useEffect(() => {
+    if (showQuickAddModal && user) {
+      const loadBgGear = async () => {
+        try {
+          const q = query(collection(db, 'users', user.uid, 'gearLibrary'));
+          const snap = await getDocs(q);
+          const itemsList = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as GearItem));
+          setBgGearItems(itemsList);
+        } catch (err) {
+          console.error("Error loading background gear items:", err);
+        }
+      };
+      loadBgGear();
     }
+  }, [showQuickAddModal, user]);
+
+  // Background photo/metadata matching logic
+  useEffect(() => {
+    if (!quickAddName.trim()) return;
+    const trimmed = quickAddName.trim().toLowerCase();
     
+    // Find matching gear item that has photoUrls
+    const matched = bgGearItems.find(item => 
+      item.name.toLowerCase() === trimmed && 
+      item.photoUrls && 
+      item.photoUrls.length > 0 && 
+      item.photoUrls[0]
+    ) || bgGearItems.find(item => 
+      item.name.toLowerCase().includes(trimmed) && 
+      item.photoUrls && 
+      item.photoUrls.length > 0 && 
+      item.photoUrls[0]
+    );
+
+    if (matched && matched.photoUrls) {
+      setQuickAddPhotos(prev => {
+        if (prev.length === 0) {
+          return matched.photoUrls || [];
+        }
+        return prev;
+      });
+      if (matched.category && !quickAddGroup) {
+        setQuickAddGroup(matched.category);
+      }
+    }
+  }, [quickAddName, bgGearItems]);
+
+  const proceedWithQuickAdd = async () => {
+    if (isAddingItem) return;
     try {
-      await addDoc(collection(db, 'packingLists', id, 'items'), {
+      setIsAddingItem(true);
+      await addDoc(collection(db, 'packingLists', id!, 'items'), {
         name: quickAddName.trim(),
-        listId: id,
+        listId: id!,
         aiLabel: quickAddGroup.trim() || 'Other',
         status: 'pending',
         priority: 'Medium',
@@ -966,11 +1026,38 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       setQuickAddPhotos([]);
       setQuickAddStep(1);
       setShowQuickAddModal(false);
+      setShowDuplicateConfirmation(false);
       toast.success(`Added ${quickAddName} to list.`);
     } catch (error) {
       console.error("Error adding item:", error);
       toast.error("Failed to add item");
+    } finally {
+      setIsAddingItem(false);
     }
+  };
+
+  const handleQuickAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !quickAddName.trim()) return;
+    
+    if (!canEditList) {
+      toast.error("Permission denied: You do not have 'Editor' permissions inside this matrix.");
+      return;
+    }
+
+    if (isAddingItem) return;
+
+    // Check for existing duplicate item in the packing list
+    const isDuplicate = items.some(
+      item => item.name.trim().toLowerCase() === quickAddName.trim().toLowerCase()
+    );
+
+    if (isDuplicate && !showDuplicateConfirmation) {
+      setShowDuplicateConfirmation(true);
+      return;
+    }
+
+    await proceedWithQuickAdd();
   };
 
   const handleRescanWithAI = async (photos?: string[]) => {
@@ -4394,7 +4481,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                 </div>
               </div>
               <button 
-                onClick={() => { setShowQuickAddModal(false); setQuickAddStep(1); }}
+                onClick={() => { setShowQuickAddModal(false); setQuickAddStep(1); setShowDuplicateConfirmation(false); }}
                 className="absolute top-0 right-0 sm:relative p-2 hover:bg-neutral-100 rounded-full transition bg-neutral-50 shadow-sm sm:shadow-none"
               >
                 <Plus className="rotate-45 text-neutral-400" size={24} />
@@ -4440,7 +4527,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             <span className="text-[8px] font-black uppercase mt-1">Add</span>
                           </>
                         )}
-                        <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                        <input type="file" multiple accept="image/*" onChange={handlePhotoUpload} className="hidden" />
                       </label>
                     </div>
                   </div>
@@ -4452,6 +4539,43 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                   >
                     Next: Assignment
                   </button>
+                </div>
+              ) : showDuplicateConfirmation ? (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  <div className="p-5 bg-amber-50 rounded-2xl border border-amber-200 text-left">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="text-amber-600 shrink-0" size={18} />
+                      <p className="text-xs font-black text-amber-800 uppercase tracking-tight">Duplicate Detected</p>
+                    </div>
+                    <p className="text-xs text-amber-700 font-semibold leading-relaxed">
+                      An item named <span className="font-extrabold">"{quickAddName.trim()}"</span> already exists in this packing list. 
+                      Are you sure you want to add another entry of the same item?
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowDuplicateConfirmation(false)}
+                      className="flex-1 py-4 bg-neutral-100 text-neutral-600 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-neutral-200 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={proceedWithQuickAdd}
+                      disabled={isAddingItem}
+                      className="flex-[2] py-4 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition shadow-xl flex items-center justify-center gap-2"
+                    >
+                      {isAddingItem ? (
+                        <>
+                          <Loader2 className="animate-spin" size={14} />
+                          Adding...
+                        </>
+                      ) : (
+                        "Yes, Add Another"
+                      )}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-6 animate-in slide-in-from-right duration-300">
@@ -4500,9 +4624,17 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     </button>
                     <button
                       onClick={handleQuickAdd}
-                      className="flex-[2] py-4 bg-neutral-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition shadow-xl"
+                      disabled={isAddingItem}
+                      className="flex-[2] py-4 bg-neutral-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition shadow-xl flex items-center justify-center gap-2"
                     >
-                      Add Item
+                      {isAddingItem ? (
+                        <>
+                          <Loader2 className="animate-spin" size={14} />
+                          Adding...
+                        </>
+                      ) : (
+                        "Add Item"
+                      )}
                     </button>
                   </div>
                 </div>
