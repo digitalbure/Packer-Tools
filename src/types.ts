@@ -397,6 +397,13 @@ export interface GearItem {
   }[];
   minRentalDays?: number;
   maxRentalDays?: number;
+  lensType?: string;
+  lensMount?: string;
+  focalLength?: string;
+  maxAperture?: string;
+  formatCoverage?: string;
+  focusType?: string;
+  nfcTag?: string;
 }
 
 export interface Container {

@@ -175,7 +175,7 @@ export default function NfcScannerModal({
 
         if (!gearSnapshot.empty) {
           const matchedGearDoc = gearSnapshot.docs[0];
-          const gearItem = { id: matchedGearDoc.id, ...matchedGearDoc.data() };
+          const gearItem = { id: matchedGearDoc.id, ...matchedGearDoc.data() } as any;
           toast.success(`Equipment found! Opening ${gearItem.name || 'item'} details.`);
           if (onSearchSuccess) {
             onSearchSuccess(gearItem, 'gear');
@@ -196,7 +196,7 @@ export default function NfcScannerModal({
           
           if (!itemSnapshot.empty) {
             const matchedItemDoc = itemSnapshot.docs[0];
-            const invItem = { id: matchedItemDoc.id, ...matchedItemDoc.data() };
+            const invItem = { id: matchedItemDoc.id, ...matchedItemDoc.data() } as any;
             toast.success(`Inventory asset located inside sheet "${invDoc.data().name || 'sheet'}"!`);
             if (onSearchSuccess) {
               onSearchSuccess(invItem, 'inventory', invDoc.id);

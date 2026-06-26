@@ -8,7 +8,7 @@ import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, 
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, PackingList, Reminder, AdminSettings, FeatureKey, GearItem, Organization, Workspace, INDUSTRIES, Project } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { updateDoc, getDoc } from 'firebase/firestore';
+import { updateDoc, getDoc, arrayUnion } from 'firebase/firestore';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import { checkLimit } from '../lib/limitUtils';
 import { toast } from 'sonner';

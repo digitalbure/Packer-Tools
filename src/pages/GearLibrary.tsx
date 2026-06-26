@@ -42,7 +42,8 @@ import {
   ShieldCheck,
   Share2,
   ArrowRightLeft,
-  CheckSquare
+  CheckSquare,
+  Cpu
 } from 'lucide-react';
 import ShareModal from '../components/ShareModal';
 import ManualCheckoutModal from '../components/ManualCheckoutModal';

@@ -1382,7 +1382,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       const foundItem = effectiveInventoryItems.find(it => it.id === pendingNfcEditItemId);
       if (foundItem) {
         setPendingNfcEditItemId(null);
-        setEditingItem(foundItem);
+        openEditItemModal(foundItem);
       }
     }
   }, [pendingNfcEditItemId, effectiveInventoryItems]);
