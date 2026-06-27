@@ -582,7 +582,7 @@ const OrganizerWorkspacePopover = ({
         <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 md:space-y-0 md:grid md:grid-cols-12 md:gap-8 min-h-0">
           
           {/* LEFT SIDEBAR: CONFIG & SPECIFICATION (4 cols) */}
-          <div className="md:col-span-4 space-y-6 md:overflow-y-auto pr-0 md:pr-4 custom-scrollbar h-full pb-6">
+          <div className="md:col-span-4 space-y-6 md:overflow-y-auto pr-0 md:pr-4 custom-scrollbar md:h-full pb-6">
             
             {/* Visual Header / Showcase Photo */}
             <div className="relative h-44 rounded-3xl overflow-hidden bg-neutral-100 border border-neutral-200/50 shadow-inner shrink-0">
@@ -675,7 +675,7 @@ const OrganizerWorkspacePopover = ({
           </div>
 
           {/* RIGHT VIEWPORT: CONTENTS & LOADER (8 cols) */}
-          <div className="md:col-span-8 flex flex-col h-full min-h-0 space-y-6 pb-6">
+          <div className="md:col-span-8 flex flex-col md:h-full min-h-0 space-y-6 pb-6">
             
             {/* Draft Allocation Preview Banner */}
             {customDraft && (
@@ -1430,11 +1430,11 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
             </h1>
             <p className="text-neutral-500">Track nested cases, pouches, and crates. Rapidly provision with {smartPackerName}.</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
             <button 
               onClick={handleSmartOrganize}
               disabled={isAIProcessing}
-              className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition shadow-lg disabled:opacity-50"
+              className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition shadow-lg disabled:opacity-50 w-full sm:w-auto text-sm"
             >
               <Zap size={20} className={isAIProcessing ? 'animate-pulse' : ''} />
               <span>{isAIProcessing ? `${smartPackerName} Organizing...` : 'Smart Organize'}</span>
@@ -1454,7 +1454,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                 });
                 setIsAddModalOpen(true);
               }}
-              className="flex items-center gap-2 px-6 py-3 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-neutral-800 transition shadow-lg"
+              className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-neutral-800 transition shadow-lg w-full sm:w-auto text-sm"
             >
               <Plus size={20} />
               <span>Add Organizer</span>
@@ -1481,7 +1481,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                 />
               ))}
               {rootContainers.length === 0 && (
-                <div className="col-span-2 bg-neutral-50 rounded-[2.5rem] border border-dashed border-neutral-300 p-12 text-center space-y-4">
+                <div className="sm:col-span-2 col-span-1 bg-neutral-50 rounded-[2rem] sm:rounded-[2.5rem] border border-dashed border-neutral-300 p-6 sm:p-12 text-center space-y-4">
                   <Luggage size={48} className="text-neutral-300 mx-auto" />
                   <div>
                     <h4 className="font-bold text-lg text-neutral-800">No Organizers Yet</h4>
@@ -1493,7 +1493,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
           </div>
 
           <div className="space-y-6">
-            <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
+            <div className="bg-white p-5 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
               <div className="flex flex-col gap-3">
                 <h3 className="text-xl font-black uppercase tracking-tight text-neutral-900">Sourcing Dashboard</h3>
                 
@@ -1830,23 +1830,25 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="bg-white w-full max-w-lg rounded-[3rem] overflow-hidden shadow-2xl"
+                className="bg-white w-full max-w-lg rounded-[2rem] sm:rounded-[3rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
               >
-                <div className="p-8 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-3xl font-black">{editingContainerId ? 'Edit Organizer' : 'New Organizer'}</h2>
-                    <button onClick={() => {
-                      setIsAddModalOpen(false);
-                      setEditingContainerId(null);
-                      setNewContainer({ type: 'bag', name: '', items: [], locationDetails: { row: '', level: '', bin: '' } });
-                    }} className="p-2 hover:bg-neutral-100 rounded-full transition">
-                      <Plus className="rotate-45 text-neutral-400" size={24} />
-                    </button>
-                  </div>
+                {/* Header */}
+                <div className="p-6 sm:p-8 border-b border-neutral-100 flex items-center justify-between shrink-0">
+                  <h2 className="text-2xl sm:text-3xl font-black">{editingContainerId ? 'Edit Organizer' : 'New Organizer'}</h2>
+                  <button onClick={() => {
+                    setIsAddModalOpen(false);
+                    setEditingContainerId(null);
+                    setNewContainer({ type: 'bag', name: '', items: [], locationDetails: { row: '', level: '', bin: '' } });
+                  }} className="p-2 hover:bg-neutral-100 rounded-full transition">
+                    <Plus className="rotate-45 text-neutral-400" size={24} />
+                  </button>
+                </div>
 
+                {/* Scrollable Content */}
+                <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
                   <div className="space-y-4">
                     {/* Photo Section */}
-                    <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+                    <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
                       <label className="shrink-0 w-24 h-24 bg-neutral-50 rounded-2xl border-2 border-dashed border-neutral-200 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-neutral-100 transition">
                         <Camera size={20} className="text-neutral-400" />
                         <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400">Add Photo</span>
@@ -1872,7 +1874,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                         value={newContainer.name}
                         onChange={(e) => setNewContainer({ ...newContainer, name: e.target.value })}
                         placeholder="e.g., Lens Bag A, Pelican 1510, Cable Box"
-                        className="w-full px-6 py-4 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary outline-none transition"
+                        className="w-full px-4 py-3 sm:px-6 sm:py-4 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary outline-none transition text-sm sm:text-base font-semibold"
                       />
                     </div>
 
@@ -1886,13 +1888,13 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Parent Organizer (Nesting)</label>
+                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Parent (Nesting)</label>
                         <select
                           value={newContainer.parentId || ''}
                           onChange={(e) => setNewContainer({ ...newContainer, parentId: e.target.value || null })}
-                          className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm"
+                          className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm font-semibold"
                         >
                           <option value="">No Parent (Root Level)</option>
                           {containers.filter(c => c.id !== editingContainerId).map(c => (
@@ -1905,7 +1907,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                         <select
                           value={newContainer.packingListId}
                           onChange={(e) => setNewContainer({ ...newContainer, packingListId: e.target.value })}
-                          className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm"
+                          className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm font-semibold"
                         >
                           <option value="">No Active List</option>
                           {packingLists.filter(list => !list.isTemplate).map(list => (
@@ -1915,48 +1917,48 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2">
-                      <div className="col-span-1 space-y-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-2">
+                      <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Status</label>
                         <select
                           value={newContainer.status}
                           onChange={(e) => setNewContainer({ ...newContainer, status: e.target.value as any })}
                           className="w-full px-3 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-xs font-bold"
                         >
-                          <option value="storage">In Storage</option>
-                          <option value="transit">In Transit</option>
+                          <option value="storage">Storage</option>
+                          <option value="transit">Transit</option>
                           <option value="deployed">Deployed</option>
-                          <option value="maintenance">Maintenance</option>
+                          <option value="maintenance">Repair</option>
                         </select>
                       </div>
-                      <div className="col-span-1 space-y-2">
+                      <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Row</label>
                         <input
                           type="text"
                           value={newContainer.locationDetails?.row}
                           onChange={(e) => setNewContainer({ ...newContainer, locationDetails: { ...newContainer.locationDetails, row: e.target.value } })}
                           placeholder="A"
-                          className="w-full px-3 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm"
+                          className="w-full px-3 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm text-center font-bold"
                         />
                       </div>
-                      <div className="col-span-1 space-y-2">
+                      <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Level</label>
                         <input
                           type="text"
                           value={newContainer.locationDetails?.level}
                           onChange={(e) => setNewContainer({ ...newContainer, locationDetails: { ...newContainer.locationDetails, level: e.target.value } })}
                           placeholder="1"
-                          className="w-full px-3 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm"
+                          className="w-full px-3 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm text-center font-bold"
                         />
                       </div>
-                      <div className="col-span-1 space-y-2">
+                      <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Bin</label>
                         <input
                           type="text"
                           value={newContainer.locationDetails?.bin}
                           onChange={(e) => setNewContainer({ ...newContainer, locationDetails: { ...newContainer.locationDetails, bin: e.target.value } })}
                           placeholder="Box 4"
-                          className="w-full px-3 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm"
+                          className="w-full px-3 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm text-center font-bold"
                         />
                       </div>
                     </div>
@@ -1981,21 +1983,22 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <div className="flex gap-4 pt-4">
-                    <button 
-                      onClick={() => setIsAddModalOpen(false)}
-                      className="flex-1 py-3.5 bg-neutral-100 text-neutral-600 rounded-2xl font-bold hover:bg-neutral-200 transition"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      onClick={handleAddContainer}
-                      className="flex-1 py-3.5 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition shadow-lg"
-                    >
-                      {editingContainerId ? 'Save Specs' : 'Create Organizer'}
-                    </button>
-                  </div>
+                {/* Footer buttons */}
+                <div className="p-6 sm:p-8 border-t border-neutral-100 flex gap-4 shrink-0 bg-neutral-50/50">
+                  <button 
+                    onClick={() => setIsAddModalOpen(false)}
+                    className="flex-1 py-3 bg-neutral-200 text-neutral-600 rounded-2xl font-bold hover:bg-neutral-300 transition text-sm sm:text-base"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleAddContainer}
+                    className="flex-1 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition shadow-lg text-sm sm:text-base"
+                  >
+                    {editingContainerId ? 'Save Specs' : 'Create'}
+                  </button>
                 </div>
               </motion.div>
             </div>
