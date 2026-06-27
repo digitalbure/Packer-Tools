@@ -364,6 +364,7 @@ const OrganizerWorkspacePopover = ({
   const [selectorTab, setSelectorTab] = useState<'kit' | 'list' | 'inventory'>('kit');
   const [localNotes, setLocalNotes] = useState(container.notes || '');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [activeMobileTab, setActiveMobileTab] = useState<'contents' | 'details'>('contents');
 
   useEffect(() => {
     setLocalNotes(container.notes || '');
@@ -495,94 +496,124 @@ const OrganizerWorkspacePopover = ({
         className="bg-white md:rounded-[2.5rem] w-full max-w-6xl h-full md:h-[88vh] flex flex-col overflow-hidden shadow-2xl border border-neutral-100"
       >
         {/* TOP COMMAND BAR & NAVIGATOR */}
-        <div className="bg-neutral-50/70 border-b border-neutral-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="p-2.5 bg-neutral-900 text-white rounded-2xl shrink-0">
+        <div className="bg-neutral-50/70 border-b border-neutral-100 px-4 py-3 md:px-6 md:py-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="p-2 bg-neutral-900 text-white rounded-xl shrink-0">
               {getContainerIcon(container.type)}
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 bg-neutral-200 text-neutral-600 rounded-full text-[8px] font-black uppercase tracking-widest border border-neutral-300">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="px-1.5 py-0.5 bg-neutral-200 text-neutral-600 rounded-full text-[7px] font-black uppercase tracking-widest border border-neutral-300">
                   {container.type}
                 </span>
-                <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm ${statusColors[container.status || 'storage']}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest shadow-sm ${statusColors[container.status || 'storage']}`}>
                   {container.status || 'storage'}
                 </span>
               </div>
-              <h2 className="text-sm md:text-base font-black text-neutral-900 uppercase tracking-tight truncate mt-0.5">
+              <h2 className="text-xs md:text-sm font-black text-neutral-900 uppercase tracking-tight truncate mt-0.5">
                 {container.name}
               </h2>
             </div>
           </div>
 
-          {/* INTELLIGENT NAVIGATOR */}
-          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-2xl border border-neutral-200 shadow-sm w-full sm:w-auto justify-between sm:justify-start">
-            <span className="text-[9px] uppercase tracking-widest font-black text-neutral-400 shrink-0">
-              Navigator
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handlePrev}
-                disabled={rootContainers.length <= 1}
-                className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-500 disabled:opacity-30 disabled:pointer-events-none transition"
-                title="Previous Organizer"
-              >
-                <ChevronDown size={16} className="rotate-90" />
-              </button>
-              
-              <select
-                value={container.id}
-                onChange={(e) => onSwitchOrganizer(e.target.value)}
-                className="bg-transparent text-neutral-800 font-bold text-xs uppercase tracking-tight rounded-lg px-2 py-1 border-none focus:outline-none cursor-pointer max-w-[160px] sm:max-w-[200px]"
-              >
-                {rootContainers.map((c, i) => (
-                  <option key={c.id} value={c.id} className="text-neutral-900 font-bold uppercase text-xs">
-                    {c.name.toUpperCase()} ({c.items.length})
-                  </option>
-                ))}
-              </select>
+          <div className="flex flex-wrap items-center justify-between md:justify-end gap-2">
+            {/* INTELLIGENT NAVIGATOR */}
+            <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-xl border border-neutral-200 shadow-sm">
+              <span className="text-[8px] uppercase tracking-widest font-black text-neutral-400 shrink-0">
+                Nav
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handlePrev}
+                  disabled={rootContainers.length <= 1}
+                  className="p-1 hover:bg-neutral-100 rounded text-neutral-500 disabled:opacity-30 disabled:pointer-events-none transition"
+                  title="Previous Organizer"
+                >
+                  <ChevronDown size={14} className="rotate-90" />
+                </button>
+                
+                <select
+                  value={container.id}
+                  onChange={(e) => onSwitchOrganizer(e.target.value)}
+                  className="bg-transparent text-neutral-800 font-bold text-[10px] uppercase tracking-tight rounded px-1 py-0.5 border-none focus:outline-none cursor-pointer max-w-[120px]"
+                >
+                  {rootContainers.map((c, i) => (
+                    <option key={c.id} value={c.id} className="text-neutral-900 font-bold uppercase text-[10px]">
+                      {c.name.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
 
+                <button
+                  onClick={handleNext}
+                  disabled={rootContainers.length <= 1}
+                  className="p-1 hover:bg-neutral-100 rounded text-neutral-500 disabled:opacity-30 disabled:pointer-events-none transition"
+                  title="Next Organizer"
+                >
+                  <ChevronDown size={14} className="-rotate-90" />
+                </button>
+              </div>
+              
+              {rootContainers.length > 0 && (
+                <span className="text-[8px] font-mono font-black text-neutral-400 border-l border-neutral-200 pl-1.5 shrink-0">
+                  {currentIndex + 1}/{rootContainers.length}
+                </span>
+              )}
+            </div>
+
+            {/* EXIT & EDIT ACTIONS */}
+            <div className="flex items-center gap-1.5 ml-auto md:ml-0">
               <button
-                onClick={handleNext}
-                disabled={rootContainers.length <= 1}
-                className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-500 disabled:opacity-30 disabled:pointer-events-none transition"
-                title="Next Organizer"
+                onClick={() => onEdit(container)}
+                className="p-2 bg-neutral-100 text-neutral-600 rounded-xl hover:bg-neutral-200 transition"
+                title="Edit Specifications"
               >
-                <ChevronDown size={16} className="-rotate-90" />
+                <Edit2 size={14} />
+              </button>
+              <button
+                onClick={onClose}
+                className="flex items-center gap-1 px-3 py-2 bg-neutral-900 text-white hover:bg-black rounded-xl font-bold text-[10px] uppercase tracking-widest transition shadow-md"
+              >
+                <X size={12} />
+                <span>Exit</span>
               </button>
             </div>
-            
-            {rootContainers.length > 0 && (
-              <span className="text-[9px] font-mono font-black text-neutral-400 border-l border-neutral-200 pl-2">
-                {currentIndex + 1}/{rootContainers.length}
-              </span>
-            )}
           </div>
+        </div>
 
-          {/* EXIT BUTTON */}
-          <div className="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
+        {/* MOBILE SEGMENT TAB SWITCHER (Only visible on screens < md) */}
+        <div className="md:hidden px-4 pt-4 pb-0 shrink-0">
+          <div className="flex p-1 bg-neutral-100 rounded-2xl border border-neutral-200/50">
             <button
-              onClick={() => onEdit(container)}
-              className="p-2.5 bg-neutral-100 text-neutral-600 rounded-2xl hover:bg-neutral-200 transition"
-              title="Edit Specifications"
+              onClick={() => setActiveMobileTab('contents')}
+              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition ${
+                activeMobileTab === 'contents' 
+                  ? 'bg-neutral-900 text-white shadow-md shadow-neutral-900/10' 
+                  : 'text-neutral-500 hover:text-neutral-900'
+              }`}
             >
-              <Edit2 size={16} />
+              Cargo Contents ({container.items.length})
             </button>
             <button
-              onClick={onClose}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-neutral-900 text-white hover:bg-black rounded-2xl font-bold text-xs uppercase tracking-widest transition shadow-md"
+              onClick={() => setActiveMobileTab('details')}
+              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition ${
+                activeMobileTab === 'details' 
+                  ? 'bg-neutral-900 text-white shadow-md shadow-neutral-900/10' 
+                  : 'text-neutral-500 hover:text-neutral-900'
+              }`}
             >
-              <X size={14} />
-              <span>Exit</span>
+              Details & Specs
             </button>
           </div>
         </div>
 
         {/* WORKSPACE BODY */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 md:space-y-0 md:grid md:grid-cols-12 md:gap-8 min-h-0">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 md:space-y-0 md:grid md:grid-cols-12 md:gap-8 min-h-0">
           
           {/* LEFT SIDEBAR: CONFIG & SPECIFICATION (4 cols) */}
-          <div className="md:col-span-4 space-y-6 md:overflow-y-auto pr-0 md:pr-4 custom-scrollbar md:h-full pb-6">
+          <div className={`md:col-span-4 space-y-6 md:overflow-y-auto pr-0 md:pr-4 custom-scrollbar md:h-full pb-6 ${
+            activeMobileTab === 'details' ? 'block' : 'hidden md:block'
+          }`}>
             
             {/* Visual Header / Showcase Photo */}
             <div className="relative h-44 rounded-3xl overflow-hidden bg-neutral-100 border border-neutral-200/50 shadow-inner shrink-0">
@@ -675,7 +706,9 @@ const OrganizerWorkspacePopover = ({
           </div>
 
           {/* RIGHT VIEWPORT: CONTENTS & LOADER (8 cols) */}
-          <div className="md:col-span-8 flex flex-col md:h-full min-h-0 space-y-6 pb-6">
+          <div className={`md:col-span-8 flex flex-col md:h-full min-h-0 space-y-6 pb-6 ${
+            activeMobileTab === 'contents' ? 'flex' : 'hidden md:flex'
+          }`}>
             
             {/* Draft Allocation Preview Banner */}
             {customDraft && (
@@ -719,7 +752,7 @@ const OrganizerWorkspacePopover = ({
             )}
 
             {/* Contents Listing Section */}
-            <div className="flex-1 min-h-0 bg-neutral-50 p-6 rounded-[2rem] border border-neutral-200/50 flex flex-col">
+            <div className="flex-1 min-h-0 bg-neutral-50 p-4 md:p-6 rounded-[2rem] border border-neutral-200/50 flex flex-col">
               <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-neutral-400 pb-3 border-b border-neutral-200/60 shrink-0">
                 <span>Cargo Contents ({container.items.length} items)</span>
                 <span className="text-[9px] text-neutral-400">Scroll to view all</span>
