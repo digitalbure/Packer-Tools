@@ -5,14 +5,16 @@ import {
   Sparkles, CreditCard, Building2, ShoppingBag, Wrench, Save, Upload, Plus, Trash2, AlertCircle, Coins,
   Activity, Layers, Cpu, Truck, QrCode, LogOut, CheckCircle2, User, Clock, ShieldCheck, Mail, Phone, MapPin,
   Globe, Info, FileText, Percent, HelpCircle, Laptop, Smartphone, Eye, Layout, Sliders, Check, Settings,
-  Server, Lock
+  Server, Lock, Camera
 } from 'lucide-react';
-import { AdminSettings, OnboardedCurrency, PaymentGatewayMethod, Plan } from '../types';
+import { AdminSettings, OnboardedCurrency, PaymentGatewayMethod, Plan, UserProfile } from '../types';
+import AddPhotoWidget from './AddPhotoWidget';
 import { toast } from 'sonner';
 
 interface SettingsTabProps {
   settings: AdminSettings | null;
   setSettings: React.Dispatch<React.SetStateAction<AdminSettings | null>>;
+  user?: UserProfile;
 }
 
 /** 
@@ -20,10 +22,35 @@ interface SettingsTabProps {
  * 1. BRANDING & PLATFORM IDENTITY SETTINGS
  * =========================================================================
  */
-export function BrandingSettingsTab({ settings, setSettings }: SettingsTabProps) {
+export function BrandingSettingsTab({ settings, setSettings, user }: SettingsTabProps) {
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkHref, setNewLinkHref] = useState('');
   const [isExternal, setIsExternal] = useState(false);
+
+  // States for dynamic logo/icon uploads using the AddPhotoWidget
+  const [isPhotoWidgetOpen, setIsPhotoWidgetOpen] = useState(false);
+  const [photoTarget, setPhotoTarget] = useState<'logo' | 'pwaIcon192' | 'pwaIcon512' | 'favicon' | null>(null);
+
+  const handlePhotoAdded = (urls: string[]) => {
+    if (urls.length > 0 && photoTarget) {
+      const url = urls[0];
+      setSettings((s) => {
+        if (!s) return null;
+        const b = s.branding || { companyName: '', logo: '', pwaName: '', pwaShortName: '', pwaBgColor: '', pwaThemeColor: '', pwaIcon192Url: '', pwaIcon512Url: '', faviconUrl: '' };
+        if (photoTarget === 'logo') {
+          return { ...s, branding: { ...b, logo: url } };
+        } else if (photoTarget === 'favicon') {
+          return { ...s, branding: { ...b, faviconUrl: url } };
+        } else if (photoTarget === 'pwaIcon192') {
+          return { ...s, branding: { ...b, pwaIcon192Url: url } };
+        } else if (photoTarget === 'pwaIcon512') {
+          return { ...s, branding: { ...b, pwaIcon512Url: url } };
+        }
+        return s;
+      });
+      toast.success(`Successfully uploaded branding/PWA asset!`);
+    }
+  };
 
   const handleAddFooterLink = () => {
     if (!newLinkLabel || !newLinkHref) {
@@ -181,9 +208,54 @@ export function BrandingSettingsTab({ settings, setSettings }: SettingsTabProps)
                 className="flex-1 px-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-semibold outline-none"
                 placeholder="https://images.unsplash.com/your-brand-logo.svg"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  setPhotoTarget('logo');
+                  setIsPhotoWidgetOpen(true);
+                }}
+                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold uppercase transition shrink-0 flex items-center gap-1.5"
+              >
+                <Camera size={14} />
+                <span>Upload</span>
+              </button>
               <div className="w-10 h-10 bg-neutral-100 rounded-xl border border-neutral-200 flex items-center justify-center shrink-0">
                 {settings?.branding?.logo ? (
                   <img src={settings.branding.logo} referrerPolicy="no-referrer" alt="Brand target" className="object-contain w-8 h-8 rounded" />
+                ) : (
+                  <Sparkles size={16} className="text-neutral-400" />
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">Platform Favicon (URL)</label>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={settings?.branding?.faviconUrl || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSettings(s => s ? { ...s, branding: { ...s.branding, faviconUrl: val } } : null);
+                }}
+                className="flex-1 px-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-semibold outline-none"
+                placeholder="https://images.unsplash.com/your-brand-favicon.ico"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setPhotoTarget('favicon');
+                  setIsPhotoWidgetOpen(true);
+                }}
+                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold uppercase transition shrink-0 flex items-center gap-1.5"
+              >
+                <Camera size={14} />
+                <span>Upload</span>
+              </button>
+              <div className="w-10 h-10 bg-neutral-100 rounded-xl border border-neutral-200 flex items-center justify-center shrink-0">
+                {settings?.branding?.faviconUrl ? (
+                  <img src={settings.branding.faviconUrl} referrerPolicy="no-referrer" alt="Favicon target" className="object-contain w-8 h-8 rounded" />
                 ) : (
                   <Sparkles size={16} className="text-neutral-400" />
                 )}
@@ -250,30 +322,56 @@ export function BrandingSettingsTab({ settings, setSettings }: SettingsTabProps)
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">192px Android Icon URL</label>
-              <input
-                type="text"
-                value={settings?.branding?.pwaIcon192Url || ''}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSettings(s => s ? { ...s, branding: { ...s.branding, pwaIcon192Url: val } } : null);
-                }}
-                className="w-full px-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-semibold text-neutral-800 outline-none"
-                placeholder="https://images.unsplash.com/icon-192.png"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={settings?.branding?.pwaIcon192Url || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSettings(s => s ? { ...s, branding: { ...s.branding, pwaIcon192Url: val } } : null);
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-semibold text-neutral-800 outline-none"
+                  placeholder="https://images.unsplash.com/icon-192.png"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhotoTarget('pwaIcon192');
+                    setIsPhotoWidgetOpen(true);
+                  }}
+                  className="px-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold uppercase transition shrink-0 flex items-center gap-1"
+                >
+                  <Camera size={13} />
+                  <span>Upload</span>
+                </button>
+              </div>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black uppercase text-neutral-500 tracking-wider">512px iOS Splash Icon URL</label>
-              <input
-                type="text"
-                value={settings?.branding?.pwaIcon512Url || ''}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSettings(s => s ? { ...s, branding: { ...s.branding, pwaIcon512Url: val } } : null);
-                }}
-                className="w-full px-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-semibold text-neutral-800 outline-none"
-                placeholder="https://images.unsplash.com/icon-512.png"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={settings?.branding?.pwaIcon512Url || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSettings(s => s ? { ...s, branding: { ...s.branding, pwaIcon512Url: val } } : null);
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-neutral-50 rounded-xl border border-neutral-200/60 text-xs font-semibold text-neutral-800 outline-none"
+                  placeholder="https://images.unsplash.com/icon-512.png"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhotoTarget('pwaIcon512');
+                    setIsPhotoWidgetOpen(true);
+                  }}
+                  className="px-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold uppercase transition shrink-0 flex items-center gap-1"
+                >
+                  <Camera size={13} />
+                  <span>Upload</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -440,6 +538,32 @@ export function BrandingSettingsTab({ settings, setSettings }: SettingsTabProps)
           </div>
         </div>
       </div>
+
+      {isPhotoWidgetOpen && user && (
+        <AddPhotoWidget
+          isOpen={isPhotoWidgetOpen}
+          onClose={() => {
+            setIsPhotoWidgetOpen(false);
+            setPhotoTarget(null);
+          }}
+          onPhotoAdded={(urls) => {
+            handlePhotoAdded(urls);
+            setIsPhotoWidgetOpen(false);
+            setPhotoTarget(null);
+          }}
+          user={user}
+          adminSettings={settings}
+          targetName={
+            photoTarget === 'logo'
+              ? 'Platform Logo'
+              : photoTarget === 'favicon'
+              ? 'Favicon'
+              : photoTarget === 'pwaIcon192'
+              ? '192px Android Icon'
+              : '512px iOS Splash Icon'
+          }
+        />
+      )}
     </div>
   );
 }

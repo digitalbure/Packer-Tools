@@ -8480,7 +8480,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             {/* Submenu Tab Content Pages */}
             <div className="col-span-1 md:col-span-4 space-y-6">
               {settingsSubTab === 'branding' && (
-                <BrandingSettingsTab settings={settings} setSettings={setSettings} />
+                <BrandingSettingsTab settings={settings} setSettings={setSettings} user={user} />
               )}
               {settingsSubTab === 'communities' && (
                 <CommunitiesSettingsTab settings={settings} setSettings={setSettings} />

@@ -873,6 +873,7 @@ export interface AdminSettings {
     pwaThemeColor?: string;
     pwaIcon192Url?: string;
     pwaIcon512Url?: string;
+    faviconUrl?: string;
   };
   emailBranding?: {
     logoUrl?: string;
