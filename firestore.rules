@@ -235,8 +235,8 @@ service cloud.firestore {
     // 1. User Profiles & Subcollections
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().plan == 'free' && (!('role' in incoming()) || incoming().role == 'user');
-      allow update: if isOwner(userId) && (
+      allow create: if (isOwner(userId) && isValidUser(incoming()) && incoming().plan == 'free' && (!('role' in incoming()) || incoming().role == 'user')) || isSuperAdmin();
+      allow update: if (isOwner(userId) && (
         isAdmin() || (
           isUnchanged('plan') &&
           isUnchanged('role') &&
@@ -244,7 +244,7 @@ service cloud.firestore {
           isUnchanged('extraSeats') &&
           isUnchanged('manualPaymentPending')
         )
-      );
+      )) || isSuperAdmin();
       allow delete: if isAdmin();
 
       // Nested Gear Library

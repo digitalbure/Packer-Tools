@@ -113,14 +113,14 @@ export function AnimatedRoutes() {
         
         {/* Protected Routes */}
         <Route path="/dashboard" element={<AuthGuard><Dashboard user={user!} adminSettings={adminSettings} /></AuthGuard>} />
-        <Route path="/marketplace/:id" element={<AuthGuard><MarketplaceView /></AuthGuard>} />
-        <Route path="/shop/:uid" element={<AuthGuard><ShopPage /></AuthGuard>} />
-        <Route path="/marketplace" element={<AuthGuard><Marketplace user={user!} adminSettings={adminSettings} /></AuthGuard>} />
+        <Route path="/marketplace/:id" element={isFeatureEnabled('marketplace', user, adminSettings) ? <AuthGuard><MarketplaceView /></AuthGuard> : <Navigate to="/dashboard" />} />
+        <Route path="/shop/:uid" element={isFeatureEnabled('marketplace', user, adminSettings) ? <AuthGuard><ShopPage /></AuthGuard> : <Navigate to="/dashboard" />} />
+        <Route path="/marketplace" element={isFeatureEnabled('marketplace', user, adminSettings) ? <AuthGuard><Marketplace user={user!} adminSettings={adminSettings} /></AuthGuard> : <Navigate to="/dashboard" />} />
         <Route path="/scan/:id" element={<AuthGuard><CameraScanner user={user!} adminSettings={adminSettings} /></AuthGuard>} />
         
         <Route path="/organization" element={<AuthGuard><OrganizationModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
         <Route path="/profile" element={<AuthGuard><ProfilePage user={user!} onUpdate={setUser} adminSettings={adminSettings} /></AuthGuard>} />
-        <Route path="/listings" element={<AuthGuard><ListingsModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
+        <Route path="/listings" element={isFeatureEnabled('marketplaceListings', user, adminSettings) ? <AuthGuard><ListingsModule user={user!} adminSettings={adminSettings} /></AuthGuard> : <Navigate to="/dashboard" />} />
         
         <Route path="/ai-wizard" element={isFeatureEnabled('aiWizard', user, adminSettings) ? <AITemplateWizard user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
         <Route path="/library" element={<AuthGuard><GearLibrary user={user!} adminSettings={adminSettings} /></AuthGuard>} />

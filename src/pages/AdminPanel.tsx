@@ -190,6 +190,19 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const [editingPlanUserId, setEditingPlanUserId] = useState<string | null>(null);
   const [manualPlanValue, setManualPlanValue] = useState('');
 
+  // Manual User Creation States
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [newUserDisplayName, setNewUserDisplayName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserRole, setNewUserRole] = useState('viewer');
+  const [newUserPlan, setNewUserPlan] = useState('free');
+  const [newUserOrgId, setNewUserOrgId] = useState('');
+  const [newUserDeptId, setNewUserDeptId] = useState('');
+  const [newUserTeamId, setNewUserTeamId] = useState('');
+  const [newUserIsSuperAdmin, setNewUserIsSuperAdmin] = useState(false);
+  const [newUserIsBetaTester, setNewUserIsBetaTester] = useState(false);
+  const [isAddingUser, setIsAddingUser] = useState(false);
+
   // System Health Dashboard States
   const [liveCounts, setLiveCounts] = useState<{
     users: number | null;
@@ -1535,6 +1548,58 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     } catch (error) {
       console.error("Error toggling beta tester status:", error);
       toast.error("Failed to update beta user status");
+    }
+  };
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserDisplayName.trim() || !newUserEmail.trim()) {
+      toast.error("Name and Email are required fields.");
+      return;
+    }
+    
+    setIsAddingUser(true);
+    const toastId = toast.loading("Adding manual user document...");
+    try {
+      const generatedUid = 'man-' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const userRef = doc(db, 'users', generatedUid);
+      
+      const newProfile: any = {
+        uid: generatedUid,
+        displayName: newUserDisplayName.trim(),
+        email: newUserEmail.trim().toLowerCase(),
+        photoURL: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(newUserDisplayName.trim())}`,
+        role: newUserRole,
+        plan: newUserPlan,
+        isSuperAdmin: newUserIsSuperAdmin,
+        isBetaTester: newUserIsBetaTester,
+        createdAt: new Date().toISOString()
+      };
+      
+      if (newUserOrgId) newProfile.orgId = newUserOrgId;
+      if (newUserDeptId) newProfile.deptId = newUserDeptId;
+      if (newUserTeamId) newProfile.teamId = newUserTeamId;
+      
+      await setDoc(userRef, newProfile);
+      
+      toast.success("User manually added successfully!", { id: toastId });
+      setIsAddUserModalOpen(false);
+      
+      // Reset fields
+      setNewUserDisplayName('');
+      setNewUserEmail('');
+      setNewUserRole('viewer');
+      setNewUserPlan('free');
+      setNewUserOrgId('');
+      setNewUserDeptId('');
+      setNewUserTeamId('');
+      setNewUserIsSuperAdmin(false);
+      setNewUserIsBetaTester(false);
+    } catch (error: any) {
+      console.error("Error manually adding user:", error);
+      toast.error(`Failed to add user: ${error.message || error}`, { id: toastId });
+    } finally {
+      setIsAddingUser(false);
     }
   };
 
@@ -5285,9 +5350,12 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                 className="w-full pl-12 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition text-sm"
               />
             </div>
-            <button className="flex items-center justify-center gap-2 px-6 py-3 bg-neutral-900 text-white rounded-xl font-bold hover:bg-neutral-800 transition text-sm whitespace-nowrap">
+            <button 
+              onClick={() => setIsAddUserModalOpen(true)}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-neutral-900 text-white rounded-xl font-bold hover:bg-neutral-800 transition text-sm whitespace-nowrap"
+            >
               <UserPlus size={20} />
-              <span>Invite User</span>
+              <span>Add User Manually</span>
             </button>
           </div>
           
@@ -6823,6 +6891,216 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   Close Manager
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL 3: Manual User Addition */}
+      <AnimatePresence>
+        {isAddUserModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 bg-neutral-900 text-white flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/10 rounded-xl">
+                    <UserPlus size={22} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black uppercase tracking-tight">Add User Manually</h3>
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Create a new local corporate profile instantly</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsAddUserModalOpen(false)}
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddUser} className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 text-left">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Full Name *</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={newUserDisplayName}
+                      onChange={(e) => setNewUserDisplayName(e.target.value)}
+                      placeholder="e.g. Marcus Aurelius"
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition text-sm font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Email Address *</label>
+                    <input 
+                      type="email" 
+                      required
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      placeholder="e.g. marcus@rome.gov"
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition text-sm font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">System Role</label>
+                    <select
+                      value={newUserRole}
+                      onChange={(e) => setNewUserRole(e.target.value)}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition text-sm font-semibold cursor-pointer"
+                    >
+                      <option value="owner">Owner (Full Access)</option>
+                      <option value="admin">Admin (Operational Oversight)</option>
+                      <option value="manager">Manager (Inventory & Team Control)</option>
+                      <option value="technician">Technician (Check-ins & Out Only)</option>
+                      <option value="viewer">Viewer (Read Only)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Subscription Tier</label>
+                    <select
+                      value={newUserPlan}
+                      onChange={(e) => setNewUserPlan(e.target.value)}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition text-sm font-semibold cursor-pointer"
+                    >
+                      <option value="free">Free Plan</option>
+                      {settings?.plans?.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-neutral-50 border border-neutral-100 p-6 rounded-3xl space-y-5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Organizational & Tenancy Bounds</span>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Organization</label>
+                      <select
+                        value={newUserOrgId}
+                        onChange={(e) => {
+                          setNewUserOrgId(e.target.value);
+                          setNewUserDeptId('');
+                          setNewUserTeamId('');
+                        }}
+                        className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">None / Isolated User</option>
+                        {organizations.map(o => (
+                          <option key={o.id} value={o.id}>{o.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Department</label>
+                      <select
+                        value={newUserDeptId}
+                        onChange={(e) => {
+                          setNewUserDeptId(e.target.value);
+                          setNewUserTeamId('');
+                        }}
+                        disabled={!newUserOrgId}
+                        className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                      >
+                        <option value="">None</option>
+                        {departments.filter(d => d.orgId === newUserOrgId).map(d => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Team</label>
+                      <select
+                        value={newUserTeamId}
+                        onChange={(e) => setNewUserTeamId(e.target.value)}
+                        disabled={!newUserDeptId}
+                        className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                      >
+                        <option value="">None</option>
+                        {teams.filter(t => t.deptId === newUserDeptId).map(t => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-6 pt-2">
+                  <label className="flex items-center gap-3 cursor-pointer group select-none">
+                    <input 
+                      type="checkbox"
+                      checked={newUserIsSuperAdmin}
+                      onChange={(e) => setNewUserIsSuperAdmin(e.target.checked)}
+                      className="w-5 h-5 text-neutral-900 border-neutral-300 rounded focus:ring-neutral-900 focus:ring-2 cursor-pointer transition"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-bold text-neutral-800 block group-hover:text-neutral-900">Grant Super Admin Privileges</span>
+                      <span className="text-[10px] text-neutral-400 block font-medium">Allows full platform settings control</span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 cursor-pointer group select-none">
+                    <input 
+                      type="checkbox"
+                      checked={newUserIsBetaTester}
+                      onChange={(e) => setNewUserIsBetaTester(e.target.checked)}
+                      className="w-5 h-5 text-neutral-900 border-neutral-300 rounded focus:ring-neutral-900 focus:ring-2 cursor-pointer transition"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-bold text-neutral-800 block group-hover:text-neutral-900">Enlist as Beta Tester</span>
+                      <span className="text-[10px] text-neutral-400 block font-medium">Access early feature releases & feedback tools</span>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-3">
+                  <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
+                    Manually adding a user creates their core database profile. The user can log in with this email through any supported SSO option (Google Workspace, magic links) to claim the pre-configured profile.
+                  </p>
+                </div>
+
+                <div className="p-6 bg-neutral-50 border-t border-neutral-100 flex items-center justify-end gap-3 -mx-6 -mb-6 md:-mx-8 md:-mb-8 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddUserModalOpen(false)}
+                    className="px-6 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-bold transition text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isAddingUser}
+                    className="flex items-center gap-2 px-8 py-2.5 bg-neutral-900 text-white hover:bg-neutral-800 disabled:bg-neutral-400 rounded-xl font-bold transition text-xs shadow-sm"
+                  >
+                    {isAddingUser ? (
+                      <>
+                        <Loader2 className="animate-spin animate-spin-slow" size={14} />
+                        <span>Creating Profile...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus size={14} />
+                        <span>Add User Profile</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

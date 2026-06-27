@@ -1383,8 +1383,59 @@ export function MultiIndustrySettingsTab({ settings, setSettings }: SettingsTabP
  * =========================================================================
  */
 export function MarketplaceSettingsTab({ settings, setSettings }: SettingsTabProps) {
+  const isMarketplaceActive = settings?.globalFeatures?.marketplace !== false;
+
+  const handleToggleMarketplace = () => {
+    setSettings(s => {
+      if (!s) return null;
+      const nextFeatures = { ...(s.globalFeatures || {}) };
+      const currentVal = nextFeatures.marketplace !== false;
+      nextFeatures.marketplace = !currentVal;
+      nextFeatures.marketplaceListings = !currentVal;
+      return {
+        ...s,
+        globalFeatures: nextFeatures
+      };
+    });
+    toast.success(isMarketplaceActive ? "Marketplace globally deactivated!" : "Marketplace globally activated!");
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Global Marketplace Status Control */}
+      <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-xl transition ${isMarketplaceActive ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}>
+              <ShoppingBag size={20} />
+            </div>
+            <div>
+              <h3 className="font-extrabold uppercase text-sm tracking-tight text-neutral-800">Marketplace Operational Status</h3>
+              <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Deactivate or activate the global equipment rental & listings market</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 bg-neutral-50 border border-neutral-200/60 rounded-2xl px-4 py-2.5">
+            <span className={`text-[10px] font-black uppercase tracking-wider ${isMarketplaceActive ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {isMarketplaceActive ? "Activated / Live" : "Deactivated / Offline"}
+            </span>
+            <button
+              type="button"
+              onClick={handleToggleMarketplace}
+              className={`w-12 h-6 rounded-full relative transition-colors ${isMarketplaceActive ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+            >
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all ${isMarketplaceActive ? 'right-1' : 'left-1'}`}></div>
+            </button>
+          </div>
+        </div>
+        <div className="p-4 bg-neutral-50/50 rounded-2xl border border-neutral-100 text-xs">
+          <p className="text-neutral-500 leading-normal font-medium">
+            {isMarketplaceActive 
+              ? "All members can currently browse the active marketplace, search for equipment checklists across organizations, list assets for rent or purchase, and submit rental bookings."
+              : "The marketplace is offline. Browsing listed assets, viewing individual shop pages, and uploading active lists to the rent market are restricted for all non-admin users. Admins can still access pages to adjust setups."}
+          </p>
+        </div>
+      </div>
+
       {/* Launch country and duration limits */}
       <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6">
         <div className="flex items-center gap-3 border-b border-neutral-50 pb-4">

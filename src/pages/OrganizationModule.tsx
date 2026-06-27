@@ -53,7 +53,7 @@ import UpgradeNowModal from '../components/UpgradeNowModal';
 import PackerLogo from '../components/PackerLogo';
 import { getAccessToken, signInWithGoogle, setAccessToken } from '../firebase';
 import { fetchGoogleChatSpaces, sendGoogleChatMessage, ChatSpace, triggerGoogleChatAlert } from '../services/googleChat';
-import { MessageSquare, Send, RefreshCw, Layers3 } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Layers3, Link2 } from 'lucide-react';
 
 interface OrganizationModuleProps {
   user: UserProfile | null;
@@ -138,6 +138,8 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
   const [selectedSpaceDisplayName, setSelectedSpaceDisplayName] = useState<string>('');
   const [testMessageText, setTestMessageText] = useState("👋 This is a live testing status dispatch from the Packer Tools dashboard!");
   const [isTestingMessage, setIsTestingMessage] = useState(false);
+  const [manualSpaceName, setManualSpaceName] = useState('');
+  const [manualSpaceDisplayName, setManualSpaceDisplayName] = useState('');
   const [googleChatAlerts, setGoogleChatAlerts] = useState({
     gear_added: true,
     gear_maintenance: true,
@@ -361,6 +363,30 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
       toast.success(`Space linked: ${space.displayName}`);
     } catch (e: any) {
       toast.error("Failed to link space in database.");
+    }
+  };
+
+  const handleLinkManualSpace = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualSpaceName.trim()) {
+      toast.error("Please enter a valid Space Name (e.g. spaces/AAAAxxxx)");
+      return;
+    }
+    if (!org) return;
+    const name = manualSpaceName.trim();
+    const displayName = manualSpaceDisplayName.trim() || name;
+    try {
+      await updateDoc(doc(db, 'organizations', org.id), {
+        'googleChatConfig.spaceName': name,
+        'googleChatConfig.spaceDisplayName': displayName,
+      });
+      setSelectedSpaceName(name);
+      setSelectedSpaceDisplayName(displayName);
+      toast.success(`Manually linked space: ${displayName}`);
+      setManualSpaceName('');
+      setManualSpaceDisplayName('');
+    } catch (err: any) {
+      toast.error("Failed to link manual space in database.");
     }
   };
 
@@ -3779,6 +3805,54 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                       })}
                     </div>
                   )}
+
+                  {/* Manual Space Linker Option */}
+                  <div className="bg-neutral-50/50 rounded-[2rem] p-6 border border-neutral-100/80 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-black uppercase text-neutral-800">Or Link a Custom Space Manually</h4>
+                        <p className="text-[10px] text-neutral-400">If your Google workspace organization doesn't expose spaces via API, paste the space details manually.</p>
+                      </div>
+                      {selectedSpaceName && (
+                        <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl px-3.5 py-1.5 text-center sm:text-right shrink-0">
+                          <span className="text-[8px] font-black uppercase block tracking-widest text-emerald-600">Currently Linked</span>
+                          <span className="text-xs font-bold font-mono">{selectedSpaceDisplayName || selectedSpaceName}</span>
+                        </div>
+                      )}
+                    </div>
+                    <form onSubmit={handleLinkManualSpace} className="grid sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2 space-y-1">
+                        <label className="text-[9px] font-black uppercase text-neutral-400 tracking-wider">Space Name / Path *</label>
+                        <input
+                          type="text"
+                          required
+                          value={manualSpaceName}
+                          onChange={(e) => setManualSpaceName(e.target.value)}
+                          placeholder="e.g. spaces/AAAAxXxxXX"
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-neutral-900 text-neutral-800"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase text-neutral-400 tracking-wider">Display Label</label>
+                        <input
+                          type="text"
+                          value={manualSpaceDisplayName}
+                          onChange={(e) => setManualSpaceDisplayName(e.target.value)}
+                          placeholder="e.g. General Channel"
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-neutral-900 text-neutral-800"
+                        />
+                      </div>
+                      <div className="sm:col-span-3 flex justify-end">
+                        <button
+                          type="submit"
+                          className="px-4 py-2 bg-neutral-900 text-white hover:bg-neutral-800 rounded-xl transition text-xs font-bold flex items-center gap-1.5"
+                        >
+                          <Link2 size={14} />
+                          <span>Link Space Manually</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
 
                   {/* Testing Console */}
                   {selectedSpaceName && (
