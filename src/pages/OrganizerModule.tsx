@@ -271,9 +271,13 @@ const DroppableOrganizer = ({
       }`}
     >
       {container.photoUrls?.[0] ? (
-        <img src={container.photoUrls[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+        <img 
+          src={container.photoUrls[0]} 
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+          referrerPolicy="no-referrer"
+        />
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-neutral-300 bg-neutral-50 group-hover:bg-neutral-100/75 transition">
+        <div className="absolute inset-0 flex items-center justify-center text-neutral-300 bg-neutral-50 group-hover:bg-neutral-100/75 transition">
           {getContainerIcon(container.type)}
         </div>
       )}
@@ -618,9 +622,13 @@ const OrganizerWorkspacePopover = ({
             {/* Visual Header / Showcase Photo */}
             <div className="relative h-44 rounded-3xl overflow-hidden bg-neutral-100 border border-neutral-200/50 shadow-inner shrink-0">
               {container.photoUrls?.[0] ? (
-                <img src={container.photoUrls[0]} className="w-full h-full object-cover" />
+                <img 
+                  src={container.photoUrls[0]} 
+                  className="absolute inset-0 w-full h-full object-cover" 
+                  referrerPolicy="no-referrer"
+                />
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-neutral-300 gap-2">
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-neutral-300 gap-2">
                   {getContainerIcon(container.type)}
                   <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">No Image Loaded</p>
                 </div>
@@ -1454,7 +1462,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="space-y-8 pb-20">
+      <div className="space-y-8 pb-20 max-w-full overflow-x-hidden">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <h1 className="text-4xl font-black tracking-tight flex items-center gap-3">
