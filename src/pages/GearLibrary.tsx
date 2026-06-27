@@ -8000,7 +8000,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             initial={{ y: 100, opacity: 0, x: '-50%' }}
             animate={{ y: 0, opacity: 1, x: '-50%' }}
             exit={{ y: 100, opacity: 0, x: '-50%' }}
-            className="fixed bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 z-[90] flex flex-col md:flex-row items-center gap-4 bg-neutral-900 text-white p-4 md:px-8 md:py-5 rounded-[1.5rem] md:rounded-[2.5rem] shadow-2xl border border-white/10 w-[min(calc(100%-2rem),48rem)]"
+            className="fixed bottom-26 md:bottom-8 left-1/2 -translate-x-1/2 z-[90] flex flex-col md:flex-row items-center gap-4 bg-neutral-900 text-white p-4 md:px-8 md:py-5 rounded-[1.5rem] md:rounded-[2.5rem] shadow-2xl border border-white/10 w-[min(calc(100%-2rem),48rem)]"
           >
             <div className="flex items-center justify-between w-full md:w-auto md:border-r md:border-white/10 md:pr-6 md:mr-2">
               <div className="flex items-center gap-3">
@@ -8144,7 +8144,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             initial={{ y: 100, opacity: 0, x: '-50%' }}
             animate={{ y: 0, opacity: 1, x: '-50%' }}
             exit={{ y: 100, opacity: 0, x: '-50%' }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[95] flex items-center justify-between gap-4 bg-neutral-900 border border-white/15 text-white rounded-2xl px-6 py-4 shadow-2xl w-[90%] max-w-md"
+            className="fixed bottom-26 md:bottom-6 left-1/2 -translate-x-1/2 z-[95] flex items-center justify-between gap-4 bg-neutral-900 border border-white/15 text-white rounded-2xl px-6 py-4 shadow-2xl w-[90%] max-w-md"
             id="undo-bulk-action-banner"
           >
             <div className="flex items-center gap-3">

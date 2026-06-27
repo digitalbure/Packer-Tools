@@ -2966,7 +2966,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
       {/* Bulk Actions Bar */}
       {isOwner && selectedItems.size > 0 && (
-        <div className="fixed bottom-4 md:bottom-8 left-4 right-4 md:left-1/2 md:-translate-x-1/2 bg-neutral-900 text-white px-4 md:px-8 py-3 md:py-4 rounded-2xl shadow-2xl flex flex-col md:flex-row items-center gap-4 md:gap-8 z-40 animate-in slide-in-from-bottom-8 duration-300">
+        <div className="fixed bottom-24 md:bottom-8 left-4 right-4 md:left-1/2 md:-translate-x-1/2 bg-neutral-900 text-white px-4 md:px-8 py-3 md:py-4 rounded-2xl shadow-2xl flex flex-col md:flex-row items-center gap-4 md:gap-8 z-40 animate-in slide-in-from-bottom-8 duration-300">
           <div className="flex items-center justify-between w-full md:w-auto gap-4">
             <span className="text-[10px] md:text-sm font-bold uppercase tracking-widest text-neutral-400">{selectedItems.size} Selected</span>
             <button 
