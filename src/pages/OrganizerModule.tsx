@@ -65,18 +65,18 @@ const DraggableGearItem = ({ item, isOverlay = false }: { item: GearItem, isOver
       style={style}
       {...listeners}
       {...attributes}
-      className={`flex items-center justify-between p-4 bg-white rounded-2xl border border-neutral-100 group hover:border-primary transition cursor-grab active:cursor-grabbing ${isOverlay ? 'shadow-2xl' : 'shadow-sm'}`}
+      className={`flex items-center justify-between p-4 bg-white rounded-2xl border border-neutral-100 group hover:border-primary transition cursor-grab active:cursor-grabbing w-full min-w-0 ${isOverlay ? 'shadow-2xl' : 'shadow-sm'}`}
     >
-      <div className="flex items-center gap-4">
-        <div className="w-10 h-10 bg-neutral-50 rounded-xl flex items-center justify-center text-neutral-400 group-hover:text-primary transition shadow-sm">
+      <div className="flex items-center gap-4 min-w-0 flex-1 mr-2">
+        <div className="w-10 h-10 bg-neutral-50 rounded-xl flex items-center justify-center text-neutral-400 group-hover:text-primary transition shadow-sm shrink-0">
           <Package size={20} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="font-bold text-sm truncate">{item.name}</p>
-          <p className="text-[10px] text-neutral-400 uppercase font-black">{item.category}</p>
+          <p className="text-[10px] text-neutral-400 uppercase font-black truncate">{item.category}</p>
         </div>
       </div>
-      <div className="p-2 bg-neutral-50 rounded-lg text-neutral-300 group-hover:text-primary transition">
+      <div className="p-2 bg-neutral-50 rounded-lg text-neutral-300 group-hover:text-primary transition shrink-0">
         <ArrowRight size={16} />
       </div>
     </div>
@@ -317,8 +317,8 @@ const DroppableOrganizer = ({
             {container.items.length} {container.items.length === 1 ? 'Item' : 'Items'}
           </span>
         </div>
-        <div className="flex items-center gap-2 mt-1">
-          <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none truncate max-w-[210px]">
+        <div className="flex items-center gap-2 mt-1 w-full min-w-0">
+          <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none truncate flex-1 min-w-0">
             {container.name}
           </h3>
           <span className="text-white/60 text-[9px] font-black uppercase tracking-widest shrink-0">→ OPEN</span>
@@ -1463,19 +1463,19 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
       onDragEnd={handleDragEnd}
     >
       <div className="space-y-8 pb-20 max-w-full overflow-x-hidden">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-black tracking-tight flex items-center gap-3">
-              <Luggage className="text-primary" size={40} />
-              <span>Storage & Organizers</span>
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 w-full min-w-0">
+          <div className="space-y-2 min-w-0 w-full flex-1">
+            <h1 className="text-2xl xs:text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3 flex-wrap min-w-0 w-full">
+              <Luggage className="text-primary shrink-0" size={36} />
+              <span className="truncate flex-1 min-w-0">Storage & Organizers</span>
             </h1>
-            <p className="text-neutral-500">Track nested cases, pouches, and crates. Rapidly provision with {smartPackerName}.</p>
+            <p className="text-xs sm:text-sm text-neutral-500 max-w-2xl">Track nested cases, pouches, and crates. Rapidly provision with {smartPackerName}.</p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto shrink-0">
             <button 
               onClick={handleSmartOrganize}
               disabled={isAIProcessing}
-              className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition shadow-lg disabled:opacity-50 w-full sm:w-auto text-sm"
+              className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition shadow-lg disabled:opacity-50 w-full sm:w-auto text-sm shrink-0"
             >
               <Zap size={20} className={isAIProcessing ? 'animate-pulse' : ''} />
               <span>{isAIProcessing ? `${smartPackerName} Organizing...` : 'Smart Organize'}</span>
@@ -1495,7 +1495,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                 });
                 setIsAddModalOpen(true);
               }}
-              className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-neutral-800 transition shadow-lg w-full sm:w-auto text-sm"
+              className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-neutral-800 transition shadow-lg w-full sm:w-auto text-sm shrink-0"
             >
               <Plus size={20} />
               <span>Add Organizer</span>
@@ -1503,9 +1503,9 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
           </div>
         </header>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            <div className="grid sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full max-w-full overflow-hidden">
+          <div className="lg:col-span-2 space-y-8 w-full max-w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-full">
               {rootContainers.map((container) => (
                 <DroppableOrganizer
                   key={container.id}
@@ -1522,7 +1522,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                 />
               ))}
               {rootContainers.length === 0 && (
-                <div className="sm:col-span-2 col-span-1 bg-neutral-50 rounded-[2rem] sm:rounded-[2.5rem] border border-dashed border-neutral-300 p-6 sm:p-12 text-center space-y-4">
+                <div className="sm:col-span-2 col-span-1 bg-neutral-50 rounded-3xl sm:rounded-[2.5rem] border border-dashed border-neutral-300 p-6 sm:p-12 text-center space-y-4">
                   <Luggage size={48} className="text-neutral-300 mx-auto" />
                   <div>
                     <h4 className="font-bold text-lg text-neutral-800">No Organizers Yet</h4>
@@ -1533,8 +1533,8 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="bg-white p-5 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
+          <div className="space-y-6 w-full max-w-full">
+            <div className="bg-white p-4 sm:p-8 rounded-3xl sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 w-full max-w-full">
               <div className="flex flex-col gap-3">
                 <h3 className="text-xl font-black uppercase tracking-tight text-neutral-900">Sourcing Dashboard</h3>
                 
@@ -1652,11 +1652,11 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                     <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Active Dispatch Lists</p>
                     {packingLists.filter(l => !l.isTemplate).map(list => (
                       <div key={list.id} className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-2.5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <FileText size={16} className="text-neutral-500 shrink-0" />
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <span className="font-bold text-sm text-neutral-800 truncate block">{list.name}</span>
-                            <span className="text-[9px] text-neutral-400">{list.description || 'No description'}</span>
+                            <span className="text-[9px] text-neutral-400 truncate block">{list.description || 'No description'}</span>
                           </div>
                         </div>
 
@@ -1690,11 +1690,11 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                     <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Custom Inventory Sheets</p>
                     {inventories.map(inv => (
                       <div key={inv.id} className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-2.5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <ClipboardList size={16} className="text-neutral-500 shrink-0" />
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <span className="font-bold text-sm text-neutral-800 truncate block">{inv.name}</span>
-                            <span className="text-[9px] text-neutral-400">{inv.description || 'Corporate inventory template'}</span>
+                            <span className="text-[9px] text-neutral-400 truncate block">{inv.description || 'Corporate inventory template'}</span>
                           </div>
                         </div>
 
