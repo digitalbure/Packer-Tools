@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch, setDoc, startAfter, orderBy, getCountFromServer } from 'firebase/firestore';
 import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Compass, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Smartphone, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin, Bug, Sparkles, Server, Flame, LayoutGrid, GripVertical, Loader2, Camera, List, ArrowUpDown, Image as ImageIcon } from 'lucide-react';
@@ -7429,8 +7429,6 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                       );
                     })
                   )}
-                </div>
-              </div>
                 </div>
               </div>
             </div>
