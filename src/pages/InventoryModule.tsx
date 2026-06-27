@@ -75,6 +75,7 @@ import * as XLSX from 'xlsx';
 import { authenticatedFetch } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 import NfcScannerModal from '../components/NfcScannerModal';
+import AddPhotoWidget from '../components/AddPhotoWidget';
 
 interface InventoryModuleProps {
   user: UserProfile | null;
@@ -139,6 +140,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   const [nfcScanMode, setNfcScanMode] = useState<'associate' | 'search'>('search');
   const [nfcTargetItem, setNfcTargetItem] = useState<{ id: string; name: string; type: 'gear' | 'inventory'; inventoryId?: string } | undefined>(undefined);
   const [pendingNfcEditItemId, setPendingNfcEditItemId] = useState<string | null>(null);
+  const [isInventoryPhotoPickerOpen, setIsInventoryPhotoPickerOpen] = useState(false);
   
   // Data Model states loaded from database
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -4639,7 +4641,13 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                 <div className="space-y-1">
                   <div className="flex items-center justify-between ml-1">
                     <label className="text-[9px] font-black uppercase tracking-widest text-[#0066cc] block">Photo URL / Image Link</label>
-                    <span className="text-[8px] font-bold text-neutral-400 uppercase">Interactive direct url</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsInventoryPhotoPickerOpen(true)}
+                      className="text-[9px] font-black uppercase tracking-wider text-primary border border-primary/25 hover:bg-primary/5 px-2.5 py-1 rounded-lg transition"
+                    >
+                      Pick / Upload Photo
+                    </button>
                   </div>
                   <div className="flex gap-3">
                     <input
@@ -4655,6 +4663,21 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       </div>
                     )}
                   </div>
+
+                  {user && (
+                    <AddPhotoWidget
+                      isOpen={isInventoryPhotoPickerOpen}
+                      onClose={() => setIsInventoryPhotoPickerOpen(false)}
+                      onPhotoAdded={(urls) => {
+                        if (urls.length > 0) {
+                          setItemForm({ ...itemForm, photoUrl: urls[0] });
+                        }
+                      }}
+                      user={user}
+                      adminSettings={adminSettings}
+                      targetName={itemForm.name || "inventory item"}
+                    />
+                  )}
                 </div>
 
                 {/* Privacy View Layers Selector */}

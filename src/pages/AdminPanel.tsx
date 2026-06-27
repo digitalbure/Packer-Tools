@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch, setDoc, startAfter, orderBy, getCountFromServer } from 'firebase/firestore';
-import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Compass, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Smartphone, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin, Bug, Sparkles, Server, Flame, LayoutGrid, List, ArrowUpDown, Image as ImageIcon } from 'lucide-react';
+import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Compass, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Smartphone, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin, Bug, Sparkles, Server, Flame, LayoutGrid, GripVertical, Loader2, Camera, List, ArrowUpDown, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project, INDUSTRIES, BugReport } from '../types';
@@ -130,6 +130,18 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
   const [newSubCategories, setNewSubCategories] = useState<any[]>([]);
   const [tempSubName, setTempSubName] = useState('');
   const [tempSubSubNameMap, setTempSubSubNameMap] = useState<{[subId: string]: string}>({});
+  const [assignToPackerTools, setAssignToPackerTools] = useState(true);
+  const [assignToMarketplace, setAssignToMarketplace] = useState(true);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [isDragOverCategoryPhoto, setIsDragOverCategoryPhoto] = useState(false);
+  const [isUploadingCategoryPhoto, setIsUploadingCategoryPhoto] = useState(false);
+
+  // Category Advanced filter states
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [categorySortBy, setCategorySortBy] = useState<'custom' | 'name-asc' | 'name-desc' | 'sub-count'>('custom');
+  const [categoryFilterChannel, setCategoryFilterChannel] = useState<'all' | 'packer' | 'marketplace'>('all');
+  const [nestUnderParentId, setNestUnderParentId] = useState<string>('');
 
   // Brand Settings States
   const [brands, setBrands] = useState<any[]>([]);
@@ -894,6 +906,53 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     };
   }, []);
 
+  const filteredAndSortedCategories = useMemo(() => {
+    let result = [...categories];
+
+    // Search filter
+    if (categorySearchQuery.trim()) {
+      const q = categorySearchQuery.toLowerCase();
+      result = result.filter(cat => {
+        const matchesName = cat.name.toLowerCase().includes(q);
+        const matchesId = cat.id.toLowerCase().includes(q);
+        const matchesSub = cat.subCategories?.some((sub: any) => 
+          sub.name.toLowerCase().includes(q) || sub.subSubCategories?.some((ss: any) => ss.name.toLowerCase().includes(q))
+        );
+        return matchesName || matchesId || matchesSub;
+      });
+    }
+
+    // Channel filter
+    if (categoryFilterChannel !== 'all') {
+      result = result.filter(cat => {
+        if (categoryFilterChannel === 'packer') return cat.assignToPackerTools !== false;
+        if (categoryFilterChannel === 'marketplace') return cat.assignToMarketplace !== false;
+        return true;
+      });
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      if (categorySortBy === 'name-asc') {
+        return a.name.localeCompare(b.name);
+      }
+      if (categorySortBy === 'name-desc') {
+        return b.name.localeCompare(a.name);
+      }
+      if (categorySortBy === 'sub-count') {
+        const countA = a.subCategories?.length || 0;
+        const countB = b.subCategories?.length || 0;
+        return countB - countA;
+      }
+      // Default: sortOrder
+      const orderA = a.sortOrder !== undefined ? a.sortOrder : 9999;
+      const orderB = b.sortOrder !== undefined ? b.sortOrder : 9999;
+      return orderA - orderB;
+    });
+
+    return result;
+  }, [categories, categorySearchQuery, categoryFilterChannel, categorySortBy]);
+
   const handleAutoPopulateCategories = async () => {
     try {
       const defaultCats = [
@@ -935,14 +994,68 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       return;
     }
     try {
-      await setDoc(doc(db, 'marketplaceCategories', newCategoryId.trim().toLowerCase()), {
-        name: newCategoryName.trim(),
-        image: newCategoryImage.trim() || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
-        subCategories: newSubCategories,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      const orderVal = editingCategory?.sortOrder !== undefined 
+        ? editingCategory.sortOrder 
+        : categories.length;
 
-      toast.success(editingCategory ? "Category updated successfully!" : "Category created successfully!");
+      const slugId = newCategoryId.trim().toLowerCase();
+
+      if (nestUnderParentId) {
+        // Find parent category
+        const parentCat = categories.find(c => c.id === nestUnderParentId);
+        if (parentCat) {
+          const currentSubCategories = parentCat.subCategories || [];
+          const newSub = {
+            id: slugId,
+            name: newCategoryName.trim(),
+            subSubCategories: newSubCategories.map(sub => ({
+              id: sub.id,
+              name: sub.name,
+              subSubCategories: sub.subSubCategories || []
+            }))
+          };
+
+          const existsIdx = currentSubCategories.findIndex((s: any) => s.id === slugId);
+          let updatedSubs = [...currentSubCategories];
+          if (existsIdx >= 0) {
+            updatedSubs[existsIdx] = newSub;
+          } else {
+            updatedSubs.push(newSub);
+          }
+
+          // Save Parent
+          await setDoc(doc(db, 'marketplaceCategories', parentCat.id), {
+            ...parentCat,
+            subCategories: updatedSubs,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+
+          // Delete top-level of this category (if it was top-level previously)
+          await deleteDoc(doc(db, 'marketplaceCategories', slugId));
+          if (editingCategory && editingCategory.id !== slugId) {
+            await deleteDoc(doc(db, 'marketplaceCategories', editingCategory.id));
+          }
+
+          toast.success(`Successfully nested "${newCategoryName}" under parent "${parentCat.name}"!`);
+        }
+      } else {
+        // If we are renaming the slug ID, delete the old document
+        if (editingCategory && editingCategory.id !== slugId) {
+          await deleteDoc(doc(db, 'marketplaceCategories', editingCategory.id));
+        }
+
+        await setDoc(doc(db, 'marketplaceCategories', slugId), {
+          name: newCategoryName.trim(),
+          image: newCategoryImage.trim() || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
+          subCategories: newSubCategories,
+          assignToPackerTools: assignToPackerTools !== false,
+          assignToMarketplace: assignToMarketplace !== false,
+          sortOrder: orderVal,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        toast.success(editingCategory ? "Category updated successfully!" : "Category created successfully!");
+      }
       
       // Reset form
       setEditingCategory(null);
@@ -952,6 +1065,9 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       setNewSubCategories([]);
       setTempSubName('');
       setTempSubSubNameMap({});
+      setAssignToPackerTools(true);
+      setAssignToMarketplace(true);
+      setNestUnderParentId('');
     } catch (error) {
       console.error("Error saving category:", error);
       toast.error("Failed to save category.");
@@ -1029,6 +1145,65 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     }));
   };
 
+  const handleMoveSubCategory = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= newSubCategories.length) return;
+    const updated = [...newSubCategories];
+    const temp = updated[index];
+    updated[index] = updated[newIndex];
+    updated[newIndex] = temp;
+    setNewSubCategories(updated);
+  };
+
+  const handleMoveSubSubCategory = (subId: string, index: number, direction: 'up' | 'down') => {
+    setNewSubCategories(newSubCategories.map(sub => {
+      if (sub.id === subId) {
+        const subs = [...(sub.subSubCategories || [])];
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        if (newIndex < 0 || newIndex >= subs.length) return sub;
+        const temp = subs[index];
+        subs[index] = subs[newIndex];
+        subs[newIndex] = temp;
+        return { ...sub, subSubCategories: subs };
+      }
+      return sub;
+    }));
+  };
+
+  const handlePromoteToMainCategory = async (parentCat: any, subCat: any) => {
+    if (!confirm(`Are you sure you want to promote subcategory "${subCat.name}" to a Main Category? This will make it a top-level category.`)) return;
+    try {
+      // 1. Create a top-level category document
+      await setDoc(doc(db, 'marketplaceCategories', subCat.id), {
+        name: subCat.name,
+        image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
+        subCategories: (subCat.subSubCategories || []).map((ss: any) => ({
+          id: ss.id,
+          name: ss.name,
+          subSubCategories: []
+        })),
+        assignToPackerTools: true,
+        assignToMarketplace: true,
+        sortOrder: categories.length,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      // 2. Remove from the parent's subCategories array
+      const updatedSubs = (parentCat.subCategories || []).filter((s: any) => s.id !== subCat.id);
+      await setDoc(doc(db, 'marketplaceCategories', parentCat.id), {
+        ...parentCat,
+        subCategories: updatedSubs,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      toast.success(`Successfully promoted "${subCat.name}" to a top-level Main Category!`);
+    } catch (error) {
+      console.error("Error promoting category:", error);
+      toast.error("Failed to promote subcategory.");
+    }
+  };
+
   const handleDeleteCategory = async (catId: string) => {
     if (!confirm(`Are you sure you want to delete category "${catId}"? Marketplace listings using this category won't be deleted, but the category won't show on the search home screen.`)) return;
     try {
@@ -1037,6 +1212,117 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     } catch (error) {
       console.error("Error deleting category:", error);
       toast.error("Failed to delete category.");
+    }
+  };
+
+  // Custom Category Reorder, Batch Mappings, and Photo Upload helpers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+  };
+
+  const handleDropCategory = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+    const reordered = [...categories].sort((a, b) => {
+      const orderA = a.sortOrder !== undefined ? a.sortOrder : 9999;
+      const orderB = b.sortOrder !== undefined ? b.sortOrder : 9999;
+      return orderA - orderB;
+    });
+
+    const [movedItem] = reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIndex, 0, movedItem);
+
+    // Instant local state update
+    setCategories(reordered);
+    setDraggedIndex(null);
+
+    // Save sorted index sequence using Firestore batch commits
+    try {
+      const batch = writeBatch(db);
+      reordered.forEach((cat, idx) => {
+        const docRef = doc(db, 'marketplaceCategories', cat.id);
+        batch.update(docRef, { sortOrder: idx });
+      });
+      await batch.commit();
+      toast.success("Category sorting sequence updated!");
+    } catch (error) {
+      console.error("Failed to commit sort order batch:", error);
+      toast.error("Failed to persist category order.");
+    }
+  };
+
+  const handleBatchAssignChannels = async (channel: 'both' | 'packer' | 'marketplace') => {
+    if (selectedCategoryIds.length === 0) return;
+    try {
+      const batch = writeBatch(db);
+      selectedCategoryIds.forEach((id) => {
+        const docRef = doc(db, 'marketplaceCategories', id);
+        batch.update(docRef, {
+          assignToPackerTools: channel === 'both' || channel === 'packer',
+          assignToMarketplace: channel === 'both' || channel === 'marketplace'
+        });
+      });
+      await batch.commit();
+      setSelectedCategoryIds([]);
+      toast.success("Batch channel targets configured successfully!");
+    } catch (error) {
+      console.error("Batch assignment failed:", error);
+      toast.error("Failed to update selected categories.");
+    }
+  };
+
+  const handleBatchDeleteCategories = async () => {
+    if (selectedCategoryIds.length === 0) return;
+    if (!confirm(`Are you sure you want to delete these ${selectedCategoryIds.length} categories and all of their nested subcategories?`)) return;
+
+    try {
+      const batch = writeBatch(db);
+      selectedCategoryIds.forEach((id) => {
+        const docRef = doc(db, 'marketplaceCategories', id);
+        batch.delete(docRef);
+      });
+      await batch.commit();
+      setSelectedCategoryIds([]);
+      toast.success("Selected categories removed in bulk!");
+    } catch (error) {
+      console.error("Batch deletion failed:", error);
+      toast.error("Failed to remove selected categories.");
+    }
+  };
+
+  const handlePhotoDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOverCategoryPhoto(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await processAndSetCategoryPhoto(file);
+    }
+  };
+
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await processAndSetCategoryPhoto(file);
+    }
+  };
+
+  const processAndSetCategoryPhoto = async (file: File) => {
+    setIsUploadingCategoryPhoto(true);
+    try {
+      const base64 = await compressImage(file);
+      setNewCategoryImage(base64);
+      toast.success("Photo processed and assigned!");
+    } catch (error) {
+      console.error("Photo compression failed:", error);
+      toast.error("Failed to process photo.");
+    } finally {
+      setIsUploadingCategoryPhoto(false);
     }
   };
 
@@ -1326,6 +1612,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     { id: 'integrations', icon: <Globe size={18} />, label: 'Integrations', description: 'API & 3rd party sync' },
     { id: 'checkouts', icon: <Package size={18} />, label: 'Log Logs', description: 'Equipment checkout logs' },
     { id: 'listings', icon: <ShoppingBag size={18} />, label: 'Marketplace Listings', description: 'Moderate listings, ads & featured items' },
+    { id: 'categories', icon: <LayoutGrid size={18} />, label: 'Category Settings', description: 'Manage nested taxonomies, reorder directories & map corporate channels' },
     { id: 'kiosk', icon: <QrCode size={18} />, label: 'Kiosk Settings', description: 'Gear kiosk & terminal configuration' },
     { id: 'landing', icon: <Layout size={18} />, label: 'Landing Page', description: 'Public site content' },
     { id: 'pages', icon: <FileText size={18} />, label: 'Manage Pages', description: 'Terms, policies & documents' },
@@ -6540,6 +6827,616 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
           </div>
         )}
       </AnimatePresence>
+
+      {activeTab === 'categories' && (
+        <div className="space-y-8 font-sans">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-1">
+              <h2 className="text-3xl font-black uppercase tracking-tight text-neutral-900">Unified Taxonomy Settings</h2>
+              <p className="text-xs text-neutral-500 font-medium">Configure corporate nested categories, map channels, re-arrange directory listings, and batch target features.</p>
+            </div>
+            
+            <button
+              type="button"
+              onClick={handleAutoPopulateCategories}
+              className="px-5 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl text-xs font-black uppercase tracking-wider transition"
+            >
+              Restore Standard Categories
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* LEFT SECTION: CATEGORY FORM BUILDER */}
+            <div className="lg:col-span-4 bg-white rounded-3xl border border-neutral-100 shadow-sm p-6 space-y-6">
+              <div className="border-b border-neutral-100 pb-3">
+                <h3 className="font-extrabold text-sm uppercase text-neutral-900">
+                  {editingCategory ? 'Update Category' : 'Create New Category'}
+                </h3>
+                <p className="text-[10px] text-neutral-500 mt-0.5">Define core taxonomy attributes and subcategory branches.</p>
+              </div>
+
+              <form onSubmit={handleSaveCategory} className="space-y-5">
+                {/* SLUG ID */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">DB Slug ID (Lowercase, no spaces)</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCategoryId}
+                    onChange={(e) => setNewCategoryId(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+                    placeholder="e.g. camera-accessories"
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-neutral-900 transition"
+                  />
+                </div>
+
+                {/* DISPLAY NAME */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Display Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="e.g. Camera Accessories"
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-neutral-900 transition"
+                  />
+                </div>
+
+                {/* NEST UNDER PARENT SELECTOR */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Nest Under Parent Category (Convert to Sub-level)</label>
+                  <select
+                    value={nestUnderParentId}
+                    onChange={(e) => setNestUnderParentId(e.target.value)}
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-neutral-900 transition"
+                  >
+                    <option value="">-- Remain Top-Level Category --</option>
+                    {categories
+                      .filter(c => c.id !== newCategoryId)
+                      .map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                  </select>
+                  <p className="text-[9px] text-neutral-400 font-medium leading-relaxed">Selecting a parent will automatically nest this category and delete its top-level entry on save.</p>
+                </div>
+
+                {/* DRAG AND DROP PHOTO WIDGET */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Category Thumbnail Image</label>
+                  
+                  <div 
+                    onDragOver={(e) => { e.preventDefault(); setIsDragOverCategoryPhoto(true); }}
+                    onDragLeave={() => setIsDragOverCategoryPhoto(false)}
+                    onDrop={handlePhotoDrop}
+                    className={`border-2 border-dashed rounded-2xl p-4 text-center cursor-pointer transition relative ${
+                      isDragOverCategoryPhoto ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'
+                    }`}
+                  >
+                    <input 
+                      type="file" 
+                      id="category-photo-input" 
+                      accept="image/*" 
+                      onChange={handlePhotoSelect}
+                      className="hidden" 
+                    />
+                    
+                    {newCategoryImage ? (
+                      <div className="space-y-3">
+                        <img 
+                          src={newCategoryImage} 
+                          alt="Category Preview" 
+                          className="w-full h-32 object-cover rounded-xl border border-neutral-100 shadow-sm" 
+                        />
+                        <div className="flex justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setNewCategoryImage('')}
+                            className="px-3 py-1 bg-red-50 text-red-600 text-[10px] font-bold rounded-lg border border-red-150 hover:bg-red-100 transition"
+                          >
+                            Remove Photo
+                          </button>
+                          <label 
+                            htmlFor="category-photo-input"
+                            className="px-3 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[10px] font-bold rounded-lg border border-neutral-200 cursor-pointer transition"
+                          >
+                            Replace Photo
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
+                      <label htmlFor="category-photo-input" className="block py-4 space-y-2 cursor-pointer">
+                        {isUploadingCategoryPhoto ? (
+                          <Loader2 className="animate-spin text-neutral-900 mx-auto" size={24} />
+                        ) : (
+                          <Camera className="text-neutral-400 mx-auto" size={24} />
+                        )}
+                        <div className="text-[10px] font-bold text-neutral-700">Drag & Drop Image Here or <span className="text-blue-600">Browse</span></div>
+                        <div className="text-[8px] text-neutral-400 font-mono">PNG, JPG formats (auto compressed to client sizing)</div>
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Text Alternative for photo URL */}
+                  <div className="space-y-1">
+                    <span className="text-[9px] text-neutral-400 font-bold uppercase block text-center">— OR PASTE IMAGE LINK —</span>
+                    <input
+                      type="url"
+                      value={newCategoryImage}
+                      onChange={(e) => setNewCategoryImage(e.target.value)}
+                      placeholder="https://images.unsplash.com/..."
+                      className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-[10px] font-bold outline-none focus:ring-2 focus:ring-neutral-900 transition"
+                    />
+                  </div>
+                </div>
+
+                {/* UNIVERSAL CHANNELS ASSIGNMENT CONTROLS */}
+                <div className="p-4 rounded-xl border border-neutral-150 bg-neutral-50/50 space-y-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Mapping Target Channels</span>
+                  
+                  <div className="space-y-2.5 font-sans text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer font-bold text-neutral-700">
+                      <input 
+                        type="checkbox" 
+                        checked={assignToPackerTools}
+                        onChange={(e) => setAssignToPackerTools(e.target.checked)}
+                        className="rounded border-neutral-300 text-neutral-950 focus:ring-neutral-950"
+                      />
+                      <span>Enable in Packer Tools Workspace</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer font-bold text-neutral-700">
+                      <input 
+                        type="checkbox" 
+                        checked={assignToMarketplace}
+                        onChange={(e) => setAssignToMarketplace(e.target.checked)}
+                        className="rounded border-neutral-300 text-neutral-950 focus:ring-neutral-950"
+                      />
+                      <span>Enable in Rental Marketplace Portal</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* NESTED SUBCATEGORIES MANAGEMENT BUILDER */}
+                <div className="space-y-3 border-t border-neutral-100 pt-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Sub-levels & Nested Taxonomies</span>
+                    <span className="text-[9px] font-bold text-neutral-400">({newSubCategories.length} sub)</span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={tempSubName}
+                      onChange={(e) => setTempSubName(e.target.value)}
+                      placeholder="Add subcategory..."
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddSubCategory(tempSubName);
+                          setTempSubName('');
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-xs font-bold outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleAddSubCategory(tempSubName);
+                        setTempSubName('');
+                      }}
+                      className="px-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-black uppercase"
+                    >
+                      Add
+                    </button>
+                  </div>
+
+                  {/* Subcategories list with nested Sub-sub-categories */}
+                  {newSubCategories.length > 0 && (
+                    <div className="space-y-3.5 max-h-56 overflow-y-auto border border-neutral-100 rounded-xl p-3 bg-neutral-50/20">
+                      {newSubCategories.map((sub, idx) => (
+                        <div key={sub.id} className="p-2.5 bg-white border border-neutral-150 rounded-lg space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-extrabold text-neutral-800 uppercase tracking-tight">{sub.name}</span>
+                            <div className="flex items-center gap-1.5 text-[9px] font-black uppercase">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveSubCategory(idx, 'up')}
+                                className="text-neutral-400 hover:text-neutral-800 disabled:opacity-30"
+                              >
+                                ▲ Up
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === newSubCategories.length - 1}
+                                onClick={() => handleMoveSubCategory(idx, 'down')}
+                                className="text-neutral-400 hover:text-neutral-800 disabled:opacity-30"
+                              >
+                                ▼ Down
+                              </button>
+                              <span className="text-neutral-200">|</span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSubCategory(sub.id)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Sub-sub list */}
+                          <div className="pl-3 border-l border-neutral-200 space-y-1.5">
+                            {sub.subSubCategories?.map((subSub: any, ssIdx: number) => (
+                              <div key={subSub.id} className="flex items-center justify-between text-[10px] font-bold text-neutral-500 bg-neutral-50 px-2 py-1 rounded">
+                                <span>↳ {subSub.name}</span>
+                                <div className="flex items-center gap-1.5 text-[8px] font-black text-neutral-400">
+                                  <button
+                                    type="button"
+                                    disabled={ssIdx === 0}
+                                    onClick={() => handleMoveSubSubCategory(sub.id, ssIdx, 'up')}
+                                    className="hover:text-neutral-800 disabled:opacity-30"
+                                  >
+                                    ▲
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={ssIdx === (sub.subSubCategories || []).length - 1}
+                                    onClick={() => handleMoveSubSubCategory(sub.id, ssIdx, 'down')}
+                                    className="hover:text-neutral-800 disabled:opacity-30"
+                                  >
+                                    ▼
+                                  </button>
+                                  <span className="text-neutral-200">|</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteSubSubCategory(sub.id, subSub.id)}
+                                    className="hover:text-red-500 font-black text-xs"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+
+                            {/* Add Sub-sub input */}
+                            <div className="flex gap-1">
+                              <input
+                                type="text"
+                                placeholder="Add deeper level..."
+                                value={tempSubSubNameMap[sub.id] || ''}
+                                onChange={(e) => setTempSubSubNameMap(prev => ({ ...prev, [sub.id]: e.target.value }))}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddSubSubCategory(sub.id, tempSubSubNameMap[sub.id] || '');
+                                    setTempSubSubNameMap(prev => ({ ...prev, [sub.id]: '' }));
+                                  }
+                                }}
+                                className="flex-1 px-2 py-1 bg-neutral-50 border border-neutral-200 rounded text-[10px] outline-none font-bold"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleAddSubSubCategory(sub.id, tempSubSubNameMap[sub.id] || '');
+                                  setTempSubSubNameMap(prev => ({ ...prev, [sub.id]: '' }));
+                                }}
+                                className="px-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 rounded text-[9px] font-extrabold uppercase"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* FORM CONTROLS */}
+                <div className="flex gap-2 border-t border-neutral-100 pt-4">
+                  {editingCategory && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCategory(null);
+                        setNewCategoryId('');
+                        setNewCategoryName('');
+                        setNewCategoryImage('');
+                        setNewSubCategories([]);
+                        setTempSubName('');
+                        setTempSubSubNameMap({});
+                        setAssignToPackerTools(true);
+                        setAssignToMarketplace(true);
+                      }}
+                      className="flex-1 py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-xl text-xs font-black uppercase tracking-wider transition"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-black uppercase tracking-wider transition"
+                  >
+                    {editingCategory ? 'Update Category' : 'Save Category'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* RIGHT SECTION: SORTABLE TREE & BATCH OPERATIONS */}
+            <div className="lg:col-span-8 space-y-6">
+              {/* BATCH PANEL OVERLAY */}
+              {selectedCategoryIds.length > 0 && (
+                <div className="bg-neutral-950 text-white p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg animate-in slide-in-from-top-4 duration-300">
+                  <div className="flex items-center gap-3">
+                    <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs font-black text-[#ff4f3a]">
+                      {selectedCategoryIds.length}
+                    </span>
+                    <span className="text-xs font-extrabold uppercase tracking-wide">Categories selected for batch execution</span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleBatchAssignChannels('both')}
+                      className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase rounded-lg transition"
+                    >
+                      Target Both
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBatchAssignChannels('packer')}
+                      className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase rounded-lg transition"
+                    >
+                      Packer Only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBatchAssignChannels('marketplace')}
+                      className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase rounded-lg transition"
+                    >
+                      Marketplace Only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBatchDeleteCategories}
+                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase rounded-lg transition"
+                    >
+                      Delete Batch
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* DIRECTORY DISPLAY TABLE */}
+              <div className="bg-white rounded-3xl border border-neutral-100 shadow-sm overflow-hidden">
+                <div className="bg-neutral-50/50 border-b border-neutral-100 p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="checkbox" 
+                      checked={categories.length > 0 && selectedCategoryIds.length === categories.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedCategoryIds(categories.map(c => c.id));
+                        } else {
+                          setSelectedCategoryIds([]);
+                        }
+                      }}
+                      className="rounded border-neutral-300 text-neutral-950 focus:ring-neutral-950"
+                    />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Select All ({categories.length} Categories)</span>
+                  </div>
+
+                  <span className="text-[9px] font-mono text-neutral-400 uppercase tracking-widest font-black">
+                    Drag handles to sequence directories
+                  </span>
+                </div>
+
+                {/* Advanced Search & Filtering Controls */}
+                <div className="bg-neutral-50/20 border-b border-neutral-100 p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Search bar */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
+                    <input
+                      type="text"
+                      placeholder="Search categories & sub-levels..."
+                      value={categorySearchQuery}
+                      onChange={(e) => setCategorySearchQuery(e.target.value)}
+                      className="w-full bg-white border border-neutral-250 pl-9 pr-4 py-2 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900"
+                    />
+                  </div>
+
+                  {/* Channel Filter */}
+                  <div className="flex bg-neutral-100 p-1 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setCategoryFilterChannel('all')}
+                      className={`flex-1 text-[10px] font-black uppercase tracking-wider py-1.5 rounded-lg transition-all ${
+                        categoryFilterChannel === 'all' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
+                      }`}
+                    >
+                      All Channels
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCategoryFilterChannel('packer')}
+                      className={`flex-1 text-[10px] font-black uppercase tracking-wider py-1.5 rounded-lg transition-all ${
+                        categoryFilterChannel === 'packer' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
+                      }`}
+                    >
+                      Packer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCategoryFilterChannel('marketplace')}
+                      className={`flex-1 text-[10px] font-black uppercase tracking-wider py-1.5 rounded-lg transition-all ${
+                        categoryFilterChannel === 'marketplace' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
+                      }`}
+                    >
+                      Market
+                    </button>
+                  </div>
+
+                  {/* Sort Selector */}
+                  <div>
+                    <select
+                      value={categorySortBy}
+                      onChange={(e: any) => setCategorySortBy(e.target.value)}
+                      className="w-full bg-white border border-neutral-200 px-3 py-2 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900"
+                    >
+                      <option value="custom">Custom drag sequence</option>
+                      <option value="name-asc">Alphabetical (A - Z)</option>
+                      <option value="name-desc">Alphabetical (Z - A)</option>
+                      <option value="sub-count">Subcategory density (Most first)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="divide-y divide-neutral-100">
+                  {filteredAndSortedCategories.length === 0 ? (
+                    <div className="text-center py-24 text-neutral-400 space-y-2">
+                      <LayoutGrid className="mx-auto text-neutral-200" size={48} />
+                      <p className="text-sm font-semibold uppercase tracking-wider">No matching taxonomies found</p>
+                      <p className="text-xs">Adjust search terms or construct custom branches on the left.</p>
+                    </div>
+                  ) : (
+                    filteredAndSortedCategories.map((cat, index) => {
+                      const isChecked = selectedCategoryIds.includes(cat.id);
+                      return (
+                        <div 
+                          key={cat.id}
+                          draggable={categorySortBy === 'custom'}
+                          onDragStart={(e) => handleDragStart(e, index)}
+                          onDragOver={(e) => handleDragOver(e, index)}
+                          onDrop={(e) => handleDropCategory(e, index)}
+                          onDragEnd={() => setDraggedIndex(null)}
+                          className={`p-4 transition flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                            draggedIndex === index ? 'opacity-30 bg-neutral-50' : 'hover:bg-neutral-50/30'
+                          } ${categorySortBy !== 'custom' ? 'cursor-default' : ''}`}
+                        >
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
+                            {/* Drag handle (only visible in custom sequence mode) */}
+                            {categorySortBy === 'custom' ? (
+                              <div className="cursor-grab active:cursor-grabbing p-1 text-neutral-300 hover:text-neutral-500 mt-1">
+                                <GripVertical size={16} />
+                              </div>
+                            ) : (
+                              <div className="p-1 text-neutral-200 mt-1">
+                                <span className="text-[10px] font-mono">#</span>
+                              </div>
+                            )}
+
+                            {/* Checkbox */}
+                            <input 
+                              type="checkbox" 
+                              checked={isChecked}
+                              onChange={() => {
+                                setSelectedCategoryIds(prev => {
+                                  if (prev.includes(cat.id)) return prev.filter(id => id !== cat.id);
+                                  return [...prev, cat.id];
+                                });
+                              }}
+                              className="rounded border-neutral-300 text-neutral-950 focus:ring-neutral-950 mt-1.5"
+                            />
+
+                            {/* Mini Thumbnail */}
+                            <img 
+                              src={cat.image || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400'} 
+                              alt="" 
+                              className="w-10 h-10 object-cover rounded-lg border border-neutral-200 shadow-sm shrink-0 mt-0.5"
+                            />
+
+                            {/* Content Tree */}
+                            <div className="space-y-1.5 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-extrabold text-xs text-neutral-900 uppercase tracking-tight">{cat.name}</span>
+                                <span className="px-1.5 py-0.5 bg-neutral-100 text-neutral-500 font-mono text-[8px] rounded border border-neutral-200 font-bold uppercase">{cat.id}</span>
+                                
+                                {/* Channel Badges */}
+                                {cat.assignToPackerTools !== false && (
+                                  <span className="px-1.5 py-0.5 bg-orange-50 text-orange-600 text-[8px] font-black uppercase rounded tracking-wider border border-orange-100">
+                                    Packer Tools
+                                  </span>
+                                )}
+                                {cat.assignToMarketplace !== false && (
+                                  <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[8px] font-black uppercase rounded tracking-wider border border-blue-100">
+                                    Marketplace
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Subcategories inline breakdown with promotion buttons */}
+                              {cat.subCategories && cat.subCategories.length > 0 ? (
+                                <div className="flex flex-wrap gap-1.5 pl-1.5 border-l-2 border-neutral-150">
+                                  {cat.subCategories.map((sub: any) => (
+                                    <div key={sub.id} className="group/subitem px-2 py-0.5 bg-neutral-50 border border-neutral-200 text-neutral-600 text-[9px] font-bold rounded flex items-center gap-1.5">
+                                      <span>{sub.name}</span>
+                                      {sub.subSubCategories && sub.subSubCategories.length > 0 && (
+                                        <span className="text-[7px] bg-neutral-200 text-neutral-500 px-1 rounded-full font-black">
+                                          + {sub.subSubCategories.length}
+                                        </span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePromoteToMainCategory(cat, sub);
+                                        }}
+                                        title="Promote to Top-level Main Category"
+                                        className="text-neutral-400 hover:text-red-600 font-black text-xs transition"
+                                      >
+                                        ↑
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-[9px] text-neutral-400 font-semibold italic">No subdirectories mapped.</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* ROW ACTIONS */}
+                          <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Populate Form for Editing
+                                setEditingCategory(cat);
+                                setNewCategoryId(cat.id);
+                                setNewCategoryName(cat.name);
+                                setNewCategoryImage(cat.image || '');
+                                setNewSubCategories(cat.subCategories || []);
+                                setAssignToPackerTools(cat.assignToPackerTools !== false);
+                                setAssignToMarketplace(cat.assignToMarketplace !== false);
+                              }}
+                              className="px-3 py-1.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 rounded-lg text-[10px] font-black uppercase border border-neutral-200 transition"
+                            >
+                              Edit
+                            </button>
+                            
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCategory(cat.id)}
+                              className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-[10px] font-black uppercase border border-red-150 transition"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'landing' && settings && (
         <div className="space-y-12">

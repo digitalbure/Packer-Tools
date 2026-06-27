@@ -1434,4 +1434,178 @@ router.post("/api/services/analyze-leads", authenticateUser, async (req, res) =>
   }
 });
 
+// Gig Assistant Endpoint
+router.post("/api/ai/gig-assistant", authenticateUser, async (req: any, res) => {
+  const {
+    profile,
+    scope,
+    duration,
+    expectations,
+    deliverables,
+    includeTravel,
+    travelInfo,
+    includeCostBreakdown,
+    budget,
+    currency,
+    gearLibrary = []
+  } = req.body;
+
+  try {
+    const model = "gemini-3.5-flash";
+
+    const prompt = `
+      You are an elite, world-class Gear Logistics Expert, Travel Planner, and Financial Budget Estimator.
+      You are tasked with analyzing a planned event or job (referred to as a "Gig") and providing an exhaustive plan.
+      
+      GIG SPECIFICATIONS:
+      - Gig Profile/Scale: ${profile} (Can range from family picnic/outing to pro-level cinematic documentary, multi-day/multi-country broadcast, or custom setups)
+      - Scope of Work: ${scope}
+      - Duration: ${duration} (days/hours)
+      - Expectations: ${expectations}
+      - Deliverables: ${deliverables}
+      - Include Travel & Itinerary: ${includeTravel ? 'Yes' : 'No'}
+      - Travel Info: ${travelInfo || 'N/A'}
+      - Include Cost Breakdown / Budgeting: ${includeCostBreakdown ? 'Yes' : 'No'}
+      - Target Budget & Currency: ${budget || 'Flexible'} ${currency || 'USD'}
+      
+      USER'S ACTUAL GEAR LIBRARY (Compare recommended items with this library to find matches):
+      ${JSON.stringify(gearLibrary.map((g: any) => ({ id: g.id, name: g.name, tags: g.tags || [] })))}
+
+      INSTRUCTIONS:
+      1. Scope Assessment: Write a thorough professional scope assessment. Analyze logistical challenges (power requirements, climate, local permitting, redundancy, safety, backup storage, etc.). Structure this nicely in Markdown format.
+      2. Gear Checklist: Recommend essential and accessory gear categorized cleanly. For each recommended item:
+         - Provide a detailed "reasoning" for why it is needed.
+         - Search the user's ACTUAL GEAR LIBRARY above for a matching item. If a good fuzzy/semantic match is found, assign "matchedGearId" to the actual item's ID. Otherwise, leave it as null.
+         - Specify if it is "isEssential" (mission-critical, high-priority).
+      3. Itinerary: Generate a realistic day-by-day travel and setup itinerary. Even if travel is not toggled, generate a phase-based project timeline (e.g., Pre-shoot, Day 1, wrap).
+      4. Cost Breakdown: Generate realistic real-world cost estimates in the requested currency (${currency || 'USD'}).
+         - Provide line items (e.g. local transport, equipment rental, battery logistics, crew labor rate, food/per diem, insurance, custom permits).
+         - Include a realistic "lowEstimate" and "highEstimate".
+         - If cost breakdown is NOT requested, you can return a minimal baseline budget template or approximate incidentals.
+      5. Planning Tips: Provide 4-6 real-life, researched, high-impact tips (e.g. climate preparedness, legal, power converters, battery flight limits like TSA 100Wh rules, hydration, memory cards). Map each tip to a suitable Lucide icon.
+    `;
+
+    const response = await ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            scopeAssessment: {
+              type: Type.STRING,
+              description: "Markdown string outlining the scope assessment, logistics, challenges, and requirements."
+            },
+            gearChecklist: {
+              type: Type.ARRAY,
+              description: "Categorized recommended equipment mapped against available gear library.",
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  category: { type: Type.STRING },
+                  items: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        itemName: { type: Type.STRING },
+                        reasoning: { type: Type.STRING },
+                        matchedGearId: { type: Type.STRING, nullable: true },
+                        isEssential: { type: Type.BOOLEAN }
+                      },
+                      required: ["itemName", "reasoning", "isEssential"]
+                    }
+                  }
+                },
+                required: ["category", "items"]
+              }
+            },
+            itinerary: {
+              type: Type.ARRAY,
+              description: "Day-by-day or phase-based project timeline.",
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  phase: { type: Type.STRING },
+                  activity: { type: Type.STRING },
+                  notes: { type: Type.STRING }
+                },
+                required: ["phase", "activity", "notes"]
+              }
+            },
+            costBreakdown: {
+              type: Type.ARRAY,
+              description: "Real-world costing items in target currency.",
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  category: { type: Type.STRING },
+                  item: { type: Type.STRING },
+                  lowEstimate: { type: Type.NUMBER },
+                  highEstimate: { type: Type.NUMBER },
+                  notes: { type: Type.STRING }
+                },
+                required: ["category", "item", "lowEstimate", "highEstimate", "notes"]
+              }
+            },
+            planningTips: {
+              type: Type.ARRAY,
+              description: "Expert tips with matching lucide-react icon.",
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  advice: { type: Type.STRING },
+                  icon: { type: Type.STRING }
+                },
+                required: ["title", "advice", "icon"]
+              }
+            }
+          },
+          required: ["scopeAssessment", "gearChecklist", "itinerary", "costBreakdown", "planningTips"]
+        }
+      }
+    });
+
+    const parsed = JSON.parse(response.text.trim());
+    return res.json({
+      status: "success",
+      data: parsed
+    });
+  } catch (error: any) {
+    console.error("Gig Assistant API error:", error);
+    // Return high-quality, smart fallback mock data in case of failure so the app never crashes
+    return res.status(200).json({
+      status: "success",
+      isFallback: true,
+      data: {
+        scopeAssessment: `### Fallback Scope Assessment\n\n*The AI Assistant was unable to process the live request. Below is a structured checklist for your **${profile}** gig.*\n\n- **Objective:** Establish clear milestones and roles.\n- **Duration:** ${duration} Day(s)\n- **Primary Challenge:** Power and weather resilience.\n- **Deliverables:** ${deliverables || "Standard package"}\n- **Scope Notes:** ${scope || "General Logistics Checklist"}`,
+        gearChecklist: [
+          {
+            category: "Essential Kit",
+            items: [
+              { itemName: "Primary Capture / Mobile Unit", reasoning: "Required for basic logging & operations", isEssential: true, matchedGearId: null },
+              { itemName: "Multi-port Battery Bank (100Wh)", reasoning: "Ensure devices stay charged throughout the duration", isEssential: true, matchedGearId: null }
+            ]
+          }
+        ],
+        itinerary: [
+          { phase: "Phase 1: Pre-production", activity: "Confirm deliverables and pack safety kits.", notes: "Check battery levels." },
+          { phase: "Phase 2: Execution", activity: "Deploy gear and capture required media.", notes: "Follow safety guidelines." },
+          { phase: "Phase 3: Wrap & Archival", activity: "Check-in gear, double backup materials.", notes: "Process digital signatures if needed." }
+        ],
+        costBreakdown: [
+          { category: "Logistics", item: "Transport & Fuel", lowEstimate: 50, highEstimate: 150, notes: "Estimated standard mileage allowance" },
+          { category: "Consumables", item: "Rations / Catering & Hydration", lowEstimate: 30, highEstimate: 100, notes: "Per-diem for team members" }
+        ],
+        planningTips: [
+          { title: "Power Management", advice: "Fully charge all remote battery packs 24 hours prior to departure.", icon: "Battery" },
+          { title: "Weather Preparedness", advice: "Check meteorology updates and pack ziplocs/drybags for equipment protection.", icon: "CloudRain" }
+        ]
+      }
+    });
+  }
+});
+
 export default router;

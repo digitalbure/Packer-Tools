@@ -2631,7 +2631,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                     type="button"
                     onClick={() => setDirectoryType('orgs')}
                     className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
-                      directoryType === 'orgs' ? 'bg-neutral-900 text-white shadow-md' : 'text-neutral-500 hover:text-neutral-900'
+                      directoryType === 'orgs' ? 'bg-accent text-white shadow-md shadow-accent/20' : 'text-neutral-500 hover:text-neutral-900'
                     }`}
                   >
                     <Building2 size={14} />
@@ -2641,7 +2641,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                     type="button"
                     onClick={() => setDirectoryType('users')}
                     className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
-                      directoryType === 'users' ? 'bg-neutral-900 text-white shadow-md' : 'text-neutral-500 hover:text-neutral-900'
+                      directoryType === 'users' ? 'bg-accent text-white shadow-md shadow-accent/20' : 'text-neutral-500 hover:text-neutral-900'
                     }`}
                   >
                     <Users size={14} />

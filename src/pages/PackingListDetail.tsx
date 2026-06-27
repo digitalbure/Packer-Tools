@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { doc, getDoc, collection, query, onSnapshot, deleteDoc, updateDoc, addDoc, getDocs, writeBatch, where, orderBy, arrayUnion } from 'firebase/firestore';
 import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download, AlertTriangle } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -18,6 +18,7 @@ import QRPrintModal from '../components/QRPrintModal';
 import ManualCheckoutModal from '../components/ManualCheckoutModal';
 import { checkLimit } from '../lib/limitUtils';
 import ShareModal from '../components/ShareModal';
+import AddPhotoWidget from '../components/AddPhotoWidget';
 import { logActivity } from '../services/activityLog';
 import { isSuperAdmin } from '../lib/authHelpers';
 
@@ -198,6 +199,8 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [editSourceUrl, setEditSourceUrl] = useState('');
   const [isPullingDetails, setIsPullingDetails] = useState(false);
   const [photoUrlInput, setPhotoUrlInput] = useState('');
+  const [isQuickAddPhotoPickerOpen, setIsQuickAddPhotoPickerOpen] = useState(false);
+  const [isEditItemPhotoPickerOpen, setIsEditItemPhotoPickerOpen] = useState(false);
   const [pullError, setPullError] = useState('');
 
   // Lens taxonomy state fields
@@ -320,6 +323,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [showDuplicateConfirmation, setShowDuplicateConfirmation] = useState(false);
+  const isAddingRef = useRef(false);
   const [bgGearItems, setBgGearItems] = useState<GearItem[]>([]);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editListName, setEditListName] = useState('');
@@ -373,6 +377,8 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     return localStorage.getItem('packer_sidebar_collapsed') === 'true';
   });
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'manifest';
 
   useEffect(() => {
     if (editingItem) {
@@ -958,9 +964,9 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     }
   };
 
-  // Load background gear items for autocomplete/photos when Quick Add modal is open
+  // Load background gear items for autocomplete/photos in the background as soon as user is loaded
   useEffect(() => {
-    if (showQuickAddModal && user) {
+    if (user) {
       const loadBgGear = async () => {
         try {
           const q = query(collection(db, 'users', user.uid, 'gearLibrary'));
@@ -973,7 +979,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       };
       loadBgGear();
     }
-  }, [showQuickAddModal, user]);
+  }, [user]);
 
   // Background photo/metadata matching logic
   useEffect(() => {
@@ -1007,9 +1013,10 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   }, [quickAddName, bgGearItems]);
 
   const proceedWithQuickAdd = async () => {
-    if (isAddingItem) return;
+    if (isAddingItem || isAddingRef.current) return;
     try {
       setIsAddingItem(true);
+      isAddingRef.current = true;
       await addDoc(collection(db, 'packingLists', id!, 'items'), {
         name: quickAddName.trim(),
         listId: id!,
@@ -1033,6 +1040,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       toast.error("Failed to add item");
     } finally {
       setIsAddingItem(false);
+      isAddingRef.current = false;
     }
   };
 
@@ -2483,298 +2491,9 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
   return (
     <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pb-24">
-      <div className={`grid grid-cols-1 ${isSidebarCollapsed ? 'lg:grid-cols-[72px_1fr]' : 'lg:grid-cols-[320px_1fr]'} gap-6 items-start pt-4 transition-all duration-300`}>
-        {/* Left Side Panel: Project Context Navigator */}
-        <aside className={`hidden lg:flex space-y-6 sticky top-6 bg-neutral-50/50 rounded-[2.5rem] border border-neutral-100/80 shadow-sm transition-all duration-300 flex-col ${isSidebarCollapsed ? 'p-2 lg:p-3 items-center' : 'p-4 md:p-6'}`}>
-          {/* Sidebar Toggle Header */}
-          <div className={`flex items-center w-full ${isSidebarCollapsed ? 'justify-center' : 'justify-between pb-2 border-b border-neutral-200/50'}`}>
-            {!isSidebarCollapsed && (
-              <span className="text-[9px] uppercase tracking-widest text-neutral-400 font-extrabold font-mono">Workspace Nav</span>
-            )}
-            <button
-              onClick={() => {
-                const next = !isSidebarCollapsed;
-                setIsSidebarCollapsed(next);
-                localStorage.setItem('packer_sidebar_collapsed', String(next));
-              }}
-              className="p-1.5 hover:bg-neutral-200/50 text-neutral-500 hover:text-neutral-900 rounded-lg transition-all flex items-center justify-center cursor-pointer"
-              title={isSidebarCollapsed ? "Expand Workspace Panel" : "Collapse Workspace Panel"}
-            >
-              {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-            </button>
-          </div>
-
-          {isSidebarCollapsed ? (
-            /* Collapsed State: Vertical Icon Panel with beautiful tooltips */
-            <div className="flex flex-col items-center gap-6 py-2 w-full">
-              {/* Project Icon with Tooltip */}
-              <div className="relative group flex justify-center">
-                <button
-                  onClick={() => {
-                    setIsSidebarCollapsed(false);
-                    localStorage.setItem('packer_sidebar_collapsed', 'false');
-                  }}
-                  className="p-3 bg-neutral-900 text-white rounded-2xl shadow-md hover:scale-105 transition flex items-center justify-center"
-                >
-                  <Briefcase size={16} />
-                </button>
-                {/* Tooltip */}
-                <span className="absolute left-[54px] top-1/2 -translate-y-1/2 bg-neutral-900 text-white text-[9px] font-extrabold uppercase tracking-widest px-3 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition duration-150 whitespace-nowrap pointer-events-none z-50 shadow-xl border border-neutral-850">
-                  {linkedProject ? linkedProject.name : 'Workspace Project'} (Click to expand)
-                </span>
-              </div>
-
-              {/* Linked Lists Picker */}
-              {linkedProject && projectLists.length > 0 && (
-                <div className="relative group w-full flex flex-col items-center gap-2">
-                  <div className="p-1.5 text-neutral-400 bg-neutral-100 rounded-lg">
-                    <Layers size={12} />
-                  </div>
-                  <div className="flex flex-col gap-1 w-full items-center max-h-[160px] overflow-y-auto no-scrollbar">
-                    {projectLists.map((pList) => {
-                      const isActive = pList.id === id;
-                      return (
-                        <Link
-                          key={pList.id}
-                          to={`/list/${pList.id}`}
-                          className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${
-                            isActive
-                              ? 'bg-primary text-white font-black shadow-md shadow-primary/20 scale-105'
-                              : 'bg-white hover:bg-neutral-100 text-neutral-500 border border-neutral-150'
-                          }`}
-                          title={`Switch list: ${pList.name.toUpperCase()}`}
-                        >
-                          <span className="text-[9px] font-black">{pList.name.trim().substring(0, 2).toUpperCase()}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                  {/* Tooltip */}
-                  <span className="absolute left-[54px] top-0 bg-neutral-900 text-white text-[9px] font-extrabold uppercase tracking-widest px-3 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition duration-150 whitespace-nowrap pointer-events-none z-50 shadow-xl border border-neutral-850">
-                    Switch Checklist ({projectLists.length})
-                  </span>
-                </div>
-              )}
-
-              {/* Category Quick Anchors */}
-              <div className="relative group w-full flex flex-col items-center gap-1.5 pt-4 border-t border-neutral-200/60">
-                <div className="p-1.5 text-neutral-400 bg-neutral-150 rounded-lg mb-1">
-                  <LayoutList size={12} />
-                </div>
-                <div className="flex flex-col gap-1 w-full items-center max-h-[220px] overflow-y-auto no-scrollbar">
-                  {Object.entries(groupedItems).map(([groupName, groupItems]) => {
-                    const isCollapsed = collapsedGroups.has(groupName);
-                    const firstLetter = groupName.trim().charAt(0).toUpperCase();
-                    return (
-                      <button
-                        key={groupName}
-                        onClick={() => {
-                          if (isCollapsed) {
-                            toggleGroup(groupName);
-                          }
-                          setTimeout(() => {
-                            const elem = document.getElementById(`group-${encodeURIComponent(groupName)}`);
-                            if (elem) {
-                              elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            }
-                          }, 100);
-                        }}
-                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-neutral-150 hover:bg-neutral-200 text-neutral-600 border border-neutral-200 text-[10px] font-black transition relative group/item"
-                      >
-                        <span>{firstLetter}</span>
-                        {/* Inner Tooltip */}
-                        <span className="absolute left-[54px] top-1/2 -translate-y-1/2 bg-neutral-900 text-white text-[9px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-lg opacity-0 group-hover/item:opacity-100 transition duration-150 whitespace-nowrap pointer-events-none z-50 shadow-xl">
-                          {groupName} ({groupItems.length})
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Telemetry Ring */}
-              <div className="relative group flex flex-col items-center gap-1 pt-4 border-t border-neutral-200/60 w-full">
-                <div className="w-10 h-10 flex items-center justify-center rounded-full bg-neutral-100 border-2 border-primary/20 relative overflow-hidden">
-                  <span className="text-[9px] font-black text-primary font-mono z-10">{progress}%</span>
-                  <div className="absolute bottom-0 left-0 right-0 bg-primary/10 transition-all duration-300" style={{ height: `${progress}%` }} />
-                </div>
-                {/* Tooltip */}
-                <span className="absolute left-[54px] bottom-0 bg-neutral-900 text-white text-[9px] font-bold px-3 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition duration-150 whitespace-nowrap pointer-events-none z-50 shadow-xl border border-neutral-850 space-y-1">
-                  <div className="font-extrabold uppercase text-[8px] tracking-wider text-primary">Progress stats</div>
-                  <div>Packed: {packedCount} of {items.length}</div>
-                  <div>Weight: {totalWeight.toFixed(2)} kg</div>
-                </span>
-              </div>
-            </div>
-          ) : (
-            /* Expanded State: Full panel content */
-            <>
-              {/* Project Box */}
-              <div className="bg-neutral-900 text-white rounded-3xl p-5 shadow-xl space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-primary/10 rounded-xl text-primary flex-shrink-0">
-                    <Briefcase size={18} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-black text-[9px] uppercase tracking-widest text-neutral-400">Project Workspace</h3>
-                    <h4 className="font-extrabold text-sm truncate text-white">{linkedProject ? linkedProject.name : 'No Project'}</h4>
-                  </div>
-                </div>
-
-                {linkedProject ? (
-                  <p className="text-[11px] text-neutral-400 leading-relaxed font-medium font-sans">
-                    {linkedProject.description || "Active engineering workspace setup checklist."}
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-neutral-400 leading-relaxed font-medium font-sans">
-                    Link this setup list to a unified project to enable seamless switching between inventory lists.
-                  </p>
-                )}
-
-                {linkedProject ? (
-                  <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-neutral-500">
-                      <span>Linked Lists ({projectLists.length})</span>
-                    </div>
-                    <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
-                      {projectLists.map((pList) => {
-                        const isActive = pList.id === id;
-                        return (
-                          <Link
-                            key={pList.id}
-                            to={`/list/${pList.id}`}
-                            className={`block text-xs p-3 rounded-xl transition ${
-                              isActive
-                                ? 'bg-primary text-white font-extrabold shadow-md shadow-primary/25'
-                                : 'bg-white/5 hover:bg-white/10 text-neutral-300 font-bold'
-                            }`}
-                          >
-                            <div className="flex justify-between items-center gap-2">
-                              <span className="truncate uppercase tracking-tight">{pList.name}</span>
-                              <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded shrink-0 ${
-                                isActive ? 'bg-white/20' : pList.stage === 'actual' ? 'bg-green-500/20 text-green-400' : 'bg-neutral-800 text-neutral-400'
-                              }`}>
-                                {pList.stage || 'proposed'}
-                              </span>
-                            </div>
-                          </Link>
-                        );
-                      })}
-                    </div>
-
-                    {/* Create list in project shortcut */}
-                    <div className="pt-2 border-t border-white/5 space-y-2">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="NEW CHECKLIST NAME..."
-                          value={newProjectListName}
-                          onChange={(e) => setNewProjectListName(e.target.value)}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-[9px] font-black uppercase tracking-widest text-white placeholder:text-neutral-500 outline-none focus:ring-1 focus:ring-primary focus:bg-white/10 transition"
-                          onKeyDown={(e) => e.key === 'Enter' && handleCreateListInProject()}
-                        />
-                      </div>
-                      <button
-                        onClick={handleCreateListInProject}
-                        disabled={isCreatingNewListInProject || !newProjectListName.trim()}
-                        className="w-full py-2.5 bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-30 rounded-xl text-[9px] font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5"
-                      >
-                        {isCreatingNewListInProject ? <Loader2 className="animate-spin" size={12} /> : <Plus size={12} />}
-                        <span>Create Checklist</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowProjectModal(true)}
-                    className="w-full py-3 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-[10px] font-black tracking-widest uppercase transition flex items-center justify-center gap-2"
-                  >
-                    <Link2 size={12} />
-                    <span>Link to Project</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Quick Sections / Categories Navigator */}
-              <div className="bg-white rounded-3xl p-5 shadow-sm border border-neutral-100 space-y-3.5">
-                <div className="flex items-center gap-3 pb-2 border-b border-neutral-50">
-                  <div className="p-2.5 bg-neutral-50 rounded-xl text-neutral-600 flex-shrink-0">
-                    <LayoutList size={18} />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-black text-[9px] uppercase tracking-widest text-neutral-400 font-sans">Active Categories</h3>
-                    <h4 className="font-extrabold text-sm text-neutral-800 truncate">Quick Anchors</h4>
-                  </div>
-                </div>
-
-                <div className="space-y-1 max-h-[220px] overflow-y-auto no-scrollbar pr-1">
-                  <button
-                    onClick={() => {
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="w-full text-left p-2 rounded-lg text-xs font-bold text-neutral-500 hover:bg-neutral-50 transition flex items-center justify-between"
-                  >
-                    <span className="uppercase tracking-tight text-[10px]">Top of Page</span>
-                    <span className="text-[9px] bg-neutral-100 font-mono text-neutral-400 px-1.5 py-0.5 rounded">↑</span>
-                  </button>
-
-                  {Object.entries(groupedItems).map(([groupName, groupItems]) => {
-                    const isCollapsed = collapsedGroups.has(groupName);
-                    return (
-                      <button
-                        key={groupName}
-                        onClick={() => {
-                          if (isCollapsed) {
-                            toggleGroup(groupName);
-                          }
-                          setTimeout(() => {
-                            const elem = document.getElementById(`group-${encodeURIComponent(groupName)}`);
-                            if (elem) {
-                              elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            }
-                          }, 100);
-                        }}
-                        className="w-full text-left p-2.5 rounded-xl text-xs font-bold text-neutral-600 hover:bg-neutral-50 transition flex items-center justify-between"
-                      >
-                        <span className="truncate uppercase tracking-tight text-[10px] text-neutral-700">{groupName}</span>
-                        <span className="text-[9px] bg-neutral-100 hover:bg-neutral-200 font-black text-neutral-500 px-2 py-0.5 rounded-full shrink-0">
-                          {groupItems.length}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Stats Telemetry */}
-              <div className="bg-neutral-50 rounded-3xl p-5 border border-neutral-100/80 space-y-4">
-                <h4 className="font-black text-[9px] uppercase tracking-widest text-neutral-400">BOM Telemetry</h4>
-                <div className="space-y-2 text-[11px] font-bold">
-                  <div className="flex justify-between items-center">
-                    <span className="text-neutral-500">Completion Status:</span>
-                    <span className="text-neutral-800">{packedCount} of {items.length} items</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-neutral-500">Gross Weight:</span>
-                    <span className="text-neutral-850 font-mono">{totalWeight.toFixed(2)} / {(totalWeight * 2.20462).toFixed(1)} lbs</span>
-                  </div>
-                  {list.price ? (
-                    <div className="flex justify-between items-center">
-                      <span className="text-neutral-500">Total Valuation:</span>
-                      <span className="text-neutral-800 font-mono">{list.currency || '$'}{list.price.toLocaleString()}</span>
-                    </div>
-                  ) : null}
-                </div>
-                <div className="h-2 bg-neutral-200/80 rounded-full overflow-hidden">
-                  <div className="h-full bg-primary" style={{ width: `${progress}%` }}></div>
-                </div>
-              </div>
-            </>
-          )}
-        </aside>
-
-        {/* Right Side: Main Workspace Column */}
-        <div className="space-y-8 lg:pl-4 min-w-0">
+      <div className="pt-4 transition-all duration-300">
+        {/* Main Workspace Column */}
+        <div className="space-y-8 min-w-0">
           <header className="space-y-6">
             <Link to="/dashboard" className="inline-flex items-center gap-2 text-neutral-500 hover:text-primary transition font-medium">
               <ChevronLeft size={20} />
@@ -3103,406 +2822,8 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
               </div>
             )}
 
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full md:w-auto">
-              {list && (
-                <button
-                  onClick={() => {
-                    if (!canAuditList) {
-                      toast.error("Permission denied: You do not have 'Auditor' permissions to perform list check-out/return operations.");
-                      return;
-                    }
-                    setShowManualCheckout(true);
-                  }}
-                  className={`col-span-2 sm:col-span-1 md:flex-none flex items-center justify-center gap-2 px-3 py-3 rounded-xl font-bold transition shadow-sm text-xs ${
-                    list.status === 'Active'
-                      ? 'bg-rose-100 border border-rose-200 text-rose-700 hover:bg-rose-200'
-                      : 'bg-primary text-white hover:brightness-105'
-                  }`}
-                >
-                  <ArrowRightLeft size={16} />
-                  <span>{list.status === 'Active' ? 'Check In / Return' : 'Check Out List'}</span>
-                </button>
-              )}
 
-              <button
-                onClick={() => {
-                  if (!isListValid) {
-                    toast.error("Sharing is disabled until all items have photos.");
-                    return;
-                  }
-                  setShowShareModal(true);
-                }}
-                className={`col-span-2 sm:col-span-1 md:flex-none flex items-center justify-center gap-2 px-3 py-3 rounded-xl font-bold transition shadow-sm text-xs ${
-                  isListValid 
-                    ? 'bg-white border border-neutral-200 hover:bg-neutral-50' 
-                    : 'bg-neutral-100 border border-neutral-200 text-neutral-300 cursor-not-allowed'
-                }`}
-              >
-                <Share2 size={16} />
-                <span>Share</span>
-              </button>
-
-              {isOwner && (
-                <>
-                  <button
-                    onClick={() => {
-                      fetchLibrary();
-                      setShowLibraryModal(true);
-                    }}
-                    className="flex-1 md:flex-none flex flex-col sm:flex-row items-center justify-center gap-1 md:gap-2 px-2 py-3 sm:px-4 sm:py-4 md:py-3 bg-white border border-neutral-200 rounded-2xl md:rounded-xl font-black md:font-bold hover:bg-neutral-50 transition shadow-sm text-[9px] sm:text-[10px] md:text-sm uppercase md:normal-case tracking-normal sm:tracking-widest md:tracking-normal"
-                  >
-                    <Library size={18} className="text-primary shrink-0" />
-                    <span className="truncate">Add from Library</span>
-                  </button>
-                  <button
-                    onClick={() => setShowQuickAddModal(true)}
-                    className="flex-1 md:flex-none flex flex-col sm:flex-row items-center justify-center gap-1 md:gap-2 px-2 py-3 sm:px-4 sm:py-4 md:py-3 bg-white border border-neutral-200 rounded-2xl md:rounded-xl font-black md:font-bold hover:bg-neutral-50 transition shadow-sm text-[9px] sm:text-[10px] md:text-sm uppercase md:normal-case tracking-normal sm:tracking-widest md:tracking-normal"
-                  >
-                    <Plus size={18} className="text-primary shrink-0" />
-                    <span className="truncate">Quick Add</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setUrlInput('');
-                      setCrawledResult(null);
-                      setShowAddByUrlModal(true);
-                    }}
-                    className="flex-1 md:flex-none flex flex-col sm:flex-row items-center justify-center gap-1 md:gap-2 px-2 py-3 sm:px-4 sm:py-4 md:py-3 bg-white border border-neutral-200 rounded-2xl md:rounded-xl font-black md:font-bold hover:bg-neutral-50 transition shadow-sm text-[9px] sm:text-[10px] md:text-sm uppercase md:normal-case tracking-normal sm:tracking-widest md:tracking-normal"
-                  >
-                    <Link2 size={18} className="text-amber-500 shrink-0 animate-pulse" />
-                    <span className="truncate">Add by URL</span>
-                  </button>
-                  {isPro && (
-                    <button
-                      onClick={() => setShowBulkScanModal(true)}
-                      className="col-span-1 md:flex-none flex items-center justify-center gap-2 px-3 py-3 bg-neutral-900 text-white rounded-xl font-bold hover:bg-neutral-800 transition shadow-lg text-[9px] sm:text-[10px] md:text-xs tracking-normal sm:tracking-widest uppercase md:normal-case"
-                    >
-                      <Layers size={14} className="shrink-0" />
-                      <span>Bulk</span>
-                    </button>
-                  )}
-                  <Link
-                    to={`/scan/${id}`}
-                    className="col-span-1 md:flex-none flex items-center justify-center gap-2 px-3 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition shadow-lg text-[9px] sm:text-[10px] md:text-xs tracking-normal sm:tracking-widest uppercase md:normal-case text-center"
-                  >
-                    <Camera size={14} className="shrink-0" />
-                    <span>Scan</span>
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-
-        </div>
-
-        {!isListValid && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-4 text-amber-800"
-          >
-            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <Info size={20} />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold">List Disabled: Missing Photos</p>
-              <p className="text-xs opacity-80">{itemsMissingPhotos.length} items are missing photos. You must add at least one photo to every item before you can pack or share this list.</p>
-            </div>
-            <button 
-              onClick={() => {
-                const firstMissing = itemsMissingPhotos[0];
-                if (firstMissing) {
-                  setEditingItem(firstMissing);
-                  setEditName(firstMissing.name);
-                  setEditLabel(firstMissing.aiLabel || '');
-                  setEditDescription(firstMissing.description || '');
-                  setEditNotes(firstMissing.notes || '');
-                  setEditPriority(firstMissing.priority || 'Medium');
-                  setEditTags(firstMissing.tags?.join(', ') || '');
-                  setEditPhotoUrls(firstMissing.photoUrls || []);
-                }
-              }}
-              className="px-4 py-2 bg-amber-200 hover:bg-amber-300 rounded-lg text-xs font-bold transition"
-            >
-              Fix Now
-            </button>
-          </motion.div>
-        )}
-
-        <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-primary transition-colors" size={20} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search items by name, description, notes or tags..."
-            className="w-full pl-12 pr-4 py-4 bg-white border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary outline-none transition shadow-sm"
-          />
-        </div>
-
-        {/* Hire / Rental Workflow Cockpit Section */}
-        {list?.transactionType === 'Rental' && (
-          <div className="p-8 bg-amber-500/5 rounded-3xl border border-amber-500/10 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Live Client Rental Console</span>
-                </div>
-                <h4 className="text-base font-black uppercase tracking-tight text-neutral-800">
-                  {(!list.rentalStatus || list.rentalStatus === 'awaiting_payment') && "🕒 Customer Booking & Verification Stage"}
-                  {list.rentalStatus === 'awaiting_release' && "🎉 Pre-payment Received & Agreement Signed!"}
-                  {list.rentalStatus === 'released' && "📦 Equipment Out on Hire"}
-                  {list.rentalStatus === 'returned' && "✅ Rental Agreement Finished & Inspected"}
-                </h4>
-                <p className="text-xs text-neutral-500 font-bold max-w-2xl leading-normal">
-                  {(!list.rentalStatus || list.rentalStatus === 'awaiting_payment') && `Our checkout paywall is active. Send the public list URL to your custom client so they review checking item by item, make pre-payment, and capture digital authorization.`}
-                  {list.rentalStatus === 'awaiting_release' && `Customer ${list.bookingClientName || ''} signed the terms off. Confirm the verification below and release payload.`}
-                  {list.rentalStatus === 'released' && `Equipment is actively in custody of ${list.bookingClientName || ''}. Inspect gear upon pick-up and click to return equipment.`}
-                  {list.rentalStatus === 'returned' && "All items in the packing list have been checked back in, examined, and logged successfully."}
-                </p>
-              </div>
-
-              {/* Shared Bio Link Ref */}
-              <div className="bg-white p-3.5 rounded-xl border border-neutral-150 shadow-sm shrink-0 flex items-center gap-2.5">
-                <div className="space-y-0.5">
-                  <span className="text-[8px] font-bold uppercase text-neutral-400 block tracking-widest leading-none">External Link for Client</span>
-                  <span className="text-[10px] font-mono font-black text-neutral-600 truncate max-w-[150px] block">{window.location.origin}/#/p/{id}</span>
-                </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/#/p/${id}`);
-                    toast.success("Client review URL copied to clipboard!");
-                  }}
-                  className="py-1.5 px-3 bg-neutral-900 text-white rounded-lg text-[10px] uppercase font-black tracking-wider transition hover:bg-neutral-800"
-                >
-                  Copy Url
-                </button>
-              </div>
-            </div>
-
-            {/* Booking Financial Slip */}
-            {list.rentalStatus && list.rentalStatus !== 'awaiting_payment' && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-neutral-150">
-                <div className="space-y-1 bg-white p-4 rounded-xl border border-neutral-100">
-                  <span className="text-[9px] uppercase tracking-widest text-neutral-400 block font-bold">Verified Customer Credentials</span>
-                  <p className="text-xs font-black text-neutral-800">{list.bookingClientName}</p>
-                  <p className="text-[10px] text-neutral-500 font-mono font-bold">{list.bookingClientEmail}</p>
-                </div>
-                
-                <div className="space-y-1 bg-white p-4 rounded-xl border border-neutral-100">
-                  <span className="text-[9px] uppercase tracking-widest text-neutral-400 block font-bold">Income & Commission Breakdowns</span>
-                  <div className="text-xs text-neutral-600 space-y-0.5">
-                    <div className="flex justify-between font-bold">
-                      <span>Total Rent:</span>
-                      <span>{list.currency || '$'}{list.price}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-red-500">
-                      <span>Service Surcharge:</span>
-                      <span>-{list.currency || '$'}{getCommissionDetail().total.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between font-black text-green-600 pt-0.5 border-t border-neutral-100">
-                      <span>Net Paid Out:</span>
-                      <span>{list.currency || '$'}{getCommissionDetail().userPayout.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1 bg-white p-4 rounded-xl border border-neutral-100 flex flex-col justify-between">
-                  <div>
-                    <span className="text-[9px] uppercase tracking-widest text-neutral-400 block font-bold mb-1">Customer Digital Signature</span>
-                    {list.bookingClientSignature ? (
-                      <div className="border border-neutral-200/60 rounded-lg p-2 bg-neutral-50 flex items-center justify-center">
-                        {list.bookingClientSignature.startsWith('data:image') ? (
-                          <img src={list.bookingClientSignature} alt="Customer Sig" className="max-h-[30px] object-contain" referrerPolicy="no-referrer" />
-                        ) : (
-                          <span className="font-mono text-xs italic font-extrabold text-neutral-700 select-none tracking-tight">{list.bookingClientSignature}</span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-neutral-400 font-bold italic">No physical signature found</span>
-                    )}
-                  </div>
-                  {list.bookingPaidAt && (
-                    <span className="text-[9px] font-mono text-neutral-400 uppercase tracking-wider block pt-1">Cleared: {new Date(list.bookingPaidAt).toLocaleString()}</span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Rental Agreements Log Sub-Collection */}
-            {agreements.length > 0 && (
-              <div className="mt-6 pt-6 border-t border-neutral-150 text-left">
-                <div className="flex items-center gap-2 mb-4">
-                  <Shield size={14} className="text-[#0066cc]" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#0066cc] font-sans block">
-                    Legally Documented Rental Agreements Sub-Collection ({agreements.length})
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {agreements.map((agreement) => (
-                    <div 
-                      key={agreement.id} 
-                      className="bg-neutral-50 border border-neutral-200/80 rounded-2xl p-4 space-y-3 transition-all hover:bg-neutral-100/50 text-left"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2 py-0.5 text-[8px] font-black uppercase tracking-wider rounded border ${
-                          agreement.type === 'pickup' 
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
-                            : 'bg-red-50 text-red-700 border-red-100'
-                        }`}>
-                          {agreement.type === 'pickup' ? '🏁 Pickup & Release' : '🛑 Dropoff & Return'}
-                        </span>
-                        <span className="text-[9px] text-neutral-400 font-mono font-bold">
-                          {agreement.agreementDate}
-                        </span>
-                      </div>
-
-                      <div className="space-y-1">
-                        <p className="text-xs font-extrabold text-neutral-800">
-                          Signee: {agreement.signeeName}
-                        </p>
-                        <p className="text-[9px] text-neutral-500 font-mono">
-                          📧 {agreement.signeeEmail} {agreement.signeePhone && `| 📞 ${agreement.signeePhone}`}
-                        </p>
-                      </div>
-
-                      {agreement.notes && (
-                        <div className="bg-neutral-105 text-neutral-600 rounded-lg p-2 text-[9px] leading-relaxed border border-neutral-200/20 italic">
-                          "{agreement.notes}"
-                        </div>
-                      )}
-
-                      <div className="space-y-1">
-                        <span className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block mb-1">Accepted Terms & Indemnities</span>
-                        <ul className="space-y-1">
-                          {agreement.termsAccepted.map((term, tIdx) => (
-                            <li key={tIdx} className="text-[9px] text-neutral-600 flex items-start gap-1">
-                              <span className="text-emerald-500 shrink-0 font-extrabold font-mono">✓</span>
-                              <span className="font-semibold leading-tight">{term}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="space-y-1 border-t border-neutral-200/55 pt-2 flex items-center justify-between gap-3 text-[9px]">
-                        <div>
-                          <span className="text-[7px] font-bold uppercase tracking-wider text-neutral-400 block">Documented At</span>
-                          <span className="font-mono text-neutral-500 font-bold">
-                            {new Date(agreement.signedAt).toLocaleString()}
-                          </span>
-                        </div>
-                        {agreement.witnessedByName && (
-                          <div className="text-right">
-                            <span className="text-[7px] font-bold uppercase tracking-wider text-neutral-400 block">Witnessed By</span>
-                            <span className="text-neutral-500 font-extrabold">
-                              {agreement.witnessedByName}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-2 border border-neutral-200 bg-white rounded-xl p-2 flex items-center justify-center relative min-h-[50px]">
-                        <img 
-                          src={agreement.signatureUrl} 
-                          alt="Signature Verification" 
-                          className="max-h-[30px] object-contain select-none"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="absolute right-2 bottom-1 text-[6px] text-neutral-450 font-black uppercase font-mono tracking-widest bg-neutral-50 px-1 py-0.5 rounded border border-neutral-250">
-                          Captured Digitally
-                        </div>
-                      </div>
-
-                      <div className="bg-white/90 p-2 rounded-xl border border-neutral-200/60 font-sans">
-                        <details className="cursor-pointer group">
-                          <summary className="text-[8px] font-black uppercase tracking-wider text-neutral-500 hover:text-neutral-700 flex items-center justify-between select-none">
-                            <span>Captured Asset Check ({agreement.itemsCaptured?.length || 0} items)</span>
-                            <span className="text-[8px] font-bold transition-transform group-open:rotate-180">▼</span>
-                          </summary>
-                          <div className="mt-2 text-[8px] space-y-1 font-mono text-neutral-500 max-h-32 overflow-y-auto">
-                            {agreement.itemsCaptured?.map((item) => (
-                              <div key={item.id} className="flex justify-between border-b border-neutral-100 py-0.5 last:border-0">
-                                <span className="font-semibold text-neutral-700 truncate max-w-[130px]">{item.name}</span>
-                                <div className="space-x-1.5 shrink-0 flex items-center">
-                                  {item.assetTag && <span className="text-[7px] bg-neutral-100 px-1 rounded text-neutral-600 font-black">{item.assetTag}</span>}
-                                  <span className={`text-[7px] uppercase tracking-wider font-extrabold px-1 py-0.2 rounded ${
-                                    item.status === 'packed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-blue-50 text-blue-600 border border-blue-100'
-                                  }`}>
-                                    {item.status}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Actions Footer row */}
-            <div className="pt-4 border-t border-neutral-150 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest font-black">
-                  Current Hire Status:
-                </span>
-                <span className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider rounded-full ${
-                  (!list.rentalStatus || list.rentalStatus === 'awaiting_payment') ? 'bg-amber-100 text-amber-700' :
-                  list.rentalStatus === 'awaiting_release' ? 'bg-indigo-100 text-indigo-700' :
-                  list.rentalStatus === 'released' ? 'bg-emerald-100 text-emerald-700' :
-                  'bg-neutral-200 text-neutral-700'
-                }`}>
-                  {list.rentalStatus || 'awaiting_payment'}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {list.rentalStatus === 'awaiting_release' && (
-                  <button
-                    onClick={handleReleaseRental}
-                    className="py-2.5 px-6 bg-primary text-white font-extrabold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-primary/10 hover:opacity-90 transition cursor-pointer"
-                  >
-                    📦 Release & Checkout All Gear
-                  </button>
-                )}
-                {list.rentalStatus === 'released' && (
-                  <button
-                    onClick={handleReturnRental}
-                    className="py-2.5 px-6 bg-neutral-900 hover:bg-neutral-800 text-white font-extrabold text-xs uppercase tracking-widest rounded-xl shadow-lg transition cursor-pointer"
-                  >
-                    ✅ Inspect & Check-In All Returned Gear
-                  </button>
-                )}
-                {list.rentalStatus === 'returned' && (
-                  <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
-                    ✓ Complete. This list's rent cycle is finalized.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Progress Bar */}
-        <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-              <span className="text-sm font-bold uppercase tracking-wider text-neutral-500">Packing Progress</span>
-              <div className="flex flex-wrap items-center bg-neutral-100 p-1 rounded-xl">
-                <button
-                  onClick={() => setIsGroupingEnabled(!isGroupingEnabled)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                    isGroupingEnabled ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
-                  }`}
-                  title={isGroupingEnabled ? "Turn off grouping to manually reorder items" : "Grouping is off - drag items to reorder"}
-                >
-                  <Layers size={12} />
-                  <span>{isGroupingEnabled ? 'Groups On' : 'Groups Off'}</span>
-                </button>
+        {/* --- START OF WORKSPACE --- */}
                 {isGroupingEnabled && (
                   <>
                     <div className="w-px h-4 bg-neutral-200 mx-1"></div>
@@ -3536,7 +2857,6 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
               </div>
               <span className="text-primary font-bold">{packedCount} / {items.length} Items</span>
             </div>
-          </div>
           
           <div className="h-4 bg-neutral-100 rounded-full overflow-hidden">
             <motion.div
@@ -3576,7 +2896,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                   onClick={() => setStatusFilter(status)}
                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                     statusFilter === status
-                      ? 'bg-neutral-900 text-white shadow-lg'
+                      ? 'bg-accent text-white shadow-lg shadow-accent/20'
                       : 'bg-neutral-50 text-neutral-400 border border-neutral-100 hover:bg-white hover:border-neutral-200'
                   }`}
                 >
@@ -3642,8 +2962,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
               </button>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       {/* Bulk Actions Bar */}
       {isOwner && selectedItems.size > 0 && (
@@ -4204,20 +3523,10 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                 Open Scanner
               </Link>
             )}
-            {statusFilter !== 'all' && (
-              <button
-                onClick={() => setStatusFilter('all')}
-                className="px-8 py-4 bg-neutral-100 text-neutral-900 rounded-xl font-bold hover:bg-neutral-200 transition"
-              >
-                Clear Filter
-              </button>
-            )}
+        {/* --- END OF WORKSPACE --- */}
           </div>
         )}
       </div>
-
-        </div> {/* Right Side main column close */}
-      </div> {/* grid container close */}
 
       {/* Add by URL Modal */}
       {showAddByUrlModal && (
@@ -4511,6 +3820,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                         <div key={idx} className="relative w-20 h-20 group">
                           <img src={url} className="w-full h-full object-cover rounded-xl border-2 border-neutral-100" />
                           <button 
+                            type="button"
                             onClick={() => setQuickAddPhotos(p => p.filter((_, i) => i !== idx))}
                             className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition shadow-lg"
                           >
@@ -4518,7 +3828,11 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                           </button>
                         </div>
                       ))}
-                      <label className="w-20 h-20 border-2 border-dashed border-neutral-200 rounded-xl flex flex-col items-center justify-center text-neutral-400 hover:border-primary hover:text-primary transition cursor-pointer bg-neutral-50">
+                      <button 
+                        type="button"
+                        onClick={() => setIsQuickAddPhotoPickerOpen(true)}
+                        className="w-20 h-20 border-2 border-dashed border-neutral-200 rounded-xl flex flex-col items-center justify-center text-neutral-400 hover:border-primary hover:text-primary transition bg-neutral-50"
+                      >
                         {isUploadingPhoto ? (
                           <Loader2 className="animate-spin text-primary" size={24} />
                         ) : (
@@ -4527,8 +3841,18 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             <span className="text-[8px] font-black uppercase mt-1">Add</span>
                           </>
                         )}
-                        <input type="file" multiple accept="image/*" onChange={handlePhotoUpload} className="hidden" />
-                      </label>
+                      </button>
+
+                      {user && (
+                        <AddPhotoWidget
+                          isOpen={isQuickAddPhotoPickerOpen}
+                          onClose={() => setIsQuickAddPhotoPickerOpen(false)}
+                          onPhotoAdded={(urls) => setQuickAddPhotos(prev => [...prev, ...urls])}
+                          user={user}
+                          adminSettings={adminSettings}
+                          targetName={quickAddName || "new item"}
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -4991,27 +4315,27 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             </button>
                           </div>
                         ))}
-                        <label className="aspect-square rounded-lg border-2 border-dashed border-neutral-200 flex flex-col items-center justify-center text-neutral-400 hover:border-primary hover:text-primary transition cursor-pointer">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditItemPhotoPickerOpen(true)}
+                          className="aspect-square rounded-lg border-2 border-dashed border-neutral-200 flex flex-col items-center justify-center text-neutral-400 hover:border-primary hover:text-primary transition bg-neutral-50"
+                        >
                           <Camera size={20} />
-                          <input
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            className="hidden"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                try {
-                                  const compressedBase64 = await compressImage(file);
-                                  setEditPhotoUrls(prev => [...prev, compressedBase64]);
-                                  setIsDirty(true);
-                                } catch (error) {
-                                  console.error("Image compression failed:", error);
-                                }
-                              }
+                        </button>
+
+                        {user && (
+                          <AddPhotoWidget
+                            isOpen={isEditItemPhotoPickerOpen}
+                            onClose={() => setIsEditItemPhotoPickerOpen(false)}
+                            onPhotoAdded={(urls) => {
+                              setEditPhotoUrls(prev => [...prev, ...urls]);
+                              setIsDirty(true);
                             }}
+                            user={user}
+                            adminSettings={adminSettings}
+                            targetName={editName || "item"}
                           />
-                        </label>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -6511,7 +5835,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     onClick={() => setCopyMoveMode('copy')}
                     className={`py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
                       copyMoveMode === 'copy'
-                        ? 'bg-neutral-900 text-white shadow-md'
+                        ? 'bg-accent text-white shadow-md shadow-accent/20'
                         : 'text-neutral-500 hover:text-neutral-900'
                     }`}
                   >
@@ -6522,7 +5846,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     onClick={() => setCopyMoveMode('move')}
                     className={`py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all ${
                       copyMoveMode === 'move'
-                        ? 'bg-neutral-900 text-white shadow-md'
+                        ? 'bg-accent text-white shadow-md shadow-accent/20'
                         : 'text-neutral-500 hover:text-neutral-900'
                     }`}
                   >
@@ -7081,6 +6405,8 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         items={items}
         user={user}
       />
+        </div>
+      </div>
     </div>
   );
 }

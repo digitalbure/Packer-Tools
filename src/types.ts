@@ -432,6 +432,8 @@ export interface Container {
     bin?: string;
   };
   items: string[]; // GearItem IDs or PackingItem IDs
+  parentId?: string | null;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -966,6 +968,15 @@ export interface AdminSettings {
       sessionTimeoutMinutes: number;
       idleTimerSeconds: number;
       enforceSupervisorApproval: boolean;
+    };
+    photoWidget?: {
+      restrictByPlan?: boolean;
+      allowUrlPasteLite?: boolean;
+      allowClipboardLite?: boolean;
+      allowSystemSearchLite?: boolean;
+      allowUrlPastePro?: boolean;
+      allowClipboardPro?: boolean;
+      allowSystemSearchPro?: boolean;
     };
   };
   marketplaceRegionConfig?: {

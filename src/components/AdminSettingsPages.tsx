@@ -1914,6 +1914,155 @@ export function WidgetsSettingsTab({ settings, setSettings }: SettingsTabProps) 
             </div>
           </div>
 
+          {/* Standardized Add Photo Widget Panel */}
+          <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-4 sm:col-span-2">
+            <div className="flex items-center justify-between border-b border-neutral-200/50 pb-2">
+              <span className="text-[10px] font-black uppercase text-neutral-600 tracking-wider block font-mono">📷 Standardized Add Photo Widget Policies</span>
+              <span className="text-[8px] font-bold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full uppercase tracking-widest">Active Standard</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Core Plan Rule */}
+              <div className="p-3 bg-white border border-neutral-200/60 rounded-xl space-y-2">
+                <span className="text-[9px] font-black uppercase text-neutral-500 tracking-widest block">🔒 Pricing Plan Rules</span>
+                <div className="flex items-center justify-between">
+                  <div className="leading-none pr-1">
+                    <span className="text-[10px] font-extrabold text-neutral-800 uppercase block">Restrict by Plan</span>
+                    <span className="text-[7.5px] text-neutral-400 block mt-0.5 leading-none">Pro / Enterprise plans get Pro widget; Free / Lite get Lite.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSettings(s => {
+                      if (!s) return null;
+                      const confs = s.moduleWidgetConfigs || {};
+                      const pw = confs.photoWidget || { restrictByPlan: true, allowUrlPasteLite: false, allowClipboardLite: false, allowSystemSearchLite: false, allowUrlPastePro: true, allowClipboardPro: true, allowSystemSearchPro: true };
+                      return { ...s, moduleWidgetConfigs: { ...confs, photoWidget: { ...pw, restrictByPlan: !pw.restrictByPlan } } };
+                    })}
+                    className={`w-10 h-5 rounded-full relative transition-colors shrink-0 ${settings?.moduleWidgetConfigs?.photoWidget?.restrictByPlan !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                  >
+                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings?.moduleWidgetConfigs?.photoWidget?.restrictByPlan !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Lite Version Config */}
+              <div className="p-3 bg-white border border-neutral-200/60 rounded-xl space-y-2">
+                <span className="text-[9px] font-black uppercase text-neutral-500 tracking-widest block">🌱 Lite Version Allowed Features</span>
+                
+                <div className="space-y-2 text-[10px]">
+                  {/* URL Paste */}
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-neutral-700 uppercase">Allow Web URL Paste</span>
+                    <button
+                      type="button"
+                      onClick={() => setSettings(s => {
+                        if (!s) return null;
+                        const confs = s.moduleWidgetConfigs || {};
+                        const pw = confs.photoWidget || { restrictByPlan: true, allowUrlPasteLite: false, allowClipboardLite: false, allowSystemSearchLite: false, allowUrlPastePro: true, allowClipboardPro: true, allowSystemSearchPro: true };
+                        return { ...s, moduleWidgetConfigs: { ...confs, photoWidget: { ...pw, allowUrlPasteLite: !pw.allowUrlPasteLite } } };
+                      })}
+                      className={`w-8 h-4 rounded-full relative transition-colors ${settings?.moduleWidgetConfigs?.photoWidget?.allowUrlPasteLite ? 'bg-primary' : 'bg-neutral-200'}`}
+                    >
+                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${settings?.moduleWidgetConfigs?.photoWidget?.allowUrlPasteLite ? 'right-0.5' : 'left-0.5'}`}></div>
+                    </button>
+                  </div>
+
+                  {/* Clipboard */}
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-neutral-700 uppercase">Allow Clipboard Paste</span>
+                    <button
+                      type="button"
+                      onClick={() => setSettings(s => {
+                        if (!s) return null;
+                        const confs = s.moduleWidgetConfigs || {};
+                        const pw = confs.photoWidget || { restrictByPlan: true, allowUrlPasteLite: false, allowClipboardLite: false, allowSystemSearchLite: false, allowUrlPastePro: true, allowClipboardPro: true, allowSystemSearchPro: true };
+                        return { ...s, moduleWidgetConfigs: { ...confs, photoWidget: { ...pw, allowClipboardLite: !pw.allowClipboardLite } } };
+                      })}
+                      className={`w-8 h-4 rounded-full relative transition-colors ${settings?.moduleWidgetConfigs?.photoWidget?.allowClipboardLite ? 'bg-primary' : 'bg-neutral-200'}`}
+                    >
+                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${settings?.moduleWidgetConfigs?.photoWidget?.allowClipboardLite ? 'right-0.5' : 'left-0.5'}`}></div>
+                    </button>
+                  </div>
+
+                  {/* System Search */}
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-neutral-700 uppercase">Allow System Photo Lookup</span>
+                    <button
+                      type="button"
+                      onClick={() => setSettings(s => {
+                        if (!s) return null;
+                        const confs = s.moduleWidgetConfigs || {};
+                        const pw = confs.photoWidget || { restrictByPlan: true, allowUrlPasteLite: false, allowClipboardLite: false, allowSystemSearchLite: false, allowUrlPastePro: true, allowClipboardPro: true, allowSystemSearchPro: true };
+                        return { ...s, moduleWidgetConfigs: { ...confs, photoWidget: { ...pw, allowSystemSearchLite: !pw.allowSystemSearchLite } } };
+                      })}
+                      className={`w-8 h-4 rounded-full relative transition-colors ${settings?.moduleWidgetConfigs?.photoWidget?.allowSystemSearchLite ? 'bg-primary' : 'bg-neutral-200'}`}
+                    >
+                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${settings?.moduleWidgetConfigs?.photoWidget?.allowSystemSearchLite ? 'right-0.5' : 'left-0.5'}`}></div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pro Version Config */}
+              <div className="p-3 bg-white border border-neutral-200/60 rounded-xl space-y-2">
+                <span className="text-[9px] font-black uppercase text-primary tracking-widest block">⚡ Pro Version Allowed Features</span>
+                
+                <div className="space-y-2 text-[10px]">
+                  {/* URL Paste */}
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-neutral-700 uppercase">Allow Web URL Paste</span>
+                    <button
+                      type="button"
+                      onClick={() => setSettings(s => {
+                        if (!s) return null;
+                        const confs = s.moduleWidgetConfigs || {};
+                        const pw = confs.photoWidget || { restrictByPlan: true, allowUrlPasteLite: false, allowClipboardLite: false, allowSystemSearchLite: false, allowUrlPastePro: true, allowClipboardPro: true, allowSystemSearchPro: true };
+                        return { ...s, moduleWidgetConfigs: { ...confs, photoWidget: { ...pw, allowUrlPastePro: pw.allowUrlPastePro === false ? true : false } } };
+                      })}
+                      className={`w-8 h-4 rounded-full relative transition-colors ${settings?.moduleWidgetConfigs?.photoWidget?.allowUrlPastePro !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                    >
+                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${settings?.moduleWidgetConfigs?.photoWidget?.allowUrlPastePro !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                    </button>
+                  </div>
+
+                  {/* Clipboard */}
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-neutral-700 uppercase">Allow Clipboard Paste</span>
+                    <button
+                      type="button"
+                      onClick={() => setSettings(s => {
+                        if (!s) return null;
+                        const confs = s.moduleWidgetConfigs || {};
+                        const pw = confs.photoWidget || { restrictByPlan: true, allowUrlPasteLite: false, allowClipboardLite: false, allowSystemSearchLite: false, allowUrlPastePro: true, allowClipboardPro: true, allowSystemSearchPro: true };
+                        return { ...s, moduleWidgetConfigs: { ...confs, photoWidget: { ...pw, allowClipboardPro: pw.allowClipboardPro === false ? true : false } } };
+                      })}
+                      className={`w-8 h-4 rounded-full relative transition-colors ${settings?.moduleWidgetConfigs?.photoWidget?.allowClipboardPro !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                    >
+                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${settings?.moduleWidgetConfigs?.photoWidget?.allowClipboardPro !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                    </button>
+                  </div>
+
+                  {/* System Search */}
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-neutral-700 uppercase">Allow System Photo Lookup</span>
+                    <button
+                      type="button"
+                      onClick={() => setSettings(s => {
+                        if (!s) return null;
+                        const confs = s.moduleWidgetConfigs || {};
+                        const pw = confs.photoWidget || { restrictByPlan: true, allowUrlPasteLite: false, allowClipboardLite: false, allowSystemSearchLite: false, allowUrlPastePro: true, allowClipboardPro: true, allowSystemSearchPro: true };
+                        return { ...s, moduleWidgetConfigs: { ...confs, photoWidget: { ...pw, allowSystemSearchPro: pw.allowSystemSearchPro === false ? true : false } } };
+                      })}
+                      className={`w-8 h-4 rounded-full relative transition-colors ${settings?.moduleWidgetConfigs?.photoWidget?.allowSystemSearchPro !== false ? 'bg-primary' : 'bg-neutral-200'}`}
+                    >
+                      <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${settings?.moduleWidgetConfigs?.photoWidget?.allowSystemSearchPro !== false ? 'right-0.5' : 'left-0.5'}`}></div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Kiosk Mode Panel */}
           <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-3 sm:col-span-2">
             <span className="text-[10px] font-black uppercase text-neutral-600 block font-mono tracking-wider">🖥️ Shared Kiosk Terminal parameters</span>

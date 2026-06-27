@@ -29,6 +29,7 @@ import {
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { checkLimit } from '../lib/limitUtils';
 import { toast } from 'sonner';
+import AddPhotoWidget from '../components/AddPhotoWidget';
 
 export default function ProjectDashboard({ user, adminSettings }: { user: UserProfile, adminSettings: AdminSettings | null }) {
   const navigate = useNavigate();
@@ -42,6 +43,8 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
   const [sortBy, setBy] = useState<'newest' | 'oldest' | 'name' | 'status'>('newest');
   const [searchQuery, setSearchQuery] = useState('');
   const [projectAutoImages, setProjectAutoImages] = useState<Record<string, string>>({});
+  const [isEditProjectPhotoPickerOpen, setIsEditProjectPhotoPickerOpen] = useState(false);
+  const [isAddProjectPhotoPickerOpen, setIsAddProjectPhotoPickerOpen] = useState(false);
 
   // Background loader scan to find any physical item image inside project linked lists
   useEffect(() => {
@@ -284,7 +287,7 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
               <button
                 key={status}
                 onClick={() => setFilterStatus(status)}
-                className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition ${filterStatus === status ? 'bg-neutral-900 text-white shadow-lg' : 'text-neutral-400 hover:text-neutral-600'}`}
+                className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition ${filterStatus === status ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-neutral-400 hover:text-neutral-600'}`}
               >
                 {status}
               </button>
@@ -304,7 +307,7 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
                 onClick={() => setViewType(item.type as any)}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all font-bold text-[10px] uppercase tracking-wider ${
                   viewType === item.type 
-                    ? 'bg-neutral-900 text-white shadow-md' 
+                    ? 'bg-accent text-white shadow-md shadow-accent/20' 
                     : 'text-neutral-400 hover:text-neutral-600'
                 }`}
                 title={`${item.label} View`}
@@ -719,17 +722,50 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
                     </div>
 
                     <div className="space-y-2 text-left">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1 font-extrabold">Project Cover Image</label>
-                      <input
-                        type="text"
-                        value={editingProject.imageUrl || ''}
-                        onChange={(e) => setEditingProject({ ...editingProject, imageUrl: e.target.value })}
-                        placeholder="e.g. https://images.unsplash.com/photo-1511578314322-379afb476865"
-                        className="w-full bg-neutral-50 border border-neutral-100 rounded-2xl px-6 py-4 focus:ring-2 focus:ring-primary transition text-xs font-semibold"
-                      />
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1 font-extrabold">Project Cover Image</label>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditProjectPhotoPickerOpen(true)}
+                          className="text-[9px] font-black uppercase tracking-wider text-primary border border-primary/25 hover:bg-primary/5 px-2.5 py-1 rounded-lg transition"
+                        >
+                          Pick / Upload Photo
+                        </button>
+                      </div>
+                      
+                      <div className="flex gap-3 items-center">
+                        {editingProject.imageUrl && (
+                          <div className="w-12 h-12 rounded-xl overflow-hidden border border-neutral-200 shrink-0">
+                            <img src={editingProject.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          </div>
+                        )}
+                        <input
+                          type="text"
+                          value={editingProject.imageUrl || ''}
+                          onChange={(e) => setEditingProject({ ...editingProject, imageUrl: e.target.value })}
+                          placeholder="e.g. https://images.unsplash.com/photo-1511578314322-379afb476865"
+                          className="flex-1 bg-neutral-50 border border-neutral-100 rounded-2xl px-4 py-3.5 focus:ring-2 focus:ring-primary transition text-xs font-semibold"
+                        />
+                      </div>
+                      
                       <p className="text-[8px] text-neutral-400 uppercase tracking-tight font-bold italic ml-1 mt-0.5">
                         * Input custom URL or keep empty for automatic resolution of images linked to the project's lists.
                       </p>
+
+                      {user && (
+                        <AddPhotoWidget
+                          isOpen={isEditProjectPhotoPickerOpen}
+                          onClose={() => setIsEditProjectPhotoPickerOpen(false)}
+                          onPhotoAdded={(urls) => {
+                            if (urls.length > 0) {
+                              setEditingProject({ ...editingProject, imageUrl: urls[0] });
+                            }
+                          }}
+                          user={user}
+                          adminSettings={adminSettings}
+                          targetName={editingProject.name || "project"}
+                        />
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -874,17 +910,50 @@ export default function ProjectDashboard({ user, adminSettings }: { user: UserPr
                         </div>
 
                         <div className="space-y-2 text-left">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1 font-extrabold">Project Cover Image (Optional)</label>
-                          <input
-                            type="text"
-                            value={newProject.imageUrl || ''}
-                            onChange={(e) => setNewProject({ ...newProject, imageUrl: e.target.value })}
-                            placeholder="e.g. https://images.unsplash.com/photo-1511578314322-379afb476865"
-                            className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-primary transition text-xs font-semibold"
-                          />
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-primary ml-1 font-extrabold">Project Cover Image (Optional)</label>
+                            <button
+                              type="button"
+                              onClick={() => setIsAddProjectPhotoPickerOpen(true)}
+                              className="text-[9px] font-black uppercase tracking-wider text-primary border border-primary/25 hover:bg-primary/5 px-2.5 py-1 rounded-lg transition"
+                            >
+                              Pick / Upload Photo
+                            </button>
+                          </div>
+                          
+                          <div className="flex gap-3 items-center">
+                            {newProject.imageUrl && (
+                              <div className="w-12 h-12 rounded-xl overflow-hidden border border-neutral-200 shrink-0">
+                                <img src={newProject.imageUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              </div>
+                            )}
+                            <input
+                              type="text"
+                              value={newProject.imageUrl || ''}
+                              onChange={(e) => setNewProject({ ...newProject, imageUrl: e.target.value })}
+                              placeholder="e.g. https://images.unsplash.com/photo-1511578314322-379afb476865"
+                              className="flex-1 bg-neutral-50 border border-neutral-100 rounded-2xl px-4 py-3.5 focus:ring-2 focus:ring-primary transition text-xs font-semibold"
+                            />
+                          </div>
+                          
                           <p className="text-[8px] text-neutral-400 uppercase tracking-tight font-black block ml-1 mt-0.5 italic">
                             * Provide an image URL, or leave blank to auto-use any equipment's image in the project lists.
                           </p>
+
+                          {user && (
+                            <AddPhotoWidget
+                              isOpen={isAddProjectPhotoPickerOpen}
+                              onClose={() => setIsAddProjectPhotoPickerOpen(false)}
+                              onPhotoAdded={(urls) => {
+                                if (urls.length > 0) {
+                                  setNewProject({ ...newProject, imageUrl: urls[0] });
+                                }
+                              }}
+                              user={user}
+                              adminSettings={adminSettings}
+                              targetName={newProject.name || "project"}
+                            />
+                          )}
                         </div>
                       </motion.div>
                     )}

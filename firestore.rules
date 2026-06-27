@@ -438,10 +438,27 @@ service cloud.firestore {
 
     // 17. Interactive Kiosk Terminals
     match /terminals/{terminalId} {
-      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerUid) || isAdmin());
-      allow create: if isSignedIn() && isOwner(incoming().ownerUid) && isValidTerminal(incoming());
-      allow update: if isSignedIn() && isOwner(resource.data.ownerUid) && isOwner(incoming().ownerUid) && isValidTerminal(incoming());
-      allow delete: if isSignedIn() && (isOwner(resource.data.ownerUid) || isAdmin());
+      allow read: if isSignedIn() && (
+        resource == null || 
+        resource.data.status == 'pending' || 
+        isOwner(resource.data.ownerUid) || 
+        isAdmin()
+      );
+      allow create: if isSignedIn() && (
+        incoming().status == 'pending' || 
+        isOwner(incoming().ownerUid)
+      ) && isValidTerminal(incoming());
+      allow update: if isSignedIn() && (
+        resource.data.status == 'pending' ||
+        isOwner(resource.data.ownerUid) ||
+        isOwner(incoming().ownerUid) ||
+        isAdmin()
+      ) && isValidTerminal(incoming());
+      allow delete: if isSignedIn() && (
+        resource.data.status == 'pending' ||
+        isOwner(resource.data.ownerUid) || 
+        isAdmin()
+      );
     }
 
     // 18. Checked out gear

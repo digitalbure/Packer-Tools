@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.30.0`
+## Current Application Version: `v4.31.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.31.0 (Hierarchical Group Workspace & Adaptive Modal Navigator)
+*Released on: June 26, 2026*
+- **Hierarchical Organizer Workspace Overlay**: Revamped the primary group/shelf card detail view into an immersive, multi-pane overlay. Left pane displays visual specifications, detailed descriptions, and physical status tags. Right pane visualizes interactive checklist contents with granular sub-item expansion support.
+- **Intelligent Navigator & Quick Switcher**: Engineered an adaptive selector drawer directly into the top command bar, empowering organizers to rapidly toggle, cycle, and preview sibling storage containers (e.g., pelican cases, shelves, lockers) without closing the window.
+- **Bulk Allocation Proposal Panels**: Supported live staging drafts of entire inventory sheets or kits directly into active compartments, allowing coordinators to confirm or discard changes in a dedicated sandbox environment.
 
 ---
 

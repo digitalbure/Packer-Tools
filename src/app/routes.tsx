@@ -42,6 +42,8 @@ const GearBioPage = lazy(() => import('../pages/GearBioPage'));
 const ShopPage = lazy(() => import('../pages/ShopPage'));
 const ScenarioBuilder = lazy(() => import('../pages/ScenarioBuilder'));
 const TravellerModule = lazy(() => import('../pages/TravellerModule'));
+const OrganizerBioPage = lazy(() => import('../pages/OrganizerBioPage'));
+const OrganizerIOPage = lazy(() => import('../pages/OrganizerIOPage'));
 
 // Component AuthGate (replaces inline Gate component)
 const AuthGate = lazy(() => import('../components/AuthGate'));
@@ -135,6 +137,7 @@ export function AnimatedRoutes() {
 
         <Route path="/tooling" element={isFeatureEnabled('toolingLists', user, adminSettings) ? <ToolingListModule user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
         <Route path="/organizer" element={isFeatureEnabled('organizer', user, adminSettings) ? <OrganizerModule user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
+        <Route path="/organizer/:id/io" element={<AuthGuard><OrganizerIOPage user={user} /></AuthGuard>} />
         <Route path="/travel-cases" element={isFeatureEnabled('travelCases', user, adminSettings) ? <TravelCaseModule user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
 
         {/* SuperAdmin Routes */}
@@ -144,6 +147,8 @@ export function AnimatedRoutes() {
         {/* Public Routes */}
         <Route path="/list/:id" element={<PackingListDetail user={user} adminSettings={adminSettings} />} />
         <Route path="/p/:id" element={<PackingListBioView />} />
+        <Route path="/o/:id" element={<OrganizerBioPage />} />
+        <Route path="/organizer/:id/bio" element={<OrganizerBioPage />} />
         <Route path="/privacy" element={<LegalPage type="privacy" />} />
         <Route path="/terms" element={<LegalPage type="terms" />} />
         <Route path="/prices" element={<PricesPage user={user} onUpdateUser={setUser} adminSettings={adminSettings} />} />

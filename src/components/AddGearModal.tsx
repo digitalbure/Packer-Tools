@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { identifyItem } from '../services/geminiService';
 import { compressImage } from '../lib/imageUtils';
+import AddPhotoWidget from './AddPhotoWidget';
 
 interface AddGearModalProps {
   user: UserProfile | null;
@@ -116,6 +117,8 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
   const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null);
   const [newlyCreatedTag, setNewlyCreatedTag] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const [isManualPhotoPickerOpen, setIsManualPhotoPickerOpen] = useState(false);
+  const [isAiPhotoPickerOpen, setIsAiPhotoPickerOpen] = useState(false);
 
   // Load user's gear list for Option C (Existing Gear selection)
   useEffect(() => {
@@ -631,40 +634,14 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                   Upload an equipment photo or choose a sample pre-loaded hardware item to simulate the real-time AI scanning pipeline.
                 </p>
 
-                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                  {/* Real file uploader link */}
-                  <label className="bg-white text-black hover:bg-neutral-200 px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-widest cursor-pointer transition flex items-center gap-2 shadow-md">
-                    <Upload size={14} />
-                    <span>Upload file</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={handleImageUpload} 
-                      className="hidden" 
-                    />
-                  </label>
-
-                  {/* Camera capture option */}
-                  <label className="bg-neutral-800 text-white hover:bg-neutral-700 px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-widest cursor-pointer transition flex items-center gap-2 border border-neutral-700">
-                    <Camera size={14} />
-                    <span>Take Photo</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      capture="environment"
-                      onChange={handleImageUpload} 
-                      className="hidden" 
-                    />
-                  </label>
-
-                  {/* Paste from Clipboard option */}
+                <div className="flex flex-col items-center gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={handleClipboardPaste}
-                    className="bg-neutral-800 text-white hover:bg-neutral-700 px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-widest transition flex items-center gap-2 border border-neutral-700"
+                    onClick={() => setIsAiPhotoPickerOpen(true)}
+                    className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest transition flex items-center gap-2 shadow-md"
                   >
-                    <ClipboardCheck size={14} />
-                    <span>Paste Image</span>
+                    <Camera size={14} />
+                    <span>Upload or Take Photo to Scan</span>
                   </button>
 
                   {scanImage && (
@@ -672,41 +649,28 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                       type="button"
                       onClick={runAIScan}
                       disabled={scanning}
-                      className="bg-primary hover:bg-primary/95 text-white px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-widest transition flex items-center gap-1.5 shadow-md animate-bounce"
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-full font-black text-xs uppercase tracking-widest transition flex items-center gap-1.5 shadow-md animate-bounce"
                     >
                       {scanning ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
                       <span>{scanning ? 'Analyzing Image...' : 'Execute Scan Pipeline'}</span>
                     </button>
                   )}
-                </div>
 
-                {/* Direct Image URL input */}
-                <div className="bg-neutral-800/50 p-4 rounded-2xl border border-neutral-700/60 max-w-md mx-auto text-left space-y-2 mt-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#0066cc] block">Or scan via Direct Photo URL / Link</span>
-                  <div className="flex gap-2">
-                    <input 
-                      type="url" 
-                      placeholder="Paste image link (e.g. Unsplash, Imgur)..." 
-                      id="ai-scan-url-input"
-                      className="flex-1 bg-neutral-950 border border-neutral-700 text-white rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-1 focus:ring-primary transition placeholder-neutral-500"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handlePhotoUrlSubmit((e.currentTarget as HTMLInputElement).value);
+                  {user && (
+                    <AddPhotoWidget
+                      isOpen={isAiPhotoPickerOpen}
+                      onClose={() => setIsAiPhotoPickerOpen(false)}
+                      onPhotoAdded={(urls) => {
+                        if (urls.length > 0) {
+                          setScanImage(urls[0]);
+                          toast.success("Successfully loaded photo! You can now execute the AI Scan pipeline.");
                         }
                       }}
+                      user={user}
+                      adminSettings={adminSettings}
+                      targetName="gear to scan"
                     />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const input = document.getElementById('ai-scan-url-input') as HTMLInputElement;
-                        handlePhotoUrlSubmit(input?.value || '');
-                      }}
-                      className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition shrink-0"
-                    >
-                      Apply
-                    </button>
-                  </div>
+                  )}
                 </div>
 
                 {/* Upload Preview */}
@@ -813,48 +777,15 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                   <span className="text-[10px] font-black uppercase tracking-wider text-[#0066cc]">Optional URL, upload or paste</span>
                 </div>
 
-                {/* Direct quick-actions buttons */}
-                <div className="grid grid-cols-3 gap-2">
-                  <label className="bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
-                    <Upload size={12} />
-                    <span>Upload file</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={handleImageUpload} 
-                      className="hidden" 
-                    />
-                  </label>
-
-                  <label className="bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition flex items-center justify-center gap-1.5 shadow-sm">
-                    <Camera size={12} />
-                    <span>Take Photo</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      capture="environment"
-                      onChange={handleImageUpload} 
-                      className="hidden" 
-                    />
-                  </label>
-
+                <div className="flex gap-3 items-center">
                   <button
                     type="button"
-                    onClick={handleClipboardPaste}
-                    className="bg-white hover:bg-neutral-100 border border-neutral-200 text-neutral-700 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5 shadow-sm"
+                    onClick={() => setIsManualPhotoPickerOpen(true)}
+                    className="bg-primary hover:bg-primary/95 text-white py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition flex items-center gap-1.5 shadow-sm shrink-0"
                   >
-                    <ClipboardCheck size={12} />
-                    <span>Paste Image</span>
+                    <Camera size={12} />
+                    <span>Pick / Upload Photo</span>
                   </button>
-                </div>
-
-                <div className="relative flex items-center">
-                  <div className="flex-grow border-t border-neutral-200"></div>
-                  <span className="flex-shrink mx-4 text-[9px] uppercase font-bold tracking-wider text-neutral-400">Or Paste Direct URL</span>
-                  <div className="flex-grow border-t border-neutral-200"></div>
-                </div>
-
-                <div className="flex gap-4 items-center">
                   <input
                     type="url"
                     placeholder="Paste direct photo URL (e.g. Unsplash, Imgur)..."
@@ -875,9 +806,21 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                     </div>
                   )}
                 </div>
-                <p className="text-[9px] text-neutral-400 text-center font-bold uppercase tracking-wider">
-                  Tip: Press Ctrl+V (or Command+V) anywhere while this modal is open to instantly paste an image.
-                </p>
+
+                {user && (
+                  <AddPhotoWidget
+                    isOpen={isManualPhotoPickerOpen}
+                    onClose={() => setIsManualPhotoPickerOpen(false)}
+                    onPhotoAdded={(urls) => {
+                      if (urls.length > 0) {
+                        setForm({ ...form, photoUrls: [urls[0]] });
+                      }
+                    }}
+                    user={user}
+                    adminSettings={adminSettings}
+                    targetName={form.name || "gear"}
+                  />
+                )}
               </div>
 
               {/* Form specs */}

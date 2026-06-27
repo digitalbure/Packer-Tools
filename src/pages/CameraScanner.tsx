@@ -538,7 +538,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
                 onClick={() => setManualEntryMode('existing')}
                 className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
                   manualEntryMode === 'existing' 
-                    ? 'bg-neutral-900 text-white shadow-sm' 
+                    ? 'bg-accent text-white shadow-sm shadow-accent/20' 
                     : 'text-neutral-500 hover:text-neutral-900'
                 }`}
               >
@@ -550,7 +550,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
                 onClick={() => setManualEntryMode('new_item')}
                 className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
                   manualEntryMode === 'new_item' 
-                    ? 'bg-neutral-900 text-white shadow-sm' 
+                    ? 'bg-accent text-white shadow-sm shadow-accent/20' 
                     : 'text-neutral-500 hover:text-neutral-900'
                 }`}
               >

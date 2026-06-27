@@ -229,7 +229,7 @@ export default function Navbar({
                     className="flex items-center gap-3 text-primary font-bold uppercase text-sm tracking-widest"
                   >
                     <Zap size={20} />
-                    <span>AI Wizard</span>
+                    <span>Gig Assistant</span>
                   </Link>
                 )}
                 <Link 

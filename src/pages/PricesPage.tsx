@@ -166,7 +166,7 @@ export default function PricesPage({ user, onUpdateUser, adminSettings }: Prices
               onClick={() => setBillingCycle('monthly')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-wider ${
                 billingCycle === 'monthly'
-                  ? 'bg-neutral-900 text-white shadow-md'
+                  ? 'bg-accent text-white shadow-md shadow-accent/20'
                   : 'text-neutral-600 hover:bg-neutral-100'
               }`}
             >
@@ -176,7 +176,7 @@ export default function PricesPage({ user, onUpdateUser, adminSettings }: Prices
               onClick={() => setBillingCycle('annual')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 uppercase tracking-wider ${
                 billingCycle === 'annual'
-                  ? 'bg-neutral-900 text-white shadow-md'
+                  ? 'bg-accent text-white shadow-md shadow-accent/20'
                   : 'text-neutral-600 hover:bg-neutral-100'
               }`}
             >

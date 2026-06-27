@@ -72,10 +72,13 @@ interface SidebarProps {
 export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, listsCount }: SidebarProps) {
   const location = useLocation();
   const [projectData, setProjectData] = useState<any>(null);
+  const [listData, setListData] = useState<any>(null);
 
   const isProjectRoute = location.pathname.startsWith('/project/');
   const projectId = isProjectRoute ? location.pathname.split('/')[2] : null;
   const isHelpRoute = location.pathname.startsWith('/help');
+  const isListRoute = location.pathname.startsWith('/list/');
+  const listId = isListRoute ? location.pathname.split('/')[2] : null;
 
   const [hasActiveBugs, setHasActiveBugs] = useState<boolean>(false);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -117,6 +120,21 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     });
     return () => unsubscribe();
   }, [projectId]);
+
+  useEffect(() => {
+    if (!listId) {
+      setListData(null);
+      return;
+    }
+    const unsubscribe = onSnapshot(doc(db, 'packingLists', listId), (snap) => {
+      if (snap.exists()) {
+        setListData({ id: snap.id, ...snap.data() });
+      }
+    }, (error) => {
+      console.warn("Sidebar: Error listening to packing list doc:", listId, error);
+    });
+    return () => unsubscribe();
+  }, [listId]);
 
   const isFeatureEnabledSafe = (feature: FeatureKey) => {
     if (!user) return false;
@@ -171,7 +189,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/contacts', label: 'Contacts', icon: <User size={20} /> },
     { 
       to: '/ai-wizard', 
-      label: 'AI Wizard', 
+      label: 'Gig Assistant', 
       icon: <Zap size={20} />, 
       feature: 'aiWizard' as FeatureKey 
     },
@@ -203,6 +221,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/admin?tab=integrations', label: 'Integrations & API', icon: <Globe size={20} /> },
     { to: '/admin?tab=checkouts', label: 'Checkout Logs', icon: <Package size={20} /> },
     { to: '/admin?tab=listings', label: 'Marketplace Listings', icon: <ShoppingBag size={20} /> },
+    { to: '/admin?tab=categories', label: 'Categories', icon: <LayoutGrid size={20} /> },
     { to: '/admin?tab=kiosk', label: 'Kiosk Settings', icon: <QrCode size={20} /> },
     { to: '/admin?tab=landing', label: 'Landing Page', icon: <Layout size={20} /> },
     { to: '/admin/pages', label: 'Custom Pages', icon: <FileText size={20} /> },
@@ -348,7 +367,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                         onClick={() => setIsMobileOpen(false)}
                         className={`flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold transition-all group ${
                           isActive 
-                            ? 'bg-neutral-900 text-white shadow-lg' 
+                            ? 'bg-accent text-white shadow-lg shadow-accent/20' 
                             : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
                         } ${isCollapsed ? 'justify-center' : ''}`}
                         title={isCollapsed ? item.label : ''}
@@ -438,6 +457,73 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
               })}
             </nav>
           </div>
+        ) : isListRoute ? (
+          /* Packing List Detail Navigation */
+          <div className="space-y-6">
+            <div className="flex items-center justify-between px-3">
+              {!isCollapsed && <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 leading-none">List Menu</h3>}
+              <Link
+                to="/dashboard"
+                className="flex items-center gap-2 p-2.5 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition text-neutral-900 shadow-sm group"
+                title="Exit Packing List"
+              >
+                {!isCollapsed && <span className="text-[9px] font-black uppercase tracking-widest pl-1">Exit</span>}
+                <X size={14} className="group-hover:rotate-90 transition-transform" />
+              </Link>
+            </div>
+
+            {listData && (
+              <div className={`p-4 bg-neutral-50 rounded-2xl border border-neutral-100 mx-1 space-y-3 ${isCollapsed ? 'flex flex-col items-center' : ''}`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 bg-neutral-900 text-white rounded-xl flex items-center justify-center shrink-0 shadow-sm">
+                    <FileText size={16} />
+                  </div>
+                  {!isCollapsed && (
+                    <div className="flex flex-col min-w-0 w-full">
+                      <span className="font-bold text-xs truncate leading-tight text-neutral-950 uppercase block w-full">{listData.name}</span>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400 mt-1 block">Checklist Manifest</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <nav className="space-y-1">
+              {[
+                { to: `/list/${listId}?tab=manifest`, label: 'Equipment Checklist', icon: <ListChecks size={20} /> },
+                { to: `/list/${listId}?tab=organizers`, label: 'Organizers & Cases', icon: <Layers size={20} /> },
+                { to: `/list/${listId}?tab=checkout`, label: 'Dispatch & Signature', icon: <ShieldCheck size={20} /> },
+                { to: `/list/${listId}?tab=settings`, label: 'Settings & Actions', icon: <Settings size={20} /> },
+              ].map((item) => {
+                const currentTab = new URLSearchParams(location.search).get('tab') || 'manifest';
+                const itemTab = new URLSearchParams(item.to.split('?')[1]).get('tab');
+                const isActive = currentTab === itemTab;
+
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setIsMobileOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold transition-all group ${
+                      isActive
+                        ? 'bg-primary text-white shadow-md shadow-primary/10'
+                        : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50'
+                    } ${isCollapsed ? 'justify-center' : ''}`}
+                    title={isCollapsed ? item.label : ''}
+                  >
+                    <span className={`shrink-0 transition-transform duration-200 ${isActive ? '' : 'group-hover:scale-110'}`}>
+                      {item.icon}
+                    </span>
+                    {!isCollapsed && (
+                      <span className="text-xs uppercase tracking-tight">
+                        {item.label}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
         ) : isProfileRoute ? (
           /* Profile Navigation */
           <div className="space-y-6">
@@ -484,7 +570,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                             onClick={() => setIsMobileOpen(false)}
                             className={`flex items-center gap-3 px-3 py-2 rounded-xl font-bold transition-all group ${
                               isActive 
-                                ? 'bg-neutral-900 text-white shadow-lg' 
+                                ? 'bg-accent text-white shadow-lg shadow-accent/20' 
                                 : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
                             } ${isCollapsed ? 'justify-center' : ''}`}
                             title={isCollapsed ? item.label : ''}
@@ -573,7 +659,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                     onClick={() => setIsMobileOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold transition-all group ${
                       isActive 
-                        ? 'bg-neutral-900 text-white shadow-lg' 
+                        ? 'bg-accent text-white shadow-lg shadow-accent/20' 
                         : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
                     } ${isCollapsed ? 'justify-center' : ''}`}
                     title={isCollapsed ? tab.label : ''}
@@ -614,7 +700,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                 { id: 'getting-started', label: 'Getting Started', icon: <Book size={18} /> },
                 { id: 'packing-lists', label: 'Manifests', icon: <ListChecks size={18} /> },
                 { id: 'gear-library', label: 'Gear Library', icon: <Camera size={18} /> },
-                { id: 'ai-wizard', label: 'AI Wizard', icon: <Zap size={18} /> },
+                { id: 'ai-wizard', label: 'Gig Assistant', icon: <Zap size={18} /> },
                 { id: 'moving', label: 'Projects & Tasks', icon: <Truck size={18} /> },
                 { id: 'billing', label: 'Billing & SLA', icon: <ShieldCheck size={18} /> },
               ].map((cat) => {
@@ -628,7 +714,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                     onClick={() => setIsMobileOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold transition-all group ${
                       isActive 
-                        ? 'bg-neutral-900 text-white shadow-lg' 
+                        ? 'bg-accent text-white shadow-lg shadow-accent/20' 
                         : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900'
                     } ${isCollapsed ? 'justify-center' : ''}`}
                     title={isCollapsed ? cat.label : ''}
@@ -708,13 +794,28 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                   onClick={() => setIsMobileOpen(false)}
                   className={`flex items-center justify-center gap-3 px-3 py-3 rounded-xl font-bold transition-all group ${
                     location.pathname === '/dashboard' 
-                      ? 'bg-neutral-900 text-white shadow-lg shadow-neutral-900/15' 
+                      ? 'bg-accent text-white shadow-lg shadow-accent/20' 
                       : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900'
                   } ${isCollapsed ? 'justify-center' : ''}`}
                   title={isCollapsed ? 'Dashboard' : ''}
                 >
                   <LayoutDashboard size={18} className="group-hover:scale-110 transition-transform shrink-0" />
                   {!isCollapsed && <span className="text-sm">Dashboard</span>}
+                </Link>
+
+                {/* Organizer main panel button */}
+                <Link
+                  to="/organizer"
+                  onClick={() => setIsMobileOpen(false)}
+                  className={`flex items-center justify-center gap-3 px-3 py-3 rounded-xl font-bold transition-all group ${
+                    location.pathname === '/organizer' 
+                      ? 'bg-accent text-white shadow-lg shadow-accent/20' 
+                      : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900'
+                  } ${isCollapsed ? 'justify-center' : ''}`}
+                  title={isCollapsed ? 'Organizer' : ''}
+                >
+                  <Layers size={18} className="group-hover:scale-110 transition-transform shrink-0" />
+                  {!isCollapsed && <span className="text-sm">Organizer</span>}
                 </Link>
 
                 <Link
@@ -757,7 +858,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                           isKioskDisabled
                             ? 'text-neutral-300 opacity-60 bg-neutral-50/50 cursor-not-allowed border-none'
                             : isActive 
-                              ? 'bg-primary text-white shadow-lg shadow-primary/20' 
+                              ? 'bg-accent text-white shadow-lg shadow-accent/20' 
                               : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 border-none'
                         } ${isCollapsed ? 'justify-center' : ''}`}
                         title={isCollapsed ? (isKioskDisabled ? `${item.label} (Premium Required)` : item.label) : ''}
@@ -888,7 +989,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                   onClick={() => setIsMobileOpen(false)}
                   className={`flex items-center gap-3 px-3 py-3 rounded-xl font-bold transition-all group ${
                     isAdminRoute 
-                      ? 'bg-neutral-900 text-white shadow-lg'
+                      ? 'bg-accent text-white shadow-lg shadow-accent/20'
                       : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 border-none'
                   } ${isCollapsed ? 'justify-center' : ''}`}
                   title={isCollapsed ? 'Admin Panel' : ''}
@@ -937,7 +1038,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v4.25.0' : 'Version 4.25.0'}
+            {isCollapsed ? 'v4.33.0' : 'Version 4.33.0'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">

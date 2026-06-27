@@ -691,6 +691,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [sortField, setSortField] = useState<'name' | 'createdAt' | 'weight' | 'price' | 'usageCount' | 'health'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [editingItem, setEditingItem] = useState<GearItem | null>(null);
+  const [customNewTag, setCustomNewTag] = useState('');
+  const [customEditTag, setCustomEditTag] = useState('');
 
   // States for Editing Accessories / Add-Ons
   const [accessoryEditIdx, setAccessoryEditIdx] = useState<number | null>(null);
@@ -6281,40 +6283,106 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       </div>
 
                       {/* Secondary Categories Selection Section */}
-                      <div className="space-y-2 col-span-full border-t border-neutral-100 pt-4">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Secondary Categories</span>
-                        <p className="text-[10px] text-neutral-400 -mt-1 mb-2">Assign optional additional categories for extra searchability</p>
-                        <div className="flex flex-wrap gap-2">
-                          {['Camera', 'Lens', 'Audio', 'Lighting', 'Support', 'Electronics', 'Cables', 'Power', 'Accessories', 'Other'].map(cat => {
-                            const primary = newItem.primaryCategory || newItem.category || 'Other';
-                            // Do not show the selected primary category as an option for secondary
-                            if (cat === primary) return null;
-
-                            const secondaryList = newItem.secondaryCategories || [];
-                            const isSelected = secondaryList.includes(cat);
-
-                            return (
-                              <button
-                                type="button"
+                      <div className="space-y-3 col-span-full border-t border-neutral-100 pt-4">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Secondary Categories (Tags)</span>
+                        <p className="text-[10px] text-neutral-400 -mt-1">Assign optional additional categories or custom tags for extra searchability</p>
+                        
+                        {/* Selected Tag Pills */}
+                        <div className="flex flex-wrap gap-1.5 min-h-[24px]">
+                          {(newItem.secondaryCategories || []).length === 0 ? (
+                            <span className="text-[10px] italic text-neutral-400">No secondary categories assigned. Click preset badges or type custom ones below.</span>
+                          ) : (
+                            (newItem.secondaryCategories || []).map(cat => (
+                              <div
                                 key={cat}
-                                onClick={() => {
-                                  const current = newItem.secondaryCategories || [];
-                                  const updated = current.includes(cat)
-                                    ? current.filter(c => c !== cat)
-                                    : [...current, cat];
-                                  setNewItem({ ...newItem, secondaryCategories: updated });
-                                  setIsDirty(true);
-                                }}
-                                className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-xl border transition-all duration-150 ${
-                                  isSelected 
-                                    ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm' 
-                                    : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:border-neutral-400'
-                                }`}
+                                className="px-2.5 py-1 bg-neutral-900 text-white text-[10px] font-bold uppercase rounded-lg flex items-center gap-1.5 shadow-sm"
                               >
-                                {cat}
-                              </button>
-                            );
-                          })}
+                                <span>{cat}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const current = newItem.secondaryCategories || [];
+                                    setNewItem({ ...newItem, secondaryCategories: current.filter(c => c !== cat) });
+                                    setIsDirty(true);
+                                  }}
+                                  className="text-neutral-300 hover:text-white font-black text-xs"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        {/* Custom tag typing & presets */}
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={customNewTag}
+                              onChange={(e) => setCustomNewTag(e.target.value)}
+                              placeholder="Type custom tag / category and press Add..."
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const tag = customNewTag.trim();
+                                  if (tag) {
+                                    const current = newItem.secondaryCategories || [];
+                                    if (!current.includes(tag)) {
+                                      setNewItem({ ...newItem, secondaryCategories: [...current, tag] });
+                                      setIsDirty(true);
+                                    }
+                                    setCustomNewTag('');
+                                  }
+                                }
+                              }}
+                              className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 text-xs font-bold outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const tag = customNewTag.trim();
+                                if (tag) {
+                                  const current = newItem.secondaryCategories || [];
+                                  if (!current.includes(tag)) {
+                                    setNewItem({ ...newItem, secondaryCategories: [...current, tag] });
+                                    setIsDirty(true);
+                                  }
+                                  setCustomNewTag('');
+                                }
+                              }}
+                              className="px-4 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-black uppercase"
+                            >
+                              Add
+                            </button>
+                          </div>
+
+                          {/* Quick presets */}
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {['Camera', 'Lens', 'Audio', 'Lighting', 'Support', 'Electronics', 'Cables', 'Power', 'Accessories', 'Full Frame', 'Anamorphic', 'Zoom', 'E-mount', 'Other'].map(cat => {
+                              const primary = newItem.primaryCategory || newItem.category || 'Other';
+                              if (cat === primary) return null;
+
+                              const secondaryList = newItem.secondaryCategories || [];
+                              const isSelected = secondaryList.includes(cat);
+                              if (isSelected) return null; // already selected, show only unselected as presets
+
+                              return (
+                                <button
+                                  type="button"
+                                  key={cat}
+                                  onClick={() => {
+                                    const current = newItem.secondaryCategories || [];
+                                    setNewItem({ ...newItem, secondaryCategories: [...current, cat] });
+                                    setIsDirty(true);
+                                  }}
+                                  className="px-2.5 py-0.5 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-500 hover:text-neutral-800 text-[9px] font-bold uppercase rounded-lg transition"
+                                >
+                                  + {cat}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                         {newItem.isKit && (
                           <button
@@ -6328,132 +6396,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                         )}
                       </div>
 
-                      {/* Lens-Specific Smart Taxonomy Specifications Panel */}
-                      {(newItem.primaryCategory === 'Lens' || newItem.category === 'Lens') && (
-                        <div className="space-y-4 col-span-full border border-neutral-200/50 p-5 rounded-[2rem] bg-neutral-50/50 animate-in fade-in duration-200">
-                          <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
-                            <span className="text-sm font-black text-neutral-800">📸 Lens Taxonomy Specifications</span>
-                            <span className="px-2 py-0.5 bg-neutral-200 text-neutral-600 rounded-full text-[8px] font-black uppercase tracking-wider">
-                              Smart Fields
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-neutral-400">
-                            Capture precise attributes to power advanced sorting, filtering, and cross-mount inspections.
-                          </p>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                              <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Lens Classification</label>
-                              <select
-                                value={newItem.lensType || ''}
-                                onChange={e => {
-                                  setNewItem({ ...newItem, lensType: e.target.value });
-                                  setIsDirty(true);
-                                }}
-                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
-                              >
-                                <option value="">Select classification...</option>
-                                <option value="Prime">Prime (Single Focal Length)</option>
-                                <option value="Zoom">Zoom (Variable Focal Length)</option>
-                                <option value="Cinema Prime">Cinema Prime (Manual, T-Stops)</option>
-                                <option value="Cinema Zoom">Cinema Zoom (Manual, Parfocal)</option>
-                                <option value="Anamorphic">Anamorphic (Cinema Aspect Squeeze)</option>
-                                <option value="Broadcast">Broadcast / ENG (Servo Integrated)</option>
-                                <option value="Macro">Macro (Extreme Close-Up)</option>
-                                <option value="Fisheye">Fisheye (Ultra-Wide Distortion)</option>
-                              </select>
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Bayonet Mount Type</label>
-                              <select
-                                value={newItem.lensMount || ''}
-                                onChange={e => {
-                                  setNewItem({ ...newItem, lensMount: e.target.value });
-                                  setIsDirty(true);
-                                }}
-                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
-                              >
-                                <option value="">Select mount compatibility...</option>
-                                <option value="Sony E-Mount">Sony E-Mount</option>
-                                <option value="Canon EF-Mount">Canon EF-Mount</option>
-                                <option value="Canon RF-Mount">Canon RF-Mount</option>
-                                <option value="Nikon F-Mount">Nikon F-Mount</option>
-                                <option value="Nikon Z-Mount">Nikon Z-Mount</option>
-                                <option value="ARRI PL-Mount">ARRI PL-Mount</option>
-                                <option value="L-Mount">L-Mount Alliance</option>
-                                <option value="Micro Four Thirds">Micro Four Thirds (MFT)</option>
-                                <option value="Fujifilm X-Mount">Fujifilm X-Mount</option>
-                                <option value="Hasselblad H-Mount">Hasselblad H-Mount</option>
-                              </select>
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Focal Length (e.g. 50mm or 24-70mm)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. 50mm, 24-70mm"
-                                value={newItem.focalLength || ''}
-                                onChange={e => {
-                                  setNewItem({ ...newItem, focalLength: e.target.value });
-                                  setIsDirty(true);
-                                }}
-                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
-                              />
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Max Aperture (e.g. f/1.4 or T1.5)</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. f/1.4, T1.5, f/2.8"
-                                value={newItem.maxAperture || ''}
-                                onChange={e => {
-                                  setNewItem({ ...newItem, maxAperture: e.target.value });
-                                  setIsDirty(true);
-                                }}
-                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
-                              />
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Format Coverage / Sensor Circle</label>
-                              <select
-                                value={newItem.formatCoverage || ''}
-                                onChange={e => {
-                                  setNewItem({ ...newItem, formatCoverage: e.target.value });
-                                  setIsDirty(true);
-                                }}
-                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
-                              >
-                                <option value="">Select sensor coverage...</option>
-                                <option value="Full Frame">Full Frame (35mm Standard)</option>
-                                <option value="Super35">Super35 / APS-C</option>
-                                <option value="Medium Format">Medium Format (Large Circle)</option>
-                                <option value="Micro Four Thirds">Micro Four Thirds (MFT)</option>
-                                <option value="VistaVision">VistaVision / Large Format (LF)</option>
-                              </select>
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <label className="text-[9px] font-black uppercase tracking-widest text-neutral-450 block">Focus Control Mechanism</label>
-                              <select
-                                value={newItem.focusType || ''}
-                                onChange={e => {
-                                  setNewItem({ ...newItem, focusType: e.target.value });
-                                  setIsDirty(true);
-                                }}
-                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900 outline-none transition"
-                              >
-                                <option value="">Select focus control...</option>
-                                <option value="Manual Focus Only">Manual Focus Only (Cinema Gear Ring)</option>
-                                <option value="Autofocus / Manual">Autofocus with Manual Override</option>
-                                <option value="Electronic Focus-by-wire">Electronic Focus-by-wire</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      )}
 
                       {/* Equipment Registry Details (Serial, Model, release year, model numbers) */}
                       <div className="border border-neutral-200/65 rounded-[2rem] p-5 bg-neutral-50/50 space-y-4 col-span-full border-t border-b py-5 my-2">
@@ -7119,39 +7062,102 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   </div>
 
                   {/* Secondary Categories Selection Section */}
-                  <div className="space-y-2 col-span-full border-t border-neutral-100 pt-4">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Secondary Categories</span>
-                    <p className="text-[10px] text-neutral-400 -mt-1 mb-2">Assign optional additional categories for extra searchability</p>
-                    <div className="flex flex-wrap gap-2">
-                      {['Camera', 'Lens', 'Audio', 'Lighting', 'Support', 'Electronics', 'Cables', 'Power', 'Accessories', 'Other'].map(cat => {
-                        const primary = editingItem.primaryCategory || editingItem.category || 'Other';
-                        // Do not show the selected primary category as an option for secondary
-                        if (cat === primary) return null;
-
-                        const secondaryList = editingItem.secondaryCategories || [];
-                        const isSelected = secondaryList.includes(cat);
-
-                        return (
-                          <button
-                            type="button"
+                  <div className="space-y-3 col-span-full border-t border-neutral-100 pt-4">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Secondary Categories (Tags)</span>
+                    <p className="text-[10px] text-neutral-400 -mt-1">Assign optional additional categories or custom tags for extra searchability</p>
+                    
+                    {/* Selected Tag Pills */}
+                    <div className="flex flex-wrap gap-1.5 min-h-[24px]">
+                      {(editingItem.secondaryCategories || []).length === 0 ? (
+                        <span className="text-[10px] italic text-neutral-400">No secondary categories assigned. Click preset badges or type custom ones below.</span>
+                      ) : (
+                        (editingItem.secondaryCategories || []).map(cat => (
+                          <div
                             key={cat}
-                            onClick={() => {
-                              const current = editingItem.secondaryCategories || [];
-                              const updated = current.includes(cat)
-                                ? current.filter(c => c !== cat)
-                                : [...current, cat];
-                              setEditingItem({ ...editingItem, secondaryCategories: updated });
-                            }}
-                            className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-xl border transition-all duration-150 ${
-                              isSelected 
-                                ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm' 
-                                : 'bg-neutral-50 border-neutral-200 text-neutral-500 hover:border-neutral-400'
-                            }`}
+                            className="px-2.5 py-1 bg-neutral-900 text-white text-[10px] font-bold uppercase rounded-lg flex items-center gap-1.5 shadow-sm"
                           >
-                            {cat}
-                          </button>
-                        );
-                      })}
+                            <span>{cat}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const current = editingItem.secondaryCategories || [];
+                                setEditingItem({ ...editingItem, secondaryCategories: current.filter(c => c !== cat) });
+                              }}
+                              className="text-neutral-300 hover:text-white font-black text-xs"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Custom tag typing & presets */}
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customEditTag}
+                          onChange={(e) => setCustomEditTag(e.target.value)}
+                          placeholder="Type custom tag / category and press Add..."
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const tag = customEditTag.trim();
+                              if (tag) {
+                                const current = editingItem.secondaryCategories || [];
+                                if (!current.includes(tag)) {
+                                  setEditingItem({ ...editingItem, secondaryCategories: [...current, tag] });
+                                }
+                                setCustomEditTag('');
+                              }
+                            }
+                          }}
+                          className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 text-xs font-bold outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const tag = customEditTag.trim();
+                            if (tag) {
+                              const current = editingItem.secondaryCategories || [];
+                              if (!current.includes(tag)) {
+                                setEditingItem({ ...editingItem, secondaryCategories: [...current, tag] });
+                              }
+                              setCustomEditTag('');
+                            }
+                          }}
+                          className="px-4 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-black uppercase"
+                        >
+                          Add
+                        </button>
+                      </div>
+
+                      {/* Quick presets */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {['Camera', 'Lens', 'Audio', 'Lighting', 'Support', 'Electronics', 'Cables', 'Power', 'Accessories', 'Full Frame', 'Anamorphic', 'Zoom', 'E-mount', 'Other'].map(cat => {
+                          const primary = editingItem.primaryCategory || editingItem.category || 'Other';
+                          if (cat === primary) return null;
+
+                          const secondaryList = editingItem.secondaryCategories || [];
+                          const isSelected = secondaryList.includes(cat);
+                          if (isSelected) return null; // already selected, show only unselected as presets
+
+                          return (
+                            <button
+                              type="button"
+                              key={cat}
+                              onClick={() => {
+                                const current = editingItem.secondaryCategories || [];
+                                setEditingItem({ ...editingItem, secondaryCategories: [...current, cat] });
+                              }}
+                              className="px-2.5 py-0.5 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-500 hover:text-neutral-800 text-[9px] font-bold uppercase rounded-lg transition"
+                            >
+                              + {cat}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                     {editingItem.isKit && (
                       <button

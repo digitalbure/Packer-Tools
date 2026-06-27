@@ -1725,7 +1725,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
               onClick={() => setActiveTab(tab)}
               className={`px-3.5 py-2 md:px-5 md:py-2.5 lg:px-6 lg:py-3 rounded-xl lg:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                 activeTab === tab 
-                  ? 'bg-neutral-900 text-white shadow-lg translate-y-[-2px]' 
+                  ? 'bg-accent text-white shadow-lg shadow-accent/20 translate-y-[-2px]' 
                   : 'text-neutral-400 hover:text-neutral-600'
               }`}
             >
