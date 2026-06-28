@@ -911,6 +911,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     items: { id: string; name: string; assetTag: string; category: string; qty: number; isKit?: boolean }[];
     createdAt: Date;
     actionType: KioskAction;
+    expectedReturnDate?: string;
   } | null>(null);
 
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -971,7 +972,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   const [containers, setContainers] = useState<Container[]>([]);
   const [newCaseName, setNewCaseName] = useState('');
   const [newCaseType, setNewCaseType] = useState('Case');
-  const [guestInfo, setGuestInfo] = useState({ name: '', email: '' });
+  const [guestInfo, setGuestInfo] = useState({ name: '', email: '', expectedReturnDate: '' });
   const [signature, setSignature] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -1850,7 +1851,8 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
         userEmail: guestInfo.email || initialUser?.email || 'guest@terminal.local',
         items: checkoutItems,
         createdAt: new Date(),
-        actionType: 'checkout'
+        actionType: 'checkout',
+        expectedReturnDate: guestInfo.expectedReturnDate || undefined
       });
 
       if (!isOnline) {
@@ -2013,7 +2015,8 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
           actionType: lastOrderReceipt.actionType,
           userName: lastOrderReceipt.userName,
           items: lastOrderReceipt.items,
-          timestamp: lastOrderReceipt.createdAt.toLocaleString()
+          timestamp: lastOrderReceipt.createdAt.toLocaleString(),
+          expectedReturnDate: lastOrderReceipt.expectedReturnDate
         })
       });
       const data = await response.json();
@@ -2141,7 +2144,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     setStep('welcome');
     setAction(null);
     setScannedAsset(null);
-    setGuestInfo({ name: '', email: '' });
+    setGuestInfo({ name: '', email: '', expectedReturnDate: '' });
     setSignature(null);
     setCart([]);
     setLastOrderReceipt(null);
@@ -4501,6 +4504,12 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                     <span className="text-neutral-400">WORKFLOW STRATEGY:</span>
                     <span className="font-black text-neutral-800 uppercase">{lastOrderReceipt.actionType === 'order' ? 'Self-Service Fast Food Reservation' : 'Direct Scan & Go'}</span>
                   </div>
+                  {lastOrderReceipt.expectedReturnDate && (
+                    <div className="flex justify-between border-t border-dashed border-neutral-200 pt-2 mt-2">
+                      <span className="text-red-500 font-bold">EXPECTED RETURN:</span>
+                      <span className="font-black text-red-600 uppercase">{lastOrderReceipt.expectedReturnDate}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Checkout items checklists layout */}
@@ -4656,10 +4665,22 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                     className="w-full text-xl md:text-4xl p-6 md:p-10 bg-neutral-50 border-2 md:border-4 border-neutral-100 rounded-[1.5rem] md:rounded-[2.5rem] focus:border-black outline-none transition font-black tracking-tighter lowercase"
                   />
                 </div>
+                {action === 'checkout' && (
+                  <div className="space-y-2 md:space-y-4">
+                    <label className="text-[10px] md:text-xs font-black uppercase tracking-widest text-neutral-400 ml-4 md:ml-6">Expected Return Date</label>
+                    <input 
+                      type="date"
+                      value={guestInfo.expectedReturnDate}
+                      onChange={(e) => setGuestInfo({ ...guestInfo, expectedReturnDate: e.target.value })}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full text-xl md:text-4xl p-6 md:p-10 bg-neutral-50 border-2 md:border-4 border-neutral-100 rounded-[1.5rem] md:rounded-[2.5rem] focus:border-black outline-none transition font-black tracking-tighter uppercase text-neutral-800"
+                    />
+                  </div>
+                )}
               </div>
 
               <button 
-                disabled={!guestInfo.name || !guestInfo.email || isLoading}
+                disabled={!guestInfo.name || !guestInfo.email || (action === 'checkout' && !guestInfo.expectedReturnDate) || isLoading}
                 onClick={action === 'order' ? handleCreateOrder : () => setStep('sign')}
                 className="w-full py-6 md:py-10 bg-black text-white rounded-[1.5rem] md:rounded-[2.5rem] text-xl md:text-3xl font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition disabled:opacity-30 disabled:hover:scale-100"
               >

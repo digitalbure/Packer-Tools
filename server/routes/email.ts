@@ -289,7 +289,7 @@ router.post("/api/emails/send", authenticateUser, async (req, res) => {
 });
 
 router.post("/api/send-email", authenticateUser, async (req, res) => {
-  const { to, orderNumber, actionType, userName, items, timestamp } = req.body;
+  const { to, orderNumber, actionType, userName, items, timestamp, expectedReturnDate } = req.body;
   
   if (!to) {
     return res.status(400).json({ error: "Recipient email is required" });
@@ -341,6 +341,12 @@ router.post("/api/send-email", authenticateUser, async (req, res) => {
                 <td style="color: #9ca3af; font-weight: bold; text-transform: uppercase; padding: 6px 0;">Destination Email:</td>
                 <td style="color: #111827; font-weight: 800; text-align: right; padding: 6px 0; font-family: monospace;">${to}</td>
               </tr>
+              ${expectedReturnDate ? `
+              <tr>
+                <td style="color: #ef4444; font-weight: bold; text-transform: uppercase; padding: 6px 0;">Expected Return:</td>
+                <td style="color: #ef4444; font-weight: 800; text-align: right; padding: 6px 0; font-weight: bold;">${expectedReturnDate}</td>
+              </tr>
+              ` : ""}
             </table>
           </div>
           <div style="margin-bottom: 40px;">

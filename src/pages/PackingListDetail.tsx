@@ -4750,7 +4750,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <span className="font-black text-emerald-600 text-[10px] mr-1">
-                                  {anc.price === 0 ? 'FREE' : formatCurrency(anc.price, editingItem?.currency || 'USD')}
+                                  {anc.price === 0 ? 'FREE' : formatCurrency(anc.price, (editingItem as any)?.currency || 'USD')}
                                 </span>
                                 <button
                                   type="button"

@@ -794,7 +794,7 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                               </p>
 
                               <div className="relative z-0">
-                                <PayPalScriptProvider options={{ "client-id": (selectedGateway as any).paypalClientId || paypalClientId, currency: selectedCurrencyCode }}>
+                                <PayPalScriptProvider options={{ "client-id": (selectedGateway as any).paypalClientId || paypalClientId, clientId: (selectedGateway as any).paypalClientId || paypalClientId, currency: selectedCurrencyCode }}>
                                   <PayPalButtons
                                     style={{ layout: "vertical", shape: "pill", label: "pay" }}
                                     createOrder={async () => {

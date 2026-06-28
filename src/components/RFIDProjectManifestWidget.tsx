@@ -5,7 +5,7 @@ import { Project } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Cpu, Wifi, CheckCircle2, AlertCircle, Zap, Play, 
-  RefreshCw, Edit3, Save, Check, Database, Signal, X, Loader2
+  RefreshCw, Edit3, Save, Check, Database, Signal, X, Loader2, Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
 
