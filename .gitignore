@@ -1,5 +1,5 @@
 node_modules/
-dist/
+# dist/ is not ignored so that build artifacts can be uploaded during deployment
 build/
 coverage/
 .DS_Store

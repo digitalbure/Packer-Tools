@@ -15,6 +15,7 @@ import {
 import { identifyItem } from '../services/geminiService';
 import { compressImage } from '../lib/imageUtils';
 import AddPhotoWidget from './AddPhotoWidget';
+import { useAuth } from '../providers/AuthProvider';
 
 interface AddGearModalProps {
   user: UserProfile | null;
@@ -57,6 +58,7 @@ const STOCK_GEAR_SAMPLES = [
 export default function AddGearModal({ user, adminSettings }: AddGearModalProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { formatCurrency } = useAuth();
   const isOpen = searchParams.get('addGear') === 'true';
 
   // Step 1: choosing onboarding method. ('choose' | 'ai_scan' | 'manual' | 'existing')
@@ -1193,7 +1195,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="font-bold text-emerald-600 text-[11px]">
-                              {anc.price === 0 ? 'FREE' : `${form.currency || '$'}${anc.price}`}
+                              {anc.price === 0 ? 'FREE' : formatCurrency(anc.price, form.currency || 'USD')}
                             </span>
                             <button
                               type="button"

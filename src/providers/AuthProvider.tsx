@@ -33,6 +33,10 @@ export interface AuthContextType {
   setIsCommunitySelectorOpen: React.Dispatch<React.SetStateAction<boolean>>;
   toggleLayoutTheme: () => Promise<void>;
   isLayoutHidden: boolean;
+  selectedCurrency: string;
+  setSelectedCurrency: React.Dispatch<React.SetStateAction<string>>;
+  convertCurrency: (value: number | undefined | null, from: string | undefined, to?: string) => number;
+  formatCurrency: (value: number | undefined | null, from: string | undefined, to?: string) => string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -376,7 +380,86 @@ async function migrateDemoDataToUser(fromUid: string, toUid: string) {
   }
 }
 
+const EXCHANGE_RATES: { [key: string]: number } = {
+  USD: 1.0,
+  EUR: 0.92,
+  GBP: 0.79,
+  AUD: 1.52,
+  FJD: 2.25,
+  CAD: 1.37,
+  NZD: 1.63
+};
+
+const SYMBOL_MAP: { [key: string]: string } = {
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  AUD: 'A$',
+  FJD: 'FJ$',
+  CAD: 'C$',
+  NZD: 'NZ$'
+};
+
+const SYMBOL_TO_CODE: { [key: string]: string } = {
+  '$': 'USD',
+  '€': 'EUR',
+  '£': 'GBP',
+  'A$': 'AUD',
+  'FJ$': 'FJD',
+  'C$': 'CAD',
+  'NZ$': 'NZ$'
+};
+
+const normalizeCurrencyCode = (c: string | undefined): string => {
+  if (!c) return 'USD';
+  const clean = c.trim();
+  if (SYMBOL_TO_CODE[clean]) return SYMBOL_TO_CODE[clean];
+  if (EXCHANGE_RATES[clean]) return clean;
+  const upper = clean.toUpperCase();
+  if (EXCHANGE_RATES[upper]) return upper;
+  return 'USD';
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [selectedCurrency, setSelectedCurrencyState] = useState<string>(() => {
+    const saved = localStorage.getItem("packer_selected_currency");
+    if (saved) return saved;
+    const commId = localStorage.getItem("packer_selected_community");
+    if (commId === 'fiji') return 'FJD';
+    if (commId === 'australia') return 'AUD';
+    if (commId === 'new_zealand') return 'NZD';
+    return 'USD';
+  });
+
+  const setSelectedCurrency = (currency: string | ((prev: string) => string)) => {
+    setSelectedCurrencyState(prev => {
+      const val = typeof currency === 'function' ? currency(prev) : currency;
+      localStorage.setItem("packer_selected_currency", val);
+      return val;
+    });
+  };
+
+  const convertCurrency = (value: number | undefined | null, from: string | undefined, to?: string): number => {
+    if (value === undefined || value === null) return 0;
+    const fromCode = normalizeCurrencyCode(from);
+    const toCode = normalizeCurrencyCode(to || selectedCurrency);
+    
+    if (fromCode === toCode) return value;
+    
+    const fromRate = EXCHANGE_RATES[fromCode] || 1.0;
+    const toRate = EXCHANGE_RATES[toCode] || 1.0;
+    
+    const valueInUSD = value / fromRate;
+    return valueInUSD * toRate;
+  };
+
+  const formatCurrency = (value: number | undefined | null, from: string | undefined, to?: string): string => {
+    const toCode = normalizeCurrencyCode(to || selectedCurrency);
+    const converted = convertCurrency(value, from, toCode);
+    const symbol = SYMBOL_MAP[toCode] || '$';
+    return `${symbol}${converted.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isInvited, setIsInvited] = useState<boolean | null>(null);
   const [adminSettings, setAdminSettings] = useState<AdminSettings>(getDefaultAdminSettings());
@@ -412,6 +495,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       hasInitializedSidebarCollapse.current = true;
     }
   }, [user]);
+
+  useEffect(() => {
+    if (selectedCommunity) {
+      let nextCurrency = 'USD';
+      if (selectedCommunity === 'fiji') nextCurrency = 'FJD';
+      else if (selectedCommunity === 'australia') nextCurrency = 'AUD';
+      else if (selectedCommunity === 'new_zealand') nextCurrency = 'NZD';
+      setSelectedCurrency(nextCurrency);
+    }
+  }, [selectedCommunity]);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -965,7 +1058,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       selectedCommunity, setSelectedCommunity,
       isCommunitySelectorOpen, setIsCommunitySelectorOpen,
       toggleLayoutTheme,
-      isLayoutHidden
+      isLayoutHidden,
+      selectedCurrency,
+      setSelectedCurrency,
+      convertCurrency,
+      formatCurrency
     }}>
       {children}
     </AuthContext.Provider>

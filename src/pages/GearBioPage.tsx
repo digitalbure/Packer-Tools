@@ -4,6 +4,7 @@ import { doc, onSnapshot, updateDoc, collection, query, getDocs, addDoc, writeBa
 import { db } from '../firebase';
 import { GearItem, UserProfile, GearIncident } from '../types';
 import { toast } from 'sonner';
+import { useAuth } from '../providers/AuthProvider';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { 
@@ -22,6 +23,7 @@ interface GearBioPageProps {
 export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { formatCurrency } = useAuth();
   const [searchParams] = useSearchParams();
   const queryOwnerId = searchParams.get('owner');
 
@@ -924,7 +926,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
             <div>
               <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500">Value</p>
               <p className="text-sm font-bold mt-0.5 text-emerald-400">
-                {item.price ? `${item.currency || '$'}${item.price.toLocaleString()}` : 'N/A'}
+                {item.price ? formatCurrency(item.price, item.currency || 'USD') : 'N/A'}
               </p>
             </div>
           </div>
@@ -1289,7 +1291,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                     <div>
                       <p className="text-xs font-black uppercase tracking-wider text-blue-900">Listed on Rental Marketplace</p>
                       <p className="text-[10px] text-blue-600 mt-0.5">
-                        Available at <span className="font-bold">{item.currency || '$'}{item.rentalPrice || '45'} / day</span> • 
+                        Available at <span className="font-bold">{formatCurrency(item.rentalPrice || 45, item.currency || 'USD')} / day</span> • 
                         {item.rentalPeriod === 'week' ? ' Verification Required' : ' Instant Book'}
                       </p>
                     </div>
@@ -1435,17 +1437,17 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                       <div className="p-4 bg-white border border-neutral-200 rounded-xl space-y-2">
                         <div className="flex justify-between items-center text-xs">
                           <span className="text-neutral-500 font-bold uppercase text-[9px] tracking-wider">Equipment Daily Rate:</span>
-                          <span className="font-extrabold text-neutral-900 font-mono">{item.currency || '$'}{item.rentalPrice || 45}/day</span>
+                          <span className="font-extrabold text-neutral-900 font-mono">{formatCurrency(item.rentalPrice || 45, item.currency || 'USD')}/day</span>
                         </div>
                         {item.rentalHourlyPrice && item.rentalHourlyPrice > 0 ? (
                           <div className="flex justify-between items-center text-xs">
                             <span className="text-neutral-400 font-bold uppercase text-[9px] tracking-wider">Equipment Hourly Rate:</span>
-                            <span className="font-semibold text-neutral-800 font-mono">{item.currency || '$'}{item.rentalHourlyPrice}/hour</span>
+                            <span className="font-semibold text-neutral-800 font-mono">{formatCurrency(item.rentalHourlyPrice, item.currency || 'USD')}/hour</span>
                           </div>
                         ) : null}
                         <div className="flex justify-between items-center text-xs pt-1.5 border-t border-dotted border-neutral-200">
                           <span className="text-neutral-500 font-bold uppercase text-[9px] tracking-wider">Security Deposit Escrow:</span>
-                          <span className="font-extrabold text-neutral-800 font-mono">{item.currency || '$'}{item.rentalDeposit || 0}</span>
+                          <span className="font-extrabold text-neutral-800 font-mono">{formatCurrency(item.rentalDeposit || 0, item.currency || 'USD')}</span>
                         </div>
                       </div>
 

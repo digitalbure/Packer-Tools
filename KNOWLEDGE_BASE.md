@@ -299,4 +299,21 @@ Packer Tools offers advanced data portability utilities allowing coordinators to
 2. **Dynamic Aggregates:** Calculates precise metrics on-the-fly, displaying unique models, total stock quantities, complete financial valuations, and active items requiring urgent maintenance attention.
 3. **Visual Formats:** Supports grouping items by category, toggling the visibility of long descriptions, and applying compact spacing layouts to ensure even the longest gear lists fit cleanly on standard-sized paper or print-to-PDF files.
 
+---
+
+## 🪙 16. Global Currency Exchange & Secure PayPal Architecture (v4.33.0)
+
+Packer Tools includes a robust, context-driven **Global Currency Exchange Service** and a highly secure, server-proxied payment structure. This guarantees automatic conversion of pricing models and prevents private merchant credentials from leaking.
+
+### 🌐 Context-Driven Currency Conversions:
+- **Automatic Conversion Engine**: The central `AuthProvider` hosts `convertCurrency` and `formatCurrency` utilities utilizing preset exchange multipliers relative to the base price (USD).
+- **Across-the-App Consistency**: Values are seamlessly converted across all modules, including the master **Gear Library**, individual **Gear Bio Detail Pages**, **Marketplace Catalogs**, **Public Brand Storefronts**, **Active Checkout Modals**, and **Plan Paywalls**.
+- **User Preference Memory**: Selected currencies are stored inside `localStorage` for consistent persistent experiences during future sessions.
+
+### 🔒 Secure PayPal Credential Isolation:
+- **Frontend Isolation**: Client-side files only handle public configuration values (such as `paypalClientId`) to populate interactive PayPal buttons.
+- **Server-Side API Keys Protection**: All private merchant variables, including the **PayPal Secret Key**, are restricted entirely to server-side configurations (`/server/utils/paypal.ts`).
+- **Secure Express Proxies**: Backend endpoints (`/api/paypal/create-order` and `/api/paypal/capture-order`) act as secure gateways, performing authenticated handshakes with official PayPal REST services. This entirely isolates client execution environments from sensitive backend keys while dynamically converting transaction values on-the-fly to ensure flawless multi-currency support.
+
+
 

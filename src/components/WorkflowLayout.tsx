@@ -32,6 +32,7 @@ import { deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { auth, db, logout } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import PackerLogo from './PackerLogo';
+import { useAuth } from '../providers/AuthProvider';
 
 interface WorkflowLayoutProps {
   user: UserProfile;
@@ -56,6 +57,8 @@ export default function WorkflowLayout({
   const location = useLocation();
   const currentPath = location.pathname;
   const currentSearch = location.search;
+
+  const { selectedCurrency, setSelectedCurrency } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'inventory' | 'projects' | 'checkout' | 'utilities' | 'adminPanel'>('inventory');
 
@@ -213,6 +216,25 @@ export default function WorkflowLayout({
               <span className="text-[7px] text-neutral-500">▼</span>
             </button>
           )}
+
+          {/* Currency Dropdown Select (Workflow Theme) */}
+          <div className="relative inline-flex items-center">
+            <select
+              value={selectedCurrency}
+              onChange={(e) => setSelectedCurrency(e.target.value)}
+              className="bg-[#1a1a1f] hover:bg-[#222228] text-neutral-400 hover:text-white border border-[#2a2a32] rounded-md px-2.5 py-1 text-xs font-semibold font-mono transition outline-none focus:ring-1 focus:ring-primary cursor-pointer appearance-none pr-7 pl-2.5"
+              title="Change display currency app-wide"
+            >
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="AUD">AUD (A$)</option>
+              <option value="FJD">FJD (FJ$)</option>
+              <option value="CAD">CAD (C$)</option>
+              <option value="NZD">NZD (NZ$)</option>
+            </select>
+            <span className="absolute right-3.5 text-[7px] text-neutral-500 pointer-events-none">▼</span>
+          </div>
         </div>
 
         {/* Center: Sleek Physical-looking Marketplace Toggle Switch Lever */}

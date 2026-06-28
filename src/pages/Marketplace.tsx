@@ -12,6 +12,7 @@ const triggerHaptic = () => {
   }
 };
 import { UserProfile, AdminSettings } from '../types';
+import { useAuth } from '../providers/AuthProvider';
 import { db, handleFirestoreError, OperationType, signInWithGoogle } from '../firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDocs } from 'firebase/firestore';
 import PackerLogo from '../components/PackerLogo';
@@ -184,6 +185,7 @@ interface MarketplaceProps {
 
 export default function Marketplace({ user, adminSettings }: MarketplaceProps = {}) {
   const navigate = useNavigate();
+  const { formatCurrency, convertCurrency, selectedCurrency } = useAuth();
   const [currentMode, setCurrentMode] = useState<'rent' | 'buy'>('rent');
   const [searchQuery, setSearchQuery] = useState('');
   const [userListings, setUserListings] = useState<any[]>([]);
@@ -270,6 +272,18 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     });
     return () => unsubscribe();
   }, []);
+
+  const convertedUserListings = React.useMemo(() => {
+    return userListings.map(listing => {
+      const origCurrency = listing.currency || 'USD';
+      return {
+        ...listing,
+        price: convertCurrency(listing.price, origCurrency, selectedCurrency),
+        originalPrice: listing.originalPrice ? convertCurrency(listing.originalPrice, origCurrency, selectedCurrency) : undefined,
+        securityDeposit: listing.securityDeposit ? convertCurrency(listing.securityDeposit, origCurrency, selectedCurrency) : undefined,
+      };
+    });
+  }, [userListings, selectedCurrency, convertCurrency]);
 
   const launchCountry = adminSettings?.marketplaceRegionConfig?.launchCountry || 'Fiji';
   const availableCountries = adminSettings?.marketplaceRegionConfig?.availableCountries || ['Fiji', 'United States', 'Australia', 'New Zealand', 'United Kingdom', 'Canada'];
@@ -651,9 +665,9 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     return itemInd === selectedIndustry;
   };
 
-  const allRentals = userListings.filter(l => !l.isSale).filter(activeIndustryFilter);
+  const allRentals = convertedUserListings.filter(l => !l.isSale).filter(activeIndustryFilter);
 
-  const allSales = userListings.filter(l => l.isSale).filter(activeIndustryFilter);
+  const allSales = convertedUserListings.filter(l => l.isSale).filter(activeIndustryFilter);
 
   const getCategoriesList = () => {
     const baseCats = dbCategories.length > 0 ? dbCategories : [...CATEGORIES, ...EXTRA_CATEGORIES];
@@ -679,7 +693,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
   const activeCategories = getCategoriesList().map(c => ({
     ...c,
-    count: userListings.filter(l => l.category === c.id).length
+    count: convertedUserListings.filter(l => l.category === c.id).length
   }));
 
   const filteredProducts = (currentMode === 'rent' ? allRentals : allSales)
@@ -749,23 +763,23 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     });
 
   const getShippedItems = () => {
-    return userListings.filter(l => l.isShipped || l.shippingDays).slice(0, 5);
+    return convertedUserListings.filter(l => l.isShipped || l.shippingDays).slice(0, 5);
   };
 
   const getFeaturedItems = () => {
-    return userListings.filter(l => l.featured || l.instantBook || l.marketplaceEnabled).slice(0, 4);
+    return convertedUserListings.filter(l => l.featured || l.instantBook || l.marketplaceEnabled).slice(0, 4);
   };
 
   const getStaffPicksItems = () => {
-    return userListings.filter(l => l.sponsored || l.featured).slice(0, 4);
+    return convertedUserListings.filter(l => l.sponsored || l.featured).slice(0, 4);
   };
 
   const getLatestItems = () => {
-    return [...userListings].reverse().slice(0, 5);
+    return [...convertedUserListings].reverse().slice(0, 5);
   };
 
   const getPopularItems = () => {
-    return [...userListings].sort((a,b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 5);
+    return [...convertedUserListings].sort((a,b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 5);
   };
 
   return (

@@ -35,10 +35,12 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import { useAuth } from '../providers/AuthProvider';
 
 export default function MarketplaceView() {
   const { id } = useParams<{ id: string }>();
-  const [list, setList] = useState<PackingList | null>(null);
+  const { convertCurrency, selectedCurrency } = useAuth();
+  const [rawList, setList] = useState<PackingList | null>(null);
   const [items, setItems] = useState<PackingItem[]>([]);
   const [recipient, setRecipient] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(true);
@@ -180,13 +182,13 @@ export default function MarketplaceView() {
   }, [id]);
 
   const handleMarkReceived = async () => {
-    if (!id || !list) return;
+    if (!id || !rawList) return;
     try {
       await updateDoc(doc(db, 'packingLists', id), {
         status: 'Received',
         receivedAt: new Date().toISOString()
       });
-      setList({ ...list, status: 'Received', receivedAt: new Date().toISOString() });
+      setList({ ...rawList, status: 'Received', receivedAt: new Date().toISOString() });
       toast.success('Package marked as received!');
     } catch (err) {
       console.error('Error marking as received:', err);
@@ -382,7 +384,7 @@ export default function MarketplaceView() {
     );
   }
 
-  if (error || !list) {
+  if (error || !rawList) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F5F4] p-4 text-center">
         <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 text-red-500">
@@ -397,7 +399,19 @@ export default function MarketplaceView() {
     );
   }
 
-  const defaultCurrency = globalSettings?.marketplaceRegionConfig?.defaultCurrency;
+  const convertedList = React.useMemo(() => {
+    if (!rawList) return null;
+    const origCurrency = rawList.marketplaceCurrency || rawList.currency || 'USD';
+    return {
+      ...rawList,
+      marketplacePrice: convertCurrency(rawList.marketplacePrice || 0, origCurrency, selectedCurrency),
+      securityDeposit: rawList.securityDeposit ? convertCurrency(rawList.securityDeposit, origCurrency, selectedCurrency) : undefined,
+    };
+  }, [rawList, selectedCurrency, convertCurrency]);
+
+  const list = convertedList || rawList;
+
+  const defaultCurrency = selectedCurrency || globalSettings?.marketplaceRegionConfig?.defaultCurrency || 'USD';
   let currencySymbol = '$';
   if (defaultCurrency) {
     if (defaultCurrency === 'FJD') currencySymbol = 'FJ$';

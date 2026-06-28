@@ -11,6 +11,7 @@ import { db } from '../firebase';
 import { toast } from 'sonner';
 import { authenticatedFetch } from '../lib/api';
 import { useIndustry } from '../context/IndustryContext';
+import { useAuth } from '../providers/AuthProvider';
 import confetti from 'canvas-confetti';
 
 interface PaywallProps {
@@ -29,6 +30,7 @@ export default function Paywall({
   initialSelectedPlanId = 'pro'
 }: PaywallProps) {
   const { getAdjustedLabel } = useIndustry();
+  const { formatCurrency, convertCurrency, selectedCurrency } = useAuth();
 
   // State Management
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
@@ -414,7 +416,7 @@ export default function Paywall({
 
                   <div className="text-right">
                     <div className="text-sm font-black text-white">
-                      ${basePrice}
+                      {formatCurrency(basePrice, 'USD')}
                     </div>
                     <div className="text-[8px] font-bold text-neutral-500 uppercase tracking-wider">
                       {billingCycle === 'monthly' ? 'Per Month' : 'Per Year'}
@@ -436,7 +438,7 @@ export default function Paywall({
                   </p>
                 </div>
                 <span className="text-[8.5px] font-mono bg-neutral-900 border border-neutral-800 text-neutral-300 font-black px-2 py-0.5 rounded">
-                  +${selectedPlan.extraSeatCost ?? 10}/mo each
+                  +{formatCurrency(selectedPlan.extraSeatCost ?? 10, 'USD')}/mo each
                 </span>
               </div>
 
@@ -488,7 +490,7 @@ export default function Paywall({
                   <div className="flex justify-between">
                     <span>Extra Seats ({extraSeats}):</span>
                     <span className="text-white">
-                      ${(selectedPlan.extraSeatCost ?? 10) * extraSeats * (billingCycle === 'annual' ? 12 : 1)}
+                      {formatCurrency((selectedPlan.extraSeatCost ?? 10) * extraSeats * (billingCycle === 'annual' ? 12 : 1), 'USD')}
                     </span>
                   </div>
                 )}
@@ -496,11 +498,11 @@ export default function Paywall({
                   <span className="font-sans font-black uppercase text-neutral-300">Total Charged:</span>
                   <div className="text-right">
                     <span className="text-lg font-black text-white">
-                      ${getPlanPrice(selectedPlan)}
+                      {formatCurrency(getPlanPrice(selectedPlan), 'USD')}
                     </span>
                     {selectedPlan.price > 0 && (
                       <span className="block text-[9px] text-neutral-500">
-                        (~${getMonthlyEquivalent(selectedPlan)}/mo equiv)
+                        (~{formatCurrency(getMonthlyEquivalent(selectedPlan), 'USD')}/mo equiv)
                       </span>
                     )}
                   </div>
@@ -677,22 +679,23 @@ export default function Paywall({
                         <div className="relative min-h-[120px] bg-neutral-950/60 p-4 rounded-2xl border border-neutral-850">
                           <PayPalScriptProvider options={{ 
                             clientId: paypalClientId,
-                            currency: 'USD',
+                            currency: selectedCurrency || 'USD',
                             intent: 'capture'
                           }}>
                             <PayPalButtons
-                              forceReRender={[selectedPlan.id, billingCycle, extraSeats]}
+                              forceReRender={[selectedPlan.id, billingCycle, extraSeats, selectedCurrency]}
                               style={{ layout: "vertical", color: "blue", shape: "rect", label: "pay" }}
                               createOrder={async () => {
-                                const amount = getPlanPrice(selectedPlan);
+                                const amountInUSD = getPlanPrice(selectedPlan);
+                                const amountInSelectedCurrency = parseFloat(convertCurrency(amountInUSD, 'USD', selectedCurrency).toFixed(2));
                                 try {
                                   const res = await authenticatedFetch('/api/paypal/create-order', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                       planId: selectedPlan.id,
-                                      amount,
-                                      currency: 'USD'
+                                      amount: amountInSelectedCurrency,
+                                      currency: selectedCurrency || 'USD'
                                     })
                                   });
                                   const order = await res.json();

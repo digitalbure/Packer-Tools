@@ -55,6 +55,7 @@ import { UserProfile, GearItem, GearItemVersion, GearIncident, AdminSettings, Co
 import { logActivity } from '../services/activityLog';
 import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import { toast } from 'sonner';
+import { useAuth } from '../providers/AuthProvider';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { compressImage } from '../lib/imageUtils';
@@ -90,6 +91,7 @@ import {
 } from 'recharts';
 
 export default function GearLibrary({ user, adminSettings: propAdminSettings }: { user: UserProfile, adminSettings: AdminSettings | null }) {
+  const { formatCurrency } = useAuth();
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [dbBrands, setDbBrands] = useState<any[]>([]);
 
@@ -3249,7 +3251,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           <option value="">-- Select from existing Gear Library --</option>
                           {gear.filter(g => g.id !== item.id).map(g => (
                             <option key={g.id} value={g.id}>
-                              {g.brand || ''} {g.model || g.name} (Own rate: {g.currency || 'FJD'} {g.rentalPrice || 0}/day)
+                              {g.brand || ''} {g.model || g.name} (Own rate: {formatCurrency(g.rentalPrice || 0, g.currency || 'FJD')}/day)
                             </option>
                           ))}
                         </select>

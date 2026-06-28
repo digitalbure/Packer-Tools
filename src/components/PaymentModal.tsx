@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { X, Check, Zap, Shield, Crown, Loader2, ArrowLeft, ArrowRight, CreditCard, HelpCircle, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -7,6 +7,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
 import { authenticatedFetch } from '../lib/api';
+import { useAuth } from '../providers/AuthProvider';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -26,9 +27,17 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
   const plans = adminSettings?.plans || [];
   const paypalClientId = adminSettings?.integrationConfig?.paypalClientId || import.meta.env.VITE_PAYPAL_CLIENT_ID || "test";
 
-  const [selectedCurrencyCode, setSelectedCurrencyCode] = useState<string>('USD');
+  const { formatCurrency, convertCurrency, selectedCurrency } = useAuth();
+
+  const [selectedCurrencyCode, setSelectedCurrencyCode] = useState<string>(selectedCurrency || 'USD');
   const [selectedGatewayIdx, setSelectedGatewayIdx] = useState<number>(0);
   const [manualReferenceId, setManualReferenceId] = useState<string>('');
+
+  useEffect(() => {
+    if (selectedCurrency) {
+      setSelectedCurrencyCode(selectedCurrency);
+    }
+  }, [selectedCurrency]);
 
   // Shipping details state
   const [shippingFullName, setShippingFullName] = useState<string>(user.displayName || '');
@@ -263,11 +272,12 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
       await saveShippingDetails();
 
       // 2. Call backend PayPal Create Order
-      const amount = getActivePrice(selectedPlan!);
+      const amountInUSD = getActivePrice(selectedPlan!);
+      const amountInSelectedCurrency = parseFloat(convertCurrency(amountInUSD, 'USD', selectedCurrencyCode).toFixed(2));
       const createRes = await authenticatedFetch('/api/paypal/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId: selectedPlan?.id, amount, billingCycle, currency: selectedCurrencyCode })
+        body: JSON.stringify({ planId: selectedPlan?.id, amount: amountInSelectedCurrency, billingCycle, currency: selectedCurrencyCode })
       });
       const order = await createRes.json();
       if (!createRes.ok || !order.id) {
@@ -453,7 +463,7 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                         </div>
                         <div className="text-right">
                           <div className="text-sm font-black tracking-tighter text-neutral-900">
-                            {currentCurrency?.symbol || '$'}{calculatedPrice}
+                            {formatCurrency(calculatedPrice, 'USD', selectedCurrencyCode)}
                           </div>
                           <div className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
                             {billingCycle === 'monthly' ? 'Per Month' : 'Per Year'}
@@ -563,7 +573,7 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                   <div className="absolute top-0 right-0 w-[100px] h-[100px] bg-primary/20 blur-[55px] pointer-events-none" />
                   <p className="text-[9px] font-black uppercase tracking-widest text-neutral-450">Total Due Today</p>
                   <div className="text-4xl md:text-5xl font-black tracking-tighter text-white">
-                    {selectedPlan.trialEnabled ? "$0" : `${currentCurrency?.symbol || '$'}${getActivePrice(selectedPlan)}`}
+                    {selectedPlan.trialEnabled ? formatCurrency(0, 'USD', selectedCurrencyCode) : formatCurrency(getActivePrice(selectedPlan), 'USD', selectedCurrencyCode)}
                   </div>
                   {selectedPlan.trialEnabled && selectedPlan.trialDays ? (
                     <div className="inline-flex bg-orange-500 text-white text-[8px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full items-center gap-1 mx-auto mt-2 animate-pulse">
@@ -788,11 +798,12 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                                   <PayPalButtons
                                     style={{ layout: "vertical", shape: "pill", label: "pay" }}
                                     createOrder={async () => {
-                                      const amount = getActivePrice(selectedPlan);
+                                      const amountInUSD = getActivePrice(selectedPlan);
+                                      const amountInSelectedCurrency = parseFloat(convertCurrency(amountInUSD, 'USD', selectedCurrencyCode).toFixed(2));
                                       const response = await authenticatedFetch('/api/paypal/create-order', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ planId: selectedPlan.id, amount, billingCycle, currency: selectedCurrencyCode })
+                                        body: JSON.stringify({ planId: selectedPlan.id, amount: amountInSelectedCurrency, billingCycle, currency: selectedCurrencyCode })
                                       });
                                       const order = await response.json();
                                       return order.id;
@@ -869,7 +880,7 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                                 ) : (
                                   <>
                                     <Shield size={11} className="stroke-[2.5]" />
-                                    <span>Authorize Credit Card (${getActivePrice(selectedPlan)})</span>
+                                    <span>Authorize Credit Card ({formatCurrency(getActivePrice(selectedPlan), 'USD', selectedCurrencyCode)})</span>
                                   </>
                                 )}
                               </button>

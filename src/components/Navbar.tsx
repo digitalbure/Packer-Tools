@@ -5,6 +5,7 @@ import PackerLogo from './PackerLogo';
 import { signInWithGoogle, logout } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import { isFeatureEnabled } from '../lib/featureUtils';
+import { useAuth } from '../providers/AuthProvider';
 
 export default function Navbar({ 
   user, 
@@ -26,6 +27,7 @@ export default function Navbar({
   onToggleLayoutTheme?: () => void
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { selectedCurrency, setSelectedCurrency } = useAuth();
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -73,6 +75,25 @@ export default function Navbar({
               <span className="text-[8px] text-neutral-400">▼</span>
             </button>
           )}
+
+          {/* Currency Dropdown Select */}
+          <div className="relative inline-flex items-center shrink-0">
+            <select
+              value={selectedCurrency}
+              onChange={(e) => setSelectedCurrency(e.target.value)}
+              className="bg-neutral-50 hover:bg-neutral-100 text-neutral-700 hover:text-neutral-900 border border-neutral-200/50 rounded-full px-3 py-1 text-xs font-bold font-sans transition outline-none focus:ring-1 focus:ring-primary cursor-pointer appearance-none pr-7 pl-3"
+              title="Change display currency app-wide"
+            >
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="AUD">AUD (A$)</option>
+              <option value="FJD">FJD (FJ$)</option>
+              <option value="CAD">CAD (C$)</option>
+              <option value="NZD">NZD (NZ$)</option>
+            </select>
+            <span className="absolute right-3.5 text-[8px] text-neutral-400 pointer-events-none">▼</span>
+          </div>
         </div>
 
         {/* Desktop Navigation */}

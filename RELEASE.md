@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.32.0`
+## Current Application Version: `v4.33.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.33.0 (PayPal Security Hardening & Global Currency Exchange Integration)
+*Released on: June 28, 2026*
+- **PayPal Backend API Key Security**: Hardened PayPal integration by restricting sensitive PayPal Secret Keys strictly to the Express backend (`/server/utils/paypal.ts`) and processing payments securely via backend endpoints (`/api/paypal/*`). Only public PayPal Client IDs are utilized on the client-side to guarantee maximum credential isolation.
+- **Global Currency Exchange Service**: Implemented context-driven automated conversion on pricing values across marketplace searches, item detail panels, custom inventories, and checkout modules.
+- **Regional Checkout Synchronization**: Integrated active currency state synchronization within both the Paywall upgrade portal and Checkout flow components. Configured PayPal orders dynamically to convert the original plan amounts into the user's selected regional currencies (e.g. FJD, AUD, NZD) on-the-fly, ensuring precise payment processing and complete consistency.
 
 ---
 

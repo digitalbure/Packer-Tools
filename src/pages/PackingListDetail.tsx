@@ -21,6 +21,7 @@ import ShareModal from '../components/ShareModal';
 import AddPhotoWidget from '../components/AddPhotoWidget';
 import { logActivity } from '../services/activityLog';
 import { isSuperAdmin } from '../lib/authHelpers';
+import { useAuth } from '../providers/AuthProvider';
 
 const cleanUndefinedFields = (obj: any): any => {
   if (obj === null || typeof obj !== 'object') {
@@ -145,6 +146,7 @@ const InteractiveSignaturePad = ({ onSave }: { onSave: (dataUrl: string) => void
 
 export default function PackingListDetail({ user, adminSettings }: { user: UserProfile | null, adminSettings: AdminSettings | null }) {
   const { id } = useParams<{ id: string }>();
+  const { formatCurrency, convertCurrency, selectedCurrency } = useAuth();
   
   // Permissions Matrix Access Guard Check
   const isOrgAdmin = user?.role === 'owner' || user?.role === 'admin';
@@ -2896,7 +2898,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
             <div className="pt-4 border-t border-neutral-50 grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 bg-neutral-50 rounded-2xl">
                 <p className="text-[8px] font-black uppercase tracking-widest text-neutral-400 mb-1">Asset Value</p>
-                <p className="text-sm font-black text-primary">{list.currency || '$'} {list.price?.toLocaleString() || '0'}</p>
+                <p className="text-sm font-black text-primary">{formatCurrency(list.price, list.currency || 'USD')}</p>
               </div>
               <div className="p-4 bg-neutral-50 rounded-2xl">
                 <p className="text-[8px] font-black uppercase tracking-widest text-neutral-400 mb-1">Total Payload</p>
@@ -4748,7 +4750,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <span className="font-black text-emerald-600 text-[10px] mr-1">
-                                  {anc.price === 0 ? 'FREE' : `$${anc.price}`}
+                                  {anc.price === 0 ? 'FREE' : formatCurrency(anc.price, editingItem?.currency || 'USD')}
                                 </span>
                                 <button
                                   type="button"

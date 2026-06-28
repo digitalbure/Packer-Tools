@@ -17,6 +17,21 @@ if (import.meta.env.PROD) {
   } catch (e) {
     console.warn('Service worker registration failed:', e);
   }
+} else {
+  // Explicitly unregister any active service worker in development to prevent interception and "Failed to fetch dynamically imported module" errors.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const registration of registrations) {
+        registration.unregister().then((success) => {
+          if (success) {
+            console.log('Successfully unregistered stale service worker in development:', registration.scope);
+          }
+        });
+      }
+    }).catch((err) => {
+      console.warn('Error fetching service worker registrations:', err);
+    });
+  }
 }
 
 createRoot(document.getElementById('root')!).render(

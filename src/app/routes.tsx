@@ -6,48 +6,73 @@ import { Loader2 } from 'lucide-react';
 import AuthGuard from '../guards/AuthGuard';
 import AdminGuard from '../guards/AdminGuard';
 
+// Helper to handle dynamic import failures gracefully
+const lazyWithRetry = (importFn: () => Promise<any>) => {
+  return lazy(async () => {
+    try {
+      return await importFn();
+    } catch (err) {
+      console.warn("Dynamic import failed, attempting a retry...", err);
+      // Try importing again after 1.5 seconds
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      try {
+        return await importFn();
+      } catch (retryErr) {
+        console.error("Dynamic import retry failed, reloading page to clean up cache...", retryErr);
+        // Ensure we reload the page once to clear any service worker cache or stale scripts
+        const reloaded = sessionStorage.getItem('packer_page_reloaded_on_import_error');
+        if (!reloaded) {
+          sessionStorage.setItem('packer_page_reloaded_on_import_error', 'true');
+          window.location.reload();
+        }
+        throw retryErr;
+      }
+    }
+  });
+};
+
 // Lazy-loaded Pages
-const LandingPage = lazy(() => import('../pages/LandingPage'));
-const Dashboard = lazy(() => import('../pages/Dashboard'));
-const PackingListDetail = lazy(() => import('../pages/PackingListDetail'));
-const PackingListBioView = lazy(() => import('../pages/PackingListBioView'));
-const CameraScanner = lazy(() => import('../pages/CameraScanner'));
-const AdminPanel = lazy(() => import('../pages/AdminPanel'));
-const OrganizationModule = lazy(() => import('../pages/OrganizationModule'));
-const ProfilePage = lazy(() => import('../pages/ProfilePage'));
-const LegalPage = lazy(() => import('../pages/LegalPage'));
-const PricesPage = lazy(() => import('../pages/PricesPage'));
-const ContactPage = lazy(() => import('../pages/ContactPage'));
-const AITemplateWizard = lazy(() => import('../pages/AITemplateWizard'));
-const HelpCenter = lazy(() => import('../pages/HelpCenter'));
-const GearLibrary = lazy(() => import('../pages/GearLibrary'));
-const InventoryModule = lazy(() => import('../pages/InventoryModule'));
-const RackingDashboard = lazy(() => import('../pages/RackingDashboard'));
-const RackDetail = lazy(() => import('../pages/RackDetail'));
-const ProjectDashboard = lazy(() => import('../pages/ProjectDashboard'));
-const ProjectDetail = lazy(() => import('../pages/ProjectDetail'));
-const SystemsBuilder = lazy(() => import('../pages/SystemsBuilder'));
-const TravelCaseModule = lazy(() => import('../pages/TravelCaseModule'));
-const OrganizerModule = lazy(() => import('../pages/OrganizerModule'));
-const ToolingListModule = lazy(() => import('../pages/ToolingListModule'));
-const LogisticsDashboard = lazy(() => import('../pages/LogisticsDashboard'));
-const Contacts = lazy(() => import('../pages/Contacts'));
-const MarketplaceView = lazy(() => import('../pages/MarketplaceView'));
-const Marketplace = lazy(() => import('../pages/Marketplace'));
-const PagesManager = lazy(() => import('../pages/PagesManager'));
-const PageViewer = lazy(() => import('../pages/PageViewer'));
-const KioskMode = lazy(() => import('../pages/KioskMode'));
-const ListingsModule = lazy(() => import('../pages/ListingsModule'));
-const GearBioPage = lazy(() => import('../pages/GearBioPage'));
-const ShopPage = lazy(() => import('../pages/ShopPage'));
-const ScenarioBuilder = lazy(() => import('../pages/ScenarioBuilder'));
-const TravellerModule = lazy(() => import('../pages/TravellerModule'));
-const OrganizerBioPage = lazy(() => import('../pages/OrganizerBioPage'));
-const OrganizerIOPage = lazy(() => import('../pages/OrganizerIOPage'));
-const RFIDModule = lazy(() => import('../pages/RFIDModule'));
+const LandingPage = lazyWithRetry(() => import('../pages/LandingPage'));
+const Dashboard = lazyWithRetry(() => import('../pages/Dashboard'));
+const PackingListDetail = lazyWithRetry(() => import('../pages/PackingListDetail'));
+const PackingListBioView = lazyWithRetry(() => import('../pages/PackingListBioView'));
+const CameraScanner = lazyWithRetry(() => import('../pages/CameraScanner'));
+const AdminPanel = lazyWithRetry(() => import('../pages/AdminPanel'));
+const OrganizationModule = lazyWithRetry(() => import('../pages/OrganizationModule'));
+const ProfilePage = lazyWithRetry(() => import('../pages/ProfilePage'));
+const LegalPage = lazyWithRetry(() => import('../pages/LegalPage'));
+const PricesPage = lazyWithRetry(() => import('../pages/PricesPage'));
+const ContactPage = lazyWithRetry(() => import('../pages/ContactPage'));
+const AITemplateWizard = lazyWithRetry(() => import('../pages/AITemplateWizard'));
+const HelpCenter = lazyWithRetry(() => import('../pages/HelpCenter'));
+const GearLibrary = lazyWithRetry(() => import('../pages/GearLibrary'));
+const InventoryModule = lazyWithRetry(() => import('../pages/InventoryModule'));
+const RackingDashboard = lazyWithRetry(() => import('../pages/RackingDashboard'));
+const RackDetail = lazyWithRetry(() => import('../pages/RackDetail'));
+const ProjectDashboard = lazyWithRetry(() => import('../pages/ProjectDashboard'));
+const ProjectDetail = lazyWithRetry(() => import('../pages/ProjectDetail'));
+const SystemsBuilder = lazyWithRetry(() => import('../pages/SystemsBuilder'));
+const TravelCaseModule = lazyWithRetry(() => import('../pages/TravelCaseModule'));
+const OrganizerModule = lazyWithRetry(() => import('../pages/OrganizerModule'));
+const ToolingListModule = lazyWithRetry(() => import('../pages/ToolingListModule'));
+const LogisticsDashboard = lazyWithRetry(() => import('../pages/LogisticsDashboard'));
+const Contacts = lazyWithRetry(() => import('../pages/Contacts'));
+const MarketplaceView = lazyWithRetry(() => import('../pages/MarketplaceView'));
+const Marketplace = lazyWithRetry(() => import('../pages/Marketplace'));
+const PagesManager = lazyWithRetry(() => import('../pages/PagesManager'));
+const PageViewer = lazyWithRetry(() => import('../pages/PageViewer'));
+const KioskMode = lazyWithRetry(() => import('../pages/KioskMode'));
+const ListingsModule = lazyWithRetry(() => import('../pages/ListingsModule'));
+const GearBioPage = lazyWithRetry(() => import('../pages/GearBioPage'));
+const ShopPage = lazyWithRetry(() => import('../pages/ShopPage'));
+const ScenarioBuilder = lazyWithRetry(() => import('../pages/ScenarioBuilder'));
+const TravellerModule = lazyWithRetry(() => import('../pages/TravellerModule'));
+const OrganizerBioPage = lazyWithRetry(() => import('../pages/OrganizerBioPage'));
+const OrganizerIOPage = lazyWithRetry(() => import('../pages/OrganizerIOPage'));
+const RFIDModule = lazyWithRetry(() => import('../pages/RFIDModule'));
 
 // Component AuthGate (replaces inline Gate component)
-const AuthGate = lazy(() => import('../components/AuthGate'));
+const AuthGate = lazyWithRetry(() => import('../components/AuthGate'));
 
 // Pre-defined fallback spinner
 const LazySpinner = () => (
@@ -100,6 +125,7 @@ export function AnimatedRoutes() {
       const recent = JSON.parse(localStorage.getItem("packer_recent_views") || "[]");
       const filtered = [matched, ...recent.filter((r: string) => r !== matched)].slice(0, 8);
       localStorage.setItem("packer_recent_views", JSON.stringify(filtered));
+      sessionStorage.removeItem('packer_page_reloaded_on_import_error');
     } catch (e) {
       console.error(e);
     }
