@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.31.0`
+## Current Application Version: `v4.32.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,15 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.32.0 (Google Chat Integration Upgrades & Global Marketplace Status Control)
+*Released on: June 27, 2026*
+- **Google Chat Secure Express Proxies**: Deployed full Express server API routes (`/api/googlechat/spaces` and `/api/googlechat/message`) to secure private Google OAuth access tokens and prevent third-party exposure.
+- **Manual Custom Space Linker Option**: Integrated an elegant, high-contrast custom form allowing administrators to link Google Chat spaces manually by inputting the space path (e.g. `spaces/AAAAxxxx`) and display labels directly.
+- **Unified Channel Disconnect Action**: Added a simple, responsive "Disconnect Channel" action that clears active Google Chat configurations in Firestore, restoring the organization setup layout instantly.
+- **Global Marketplace Status Control**: Configured a master activation/deactivation toggle under the Marketplace settings, allowing administrators to restrict active search, listing, and booking actions globally during maintenance.
 
 ---
 

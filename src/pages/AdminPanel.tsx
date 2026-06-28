@@ -59,7 +59,8 @@ export const MODULE_METADATA: {
   apiIntegrations: { name: 'Developer Webhooks & API', description: 'Provides custom developer tokens and real-time webhook push updates.', icon: 'Cpu', version: 'v2.0.0', category: 'Integrations' },
   weightAnalytics: { name: 'Gross Weight Calculators', description: 'Real-time total list weight calculators to keep transit vehicles safe.', icon: 'TrendingUp', version: 'v1.2.3', category: 'Logistics' },
   kioskOrderMode: { name: 'Kiosk Order Basket Mode', description: 'Allow renters to bundle item baskets to submit order checkouts.', icon: 'Package', version: 'v2.1.2', category: 'Kiosk' },
-  kioskDirectCheckout: { name: 'Kiosk Direct Auto-Checkout', description: 'Automates scanning to instant self check-out without confirmation.', icon: 'Check', version: 'v2.2.0', category: 'Kiosk' }
+  kioskDirectCheckout: { name: 'Kiosk Direct Auto-Checkout', description: 'Automates scanning to instant self check-out without confirmation.', icon: 'Check', version: 'v2.2.0', category: 'Kiosk' },
+  rfidTracking: { name: 'UHF RFID Tracking', description: 'Integrates Zebra RFD40 readers for high-volume passive asset audits.', icon: 'Cpu', version: 'v3.0.0', category: 'Operations' }
 };
 
 export const renderModuleIcon = (iconName: string) => {
@@ -2330,7 +2331,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                 <div className="space-y-4">
                   <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Included Features</p>
                   <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2">
-                    {(['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'branding', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'marketplaceListings', 'kioskMode', 'orgManagement', 'departments', 'teams', 'inventoryManagement', 'projectCost', 'supplierManagement', 'bomManagement', 'customBarcodes', 'automaticDepreciation', 'digitalSignatures', 'clientPortal', 'apiIntegrations', 'weightAnalytics', 'kioskOrderMode', 'kioskDirectCheckout'] as const).map(feature => (
+                    {(['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'branding', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'marketplaceListings', 'kioskMode', 'orgManagement', 'departments', 'teams', 'inventoryManagement', 'projectCost', 'supplierManagement', 'bomManagement', 'customBarcodes', 'automaticDepreciation', 'digitalSignatures', 'clientPortal', 'apiIntegrations', 'weightAnalytics', 'kioskOrderMode', 'kioskDirectCheckout', 'rfidTracking'] as const).map(feature => (
                       <label key={feature} className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl border border-neutral-100 cursor-pointer hover:bg-neutral-100 transition">
                         <input
                           type="checkbox"
@@ -5294,7 +5295,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               <div className="p-6 bg-neutral-50 border border-neutral-100 rounded-3xl space-y-3">
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-bold text-neutral-800 text-sm">1. Write-Batch Operation Throttle (500 Limit)</span>
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v4.11.0</span>
+                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v5.0.0</span>
                 </div>
                 <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
                   Firestore limits write-batches to 500 documents per request. Bulk allocations of tens of thousands of assets are fully safeguarded via transaction volume splitting chunking. Prevents fatal crashes during catalog updates.
@@ -5304,7 +5305,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               <div className="p-6 bg-neutral-50 border border-neutral-100 rounded-3xl space-y-3">
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-bold text-neutral-800 text-sm">2. Resource Limit Audits Cost Slasher</span>
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v4.11.0</span>
+                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v5.0.0</span>
                 </div>
                 <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
                   Instead of downloading millions of user properties to confirm plan compliance and check limits, real-time validations run on-demand serverless metadata aggregations via 

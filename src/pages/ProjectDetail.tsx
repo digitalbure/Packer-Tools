@@ -11,6 +11,7 @@ import CostWidget from '../components/CostWidget';
 import SupplierWidget from '../components/SupplierWidget';
 import BOMWidget from '../components/BOMWidget';
 import CompatibilityWidget from '../components/CompatibilityWidget';
+import RFIDProjectManifestWidget from '../components/RFIDProjectManifestWidget';
 export default function ProjectDetail({ user }: { user: UserProfile }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -904,6 +905,17 @@ export default function ProjectDetail({ user }: { user: UserProfile }) {
                 exit={{ opacity: 0, y: -20 }}
               >
                 <BOMWidget project={project} user={user} items={projectItemsMapped} />
+              </motion.div>
+            )}
+
+            {activeTab === 'rfid' && (
+              <motion.div 
+                key="rfid"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <RFIDProjectManifestWidget project={project} user={user} items={projectPhysItems} />
               </motion.div>
             )}
 

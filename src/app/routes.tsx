@@ -44,6 +44,7 @@ const ScenarioBuilder = lazy(() => import('../pages/ScenarioBuilder'));
 const TravellerModule = lazy(() => import('../pages/TravellerModule'));
 const OrganizerBioPage = lazy(() => import('../pages/OrganizerBioPage'));
 const OrganizerIOPage = lazy(() => import('../pages/OrganizerIOPage'));
+const RFIDModule = lazy(() => import('../pages/RFIDModule'));
 
 // Component AuthGate (replaces inline Gate component)
 const AuthGate = lazy(() => import('../components/AuthGate'));
@@ -139,6 +140,7 @@ export function AnimatedRoutes() {
         <Route path="/organizer" element={isFeatureEnabled('organizer', user, adminSettings) ? <OrganizerModule user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
         <Route path="/organizer/:id/io" element={<AuthGuard><OrganizerIOPage user={user} /></AuthGuard>} />
         <Route path="/travel-cases" element={isFeatureEnabled('travelCases', user, adminSettings) ? <TravelCaseModule user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
+        <Route path="/rfid" element={<AuthGuard><RFIDModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
 
         {/* SuperAdmin Routes */}
         <Route path="/admin" element={<AdminGuard><AdminPanel user={user!} onMenuClick={onMenuClick} /></AdminGuard>} />

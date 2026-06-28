@@ -2477,9 +2477,9 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                   ))}
                 </motion.div>
               ) : (
-                <div className="bg-white rounded-3xl border border-neutral-100 shadow-sm overflow-hidden">
-                  <table className="w-full text-left">
-                    <thead className="bg-neutral-50 border-bottom border-neutral-100">
+                <div className="bg-white rounded-2xl md:rounded-3xl border border-neutral-100 shadow-sm p-4 md:p-0 overflow-hidden">
+                  <table className="w-full text-left block md:table">
+                    <thead className="bg-neutral-50 border-b border-neutral-100 hidden md:table-header-group">
                       <tr>
                         <th 
                           className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400 cursor-pointer hover:text-primary transition-colors"
@@ -2521,14 +2521,15 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-neutral-400 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-100">
+                    <tbody className="divide-y divide-neutral-100 block md:table-row-group">
                       {filteredLists.map((list) => {
                         const linkedProject = list.projectId ? projects.find(p => p.id === list.projectId) : null;
                         return (
-                          <tr key={list.id} className="group hover:bg-neutral-50 transition-colors">
-                            <td className="px-6 py-4">
+                          <tr key={list.id} className="group hover:bg-neutral-50 transition-colors block md:table-row border-b last:border-b-0 md:border-b-0 border-neutral-100 pb-4 mb-4 last:mb-0 last:pb-0 md:p-0">
+                            <td className="py-2 md:px-6 md:py-4 block md:table-cell border-b border-neutral-100/40 md:border-none pb-2.5 md:pb-4">
                               <div className="flex flex-col text-left">
-                                <Link to={`/list/${list.id}`} className="font-bold text-neutral-900 hover:text-primary transition-colors leading-tight">
+                                <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 md:hidden mb-1">List Name</span>
+                                <Link to={`/list/${list.id}`} className="font-bold text-neutral-900 hover:text-primary transition-colors leading-tight text-xs sm:text-sm md:text-base">
                                   {list.name}
                                 </Link>
                                 {linkedProject && (
@@ -2538,47 +2539,61 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                                 )}
                               </div>
                             </td>
-                          <td className="px-6 py-4">
-                            <span className="px-2 py-1 bg-neutral-100 text-neutral-600 rounded-full text-[9px] font-black uppercase tracking-widest">
-                              {list.status || 'Draft'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                              list.isTemplate ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
-                            }`}>
-                              {list.isTemplate ? 'Template' : 'Active'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-neutral-500">
-                            {new Date(list.createdAt).toLocaleDateString()}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => setCheckoutList(list)}
-                                className={`p-2 rounded-lg transition ${list.status === 'Active' ? 'text-rose-600 hover:bg-rose-50' : 'text-primary hover:bg-primary/5'}`}
-                                title={list.status === 'Active' ? "Check In / Return" : "Check Out"}
-                              >
-                                <ArrowRightLeft size={16} />
-                              </button>
-                              <button
-                                onClick={() => setSharingList(list)}
-                                className="p-2 text-neutral-400 hover:text-primary transition"
-                              >
-                                <Share2 size={16} />
-                              </button>
-                              <button
-                                onClick={(e) => handleDeleteList(e, list.id)}
-                                className="p-2 text-neutral-400 hover:text-red-500 transition"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            <td className="py-2 md:px-6 md:py-4 block md:table-cell border-b border-neutral-100/40 md:border-none pb-2.5 md:pb-4">
+                              <div className="flex items-center justify-between md:block">
+                                <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 md:hidden">Status</span>
+                                <span className="px-2 py-1 bg-neutral-100 text-neutral-600 rounded-full text-[9px] font-black uppercase tracking-widest">
+                                  {list.status || 'Draft'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-2 md:px-6 md:py-4 block md:table-cell border-b border-neutral-100/40 md:border-none pb-2.5 md:pb-4">
+                              <div className="flex items-center justify-between md:block">
+                                <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 md:hidden">Type</span>
+                                <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                  list.isTemplate ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'
+                                }`}>
+                                  {list.isTemplate ? 'Template' : 'Active'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-2 md:px-6 md:py-4 block md:table-cell border-b border-neutral-100/40 md:border-none pb-2.5 md:pb-4">
+                              <div className="flex items-center justify-between md:block">
+                                <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 md:hidden">Created</span>
+                                <span className="text-[11px] md:text-xs font-medium text-neutral-500">
+                                  {new Date(list.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-2 md:px-6 md:py-4 block md:table-cell pt-2.5 md:pt-4 text-left md:text-right">
+                              <div className="flex items-center justify-between md:justify-end gap-2">
+                                <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 md:hidden">Actions</span>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => setCheckoutList(list)}
+                                    className={`p-2 rounded-lg transition ${list.status === 'Active' ? 'text-rose-600 hover:bg-rose-50' : 'text-primary hover:bg-primary/5'}`}
+                                    title={list.status === 'Active' ? "Check In / Return" : "Check Out"}
+                                  >
+                                    <ArrowRightLeft size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => setSharingList(list)}
+                                    className="p-2 text-neutral-400 hover:text-primary transition"
+                                  >
+                                    <Share2 size={16} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleDeleteList(e, list.id)}
+                                    className="p-2 text-neutral-400 hover:text-red-500 transition"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

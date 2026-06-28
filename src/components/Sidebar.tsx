@@ -199,6 +199,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/tooling', label: 'Tooling Lists', icon: <Wrench size={20} />, feature: 'toolingLists' as FeatureKey },
     { to: '/organizer', label: 'Organizer', icon: <Layers size={20} />, feature: 'organizer' as FeatureKey },
     { to: '/travel-cases', label: 'Travel Cases', icon: <Briefcase size={20} />, feature: 'travelCases' as FeatureKey },
+    { to: '/rfid', label: 'RFID Logistics', icon: <Cpu size={20} />, feature: 'rfidTracking' as FeatureKey },
   ];
 
   const allowedModules = allAvailableModules.filter(item => {
@@ -648,7 +649,8 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                 ...(isFeatureEnabledSafe('projectCost') ? [{ id: 'costs', label: 'Costs & Budget', icon: <DollarSign size={18} /> }] : []),
                 ...(isFeatureEnabledSafe('supplierManagement') ? [{ id: 'suppliers', label: 'Vendor CRM', icon: <Building size={18} /> }] : []),
                 ...(isFeatureEnabledSafe('bomManagement') ? [{ id: 'bom', label: 'BOM Composer', icon: <Zap size={18} /> }] : []),
-                ...(isFeatureEnabledSafe('aiWizard') ? [{ id: 'compatibility', label: 'AI Intelligence', icon: <ShieldCheck size={18} /> }] : [])
+                ...(isFeatureEnabledSafe('aiWizard') ? [{ id: 'compatibility', label: 'AI Intelligence', icon: <ShieldCheck size={18} /> }] : []),
+                ...(isFeatureEnabledSafe('rfidTracking') ? [{ id: 'rfid', label: 'RFID Manifest', icon: <Cpu size={18} /> }] : [])
               ].map((tab) => {
                 const tabUrl = `/project/${projectId}?tab=${tab.id}`;
                 const currentTab = new URLSearchParams(location.search).get('tab') || 'overview';
@@ -1039,7 +1041,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v4.35.0' : 'Version 4.35.0'}
+            {isCollapsed ? 'v5.0.0' : 'Version 5.0.0'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">

@@ -22,11 +22,12 @@ export interface GoogleChatConfig {
 
 export const fetchGoogleChatSpaces = async (token: string): Promise<ChatSpace[]> => {
   try {
-    const response = await fetch('https://chat.googleapis.com/v1/spaces', {
+    const response = await fetch('/api/googlechat/spaces', {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) {
-      throw new Error(`Failed to fetch Chat spaces: ${response.statusText}`);
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(`Failed to fetch Chat spaces: ${errData.error || response.statusText}`);
     }
     const data = await response.json();
     return data.spaces || [];
@@ -38,17 +39,21 @@ export const fetchGoogleChatSpaces = async (token: string): Promise<ChatSpace[]>
 
 export const sendGoogleChatMessage = async (token: string, spaceName: string, text: string): Promise<any> => {
   try {
-    const response = await fetch(`https://chat.googleapis.com/v1/${spaceName}/messages`, {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch('/api/googlechat/message', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ text }),
+      headers,
+      body: JSON.stringify({ spaceName, text }),
     });
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      throw new Error(`Failed to send message: ${errData.error?.message || response.statusText}`);
+      throw new Error(errData.error || response.statusText);
     }
     return await response.json();
   } catch (error) {
@@ -59,18 +64,21 @@ export const sendGoogleChatMessage = async (token: string, spaceName: string, te
 
 export const triggerGoogleChatAlert = async (orgId: string, alertType: string, messageText: string): Promise<boolean> => {
   try {
-    const token = getAccessToken();
-    if (!token) {
-      console.log(`[Google Chat Alert] No active user session token cached to dispatch: "${messageText}"`);
-      return false;
-    }
-
     const orgDoc = await getDoc(doc(db, 'organizations', orgId));
     if (!orgDoc.exists()) return false;
 
     const config: GoogleChatConfig = orgDoc.data().googleChatConfig;
     if (!config || !config.spaceName) {
       console.log(`[Google Chat Alert] Google Chat is not linked to any space for org ${orgId}`);
+      return false;
+    }
+
+    const spaceName = config.spaceName;
+    const isWebhook = spaceName.trim().startsWith("https://chat.googleapis.com/");
+
+    const token = getAccessToken();
+    if (!token && !isWebhook) {
+      console.log(`[Google Chat Alert] No active user session token cached to dispatch: "${messageText}"`);
       return false;
     }
 
@@ -81,7 +89,7 @@ export const triggerGoogleChatAlert = async (orgId: string, alertType: string, m
     }
 
     const fullMessage = `🚨 *[Packer Tools Alert]* \n${messageText}`;
-    await sendGoogleChatMessage(token, config.spaceName, fullMessage);
+    await sendGoogleChatMessage(token || '', spaceName, fullMessage);
     console.log(`[Google Chat Alert] Dispatched alert successfully to ${config.spaceDisplayName}`);
     return true;
   } catch (error) {

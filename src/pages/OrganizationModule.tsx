@@ -305,14 +305,17 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
   useEffect(() => {
     if (org && (org as any).googleChatConfig) {
       const config = (org as any).googleChatConfig;
-      if (config.spaceName) setSelectedSpaceName(config.spaceName);
-      if (config.spaceDisplayName) setSelectedSpaceDisplayName(config.spaceDisplayName);
+      setSelectedSpaceName(config.spaceName || '');
+      setSelectedSpaceDisplayName(config.spaceDisplayName || '');
       if (config.alertsEnabled) {
         setGoogleChatAlerts(prev => ({
           ...prev,
           ...config.alertsEnabled
         }));
       }
+    } else {
+      setSelectedSpaceName('');
+      setSelectedSpaceDisplayName('');
     }
   }, [org]);
 
@@ -390,6 +393,21 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
     }
   };
 
+  const handleDisconnectSpace = async () => {
+    if (!org) return;
+    try {
+      await updateDoc(doc(db, 'organizations', org.id), {
+        'googleChatConfig.spaceName': '',
+        'googleChatConfig.spaceDisplayName': '',
+      });
+      setSelectedSpaceName('');
+      setSelectedSpaceDisplayName('');
+      toast.success("Successfully disconnected and cleared Google Chat space linkage.");
+    } catch (err: any) {
+      toast.error("Failed to clear Google Chat space linkage.");
+    }
+  };
+
   const handleToggleAlert = async (type: string, value: boolean) => {
     if (!org) return;
     try {
@@ -405,13 +423,14 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
   };
 
   const handleSendTestMessage = async () => {
-    if (!chatToken || !selectedSpaceName) {
-      toast.error("Ensure a Space is Linked and authenticated to send test messages.");
+    const isWebhook = selectedSpaceName.startsWith("https://chat.googleapis.com/");
+    if (!selectedSpaceName || (!chatToken && !isWebhook)) {
+      toast.error("Ensure a Space or Webhook is Linked and authenticated to send test messages.");
       return;
     }
     setIsTestingMessage(true);
     try {
-      await sendGoogleChatMessage(chatToken, selectedSpaceName, `${testMessageText}`);
+      await sendGoogleChatMessage(chatToken || '', selectedSpaceName, `${testMessageText}`);
       toast.success("Google Chat Message dispatched successfully!");
     } catch (e: any) {
       toast.error(`Dispatch failed: ${e.message || e}`);
@@ -3746,6 +3765,25 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                     </button>
                   </div>
 
+                  {selectedSpaceName && (
+                    <div className="p-5 bg-neutral-900 text-white rounded-3xl border border-neutral-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Active Live Broadcast Channel</span>
+                        </div>
+                        <h4 className="text-xs font-black uppercase tracking-tight">{selectedSpaceDisplayName || selectedSpaceName}</h4>
+                        <p className="text-[10px] text-neutral-400 font-mono tracking-tight break-all">{selectedSpaceName}</p>
+                      </div>
+                      <button
+                        onClick={handleDisconnectSpace}
+                        className="px-3.5 py-2 bg-rose-600/20 hover:bg-rose-600 border border-rose-500/20 hover:border-rose-500 text-rose-300 hover:text-white transition rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0"
+                      >
+                        Disconnect Channel
+                      </button>
+                    </div>
+                  )}
+
                   {isFetchingSpaces ? (
                     <div className="flex flex-col items-center justify-center p-12 space-y-3">
                       <RefreshCw size={24} className="text-neutral-400 animate-spin" />
@@ -3811,24 +3849,24 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="space-y-1">
                         <h4 className="text-xs font-black uppercase text-neutral-800">Or Link a Custom Space Manually</h4>
-                        <p className="text-[10px] text-neutral-400">If your Google workspace organization doesn't expose spaces via API, paste the space details manually.</p>
+                        <p className="text-[10px] text-neutral-400">If your Google workspace organization doesn't expose spaces via API, paste the space details or an incoming webhook URL manually.</p>
                       </div>
                       {selectedSpaceName && (
                         <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl px-3.5 py-1.5 text-center sm:text-right shrink-0">
                           <span className="text-[8px] font-black uppercase block tracking-widest text-emerald-600">Currently Linked</span>
-                          <span className="text-xs font-bold font-mono">{selectedSpaceDisplayName || selectedSpaceName}</span>
+                          <span className="text-xs font-bold font-mono max-w-[200px] block truncate">{selectedSpaceDisplayName || selectedSpaceName}</span>
                         </div>
                       )}
                     </div>
                     <form onSubmit={handleLinkManualSpace} className="grid sm:grid-cols-3 gap-3">
                       <div className="sm:col-span-2 space-y-1">
-                        <label className="text-[9px] font-black uppercase text-neutral-400 tracking-wider">Space Name / Path *</label>
+                        <label className="text-[9px] font-black uppercase text-neutral-400 tracking-wider">Space Name / Path OR Incoming Webhook URL *</label>
                         <input
                           type="text"
                           required
                           value={manualSpaceName}
                           onChange={(e) => setManualSpaceName(e.target.value)}
-                          placeholder="e.g. spaces/AAAAxXxxXX"
+                          placeholder="spaces/AAAAxXxxXX or https://chat.googleapis.com/v1/spaces/..."
                           className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-neutral-900 text-neutral-800"
                         />
                       </div>
@@ -3841,6 +3879,12 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                           placeholder="e.g. General Channel"
                           className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-neutral-900 text-neutral-800"
                         />
+                      </div>
+                      <div className="sm:col-span-3 bg-neutral-100/50 p-3 rounded-xl border border-neutral-200/50 text-[10px] text-neutral-500 space-y-1">
+                        <p className="font-bold text-neutral-700">💡 Pro-Tip for Instant Setup (Bypasses GCP configuration):</p>
+                        <p>1. Open Google Chat, click on your Space name drop-down, and select <strong>Apps & Integrations</strong> &gt; <strong>Webhooks</strong>.</p>
+                        <p>2. Give it a name and click Save, then copy the generated webhook URL.</p>
+                        <p>3. Paste that full URL above as the Space Name. This requires zero setup in your Google Cloud Developer Console!</p>
                       </div>
                       <div className="sm:col-span-3 flex justify-end">
                         <button

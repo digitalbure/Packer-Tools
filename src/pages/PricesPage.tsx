@@ -77,7 +77,7 @@ export default function PricesPage({ user, onUpdateUser, adminSettings }: Prices
       name: 'Enterprise Scale', 
       price: 99, 
       annualPrice: 948,
-      features: ['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'branding', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'kioskMode', 'orgManagement', 'departments', 'teams', 'inventoryManagement'], 
+      features: ['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'branding', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'kioskMode', 'orgManagement', 'departments', 'teams', 'inventoryManagement', 'rfidTracking'], 
       aiTokenLimit: 5000,
       maxPackingLists: 1000,
       maxGearItems: 10000,

@@ -191,6 +191,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [editDescription, setEditDescription] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editTags, setEditTags] = useState('');
+  const [editRFIDTag, setEditRFIDTag] = useState('');
   const [editPhotoUrls, setEditPhotoUrls] = useState<string[]>([]);
   const [editPriority, setEditPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
   const [editWeight, setEditWeight] = useState<number>(0);
@@ -373,6 +374,8 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [projectLists, setProjectLists] = useState<PackingList[]>([]);
   const [newProjectListName, setNewProjectListName] = useState('');
   const [isCreatingNewListInProject, setIsCreatingNewListInProject] = useState(false);
+  const [selectedInfoItem, setSelectedInfoItem] = useState<PackingItem | null>(null);
+  const [showCheckboxInfoModal, setShowCheckboxInfoModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return localStorage.getItem('packer_sidebar_collapsed') === 'true';
   });
@@ -1392,6 +1395,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     setEditWeightUnit(item.weightUnit || 'g');
     setEditRelatedItemIds(item.relatedItemIds || []);
     setEditTags(item.tags?.join(', ') || '');
+    setEditRFIDTag(item.rfidTag || '');
     setEditPhotoUrls(item.photoUrls || []);
     setEditSourceUrl(item.sourceUrl || '');
     setEditAddOns(item.addOns || []);
@@ -1494,8 +1498,21 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         maxAperture: editMaxAperture,
         formatCoverage: editFormatCoverage,
         focusType: editFocusType,
+        rfidTag: editRFIDTag,
         updatedAt: new Date().toISOString()
       }));
+
+      if (editingItem.gearId) {
+        try {
+          await updateDoc(doc(db, 'gear', editingItem.gearId), {
+            rfidTag: editRFIDTag,
+            updatedAt: new Date().toISOString()
+          });
+        } catch (err) {
+          console.warn("Could not update corresponding gear item RFID tag:", err);
+        }
+      }
+
       setEditingItem(null);
       setIsDirty(false);
       toast.success("Item updated");
@@ -2405,9 +2422,17 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                   </td>
 
                                   <td className={`px-3 align-middle ${printCompact ? 'py-1.5' : 'py-3'}`}>
-                                    <code className="bg-neutral-100 px-1.5 py-1 rounded text-[10px] font-mono font-black text-neutral-700 tracking-wider">
-                                      {item.assetTag || 'NO-TAG'}
-                                    </code>
+                                    <div className="flex flex-col gap-1 items-start">
+                                      <code className="bg-neutral-100 px-1.5 py-1 rounded text-[10px] font-mono font-black text-neutral-700 tracking-wider">
+                                        {item.assetTag || 'NO-TAG'}
+                                      </code>
+                                      {item.rfidTag && (
+                                        <span className="flex items-center gap-1 text-[8px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-150 px-1.5 py-0.5 rounded-md font-mono uppercase" title={`RFID: ${item.rfidTag}`}>
+                                          <span>RFID:</span>
+                                          <span className="truncate max-w-[85px]">{item.rfidTag}</span>
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
 
                                   <td className={`px-3 align-middle text-center ${printCompact ? 'py-1.5' : 'py-3'}`}>
@@ -3147,48 +3172,69 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             viewMode === 'list' && isOwner && !isGroupingEnabled && statusFilter === 'all' ? 'cursor-grab active:cursor-grabbing' : ''
                           }`}
                         >
-                          <div className={`flex items-center justify-between ${viewMode === 'list' ? 'contents' : 'w-full order-1'}`}>
-                            <div className="flex items-center gap-2 md:gap-4">
+                          <div className={`flex items-center shrink-0 gap-1.5 md:gap-3 ${viewMode === 'list' ? 'self-center' : 'w-full order-1 justify-between mb-2 border-b border-neutral-100 pb-2'}`}>
+                            <div className="flex items-center gap-1.5 md:gap-2">
                               {isOwner && (
                                 <button
-                                  onClick={() => toggleSelectItem(item.id)}
-                                  className={`w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 aspect-square ${
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleSelectItem(item.id);
+                                  }}
+                                  className={`w-6 h-6 md:w-8 md:h-8 rounded-lg md:rounded-xl border-2 flex items-center justify-center transition-all shrink-0 aspect-square self-center ${
                                     selectedItems.has(item.id) 
-                                      ? 'bg-primary border-primary text-white' 
-                                      : 'border-neutral-200 bg-white hover:border-neutral-300'
+                                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-600/25' 
+                                      : 'border-indigo-200 bg-indigo-50/10 hover:bg-indigo-100/50 hover:border-indigo-400'
                                   }`}
+                                  title="Bulk Selection Checkbox (Indigo)"
                                 >
-                                  {selectedItems.has(item.id) && <CheckCircle2 size={12} strokeWidth={3} />}
+                                  {selectedItems.has(item.id) && <CheckCircle2 size={13} strokeWidth={3.5} />}
                                 </button>
                               )}
                               {viewMode === 'list' && isOwner && !isGroupingEnabled && statusFilter === 'all' && (
-                                <div className="text-neutral-300 hover:text-neutral-500 transition flex-shrink-0 hidden sm:block">
+                                <div className="text-neutral-300 hover:text-neutral-500 transition flex-shrink-0 hidden sm:block self-center">
                                   <GripVertical size={20} />
                                 </div>
                               )}
                             </div>
                             
                             <button
-                              onClick={() => toggleItemStatus(item)}
-                              className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all shrink-0 aspect-square ${
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleItemStatus(item);
+                              }}
+                              className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex items-center justify-center transition-all shrink-0 aspect-square self-center border-2 ${
                                 item.status === 'packed' 
-                                  ? 'bg-primary text-white shadow-md' 
+                                  ? 'bg-orange-500 border-orange-500 text-white shadow-md shadow-orange-500/10 hover:bg-orange-600' 
                                   : item.status === 'returned'
-                                  ? 'bg-green-500 text-white shadow-md'
-                                  : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200 border border-neutral-200'
+                                  ? 'bg-green-600 border-green-600 text-white shadow-md shadow-green-600/10 hover:bg-green-700'
+                                  : 'bg-amber-50/50 border-amber-500/20 text-amber-500 hover:bg-amber-100 hover:border-amber-500/50'
                               }`}
+                              title={`Logistics Status: ${item.status || 'pending'}`}
                             >
                               {item.status === 'packed' && (
-                                <div className="w-5 h-5 rounded-lg bg-white text-primary flex items-center justify-center animate-in zoom-in-50 duration-250">
-                                  <svg className="w-3.5 h-3.5 stroke-[4] stroke-primary" fill="none" viewBox="0 0 24 24">
+                                <div className="w-5 h-5 md:w-6 md:h-6 rounded-lg bg-white text-orange-500 flex items-center justify-center animate-in zoom-in-50 duration-250">
+                                  <svg className="w-3.5 h-3.5 stroke-[4] stroke-orange-500" fill="none" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                   </svg>
                                 </div>
                               )}
-                              {item.status === 'returned' && <RotateCcw size={18} />}
+                              {item.status === 'returned' && <RotateCcw size={15} className="md:size-5" />}
                               {item.status === 'pending' && (
-                                <div className="w-5 h-5 rounded-lg border-2 border-neutral-300 group-hover:border-primary/50 transition-all bg-white" />
+                                <div className="w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 border-amber-300 group-hover:border-amber-500/50 transition-all bg-white" />
                               )}
+                            </button>
+
+                            {/* Info Button for Checkbox Support (i) */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedInfoItem(item);
+                                setShowCheckboxInfoModal(true);
+                              }}
+                              className="w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center bg-neutral-100 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600 transition shrink-0 self-center border border-neutral-200/50"
+                              title="Help: Checkbox Functions"
+                            >
+                              <Info size={11} className="md:size-3.5" />
                             </button>
                           </div>
 
@@ -3320,6 +3366,12 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                 <Tag size={10} />
                                 <span>{item.assetTag}</span>
                               </div>
+                              {item.rfidTag && (
+                                <div className="flex items-center gap-1 text-indigo-600 bg-indigo-50 border border-indigo-150 px-1.5 py-0.5 rounded-md font-mono text-[8px] md:text-[10px]">
+                                  <Cpu size={10} />
+                                  <span>RFID: {item.rfidTag.substring(0, 8)}...</span>
+                                </div>
+                              )}
                               {item.priority && (
                                 <span className={`px-2 py-0.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest ${
                                   item.priority === 'High' ? 'bg-red-100 text-red-600' :
@@ -4392,6 +4444,56 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                           <option value="lb">lb</option>
                           <option value="oz">oz</option>
                         </select>
+                      </div>
+                    </div>
+
+                    {/* UHF RFID Tag UID Section */}
+                    <div className="bg-neutral-50 p-5 rounded-2xl border border-neutral-200 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-black uppercase tracking-widest text-neutral-800 flex items-center gap-1">
+                          <span>📡 UHF RFID Tag Association</span>
+                        </label>
+                        {editRFIDTag ? (
+                          <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-mono">
+                            LINKED
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full font-mono">
+                            UNLINKED
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[9px] text-neutral-400 leading-normal">
+                        Assign a unique 96-Bit RFID tag UID (EPC Hex) to associate this physical item with your digital manifest audits.
+                      </p>
+
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editRFIDTag}
+                          maxLength={24}
+                          onChange={(e) => {
+                            setEditRFIDTag(e.target.value.toUpperCase().replace(/[^0-9A-FA-F]/g, ''));
+                            setIsDirty(true);
+                          }}
+                          placeholder="E2801130200020B..."
+                          className="flex-1 px-4 py-3 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition font-mono text-xs font-bold uppercase"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const chars = '0123456789ABCDEF';
+                            let hex = 'E2801';
+                            for (let i = 0; i < 19; i++) {
+                              hex += chars[Math.floor(Math.random() * chars.length)];
+                            }
+                            setEditRFIDTag(hex);
+                            setIsDirty(true);
+                          }}
+                          className="px-3 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition shrink-0 font-mono"
+                        >
+                          Gen Tag
+                        </button>
                       </div>
                     </div>
 
@@ -6021,6 +6123,130 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                         <span>Create Kit</span>
                       </>
                     )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Checkbox Info Modal */}
+      <AnimatePresence>
+        {showCheckboxInfoModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl border border-neutral-100"
+            >
+              <div className="p-6 sm:p-8 space-y-6">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                      <Info size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-neutral-900">Checkbox Assistant</h2>
+                      <p className="text-xs text-neutral-500 font-semibold">Action & Status Guide</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setShowCheckboxInfoModal(false);
+                      setSelectedInfoItem(null);
+                    }} 
+                    className="p-1.5 hover:bg-neutral-100 rounded-full text-neutral-400 hover:text-neutral-700 transition"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {selectedInfoItem && (
+                  <div className="p-3.5 bg-neutral-50 rounded-2xl border border-neutral-100 text-xs text-neutral-600">
+                    <span className="font-bold text-neutral-900 block mb-1">Selected Item:</span>
+                    <span className="font-medium italic">"{selectedInfoItem.name}"</span>
+                  </div>
+                )}
+
+                <div className="space-y-5">
+                  {/* Bulk Select Explanation */}
+                  <div className="flex gap-4 items-start">
+                    <div className="w-8 h-8 rounded-lg border-2 border-indigo-600 bg-indigo-50/40 text-indigo-600 flex items-center justify-center shrink-0 shadow-sm shadow-indigo-600/10">
+                      <CheckCircle2 size={16} strokeWidth={3} />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-neutral-800 flex items-center gap-2">
+                        Bulk Selection Checkbox
+                        <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">Indigo</span>
+                      </h3>
+                      <p className="text-xs text-neutral-500 leading-relaxed">
+                        Use this checkbox to select one or multiple items. Once selected, you can perform bulk actions like bulk deletion, status changes, or grouping using the action bar.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Pending Explanation */}
+                  <div className="flex gap-4 items-start">
+                    <div className="w-8 h-8 rounded-lg border-2 border-amber-300 bg-amber-50/50 text-amber-500 flex items-center justify-center shrink-0">
+                      <div className="w-3 h-3 rounded-md bg-white border border-amber-300" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-neutral-800 flex items-center gap-2">
+                        Pending State Checkbox
+                        <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">Amber</span>
+                      </h3>
+                      <p className="text-xs text-neutral-500 leading-relaxed">
+                        Indicates the item is pending action. Tap/click to change state to **Packed** once you've physically placed the gear in its container.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Packed Explanation */}
+                  <div className="flex gap-4 items-start">
+                    <div className="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-orange-500/20">
+                      <svg className="w-4 h-4 stroke-[4.5] stroke-white" fill="none" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-neutral-800 flex items-center gap-2">
+                        Packed State Checkbox
+                        <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">Orange</span>
+                      </h3>
+                      <p className="text-xs text-neutral-500 leading-relaxed">
+                        Indicates the item is successfully packed. Tap/click to transition state to **Returned** (when checked-in/unpacked).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Returned Explanation */}
+                  <div className="flex gap-4 items-start">
+                    <div className="w-8 h-8 rounded-lg bg-green-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-green-600/20">
+                      <RotateCcw size={14} />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-neutral-800 flex items-center gap-2">
+                        Returned State Checkbox
+                        <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">Green</span>
+                      </h3>
+                      <p className="text-xs text-neutral-500 leading-relaxed">
+                        Indicates the item has been returned safely from dispatch. Tap/click to cycle back to **Pending** if you need to redeploy it.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button 
+                    onClick={() => {
+                      setShowCheckboxInfoModal(false);
+                      setSelectedInfoItem(null);
+                    }}
+                    className="w-full py-3.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-2xl font-bold transition shadow-lg text-sm"
+                  >
+                    Got It!
                   </button>
                 </div>
               </div>
