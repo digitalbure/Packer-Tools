@@ -176,6 +176,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         { to: '/dashboard?tab=templates', label: getAdjustedLabel('templates'), icon: <FileText size={16} /> },
         { to: '/inventory', label: 'Inventories', icon: <LayoutGrid size={16} /> },
         { to: '/library?type=kit', label: 'Kits', icon: <Zap size={16} /> },
+        { to: '/groups', label: 'Groups Module', icon: <Layers size={16} /> },
         { to: '/organizer', label: 'Groups & Shelves', icon: <Layout size={16} /> },
       ]
     },
@@ -197,6 +198,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/scenario-builder', label: 'Scenario Builder', icon: <Sparkles size={20} /> },
     { to: '/traveller', label: 'Traveller Module', icon: <Compass size={20} /> },
     { to: '/tooling', label: 'Tooling Lists', icon: <Wrench size={20} />, feature: 'toolingLists' as FeatureKey },
+    { to: '/groups', label: 'Groups Module', icon: <Layers size={20} /> },
     { to: '/organizer', label: 'Organizer', icon: <Layers size={20} />, feature: 'organizer' as FeatureKey },
     { to: '/travel-cases', label: 'Travel Cases', icon: <Briefcase size={20} />, feature: 'travelCases' as FeatureKey },
     { to: '/rfid', label: 'RFID Logistics', icon: <Cpu size={20} />, feature: 'rfidTracking' as FeatureKey },
@@ -1041,7 +1043,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v5.0.0' : 'Version 5.0.0'}
+            {isCollapsed ? 'v5.2.0' : 'Version 5.2.0'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">

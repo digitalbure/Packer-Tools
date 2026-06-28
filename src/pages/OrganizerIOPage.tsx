@@ -190,7 +190,7 @@ export default function OrganizerIOPage({ user }: { user: UserProfile | null }) 
     };
   }, [id, user, navigate]);
 
-  const handleContainerStatusChange = async (newStatus: 'storage' | 'transit' | 'deployed' | 'maintenance') => {
+  const handleContainerStatusChange = async (newStatus: 'storage' | 'transit' | 'deployed' | 'maintenance' | 'missing') => {
     if (!container || !user) return;
     const oldStatus = container.status || 'storage';
     try {
@@ -419,7 +419,7 @@ export default function OrganizerIOPage({ user }: { user: UserProfile | null }) 
           <div className="bg-neutral-900 border border-neutral-800/80 p-3 rounded-2xl flex items-center gap-3">
             <span className="text-[9px] uppercase tracking-widest font-black text-neutral-500 pl-2">Organizer Status</span>
             <div className="flex bg-neutral-950 p-1 rounded-xl border border-neutral-850">
-              {(['storage', 'transit', 'deployed', 'maintenance'] as const).map(status => (
+              {(['storage', 'transit', 'deployed', 'maintenance', 'missing'] as const).map(status => (
                 <button
                   key={status}
                   onClick={() => handleContainerStatusChange(status)}

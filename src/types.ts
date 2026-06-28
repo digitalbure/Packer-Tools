@@ -417,7 +417,7 @@ export interface Container {
   photoUrls?: string[];
   qrCode?: string;
   packingListId?: string;
-  status?: 'storage' | 'transit' | 'deployed' | 'maintenance';
+  status?: 'storage' | 'transit' | 'deployed' | 'maintenance' | 'missing';
   dimensions?: {
     length: number;
     width: number;
@@ -435,8 +435,18 @@ export interface Container {
   items: string[]; // GearItem IDs or PackingItem IDs
   parentId?: string | null;
   notes?: string;
+  pinCode?: string;
+  isLocked?: boolean;
+  sections?: ContainerSection[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ContainerSection {
+  id: string;
+  name: string;
+  description?: string;
+  items: string[]; // GearItem or PackingItem IDs placed in this section
 }
 
 export interface CaseModel {
@@ -622,6 +632,17 @@ export interface GearIncident {
   severity: 'low' | 'medium' | 'high' | 'critical';
   resolved: boolean;
   createdAt: string;
+}
+
+export interface Group {
+  id: string;
+  ownerId: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  entityType: 'packing_lists' | 'kits' | 'projects' | 'inventories' | 'organizers' | 'gear' | 'general';
+  entityIds: string[];
 }
 
 export interface Reminder {

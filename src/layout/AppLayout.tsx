@@ -12,16 +12,18 @@ import QuickActionsDrawer from '../components/QuickActionsDrawer';
 import CommandPalette from '../components/CommandPalette';
 import BetaProspectGate from '../components/BetaProspectGate';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, Layers } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, logout } from '../firebase';
 import { IndustryProvider } from '../context/IndustryContext';
+import GroupsDrawer from '../components/GroupsDrawer';
 
 export interface AppLayoutProps {
   children: React.ReactNode;
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
+  const [isGroupsDrawerOpen, setIsGroupsDrawerOpen] = React.useState(false);
   const {
     user, setUser,
     adminSettings,
@@ -152,6 +154,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         {user && !isLayoutHidden && <MobileTabBar user={user} />}
         {user && <AddGearModal user={user} adminSettings={adminSettings} />}
         {user && <QuickActionsDrawer user={user} />}
+        {user && <GroupsDrawer user={user} isOpen={isGroupsDrawerOpen} onClose={() => setIsGroupsDrawerOpen(false)} />}
         {user && (
           <CommandPalette 
             onToggleSidebar={() => setIsSidebarCollapsed(prev => !prev)} 
@@ -159,6 +162,19 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         )}
 
         <AnimatePresence>
+          {user && !isLayoutHidden && (
+            <motion.button
+              id="groups-floating-trigger"
+              initial={{ opacity: 0, scale: 0.8, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 10 }}
+              onClick={() => setIsGroupsDrawerOpen(true)}
+              className="fixed bottom-24 right-5 z-40 p-3 rounded-full bg-neutral-950 border border-neutral-800 text-white shadow-2xl hover:bg-black active:scale-95 transition-all flex items-center justify-center pointer-events-auto group focus:outline-none"
+              title="Open Groups Module"
+            >
+              <Layers size={18} className="stroke-[2.5]" />
+            </motion.button>
+          )}
           {showScrollTop && (
             <motion.button
               id="back-to-top"
@@ -166,7 +182,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8, y: 10 }}
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-              className="fixed bottom-24 right-5 z-40 p-3 rounded-full bg-neutral-900 border border-neutral-800 text-white shadow-2xl hover:bg-black active:scale-95 transition-all flex items-center justify-center pointer-events-auto group focus:outline-none"
+              className="fixed bottom-36 right-5 z-40 p-3 rounded-full bg-neutral-900 border border-neutral-800 text-white shadow-2xl hover:bg-black active:scale-95 transition-all flex items-center justify-center pointer-events-auto group focus:outline-none"
               title="Back to Top"
             >
               <ArrowUp size={18} className="stroke-[3] group-hover:-translate-y-0.5 transition-transform" />

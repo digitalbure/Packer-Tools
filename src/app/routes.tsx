@@ -70,6 +70,7 @@ const TravellerModule = lazyWithRetry(() => import('../pages/TravellerModule'));
 const OrganizerBioPage = lazyWithRetry(() => import('../pages/OrganizerBioPage'));
 const OrganizerIOPage = lazyWithRetry(() => import('../pages/OrganizerIOPage'));
 const RFIDModule = lazyWithRetry(() => import('../pages/RFIDModule'));
+const GroupsModule = lazyWithRetry(() => import('../pages/GroupsModule'));
 
 // Component AuthGate (replaces inline Gate component)
 const AuthGate = lazyWithRetry(() => import('../components/AuthGate'));
@@ -101,6 +102,7 @@ export function AnimatedRoutes() {
       "/travel-cases": "Travel Suitcase Size Solver",
       "/logistics": "Logistics Dispatch Panel",
       "/contacts": "Contacts & External Signees",
+      "/groups": "Groups & Folders Module",
       "/help": "Platform Help Center & Knowledge Base",
       "/privacy": "Privacy Policy Review",
       "/terms": "Terms of Service Review"
@@ -167,6 +169,7 @@ export function AnimatedRoutes() {
         <Route path="/organizer/:id/io" element={<AuthGuard><OrganizerIOPage user={user} /></AuthGuard>} />
         <Route path="/travel-cases" element={isFeatureEnabled('travelCases', user, adminSettings) ? <TravelCaseModule user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
         <Route path="/rfid" element={<AuthGuard><RFIDModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
+        <Route path="/groups" element={<AuthGuard><GroupsModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
 
         {/* SuperAdmin Routes */}
         <Route path="/admin" element={<AdminGuard><AdminPanel user={user!} onMenuClick={onMenuClick} /></AdminGuard>} />

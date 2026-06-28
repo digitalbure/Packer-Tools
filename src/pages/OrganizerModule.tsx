@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Package, Plus, Search, Trash2, Edit2, Zap, ArrowRight, Weight as WeightIcon, Ruler, LayoutGrid, List, CheckCircle2, Layout, Lock, Camera, QrCode, Luggage, Briefcase, ChevronDown, ChevronUp, Layers, FileText, Sparkles, Check, X, ClipboardList, FolderPlus, ArrowRightLeft, BookOpen } from 'lucide-react';
+import { Box, Package, Plus, Minus, Search, Trash2, Edit2, Zap, ArrowRight, Weight as WeightIcon, Ruler, LayoutGrid, List, CheckCircle2, Layout, Lock, Camera, QrCode, Luggage, Briefcase, ChevronDown, ChevronUp, Layers, FileText, Sparkles, Check, X, ClipboardList, FolderPlus, ArrowRightLeft, BookOpen } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { collection, query, onSnapshot, doc, addDoc, updateDoc, deleteDoc, getDocs, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -369,6 +369,115 @@ const OrganizerWorkspacePopover = ({
   const [localNotes, setLocalNotes] = useState(container.notes || '');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [activeMobileTab, setActiveMobileTab] = useState<'contents' | 'details'>('contents');
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  // Section / Compartment states
+  const [viewMode, setViewMode] = useState<'flat' | 'sections'>('flat');
+  const [isAddingSection, setIsAddingSection] = useState(false);
+  const [newSectionName, setNewSectionName] = useState('');
+  const [newSectionDesc, setNewSectionDesc] = useState('');
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+  const [editSectionName, setEditSectionName] = useState('');
+  const [editSectionDesc, setEditSectionDesc] = useState('');
+
+  const handleAddSection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSectionName.trim()) {
+      toast.error("Please enter a section name");
+      return;
+    }
+    const newSec = {
+      id: 'sec_' + Math.random().toString(36).substring(2, 9),
+      name: newSectionName.trim(),
+      description: newSectionDesc.trim(),
+      items: []
+    };
+    try {
+      const updatedSections = [...(container.sections || []), newSec];
+      await updateDoc(doc(db, 'users', container.ownerId || '', 'containers', container.id), {
+        sections: updatedSections,
+        updatedAt: new Date().toISOString()
+      });
+      toast.success(`Section "${newSectionName}" created!`);
+      setNewSectionName('');
+      setNewSectionDesc('');
+      setIsAddingSection(false);
+    } catch (error) {
+      toast.error("Failed to create section");
+    }
+  };
+
+  const handleUpdateSection = async (sectionId: string) => {
+    if (!editSectionName.trim()) {
+      toast.error("Section name cannot be empty");
+      return;
+    }
+    try {
+      const updatedSections = (container.sections || []).map(sec => {
+        if (sec.id === sectionId) {
+          return { ...sec, name: editSectionName.trim(), description: editSectionDesc.trim() };
+        }
+        return sec;
+      });
+      await updateDoc(doc(db, 'users', container.ownerId || '', 'containers', container.id), {
+        sections: updatedSections,
+        updatedAt: new Date().toISOString()
+      });
+      toast.success("Section updated!");
+      setEditingSectionId(null);
+    } catch {
+      toast.error("Failed to update section");
+    }
+  };
+
+  const handleDeleteSection = async (sectionId: string) => {
+    try {
+      const updatedSections = (container.sections || []).filter(sec => sec.id !== sectionId);
+      await updateDoc(doc(db, 'users', container.ownerId || '', 'containers', container.id), {
+        sections: updatedSections,
+        updatedAt: new Date().toISOString()
+      });
+      toast.success("Section deleted. Items returned to main space.");
+    } catch {
+      toast.error("Failed to delete section");
+    }
+  };
+
+  const handleAssignItemToSection = async (itemId: string, sectionId: string) => {
+    try {
+      // First, remove the item from any other section to prevent duplication
+      const updatedSections = (container.sections || []).map(sec => {
+        let sectionItems = sec.items.filter(id => id !== itemId);
+        if (sec.id === sectionId) {
+          sectionItems = [...sectionItems, itemId];
+        }
+        return { ...sec, items: sectionItems };
+      });
+      
+      await updateDoc(doc(db, 'users', container.ownerId || '', 'containers', container.id), {
+        sections: updatedSections,
+        updatedAt: new Date().toISOString()
+      });
+      toast.success("Item organized into section!");
+    } catch {
+      toast.error("Failed to assign item");
+    }
+  };
+
+  const handleRemoveItemFromSection = async (itemId: string) => {
+    try {
+      const updatedSections = (container.sections || []).map(sec => {
+        return { ...sec, items: sec.items.filter(id => id !== itemId) };
+      });
+      await updateDoc(doc(db, 'users', container.ownerId || '', 'containers', container.id), {
+        sections: updatedSections,
+        updatedAt: new Date().toISOString()
+      });
+      toast.success("Item moved to main space");
+    } catch {
+      toast.error("Failed to remove item from section");
+    }
+  };
 
   useEffect(() => {
     setLocalNotes(container.notes || '');
@@ -761,67 +870,395 @@ const OrganizerWorkspacePopover = ({
 
             {/* Contents Listing Section */}
             <div className="flex-1 min-h-0 bg-neutral-50 p-4 md:p-6 rounded-[2rem] border border-neutral-200/50 flex flex-col">
-              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-neutral-400 pb-3 border-b border-neutral-200/60 shrink-0">
-                <span>Cargo Contents ({container.items.length} items)</span>
-                <span className="text-[9px] text-neutral-400">Scroll to view all</span>
+              {/* Header with View Mode Switcher */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200/60 shrink-0">
+                <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                  <span>Cargo Storage Management</span>
+                </div>
+                
+                <div className="flex bg-neutral-200 p-1 rounded-xl border border-neutral-250 self-start sm:self-auto">
+                  <button
+                    onClick={() => setViewMode('flat')}
+                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5 ${
+                      viewMode === 'flat'
+                        ? 'bg-white text-black font-black shadow-xs'
+                        : 'text-neutral-500 hover:text-neutral-800'
+                    }`}
+                  >
+                    <List size={11} />
+                    <span>Flat List ({container.items.length})</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode('sections')}
+                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5 ${
+                      viewMode === 'sections'
+                        ? 'bg-white text-black font-black shadow-xs'
+                        : 'text-neutral-500 hover:text-neutral-800'
+                    }`}
+                  >
+                    <Layers size={11} />
+                    <span>Compartments & Pockets ({(container.sections || []).length})</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3 mt-4">
-                {container.items.map(itemId => {
-                  const item = gear.find(g => g.id === itemId);
-                  const isKit = item?.isKit || item?.category === 'Kit' || item?.category === 'Kits';
-                  
-                  return (
-                    <div key={itemId} className="space-y-1.5 p-1 bg-white border border-neutral-150 rounded-2xl shadow-sm">
-                      <div className="flex items-center justify-between p-3.5 bg-white rounded-xl group/item">
-                        <div className="flex items-center gap-3 truncate">
-                          {isKit ? <Layers size={14} className="text-primary shrink-0 animate-pulse" /> : <Package size={14} className="text-neutral-400 shrink-0" />}
-                          <span className="text-sm font-bold truncate flex items-center gap-1.5 text-neutral-900">
-                            {item?.name || 'Unknown Item'}
-                            {isKit && (
-                              <span className="text-[8px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-black uppercase tracking-widest">
-                                Kit
-                              </span>
+              {/* View Mode: Flat List */}
+              {viewMode === 'flat' && (
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3 mt-4 text-left">
+                  {container.items.map(itemId => {
+                    const item = gear.find(g => g.id === itemId);
+                    const isKit = item?.isKit || item?.category === 'Kit' || item?.category === 'Kits';
+                    const hasExpandableContent = (isKit && item?.childItemIds && item.childItemIds.length > 0) || (item?.addOns && item.addOns.length > 0);
+                    const isExpanded = expandedItems.has(itemId);
+                    
+                    return (
+                      <div key={itemId} className="space-y-1.5 p-1 bg-white border border-neutral-150 rounded-2xl shadow-sm">
+                        <div className="flex items-center justify-between p-3.5 bg-white rounded-xl group/item">
+                          <div className="flex items-center gap-3 truncate">
+                            {hasExpandableContent ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const next = new Set(expandedItems);
+                                  if (next.has(itemId)) {
+                                    next.delete(itemId);
+                                  } else {
+                                    next.add(itemId);
+                                  }
+                                  setExpandedItems(next);
+                                }}
+                                className="p-1 hover:bg-neutral-100 rounded-lg transition text-neutral-500 hover:text-neutral-800 flex items-center justify-center shrink-0"
+                                title={isExpanded ? "Collapse Details" : "Expand Details"}
+                              >
+                                {isExpanded ? <Minus size={14} className="stroke-[3]" /> : <Plus size={14} className="stroke-[3]" />}
+                              </button>
+                            ) : (
+                              <div className="w-6 h-6 flex items-center justify-center text-neutral-300 shrink-0 select-none font-black text-xs">
+                                •
+                              </div>
                             )}
-                          </span>
+                            {isKit ? <Layers size={14} className="text-primary shrink-0 animate-pulse" /> : <Package size={14} className="text-neutral-400 shrink-0" />}
+                            <span className="text-sm font-bold truncate flex items-center gap-1.5 text-neutral-900">
+                              {item?.name || 'Unknown Item'}
+                              {isKit && (
+                                <span className="text-[8px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-black uppercase tracking-widest">
+                                  Kit
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          <button 
+                            onClick={() => onRemoveItem(container.id, itemId)}
+                            className="text-neutral-300 hover:text-red-500 transition shrink-0 p-1.5 rounded-lg hover:bg-neutral-50 group-hover/item:opacity-100 opacity-100 sm:opacity-0"
+                            title="Remove from Organizer"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
-                        <button 
-                          onClick={() => onRemoveItem(container.id, itemId)}
-                          className="text-neutral-300 hover:text-red-500 transition shrink-0 p-1.5 rounded-lg hover:bg-neutral-50 group-hover/item:opacity-100 opacity-100 sm:opacity-0"
-                          title="Remove from Organizer"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
 
-                      {isKit && item?.childItemIds && item.childItemIds.length > 0 && (
-                        <div className="pl-6 pr-4 pb-3 space-y-1.5 border-t border-neutral-50 pt-2 bg-neutral-50/50 rounded-b-2xl">
-                          <p className="text-[8px] font-black uppercase text-neutral-400 tracking-widest">Kit Contents ({item.childItemIds.length})</p>
-                          <div className="space-y-1">
-                            {item.childItemIds.map(childId => {
-                              const child = gear.find(g => g.id === childId);
+                        {isExpanded && hasExpandableContent && (
+                          <div className="pl-10 pr-4 pb-4 space-y-3 border-t border-neutral-50 pt-3 bg-neutral-50/50 rounded-b-2xl text-left">
+                            {/* Kit Contents */}
+                            {isKit && item?.childItemIds && item.childItemIds.length > 0 && (
+                              <div className="space-y-1.5">
+                                <p className="text-[8px] font-black uppercase text-neutral-400 tracking-widest">Kit Contents ({item.childItemIds.length})</p>
+                                <div className="space-y-1">
+                                  {item.childItemIds.map(childId => {
+                                    const child = gear.find(g => g.id === childId);
+                                    return (
+                                      <div key={childId} className="flex items-center gap-2 px-2.5 py-1.5 bg-white rounded-lg text-neutral-600 text-xs border border-neutral-100 shadow-xs">
+                                        <Package size={10} className="text-neutral-400" />
+                                        <span className="font-semibold truncate">{child?.name || 'Loading sub-item...'}</span>
+                                        {child?.brand && <span className="text-[10px] text-neutral-400 font-medium ml-auto">{child.brand}</span>}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Accessories / Add Ons */}
+                            {item?.addOns && item.addOns.length > 0 && (
+                              <div className="space-y-1.5">
+                                <p className="text-[8px] font-black uppercase text-neutral-400 tracking-widest">Accessories & Add-ons ({item.addOns.length})</p>
+                                <div className="grid grid-cols-1 gap-1.5">
+                                  {item.addOns.map((addOn, index) => (
+                                    <div key={index} className="flex flex-col md:flex-row md:items-center justify-between gap-1 px-3 py-2 bg-white rounded-lg border border-neutral-100 shadow-xs text-xs">
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-semibold text-neutral-800 truncate">{addOn.name}</span>
+                                          {addOn.type && (
+                                            <span className="text-[8px] bg-neutral-100 text-neutral-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                              {addOn.type}
+                                            </span>
+                                          )}
+                                        </div>
+                                        {addOn.notes && (
+                                          <p className="text-[10px] text-neutral-400 italic mt-0.5">"{addOn.notes}"</p>
+                                        )}
+                                      </div>
+                                      <div className="text-neutral-500 font-mono text-[10px] shrink-0 font-bold self-start md:self-auto">
+                                        {addOn.price === 0 ? 'Included' : `$${addOn.price}`}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {container.items.length === 0 && !customDraft && (
+                    <div className="flex flex-col items-center justify-center py-20 text-neutral-300 space-y-2">
+                      <Box size={40} strokeWidth={1} />
+                      <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">Empty Organizer</p>
+                      <p className="text-[10px] text-neutral-400 text-center max-w-xs">Drop items over the card outside, or use the quick loaders below to provision stock.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* View Mode: Sections & Compartments */}
+              {viewMode === 'sections' && (() => {
+                const unassignedItems = container.items.filter(itemId => !(container.sections || []).some(s => s.items.includes(itemId)));
+                return (
+                  <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4 mt-4 text-left">
+                    {/* Add Section Button or Form */}
+                    {!isAddingSection ? (
+                      <button
+                        onClick={() => setIsAddingSection(true)}
+                        className="w-full py-4 bg-neutral-100 hover:bg-neutral-200/80 border-2 border-dashed border-neutral-200 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-neutral-600 hover:text-neutral-900 transition flex items-center justify-center gap-2"
+                      >
+                        <FolderPlus size={15} className="text-neutral-500" />
+                        <span>Create Compartment / Pocket / Shelf</span>
+                      </button>
+                    ) : (
+                      <form onSubmit={handleAddSection} className="bg-white p-5 rounded-[2rem] border border-neutral-200 shadow-sm space-y-3">
+                        <div className="flex justify-between items-center pb-2 border-b border-neutral-100">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-800">New Storage Compartment</h4>
+                          <button type="button" onClick={() => setIsAddingSection(false)} className="text-neutral-400 hover:text-neutral-600 p-1 rounded-full hover:bg-neutral-50 transition">
+                            <X size={14} />
+                          </button>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Section Name</label>
+                          <input
+                            type="text"
+                            required
+                            value={newSectionName}
+                            onChange={e => setNewSectionName(e.target.value)}
+                            placeholder="e.g. Front Pocket, Shelf B, Top Deck, Divider #2"
+                            className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-neutral-800 focus:outline-none focus:border-neutral-400"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Description (Optional)</label>
+                          <input
+                            type="text"
+                            value={newSectionDesc}
+                            onChange={e => setNewSectionDesc(e.target.value)}
+                            placeholder="e.g. Dedicated space for small accessories or batteries"
+                            className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-neutral-800 focus:outline-none focus:border-neutral-400"
+                          />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <button type="submit" className="flex-1 py-2.5 bg-neutral-900 text-white hover:bg-black rounded-lg text-[10px] font-bold uppercase tracking-widest transition">
+                            Save Section
+                          </button>
+                          <button type="button" onClick={() => setIsAddingSection(false)} className="px-4 py-2.5 bg-neutral-100 text-neutral-500 hover:bg-neutral-200 rounded-lg text-[10px] font-bold uppercase tracking-widest transition">
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Section Lists */}
+                    {(container.sections || []).map(sec => {
+                      const secAssignedItems = sec.items.filter(id => container.items.includes(id));
+                      const isEditing = editingSectionId === sec.id;
+                      
+                      return (
+                        <div key={sec.id} className="p-4 bg-white border border-neutral-150 rounded-[2rem] shadow-xs space-y-3">
+                          {isEditing ? (
+                            <div className="space-y-3 p-1">
+                              <div className="space-y-1">
+                                <label className="text-[8px] font-black uppercase text-neutral-400 tracking-wider">Update Name</label>
+                                <input
+                                  type="text"
+                                  value={editSectionName}
+                                  onChange={e => setEditSectionName(e.target.value)}
+                                  className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-xs font-bold"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[8px] font-black uppercase text-neutral-400 tracking-wider">Update Description</label>
+                                <input
+                                  type="text"
+                                  value={editSectionDesc}
+                                  onChange={e => setEditSectionDesc(e.target.value)}
+                                  className="w-full bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 text-xs"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleUpdateSection(sec.id)}
+                                  className="flex-1 py-1.5 bg-neutral-900 text-white text-[9px] font-bold uppercase tracking-wider rounded-lg hover:bg-black transition"
+                                >
+                                  Save Change
+                                </button>
+                                <button
+                                  onClick={() => setEditingSectionId(null)}
+                                  className="px-4 py-1.5 bg-neutral-100 text-neutral-600 text-[9px] font-bold uppercase tracking-wider rounded-lg hover:bg-neutral-200 transition"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between items-start">
+                              <div className="min-w-0">
+                                <h4 className="text-xs font-black uppercase tracking-wide text-neutral-900 truncate flex items-center gap-2">
+                                  <span>{sec.name}</span>
+                                  <span className="text-[8px] font-mono text-neutral-400 font-normal px-1.5 py-0.2 bg-neutral-50 rounded border border-neutral-100">{secAssignedItems.length} items</span>
+                                </h4>
+                                {sec.description && (
+                                  <p className="text-[10px] text-neutral-400 italic leading-tight mt-0.5">{sec.description}</p>
+                                )}
+                              </div>
+                              <div className="flex gap-1 shrink-0">
+                                <button
+                                  onClick={() => {
+                                    setEditingSectionId(sec.id);
+                                    setEditSectionName(sec.name);
+                                    setEditSectionDesc(sec.description || '');
+                                  }}
+                                  className="p-1 hover:bg-neutral-100 text-neutral-400 hover:text-neutral-800 rounded transition"
+                                  title="Edit Section info"
+                                >
+                                  <Edit2 size={12} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSection(sec.id)}
+                                  className="p-1 hover:bg-neutral-100 text-neutral-400 hover:text-red-500 rounded transition"
+                                  title="Delete Section"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Section Items */}
+                          <div className="space-y-1.5 pt-1 border-t border-neutral-50">
+                            {secAssignedItems.map(itemId => {
+                              const item = gear.find(g => g.id === itemId);
                               return (
-                                <div key={childId} className="flex items-center gap-2 px-2.5 py-1.5 bg-white rounded-lg text-neutral-600 text-xs border border-neutral-100">
-                                  <Package size={10} className="text-neutral-400" />
-                                  <span className="font-semibold truncate">{child?.name || 'Loading sub-item...'}</span>
+                                <div key={itemId} className="p-2.5 bg-neutral-50 border border-neutral-150 rounded-xl flex items-center justify-between gap-3 text-left">
+                                  <div className="flex items-center gap-2 truncate">
+                                    <Package size={12} className="text-neutral-400 shrink-0" />
+                                    <span className="text-xs font-semibold text-neutral-700 truncate">{item?.name || 'Unknown Item'}</span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleRemoveItemFromSection(itemId)}
+                                    className="p-1 text-neutral-400 hover:text-red-500 hover:bg-neutral-100 rounded transition shrink-0"
+                                    title="Move to Main/Unassigned Space"
+                                  >
+                                    <Minus size={12} className="stroke-[3]" />
+                                  </button>
                                 </div>
                               );
                             })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
 
-                {container.items.length === 0 && !customDraft && (
-                  <div className="flex flex-col items-center justify-center py-20 text-neutral-300 space-y-2">
-                    <Box size={40} strokeWidth={1} />
-                    <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">Empty Organizer</p>
-                    <p className="text-[10px] text-neutral-400 text-center max-w-xs">Drop items over the card outside, or use the quick loaders below to provision stock.</p>
+                            {secAssignedItems.length === 0 && (
+                              <p className="text-[10px] text-neutral-400 italic text-center py-2">This compartment is currently empty.</p>
+                            )}
+                          </div>
+
+                          {/* Organize item directly inside this section */}
+                          {unassignedItems.length > 0 && (
+                            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-neutral-100">
+                              <span className="text-[9px] font-black uppercase tracking-wider text-neutral-400 shrink-0">Place Item here:</span>
+                              <select
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    handleAssignItemToSection(e.target.value, sec.id);
+                                    e.target.value = '';
+                                  }
+                                }}
+                                className="flex-1 bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1 text-[10px] font-bold text-neutral-700 focus:outline-none"
+                                defaultValue=""
+                              >
+                                <option value="" disabled>-- Select unpacked item --</option>
+                                {unassignedItems.map(itemId => {
+                                  const item = gear.find(g => g.id === itemId);
+                                  return (
+                                    <option key={itemId} value={itemId}>
+                                      {item?.brand ? `[${item.brand}] ` : ''}{item?.name || 'Unknown'}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Unassigned Items section */}
+                    <div className="p-5 bg-neutral-100/50 border border-neutral-200 rounded-[2rem] space-y-3 mt-2">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-wide text-neutral-700">Main Space / Unassigned Gear</h4>
+                          <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">Items not allocated to any specific pocket or division</p>
+                        </div>
+                        <span className="px-2.5 py-1 bg-white border border-neutral-200 rounded-full text-[8.5px] font-black text-neutral-500 uppercase tracking-widest">{unassignedItems.length} Items</span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {unassignedItems.map(itemId => {
+                          const item = gear.find(g => g.id === itemId);
+                          const isKit = item?.isKit || item?.category === 'Kit' || item?.category === 'Kits';
+                          return (
+                            <div key={itemId} className="p-3 bg-white border border-neutral-150 rounded-xl flex items-center justify-between gap-3 text-left">
+                              <div className="flex items-center gap-2 truncate">
+                                {isKit ? <Layers size={13} className="text-primary shrink-0 animate-pulse" /> : <Package size={13} className="text-neutral-400 shrink-0" />}
+                                <span className="text-xs font-bold text-neutral-800 truncate">{item?.name || 'Unknown Item'}</span>
+                              </div>
+                              
+                              {/* Move to dropdown */}
+                              {(container.sections || []).length > 0 && (
+                                <select
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      handleAssignItemToSection(itemId, e.target.value);
+                                    }
+                                  }}
+                                  className="bg-neutral-50 border border-neutral-250 rounded-lg px-2 py-1 text-[9px] font-black uppercase text-neutral-600 focus:outline-none"
+                                  defaultValue=""
+                                >
+                                  <option value="" disabled>Organize →</option>
+                                  {(container.sections || []).map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {unassignedItems.length === 0 && (
+                          <p className="text-[10px] text-neutral-400 italic text-center py-4 bg-white/40 rounded-xl border border-dashed border-neutral-200">
+                            All packed items are organized into custom pockets/compartments.
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
+                );
+              })()}
             </div>
 
             {/* Sourcing Drawer & Quick Actions Bottom Row */}
@@ -1033,7 +1470,9 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
     parentId: null,
     status: 'storage',
     locationDetails: { row: '', level: '', bin: '' },
-    photoUrls: []
+    photoUrls: [],
+    pinCode: '',
+    isLocked: false
   });
 
   const [editingContainerId, setEditingContainerId] = useState<string | null>(null);
@@ -1099,6 +1538,8 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
           bin: newContainer.locationDetails?.bin || '',
         },
         photoUrls: newContainer.photoUrls || [],
+        pinCode: newContainer.pinCode || '',
+        isLocked: !!newContainer.isLocked,
         ownerId: user.uid,
         updatedAt: new Date().toISOString()
       };
@@ -1124,7 +1565,9 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
         parentId: null,
         status: 'storage',
         locationDetails: { row: '', level: '', bin: '' },
-        photoUrls: []
+        photoUrls: [],
+        pinCode: '',
+        isLocked: false
       });
     } catch (error) {
       toast.error("Failed to save organizer specification");
@@ -1879,7 +2322,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                   <button onClick={() => {
                     setIsAddModalOpen(false);
                     setEditingContainerId(null);
-                    setNewContainer({ type: 'bag', name: '', items: [], locationDetails: { row: '', level: '', bin: '' } });
+                    setNewContainer({ type: 'bag', name: '', items: [], locationDetails: { row: '', level: '', bin: '' }, pinCode: '', isLocked: false });
                   }} className="p-2 hover:bg-neutral-100 rounded-full transition">
                     <Plus className="rotate-45 text-neutral-400" size={24} />
                   </button>
@@ -1970,6 +2413,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                           <option value="transit">Transit</option>
                           <option value="deployed">Deployed</option>
                           <option value="maintenance">Repair</option>
+                          <option value="missing">Missing / Lost</option>
                         </select>
                       </div>
                       <div className="space-y-2">
@@ -2021,6 +2465,42 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                             {type}
                           </button>
                         ))}
+                      </div>
+                    </div>
+
+                    {/* Public Passport Security Section */}
+                    <div className="border-t border-neutral-100 pt-4 space-y-4">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-neutral-900">🔒 Public Passport Security</h4>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">PIN Code Lock</label>
+                          <input
+                            type="text"
+                            maxLength={4}
+                            value={newContainer.pinCode || ''}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, ''); // only digits
+                              setNewContainer({ ...newContainer, pinCode: val });
+                            }}
+                            placeholder="e.g. 1234 (4 digits)"
+                            className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none transition text-sm font-mono font-bold text-center tracking-widest"
+                          />
+                          <p className="text-[9px] text-neutral-400 leading-tight">Visitor must enter this PIN code to view the packed inventory contents.</p>
+                        </div>
+
+                        <div className="space-y-2 flex flex-col justify-center">
+                          <label className="flex items-center gap-2.5 cursor-pointer py-1.5 select-none">
+                            <input
+                              type="checkbox"
+                              checked={!!newContainer.isLocked}
+                              onChange={(e) => setNewContainer({ ...newContainer, isLocked: e.target.checked })}
+                              className="rounded border-neutral-300 text-neutral-950 focus:ring-neutral-950 w-4 h-4 cursor-pointer"
+                            />
+                            <span className="text-xs font-bold text-neutral-700 uppercase tracking-wide">Lock Public Passport</span>
+                          </label>
+                          <p className="text-[9px] text-neutral-400 leading-tight">If checked, PIN is required. If container status is set to "Missing / Lost", lock is automatically bypassed.</p>
+                        </div>
                       </div>
                     </div>
                   </div>
