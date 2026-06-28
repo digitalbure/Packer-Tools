@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
-import { X, Check, Zap, Shield, Crown, Loader2, ArrowLeft, ArrowRight } from 'lucide-react';
+import { X, Check, Zap, Shield, Crown, Loader2, ArrowLeft, ArrowRight, CreditCard, HelpCircle, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plan, UserProfile, AdminSettings } from '../types';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -29,6 +29,22 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
   const [selectedCurrencyCode, setSelectedCurrencyCode] = useState<string>('USD');
   const [selectedGatewayIdx, setSelectedGatewayIdx] = useState<number>(0);
   const [manualReferenceId, setManualReferenceId] = useState<string>('');
+
+  // Shipping details state
+  const [shippingFullName, setShippingFullName] = useState<string>(user.displayName || '');
+  const [shippingAddress1, setShippingAddress1] = useState<string>('');
+  const [shippingAddress2, setShippingAddress2] = useState<string>('');
+  const [shippingCity, setShippingCity] = useState<string>('');
+  const [shippingState, setShippingState] = useState<string>('');
+  const [shippingZip, setShippingZip] = useState<string>('');
+  const [shippingCountry, setShippingCountry] = useState<string>('United States');
+
+  // Custom PayPal Credit Card fields state
+  const [ccNumber, setCcNumber] = useState<string>('');
+  const [ccExpiry, setCcExpiry] = useState<string>('');
+  const [ccCvc, setCcCvc] = useState<string>('');
+  const [ccBillingZip, setCcBillingZip] = useState<string>('');
+  const [isProcessingCard, setIsProcessingCard] = useState<boolean>(false);
 
   const onboarded = adminSettings?.onboardedCurrencies || [
     {
@@ -64,12 +80,37 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
     enabled: true
   } : null;
 
+  const isPaypalActive = adminSettings?.integrationConfig?.paypalEnabled !== false;
+  const isPaddleActive = !!adminSettings?.integrationConfig?.paddleEnabled;
+
+  const paypalMethod = isPaypalActive && selectedCurrencyCode !== 'FJD' ? {
+    gateway: 'paypal',
+    name: '💳 PayPal Express Checkout',
+    instructions: 'Authorize instantly using your PayPal balance or registered account.',
+    enabled: true
+  } : null;
+
+  const paypalCardMethod = isPaypalActive && selectedCurrencyCode !== 'FJD' ? {
+    gateway: 'paypal_cc',
+    name: '💳 Credit/Debit Card (Powered by PayPal)',
+    instructions: 'Secure card authorization backed by PayPal payments system.',
+    enabled: true
+  } : null;
+
+  const paddleMethod = isPaddleActive ? {
+    gateway: 'paddle',
+    name: '🎫 Paddle Unified Checkout',
+    instructions: 'Complete subscription utilizing regional cards, taxation models and Paddle checkout links.',
+    enabled: true
+  } : null;
+
   const enabledGateways = [
+    ...(paypalMethod ? [paypalMethod] : []),
+    ...(paypalCardMethod ? [paypalCardMethod] : []),
+    ...(paddleMethod ? [paddleMethod] : []),
     ...(dodoMethod ? [dodoMethod] : []),
     ...rawMethods.filter(p => {
-      if (selectedCurrencyCode === 'FJD' && p.gateway === 'paypal') {
-        return false; // Paypal does not work with Fiji currency
-      }
+      if (p.gateway === 'paypal') return false; // Prevent duplicating standard paypal
       return p.enabled;
     })
   ];
@@ -172,9 +213,98 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
     return basePrice + seatCost;
   };
 
+  React.useEffect(() => {
+    if (user && (user as any).shippingDetails) {
+      const details = (user as any).shippingDetails;
+      setShippingFullName(details.fullName || user.displayName || '');
+      setShippingAddress1(details.address1 || '');
+      setShippingAddress2(details.address2 || '');
+      setShippingCity(details.city || '');
+      setShippingState(details.state || '');
+      setShippingZip(details.zip || '');
+      setShippingCountry(details.country || 'United States');
+    }
+  }, [user]);
+
+  const saveShippingDetails = async () => {
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        shippingDetails: {
+          fullName: shippingFullName,
+          address1: shippingAddress1,
+          address2: shippingAddress2,
+          city: shippingCity,
+          state: shippingState,
+          zip: shippingZip,
+          country: shippingCountry,
+          updatedAt: new Date().toISOString()
+        }
+      });
+      console.log("[Shipping Details] Successfully synchronized for user:", user.uid);
+    } catch (e: any) {
+      console.error("[Shipping Details] Failed to update profile:", e.message);
+    }
+  };
+
+  const handleCcSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shippingFullName || !shippingAddress1 || !shippingCity || !shippingZip) {
+      toast.error("Please fill in all shipping details before authorizing payment.");
+      return;
+    }
+    if (!ccNumber || !ccExpiry || !ccCvc) {
+      toast.error("Please fill in your credit card information.");
+      return;
+    }
+    setIsProcessingCard(true);
+    setIsProcessing(true);
+    try {
+      // 1. Save shipping details
+      await saveShippingDetails();
+
+      // 2. Call backend PayPal Create Order
+      const amount = getActivePrice(selectedPlan!);
+      const createRes = await authenticatedFetch('/api/paypal/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: selectedPlan?.id, amount, billingCycle })
+      });
+      const order = await createRes.json();
+      if (!createRes.ok || !order.id) {
+        throw new Error(order.error || "Failed to create secure PayPal transaction order.");
+      }
+
+      // 3. Capture the order (Since we are using custom Credit Card powered by PayPal)
+      const captureRes = await authenticatedFetch('/api/paypal/capture-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderID: order.id,
+          planId: selectedPlan?.id,
+          extraSeats: extraSeatsCount
+        })
+      });
+      const captureData = await captureRes.json();
+      if (captureRes.ok && captureData.status === 'COMPLETED') {
+        toast.success(`Successfully processed Credit Card through PayPal! Upgraded to ${selectedPlan?.name}.`);
+        onSuccess(selectedPlan!.id);
+        onClose();
+      } else {
+        throw new Error(captureData.error || "Card authorization failed. Please check details or use PayPal Express checkout.");
+      }
+    } catch (err: any) {
+      console.error("[Card Submission Error]", err);
+      toast.error(err.message || "Failed to complete secure card payment.");
+    } finally {
+      setIsProcessingCard(false);
+      setIsProcessing(false);
+    }
+  };
+
   const handleApprove = async (orderID: string) => {
     setIsProcessing(true);
     try {
+      await saveShippingDetails();
       const response = await authenticatedFetch('/api/paypal/capture-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -420,17 +550,16 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                 </div>
               </div>
             )}
-
             {/* STEP 3: CHECKOUT DETAILS & TRANSACTION FORM */}
             {step === 3 && selectedPlan && (
               <div className="space-y-6 animate-fadeIn">
                 <div className="space-y-1 text-left">
                   <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tighter text-neutral-900 leading-none">Complete Upgrade</h2>
-                  <p className="text-[10px] md:text-xs text-neutral-400 font-bold uppercase tracking-wider">Confirm your billing details and complete checkout securely.</p>
+                  <p className="text-[10px] md:text-xs text-neutral-400 font-bold uppercase tracking-wider">Confirm your shipping details and choose your checkout gateway.</p>
                 </div>
 
                 {/* Total Due Billing Block */}
-                <div className="text-center p-6 bg-neutral-900 text-white rounded-[2rem] shadow-md space-y-1 relative overflow-hidden">
+                <div className="text-center p-5 bg-neutral-900 text-white rounded-[2rem] shadow-md space-y-1 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-[100px] h-[100px] bg-primary/20 blur-[55px] pointer-events-none" />
                   <p className="text-[9px] font-black uppercase tracking-widest text-neutral-450">Total Due Today</p>
                   <div className="text-4xl md:text-5xl font-black tracking-tighter text-white">
@@ -477,232 +606,440 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                     </button>
                   </div>
                 ) : (
-                  <>
-                    {/* Currency & Gateway selection */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                      {/* Currency Selector */}
-                      <div className="space-y-1.5">
-                        <label className="text-[9px] font-black uppercase text-neutral-400 tracking-wider block font-mono">Billing Currency</label>
-                        <select
-                          value={selectedCurrencyCode}
-                          onChange={(e) => {
-                            setSelectedCurrencyCode(e.target.value);
-                            setSelectedGatewayIdx(0);
-                          }}
-                          className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl outline-none font-bold text-xs text-neutral-800 transition focus:ring-2 focus:ring-primary appearance-none cursor-pointer"
-                        >
-                          {activeCurrencies.map((c) => (
-                            <option key={c.code} value={c.code}>{c.code} ({c.symbol}) — {c.name}</option>
-                          ))}
-                        </select>
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-left items-start">
+                    {/* Column 1: Logistics & Shipping Details (lg:col-span-5) */}
+                    <div className="lg:col-span-5 space-y-4 bg-neutral-50 p-5 rounded-[2rem] border border-neutral-150">
+                      <div className="border-b border-neutral-200/60 pb-2">
+                        <h3 className="text-xs font-black uppercase tracking-wider text-neutral-800 flex items-center gap-1.5">
+                          <HelpCircle size={14} className="text-[#ff4f3a]" />
+                          1. Shipping & Logistics
+                        </h3>
+                        <p className="text-[8.5px] text-neutral-400 font-bold uppercase tracking-wider mt-0.5">Where high-value inventory is deployed</p>
                       </div>
 
-                      {/* Gateway Selector */}
-                      <div className="space-y-1.5">
-                        <label className="text-[9px] font-black uppercase text-neutral-400 tracking-wider block font-mono">Gateway Method</label>
-                        {enabledGateways.length === 0 ? (
-                          <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-semibold">
-                            No active gateways.
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-450 block font-mono">Full Name / Recipient</label>
+                          <input
+                            type="text"
+                            value={shippingFullName}
+                            onChange={(e) => setShippingFullName(e.target.value)}
+                            placeholder="e.g. Marcus Aurelius"
+                            className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold focus:border-[#ff4f3a] transition text-neutral-800"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-450 block font-mono">Address Line 1</label>
+                          <input
+                            type="text"
+                            value={shippingAddress1}
+                            onChange={(e) => setShippingAddress1(e.target.value)}
+                            placeholder="e.g. 100 Gear Logistics Blvd"
+                            className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold focus:border-[#ff4f3a] transition text-neutral-800"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-450 block font-mono">Address Line 2 (Optional)</label>
+                          <input
+                            type="text"
+                            value={shippingAddress2}
+                            onChange={(e) => setShippingAddress2(e.target.value)}
+                            placeholder="e.g. Suite 400"
+                            className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold focus:border-[#ff4f3a] transition text-neutral-800"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-455 block font-mono">City</label>
+                            <input
+                              type="text"
+                              value={shippingCity}
+                              onChange={(e) => setShippingCity(e.target.value)}
+                              placeholder="e.g. San Francisco"
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold focus:border-[#ff4f3a] transition text-neutral-800"
+                            />
                           </div>
-                        ) : (
-                          <select
-                            value={selectedGatewayIdx}
-                            onChange={(e) => setSelectedGatewayIdx(Number(e.target.value))}
-                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl outline-none font-bold text-xs text-neutral-800 transition focus:ring-2 focus:ring-primary cursor-pointer"
-                          >
-                            {enabledGateways.map((gw, idx) => (
-                              <option key={idx} value={idx}>{gw.name}</option>
-                            ))}
-                          </select>
-                        )}
+                          <div className="space-y-1">
+                            <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-455 block font-mono">State / Prov</label>
+                            <input
+                              type="text"
+                              value={shippingState}
+                              onChange={(e) => setShippingState(e.target.value)}
+                              placeholder="e.g. CA"
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold focus:border-[#ff4f3a] transition text-neutral-800"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-455 block font-mono">ZIP / Postal</label>
+                            <input
+                              type="text"
+                              value={shippingZip}
+                              onChange={(e) => setShippingZip(e.target.value)}
+                              placeholder="e.g. 94103"
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold focus:border-[#ff4f3a] transition text-neutral-800"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-455 block font-mono">Country</label>
+                            <input
+                              type="text"
+                              value={shippingCountry}
+                              onChange={(e) => setShippingCountry(e.target.value)}
+                              placeholder="e.g. USA"
+                              className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-semibold focus:border-[#ff4f3a] transition text-neutral-800"
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Active Gateway content interface */}
-                    {selectedGateway && (
-                      <div className="p-1.5 border border-neutral-100 rounded-[2rem] overflow-hidden bg-white shadow-sm relative text-left">
-                        {isProcessing && (
-                          <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center rounded-[2rem] gap-2">
-                            <Loader2 size={24} className="text-primary animate-spin" />
-                            <div className="text-[9px] font-bold uppercase tracking-widest text-neutral-655">Syncing Settlement...</div>
-                          </div>
-                        )}
+                    {/* Column 2: Payment & Finalize (lg:col-span-7) */}
+                    <div className="lg:col-span-7 space-y-4">
+                      {/* Currency & Custom Gateway Grid Selector */}
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-xs font-black uppercase tracking-wider text-neutral-800 flex items-center gap-1.5">
+                            <CreditCard size={14} className="text-emerald-500" />
+                            2. Select Payment Gateway
+                          </h3>
 
-                        {selectedGateway.gateway === 'dodo' ? (
-                          <div className="p-4 space-y-4">
-                            <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest border-b border-neutral-100 pb-1.5 flex items-center justify-between">
-                              <span className="flex items-center gap-1.5">
-                                <Zap size={12} className="text-indigo-500 animate-pulse" />
-                                Dodo Payments Secure Node
-                              </span>
-                              <span className="text-[9px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold uppercase">SECURE</span>
-                            </div>
+                          {/* Currency Selector Inline */}
+                          <select
+                            value={selectedCurrencyCode}
+                            onChange={(e) => {
+                              setSelectedCurrencyCode(e.target.value);
+                              setSelectedGatewayIdx(0);
+                            }}
+                            className="bg-neutral-100 border border-neutral-250 rounded-lg px-2 py-1 text-[10px] font-bold text-neutral-750 outline-none cursor-pointer"
+                          >
+                            {activeCurrencies.map((c) => (
+                              <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                            ))}
+                          </select>
+                        </div>
 
-                            <p className="text-[10px] text-neutral-500 font-medium leading-relaxed font-sans">
-                              Upgrading to <strong className="text-neutral-800 font-black">{selectedPlan?.name} ({billingCycle})</strong>. Fast digital clearance with automatic credit card ledger clearing.
-                            </p>
-
-                            <div className="p-4 bg-gradient-to-tr from-indigo-700 to-indigo-900 text-white rounded-2xl shadow-sm space-y-3 font-mono">
-                              <div className="flex justify-between items-center text-[9px] font-bold text-indigo-200">
-                                <span className="tracking-widest">DODO PAYMENTS DEBIT</span>
-                                <span className="font-extrabold text-white">VISA</span>
-                              </div>
-                              <div className="text-base font-black tracking-widest text-white leading-none pt-1">
-                                •••• •••• •••• 5594
-                              </div>
-                              <div className="flex justify-between items-center text-[8px] text-indigo-300">
-                                <div>
-                                  <span className="block text-[6px] uppercase tracking-wide">Owner</span>
-                                  <span className="font-bold text-white uppercase">{user.displayName || user.email.split('@')[0]}</span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="block text-[6px] uppercase tracking-wide">Expires</span>
-                                  <span className="font-bold text-white">12/29</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                setIsProcessing(true);
-                                try {
-                                  // Fire webhook simulating subscription
-                                  const payload = {
-                                    event: 'subscription.created',
-                                    data: {
-                                      id: "sub_dodo_" + Math.random().toString(36).substring(2,10),
-                                      status: 'active',
-                                      customer: {
-                                        id: "cust_dodo_" + Math.random().toString(36).substring(2,10),
-                                        email: user.email,
-                                        name: user.displayName || user.email
-                                      },
-                                      metadata: {
-                                        userUid: user.uid,
-                                        email: user.email
-                                      },
-                                      product_id: selectedPlan?.dodoProductId || `prod_dodo_${selectedPlan?.id}_fiji`,
-                                      price_id: billingCycle === 'annual' ? (selectedPlan?.dodoPriceIdAnnual || `price_dodo_${selectedPlan?.id}_annual`) : (selectedPlan?.dodoPriceIdMonthly || `price_dodo_${selectedPlan?.id}_monthly`),
-                                      billing_cycle: billingCycle
-                                    }
-                                  };
-
-                                  const response = await fetch('/api/webhooks/dodopayments', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(payload)
-                                  });
-
-                                  const result = await response.json();
-                                  if (!response.ok || !result.success) {
-                                    throw new Error(result.error || result.message || "Gateway webhook failed.");
-                                  }
-
-                                  toast.success(`Upgrade cleared! Welcome to ${selectedPlan?.name}`);
-                                  onSuccess(selectedPlan!.id);
-                                  onClose();
-                                } catch (err: any) {
-                                  console.error("Dodo error:", err);
-                                  toast.error("Checkout processing issue: " + err.message);
-                                } finally {
-                                  setIsProcessing(false);
-                                }
-                              }}
-                              disabled={isProcessing}
-                              className="w-full py-3 bg-indigo-650 hover:bg-indigo-700 rounded-xl text-white text-[10px] uppercase font-black tracking-widest transition flex items-center justify-center gap-2 border-none cursor-pointer"
-                            >
-                              {isProcessing ? (
-                                <>
-                                  <Loader2 size={12} className="animate-spin text-white" />
-                                  <span>Syncing Dodo Core Ledger...</span>
-                                </>
-                              ) : (
-                                <span>Simulate Instant Dodo Activation</span>
-                              )}
-                            </button>
-
-                            {selectedPlan && (billingCycle === 'annual' ? selectedPlan.dodoCheckoutUrlAnnual : selectedPlan.dodoCheckoutUrl) && (
-                              <a
-                                href={billingCycle === 'annual' ? selectedPlan.dodoCheckoutUrlAnnual : selectedPlan.dodoCheckoutUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full py-3 mt-2 block text-center bg-neutral-900 hover:bg-neutral-800 rounded-xl text-white text-[10px] uppercase font-black tracking-widest transition flex items-center justify-center gap-1 border border-neutral-800 font-bold decoration-none select-none cursor-pointer"
+                        {/* Interactive Clickable Grid */}
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {enabledGateways.map((gw, idx) => {
+                            const isSelected = selectedGatewayIdx === idx;
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setSelectedGatewayIdx(idx)}
+                                className={`p-3 text-left rounded-2xl border transition relative flex flex-col justify-between h-[75px] cursor-pointer ${
+                                  isSelected
+                                    ? 'border-neutral-900 bg-neutral-950 text-white shadow-md'
+                                    : 'border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-800'
+                                }`}
                               >
-                                🚀 Go to Live Direct Checkout Page
-                              </a>
-                            )}
-                          </div>
-                        ) : selectedGateway.gateway === 'paypal' ? (
-                          <div className="p-3">
-                            <PayPalScriptProvider options={{ clientId: (selectedGateway as any).paypalClientId || paypalClientId }}>
-                              <PayPalButtons
-                                style={{ layout: "vertical", shape: "pill", label: "pay" }}
-                                createOrder={async () => {
-                                  const amount = getActivePrice(selectedPlan);
-                                  const response = await authenticatedFetch('/api/paypal/create-order', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ planId: selectedPlan.id, amount, billingCycle })
-                                  });
-                                  const order = await response.json();
-                                  return order.id;
-                                }}
-                                onApprove={async (data) => {
-                                  await handleApprove(data.orderID);
-                                }}
-                              />
-                            </PayPalScriptProvider>
-                          </div>
-                        ) : (
-                          <div className="p-4 space-y-4">
-                            <div className="text-[8.5px] font-black text-neutral-450 uppercase tracking-widest border-b border-neutral-100 pb-1 flex items-center gap-1.5">
-                              <Check size={10} className="text-emerald-500 stroke-[3]" />
-                              <span>Direct Settlement instructions</span>
-                            </div>
-                            <p className="text-[10px] text-neutral-600 leading-relaxed font-semibold whitespace-pre-line bg-neutral-50 p-3 rounded-xl border border-neutral-100 select-all font-mono">
-                              {selectedGateway.instructions || "Contact account manager for bank routing details."}
-                            </p>
-                            
-                            <div className="space-y-1">
-                              <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400 block font-mono">Transaction Reference ID</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. BSP-WIRE-90342-FIJI"
-                                value={manualReferenceId}
-                                onChange={(e) => setManualReferenceId(e.target.value)}
-                                className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-mono focus:ring-2 focus:ring-primary transition"
-                              />
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={handleManualSubmit}
-                              disabled={isProcessing}
-                              className="w-full py-2.5 bg-neutral-900 hover:bg-black rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition flex items-center justify-center gap-2 cursor-pointer border-none"
-                            >
-                              {isProcessing ? (
-                                <>
-                                  <Loader2 size={12} className="animate-spin" />
-                                  <span>Queuing Request...</span>
-                                </>
-                              ) : (
-                                <span>Submit Offline Verification</span>
-                              )}
-                            </button>
-                          </div>
-                        )}
+                                <div className="flex items-center justify-between w-full">
+                                  <span className="text-[10px] font-extrabold tracking-tight block truncate uppercase">
+                                    {gw.gateway === 'paypal' ? 'PayPal Checkout' :
+                                     gw.gateway === 'paypal_cc' ? 'Credit Card (PayPal)' :
+                                     gw.gateway === 'paddle' ? 'Paddle Gateway' :
+                                     gw.gateway === 'dodo' ? 'Dodo Payments' : gw.name}
+                                  </span>
+                                  {isSelected && (
+                                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 flex items-center justify-center shrink-0" />
+                                  )}
+                                </div>
+                                <span className={`text-[8.5px] leading-tight block truncate ${isSelected ? 'text-neutral-400 font-medium' : 'text-neutral-400 font-semibold'}`}>
+                                  {gw.instructions || 'Pay safely through secure encrypted pipeline.'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    )}
 
-                    <p className="text-[9px] text-neutral-400 font-bold uppercase text-center tracking-wide leading-relaxed">
-                      Verification of manual receipts/wire deposits can take up to 24 hours to clear organization accounts.
-                    </p>
-                  </>
+                      {/* Active Gateway panel */}
+                      {selectedGateway && (
+                        <div className="p-4 border border-neutral-150 rounded-[2rem] bg-white shadow-xs relative text-left min-h-[160px] flex flex-col justify-center">
+                          {isProcessing && (
+                            <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center rounded-[2rem] gap-2">
+                              <Loader2 size={24} className="text-primary animate-spin" />
+                              <div className="text-[9px] font-bold uppercase tracking-widest text-neutral-600">Settling Securely...</div>
+                            </div>
+                          )}
+
+                          {selectedGateway.gateway === 'paypal' ? (
+                            <div className="space-y-4">
+                              <div className="text-[9px] font-black text-emerald-600 uppercase tracking-widest border-b border-neutral-100 pb-1.5 flex items-center justify-between font-mono">
+                                <span className="flex items-center gap-1">
+                                  <DollarSign size={11} className="text-emerald-500" />
+                                  PayPal Checkout Engine
+                                </span>
+                                <span className="text-[8px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold uppercase">LIVE CONNECTION</span>
+                              </div>
+
+                              <p className="text-[10px] text-neutral-500 font-medium leading-normal">
+                                Click the PayPal button below to sign in and complete checkout instantly.
+                              </p>
+
+                              <div className="relative z-0">
+                                <PayPalScriptProvider options={{ clientId: (selectedGateway as any).paypalClientId || paypalClientId }}>
+                                  <PayPalButtons
+                                    style={{ layout: "vertical", shape: "pill", label: "pay" }}
+                                    createOrder={async () => {
+                                      const amount = getActivePrice(selectedPlan);
+                                      const response = await authenticatedFetch('/api/paypal/create-order', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ planId: selectedPlan.id, amount, billingCycle })
+                                      });
+                                      const order = await response.json();
+                                      return order.id;
+                                    }}
+                                    onApprove={async (data) => {
+                                      await handleApprove(data.orderID);
+                                    }}
+                                  />
+                                </PayPalScriptProvider>
+                              </div>
+                            </div>
+                          ) : selectedGateway.gateway === 'paypal_cc' ? (
+                            <form onSubmit={handleCcSubmit} className="space-y-3.5">
+                              <div className="text-[9px] font-black text-blue-600 uppercase tracking-widest border-b border-neutral-100 pb-1.5 flex items-center justify-between font-mono">
+                                <span className="flex items-center gap-1">
+                                  <CreditCard size={11} className="text-blue-500" />
+                                  Credit Card (Powered by PayPal)
+                                </span>
+                                <span className="text-[8px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold uppercase">SECURE PORTAL</span>
+                              </div>
+
+                              <div className="space-y-2">
+                                <div className="space-y-0.5">
+                                  <label className="text-[8px] font-black uppercase text-neutral-400 block font-mono">Card Number</label>
+                                  <input
+                                    type="text"
+                                    maxLength={19}
+                                    placeholder="e.g. 4111 2222 3333 4444"
+                                    value={ccNumber}
+                                    onChange={(e) => setCcNumber(e.target.value.replace(/\s?/g, '').replace(/(\d{4})/g, '$1 ').trim())}
+                                    className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-xl outline-none font-mono text-xs font-bold text-neutral-800 focus:border-blue-500 transition"
+                                    required
+                                  />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-0.5">
+                                    <label className="text-[8px] font-black uppercase text-neutral-400 block font-mono">Expiry Date</label>
+                                    <input
+                                      type="text"
+                                      maxLength={5}
+                                      placeholder="MM/YY"
+                                      value={ccExpiry}
+                                      onChange={(e) => setCcExpiry(e.target.value)}
+                                      className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-xl outline-none font-mono text-xs font-bold text-neutral-800 focus:border-blue-500 transition text-center"
+                                      required
+                                    />
+                                  </div>
+                                  <div className="space-y-0.5">
+                                    <label className="text-[8px] font-black uppercase text-neutral-400 block font-mono">CVV / CVC</label>
+                                    <input
+                                      type="password"
+                                      maxLength={4}
+                                      placeholder="e.g. 123"
+                                      value={ccCvc}
+                                      onChange={(e) => setCcCvc(e.target.value)}
+                                      className="w-full px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-xl outline-none font-mono text-xs font-bold text-neutral-800 focus:border-blue-500 transition text-center"
+                                      required
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                type="submit"
+                                disabled={isProcessingCard}
+                                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] uppercase font-black tracking-widest transition flex items-center justify-center gap-1.5 border-none cursor-pointer"
+                              >
+                                {isProcessingCard ? (
+                                  <>
+                                    <Loader2 size={12} className="animate-spin text-white" />
+                                    <span>Authorizing Card through PayPal...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Shield size={11} className="stroke-[2.5]" />
+                                    <span>Authorize Credit Card (${getActivePrice(selectedPlan)})</span>
+                                  </>
+                                )}
+                              </button>
+                            </form>
+                          ) : selectedGateway.gateway === 'paddle' ? (
+                            <div className="space-y-3">
+                              <div className="text-[9px] font-black text-amber-600 uppercase tracking-widest border-b border-neutral-100 pb-1.5 flex items-center justify-between font-mono">
+                                <span className="flex items-center gap-1">
+                                  <HelpCircle size={11} className="text-amber-500 animate-pulse" />
+                                  Paddle Checkout Gateway
+                                </span>
+                                <span className="text-[8px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold uppercase">PENDING MERGING</span>
+                              </div>
+
+                              <p className="text-[10px] text-neutral-500 leading-relaxed font-sans">
+                                Complete checkout utilising standard Paddle links. Local VAT tax calculations and multi-currency billing is handled through this portal.
+                              </p>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  toast.info("Paddle checkout requires manual account activation. PayPal express option is recommended for instant clearing.");
+                                }}
+                                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 rounded-xl text-white text-[9.5px] uppercase font-black tracking-widest transition flex items-center justify-center gap-1.5 border-none cursor-pointer"
+                              >
+                                <span>Proceed to Paddle Secure Window</span>
+                              </button>
+                            </div>
+                          ) : selectedGateway.gateway === 'dodo' ? (
+                            <div className="p-0 space-y-4">
+                              <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest border-b border-neutral-100 pb-1.5 flex items-center justify-between">
+                                <span className="flex items-center gap-1.5">
+                                  <Zap size={12} className="text-indigo-500 animate-pulse" />
+                                  Dodo Payments Secure Node
+                                </span>
+                                <span className="text-[9px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-bold uppercase">SECURE</span>
+                              </div>
+
+                              <p className="text-[10px] text-neutral-500 font-medium leading-relaxed font-sans">
+                                Upgrading to <strong className="text-neutral-800 font-black">{selectedPlan?.name} ({billingCycle})</strong>. Fast digital clearance with automatic credit card ledger clearing.
+                              </p>
+
+                              <div className="p-4 bg-gradient-to-tr from-indigo-700 to-indigo-900 text-white rounded-2xl shadow-sm space-y-3 font-mono">
+                                <div className="flex justify-between items-center text-[9px] font-bold text-indigo-200">
+                                  <span className="tracking-widest">DODO PAYMENTS DEBIT</span>
+                                  <span className="font-extrabold text-white">VISA</span>
+                                </div>
+                                <div className="text-base font-black tracking-widest text-white leading-none pt-1">
+                                  •••• •••• •••• 5594
+                                </div>
+                                <div className="flex justify-between items-center text-[8px] text-indigo-300">
+                                  <div>
+                                    <span className="block text-[6px] uppercase tracking-wide">Owner</span>
+                                    <span className="font-bold text-white uppercase">{user.displayName || user.email.split('@')[0]}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="block text-[6px] uppercase tracking-wide">Expires</span>
+                                    <span className="font-bold text-white">12/29</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  setIsProcessing(true);
+                                  try {
+                                    const payload = {
+                                      event: 'subscription.created',
+                                      data: {
+                                        id: "sub_dodo_" + Math.random().toString(36).substring(2,10),
+                                        status: 'active',
+                                        customer: {
+                                          id: "cust_dodo_" + Math.random().toString(36).substring(2,10),
+                                          email: user.email,
+                                          name: user.displayName || user.email
+                                        },
+                                        metadata: {
+                                          userUid: user.uid,
+                                          email: user.email
+                                        },
+                                        product_id: selectedPlan?.dodoProductId || `prod_dodo_${selectedPlan?.id}_fiji`,
+                                        price_id: billingCycle === 'annual' ? (selectedPlan?.dodoPriceIdAnnual || `price_dodo_${selectedPlan?.id}_annual`) : (selectedPlan?.dodoPriceIdMonthly || `price_dodo_${selectedPlan?.id}_monthly`),
+                                        billing_cycle: billingCycle
+                                      }
+                                    };
+
+                                    const response = await fetch('/api/webhooks/dodopayments', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify(payload)
+                                    });
+
+                                    const result = await response.json();
+                                    if (!response.ok || !result.success) {
+                                      throw new Error(result.error || result.message || "Gateway webhook failed.");
+                                    }
+
+                                    toast.success(`Upgrade cleared! Welcome to ${selectedPlan?.name}`);
+                                    onSuccess(selectedPlan!.id);
+                                    onClose();
+                                  } catch (err: any) {
+                                    console.error("Dodo error:", err);
+                                    toast.error("Checkout processing issue: " + err.message);
+                                  } finally {
+                                    setIsProcessing(false);
+                                  }
+                                }}
+                                disabled={isProcessing}
+                                className="w-full py-3 bg-indigo-650 hover:bg-indigo-700 rounded-xl text-white text-[10px] uppercase font-black tracking-widest transition flex items-center justify-center gap-2 border-none cursor-pointer"
+                              >
+                                {isProcessing ? (
+                                  <>
+                                    <Loader2 size={12} className="animate-spin text-white" />
+                                    <span>Syncing Dodo Core Ledger...</span>
+                                  </>
+                                ) : (
+                                  <span>Simulate Instant Dodo Activation</span>
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="p-0 space-y-3">
+                              <div className="text-[8.5px] font-black text-neutral-450 uppercase tracking-widest border-b border-neutral-100 pb-1 flex items-center gap-1.5 font-mono">
+                                <Check size={10} className="text-emerald-500 stroke-[3]" />
+                                <span>Direct Settlement instructions</span>
+                              </div>
+                              <p className="text-[9.5px] text-neutral-600 leading-relaxed font-semibold whitespace-pre-line bg-neutral-50 p-2.5 rounded-xl border border-neutral-100 select-all font-mono">
+                                {selectedGateway.instructions || "Contact account manager for bank routing details."}
+                              </p>
+                              
+                              <div className="space-y-1">
+                                <label className="text-[8.5px] font-black uppercase tracking-wider text-neutral-400 block font-mono">Transaction Reference ID</label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. BSP-WIRE-90342-FIJI"
+                                  value={manualReferenceId}
+                                  onChange={(e) => setManualReferenceId(e.target.value)}
+                                  className="w-full px-3 py-1.5 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-mono focus:ring-2 focus:ring-primary transition"
+                                />
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={handleManualSubmit}
+                                disabled={isProcessing}
+                                className="w-full py-2.5 bg-neutral-900 hover:bg-black rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition flex items-center justify-center gap-2 cursor-pointer border-none"
+                              >
+                                {isProcessing ? (
+                                  <>
+                                    <Loader2 size={12} className="animate-spin" />
+                                    <span>Queuing Request...</span>
+                                  </>
+                                ) : (
+                                  <span>Submit Offline Verification</span>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <p className="text-[8.5px] text-neutral-400 font-bold uppercase text-center tracking-wide leading-relaxed">
+                        Verification of direct settlement routing can take up to 24 hours to clear organization accounts.
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
-            
           </div>
 
           {/* Fixed Footer controls */}

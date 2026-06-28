@@ -2,7 +2,7 @@ import express from "express";
 import axios from "axios";
 import { dbAdmin } from "../firebaseAdmin";
 import { authenticateUser } from "../middleware/auth";
-import { getPayPalAccessToken } from "../utils/paypal";
+import { getPayPalAccessToken, getPayPalConfig } from "../utils/paypal";
 
 const router = express.Router();
 
@@ -78,9 +78,11 @@ router.post("/api/paypal/create-order", authenticateUser, async (req, res) => {
   try {
     const { planId, amount } = req.body;
     const accessToken = await getPayPalAccessToken();
+    const { sandboxMode } = await getPayPalConfig();
+    const host = sandboxMode ? "https://api-m.sandbox.paypal.com" : "https://api-m.paypal.com";
 
     const response = await axios.post(
-      "https://api-m.sandbox.paypal.com/v2/checkout/orders",
+      `${host}/v2/checkout/orders`,
       {
         intent: "CAPTURE",
         purchase_units: [
@@ -112,9 +114,11 @@ router.post("/api/paypal/capture-order", authenticateUser, async (req: any, res)
   try {
     const { orderID, planId, extraSeats } = req.body;
     const accessToken = await getPayPalAccessToken();
+    const { sandboxMode } = await getPayPalConfig();
+    const host = sandboxMode ? "https://api-m.sandbox.paypal.com" : "https://api-m.paypal.com";
 
     const response = await axios.post(
-      `https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderID}/capture`,
+      `${host}/v2/checkout/orders/${orderID}/capture`,
       {},
       {
         headers: {

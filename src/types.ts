@@ -682,6 +682,9 @@ export interface IntegrationConfig {
   dodoEnabled?: boolean;
   dodoSandboxMode?: boolean;
   dodoWebhookSecret?: string;
+  paypalSecretKey?: string;
+  paypalEnabled?: boolean;
+  paypalSandboxMode?: boolean;
 }
 
 export interface LandingPagePair {

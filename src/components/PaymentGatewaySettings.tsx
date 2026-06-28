@@ -34,10 +34,25 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
   );
   const [paddleEnabled, setPaddleEnabled] = useState(settings?.integrationConfig?.paddleEnabled ?? false);
   
+  // PayPal states
+  const [paypalClientId, setPaypalClientId] = useState(
+    settings?.integrationConfig?.paypalClientId || ''
+  );
+  const [paypalSecretKey, setPaypalSecretKey] = useState(
+    settings?.integrationConfig?.paypalSecretKey || ''
+  );
+  const [paypalEnabled, setPaypalEnabled] = useState(
+    settings?.integrationConfig?.paypalEnabled ?? true
+  );
+  const [paypalSandboxMode, setPaypalSandboxMode] = useState(
+    settings?.integrationConfig?.paypalSandboxMode ?? true
+  );
+  
   // View states
   const [showDodoKey, setShowDodoKey] = useState(false);
   const [showDodoSecret, setShowDodoSecret] = useState(false);
   const [showPaddleKey, setShowPaddleKey] = useState(false);
+  const [showPaypalSecretKey, setShowPaypalSecretKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
   // Gateway Connection handshakes
@@ -81,6 +96,11 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
       
       if (settings.integrationConfig.paddleApiKey) setPaddleApiKey(settings.integrationConfig.paddleApiKey);
       setPaddleEnabled(settings.integrationConfig.paddleEnabled ?? false);
+
+      if (settings.integrationConfig.paypalClientId) setPaypalClientId(settings.integrationConfig.paypalClientId);
+      if (settings.integrationConfig.paypalSecretKey) setPaypalSecretKey(settings.integrationConfig.paypalSecretKey);
+      setPaypalEnabled(settings.integrationConfig.paypalEnabled ?? true);
+      setPaypalSandboxMode(settings.integrationConfig.paypalSandboxMode ?? true);
     }
   }, [settings]);
 
@@ -110,7 +130,11 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
         dodoEnabled,
         dodoSandboxMode,
         paddleApiKey,
-        paddleEnabled // Force deactivated unless user explicitly overrides
+        paddleEnabled, // Force deactivated unless user explicitly overrides
+        paypalClientId,
+        paypalSecretKey,
+        paypalEnabled,
+        paypalSandboxMode
       };
 
       setSettings(prev => {
@@ -126,7 +150,7 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
         plans: settings?.plans || []
       });
 
-      toast.success("Payment Gateway configurations (Dodo & Paddle) updated successfully!");
+      toast.success("Payment Gateway configurations (Dodo, Paddle & PayPal) updated successfully!");
     } catch (err: any) {
       toast.error("Failed to persist secure Gateway configurations: " + err.message);
     } finally {
@@ -602,7 +626,124 @@ export default function PaymentGatewaySettings({ settings, setSettings, users }:
             </div>
           </div>
 
-          {/* C. Plan Pricing Gateway Mappings */}
+          {/* C. PayPal credentials configurations */}
+          <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-neutral-200/60 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-neutral-150 pb-4">
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-neutral-950 flex items-center gap-2">
+                  <DollarSign size={18} className="text-emerald-500 animate-pulse" />
+                  PayPal Gateway Integration
+                </h3>
+                <p className="text-xs text-neutral-500 font-medium font-sans">
+                  Process immediate credit card payments or standard PayPal transactions.
+                </p>
+              </div>
+
+              {/* Toggle Switch */}
+              <button
+                onClick={() => {
+                  const nextVal = !paypalEnabled;
+                  setPaypalEnabled(nextVal);
+                  if (nextVal) {
+                    toast.success("PayPal Gateway enabled as checkout engine option!");
+                  } else {
+                    toast.info("PayPal Gateway has been deactivated successfully.");
+                  }
+                }}
+                className={`w-12 h-6 rounded-full relative transition-colors cursor-pointer ${paypalEnabled ? 'bg-emerald-500' : 'bg-neutral-200'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${paypalEnabled ? 'right-1' : 'left-1'}`}></div>
+              </button>
+            </div>
+
+            {paypalEnabled ? (
+              <div className="space-y-5">
+                {/* PayPal Client ID */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block font-mono">
+                    PayPal Client ID
+                  </label>
+                  <input
+                    type="text"
+                    value={paypalClientId}
+                    onChange={(e) => setPaypalClientId(e.target.value)}
+                    placeholder="e.g. AW_Some_Client_ID_Key..."
+                    className="w-full pl-4 pr-4 py-3 bg-white border border-neutral-200 rounded-2xl outline-none font-mono text-xs font-bold text-neutral-800 focus:border-emerald-500 transition"
+                  />
+                </div>
+
+                {/* PayPal Secret Key */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block font-mono">
+                    PayPal Secret Key
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showPaypalSecretKey ? "text" : "password"}
+                        value={paypalSecretKey}
+                        onChange={(e) => setPaypalSecretKey(e.target.value)}
+                        placeholder="e.g. EM_Some_Secret_Key..."
+                        className="w-full pl-4 pr-10 py-3 bg-white border border-neutral-200 rounded-2xl outline-none font-mono text-xs font-bold text-neutral-800 focus:border-emerald-500 transition"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPaypalSecretKey(!showPaypalSecretKey)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition"
+                      >
+                        {showPaypalSecretKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PayPal Sandbox vs Live Toggle */}
+                <div className="flex items-center justify-between p-3 bg-neutral-50 border border-neutral-200/80 rounded-2xl">
+                  <div>
+                    <span className="text-xs font-extrabold text-neutral-800 block">PayPal Sandbox Sim Mode</span>
+                    <span className="text-[9px] text-neutral-400 block font-medium">When turned OFF, transactions execute on PayPal LIVE servers.</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const nextVal = !paypalSandboxMode;
+                      setPaypalSandboxMode(nextVal);
+                      if (nextVal) {
+                        toast.info("PayPal is now configured to run in Sandbox Mode.");
+                      } else {
+                        toast.warning("PayPal is now configured for LIVE transactions! Ensure Live Credentials are input.");
+                      }
+                    }}
+                    className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer ${paypalSandboxMode ? 'bg-orange-500' : 'bg-emerald-600'}`}
+                  >
+                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${paypalSandboxMode ? 'right-0.5' : 'left-0.5'}`}></div>
+                  </button>
+                </div>
+
+                {/* PayPal Instructions Block */}
+                <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-150 space-y-2 text-xs text-neutral-700 leading-normal">
+                  <div className="font-bold text-emerald-800 flex items-center gap-1">
+                    <HelpCircle size={14} />
+                    PayPal Live Integration Steps:
+                  </div>
+                  <ol className="list-decimal pl-4 space-y-1 font-medium">
+                    <li>Log in to the <a href="https://developer.paypal.com" target="_blank" rel="noopener noreferrer" className="text-emerald-700 underline font-semibold">PayPal Developer Dashboard</a>.</li>
+                    <li>Go to the <strong>Apps & Credentials</strong> tab.</li>
+                    <li>Toggle the top switch to <strong>Live</strong> mode to build a live gateway.</li>
+                    <li>Click <strong>Create App</strong>, input your app name (e.g. "Packer Tools"), and click submit.</li>
+                    <li>Copy your <strong>Client ID</strong> and <strong>Secret Key</strong>, and paste them into the input fields above.</li>
+                    <li>Ensure you turn **OFF** "PayPal Sandbox Sim Mode" above to bind directly to the live PayPal endpoint.</li>
+                    <li>Click **"Save Gateway Changes"** in the top right corner of the Admin Panel to apply live values instantly.</li>
+                  </ol>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 border border-dashed border-neutral-200 bg-white rounded-3xl text-center text-neutral-400 text-xs font-semibold">
+                PayPal Gateway is currently disabled. Toggle the switch above to activate PayPal as checkout method.
+              </div>
+            )}
+          </div>
+
+          {/* D. Plan Pricing Gateway Mappings */}
           <div className="bg-white p-6 sm:p-8 rounded-[2.5rem] border border-neutral-200 shadow-sm space-y-6">
             <div>
               <h3 className="text-lg font-black text-neutral-900 flex items-center gap-2">
