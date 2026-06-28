@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 import { Check, HelpCircle, ArrowLeft, ShieldCheck, Mail, RefreshCw, Sparkles, CreditCard, ExternalLink, HelpCircle as QuestionIcon } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import Paywall from '../components/Paywall';
 
 interface PricesPageProps {
   user: UserProfile | null;
@@ -17,6 +18,7 @@ export default function PricesPage({ user, onUpdateUser, adminSettings }: Prices
   const [settings, setSettings] = useState<AdminSettings | null>(adminSettings);
   const [loading, setLoading] = useState(!adminSettings);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [paywallPlanId, setPaywallPlanId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -105,26 +107,13 @@ export default function PricesPage({ user, onUpdateUser, adminSettings }: Prices
       return;
     }
 
-    // Active Paddle parameters
-    const paddleUrl = billingCycle === 'annual' 
-      ? (plan.paddleCheckoutUrl || plan.paddlePriceIdAnnual ? `https://checkout.packer.tools/buy/${plan.paddlePriceIdAnnual || plan.id}` : null)
-      : (plan.paddleCheckoutUrl || plan.paddlePriceIdMonthly ? `https://checkout.packer.tools/buy/${plan.paddlePriceIdMonthly || plan.id}` : null);
-
-    const directCheckoutLink = plan.paddleCheckoutUrl || paddleUrl;
-
-    if (directCheckoutLink) {
-      toast.info(`Redirecting you to Paddle Secure Checkout for ${plan.name}...`);
-      window.open(directCheckoutLink, '_blank', 'noopener,noreferrer');
-    } else {
-      // General handler redirecting to billing dashboard settings inside user profile
-      if (!user) {
-        toast.info("Please sign in to select a plan & complete secure checkout.");
-        signInWithGoogle();
-        return;
-      }
-      toast.info(`Opening secure checkout modal inside your profile settings...`);
-      navigate('/profile?tab=billing');
+    if (!user) {
+      toast.info("Please sign in to select a plan & complete secure checkout.");
+      signInWithGoogle();
+      return;
     }
+
+    setPaywallPlanId(plan.id);
   };
 
   if (loading) {
@@ -463,6 +452,33 @@ export default function PricesPage({ user, onUpdateUser, adminSettings }: Prices
         </div>
 
       </div>
+
+      {/* SECURE CHECKOUT PAYWALL OVERLAY MODAL */}
+      {paywallPlanId && (
+        <div id="prices-paywall-modal-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-5xl"
+          >
+            <Paywall
+              user={user}
+              adminSettings={settings}
+              initialSelectedPlanId={paywallPlanId}
+              onClose={() => setPaywallPlanId(null)}
+              onSuccess={(newPlanId) => {
+                if (onUpdateUser && user) {
+                  onUpdateUser({
+                    ...user,
+                    plan: newPlanId,
+                    subscriptionStatus: 'active'
+                  });
+                }
+              }}
+            />
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

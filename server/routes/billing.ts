@@ -76,7 +76,8 @@ router.post("/api/billing/activate-manual", authenticateUser, async (req: any, r
 
 router.post("/api/paypal/create-order", authenticateUser, async (req, res) => {
   try {
-    const { planId, amount } = req.body;
+    const { planId, amount, currency } = req.body;
+    const currencyCode = currency || "USD";
     const accessToken = await getPayPalAccessToken();
     const { sandboxMode } = await getPayPalConfig();
     const host = sandboxMode ? "https://api-m.sandbox.paypal.com" : "https://api-m.paypal.com";
@@ -88,7 +89,7 @@ router.post("/api/paypal/create-order", authenticateUser, async (req, res) => {
         purchase_units: [
           {
             amount: {
-              currency_code: "USD",
+              currency_code: currencyCode,
               value: amount.toString(),
             },
             description: `Packer Tools ${planId} Plan Subscription`,

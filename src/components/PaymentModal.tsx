@@ -267,7 +267,7 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
       const createRes = await authenticatedFetch('/api/paypal/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId: selectedPlan?.id, amount, billingCycle })
+        body: JSON.stringify({ planId: selectedPlan?.id, amount, billingCycle, currency: selectedCurrencyCode })
       });
       const order = await createRes.json();
       if (!createRes.ok || !order.id) {
@@ -784,7 +784,7 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                               </p>
 
                               <div className="relative z-0">
-                                <PayPalScriptProvider options={{ clientId: (selectedGateway as any).paypalClientId || paypalClientId }}>
+                                <PayPalScriptProvider options={{ "client-id": (selectedGateway as any).paypalClientId || paypalClientId, currency: selectedCurrencyCode }}>
                                   <PayPalButtons
                                     style={{ layout: "vertical", shape: "pill", label: "pay" }}
                                     createOrder={async () => {
@@ -792,7 +792,7 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                                       const response = await authenticatedFetch('/api/paypal/create-order', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ planId: selectedPlan.id, amount, billingCycle })
+                                        body: JSON.stringify({ planId: selectedPlan.id, amount, billingCycle, currency: selectedCurrencyCode })
                                       });
                                       const order = await response.json();
                                       return order.id;

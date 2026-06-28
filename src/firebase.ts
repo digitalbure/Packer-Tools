@@ -17,23 +17,36 @@ const app = initializeApp(firebaseConfig);
 
 const dbId = (firebaseConfig as any).firestoreDatabaseId || "ai-studio-8af96458-c1d9-4cdf-9c9a-815dee7f9c70";
 
-// Initialize Firestore with single-tab persistence to bypass multi-tab IndexedDB iframe blocks while avoiding memory-cache connection assertion bugs
+// Initialize Firestore with single-tab persistence and force long-polling to bypass multi-tab IndexedDB iframe blocks and prevent connection assertion bugs in the sandboxed preview iframe
+const globalKey = `__firestore_instance_${dbId}`;
 let dbInstance;
-try {
-  dbInstance = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentSingleTabManager({})
-    })
-  }, dbId);
-} catch (e) {
-  console.warn("Primary persistentSingleTabManager initialization failed. Trying memory local cache fallback...", e);
+
+if (typeof window !== 'undefined' && (window as any)[globalKey]) {
+  dbInstance = (window as any)[globalKey];
+} else {
   try {
     dbInstance = initializeFirestore(app, {
-      localCache: memoryLocalCache()
+      experimentalForceLongPolling: true,
+      experimentalAutoDetectLongPolling: true,
+      localCache: persistentLocalCache({
+        tabManager: persistentSingleTabManager({})
+      })
     }, dbId);
-  } catch (e2) {
-    console.warn("Memory local cache fallback failed. Falling back to default getFirestore.", e2);
-    dbInstance = getFirestore(app, dbId);
+  } catch (e) {
+    console.warn("Primary persistentSingleTabManager initialization failed. Trying memory local cache fallback...", e);
+    try {
+      dbInstance = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        experimentalAutoDetectLongPolling: true,
+        localCache: memoryLocalCache()
+      }, dbId);
+    } catch (e2) {
+      console.warn("Memory local cache fallback failed. Falling back to default getFirestore.", e2);
+      dbInstance = getFirestore(app, dbId);
+    }
+  }
+  if (typeof window !== 'undefined') {
+    (window as any)[globalKey] = dbInstance;
   }
 }
 
