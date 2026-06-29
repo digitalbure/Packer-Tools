@@ -18,7 +18,7 @@ import {
   ExternalLink,
   ChevronLeft
 } from 'lucide-react';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { 
   collection, 
   query, 
@@ -92,6 +92,7 @@ export default function GroupsDrawer({ user, isOpen, onClose }: GroupsDrawerProp
     }, (error) => {
       console.error("GroupsDrawer: Failed to listen to groups:", error);
       setLoading(false);
+      handleFirestoreError(error, OperationType.GET, 'groups');
     });
 
     return () => unsubscribe();
@@ -266,6 +267,7 @@ export default function GroupsDrawer({ user, isOpen, onClose }: GroupsDrawerProp
     } catch (err) {
       console.error("Error creating group:", err);
       toast.error("Failed to create group.");
+      handleFirestoreError(err, OperationType.WRITE, 'groups');
     }
   };
 
@@ -280,6 +282,7 @@ export default function GroupsDrawer({ user, isOpen, onClose }: GroupsDrawerProp
     } catch (err) {
       console.error("Error deleting group:", err);
       toast.error("Failed to delete group");
+      handleFirestoreError(err, OperationType.DELETE, `groups/${groupId}`);
     }
   };
 
@@ -302,6 +305,7 @@ export default function GroupsDrawer({ user, isOpen, onClose }: GroupsDrawerProp
     } catch (err) {
       console.error("Error adding item:", err);
       toast.error("Failed to add item to group");
+      handleFirestoreError(err, OperationType.WRITE, `groups/${groupId}`);
     }
   };
 
@@ -319,6 +323,7 @@ export default function GroupsDrawer({ user, isOpen, onClose }: GroupsDrawerProp
     } catch (err) {
       console.error("Error removing item:", err);
       toast.error("Failed to remove item");
+      handleFirestoreError(err, OperationType.WRITE, `groups/${groupId}`);
     }
   };
 

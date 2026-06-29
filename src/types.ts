@@ -508,6 +508,11 @@ export interface PackingItem {
   relatedItemIds?: string[]; // IDs of other PackingItems in the same list
   sourceUrl?: string;
   createdAt: string;
+  serialNumber?: string;
+  price?: number;
+  currency?: string;
+  hsCode?: string;
+  countryOfOrigin?: string;
   addOns?: { 
     itemId?: string; 
     name: string; 

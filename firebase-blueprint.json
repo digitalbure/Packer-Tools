@@ -443,6 +443,22 @@
         "createdAt": { "type": "object" }
       },
       "required": ["email", "orgId", "role", "status"]
+    },
+    "Group": {
+      "title": "Group",
+      "description": "A group of related items such as packing lists, gear, kits, projects, etc.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["ownerId", "name", "entityType", "entityIds"]
     }
   },
   "firestore": {
@@ -569,6 +585,10 @@
     "/invitations/{inviteId}": {
       "schema": "Invitation",
       "description": "System invitations to join an organization, department or team."
+    },
+    "/groups/{groupId}": {
+      "schema": "Group",
+      "description": "Groups of items for bundling and travel preparation."
     }
   }
 }

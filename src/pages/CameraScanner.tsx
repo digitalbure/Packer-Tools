@@ -8,6 +8,7 @@ import { UserProfile, GearItem, AdminSettings } from '../types';
 import { identifyItem, removeBackground } from '../services/geminiService';
 import confetti from 'canvas-confetti';
 import { Html5Qrcode } from 'html5-qrcode';
+import { compressImage } from '../lib/imageUtils';
 
 const base64ToFile = (dataurl: string, filename: string): File => {
   const arr = dataurl.split(',');
@@ -197,15 +198,15 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
     return true;
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const dataUrl = reader.result as string;
-        setCapturedImage(dataUrl);
+      setIsIdentifying(true);
+      try {
+        const compressedBase64 = await compressImage(file, 800, 800, 0.7);
+        setCapturedImage(compressedBase64);
 
-        setIsIdentifying(true);
+        // Scan QR code using the original file to maximize code readability/clarity
         try {
           const html5QrCode = new Html5Qrcode("temp-qr-reader");
           const decodedText = await html5QrCode.scanFile(file, false);
@@ -217,17 +218,17 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
         }
 
         if (scanMode === 'ai') {
-          handleIdentify(dataUrl);
+          await handleIdentify(compressedBase64);
         } else {
           const randomTag = `TAG-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
           setAssetTag(randomTag);
+          setIsIdentifying(false);
         }
-      };
-      reader.onerror = (error) => {
+      } catch (error) {
         console.error("Error reading file:", error);
-        toast.error("Failed to read image file.");
-      };
-      reader.readAsDataURL(file);
+        toast.error("Failed to read and compress image file.");
+        setIsIdentifying(false);
+      }
     }
   };
 
@@ -241,10 +242,29 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext('2d');
       if (context) {
-        canvasRef.current.width = videoRef.current.videoWidth;
-        canvasRef.current.height = videoRef.current.videoHeight;
-        context.drawImage(videoRef.current, 0, 0);
-        const dataUrl = canvasRef.current.toDataURL('image/jpeg');
+        const videoWidth = videoRef.current.videoWidth;
+        const videoHeight = videoRef.current.videoHeight;
+        
+        let targetWidth = videoWidth;
+        let targetHeight = videoHeight;
+        const maxDim = 800;
+        
+        if (videoWidth > videoHeight) {
+          if (videoWidth > maxDim) {
+            targetHeight = Math.round(videoHeight * (maxDim / videoWidth));
+            targetWidth = maxDim;
+          }
+        } else {
+          if (videoHeight > maxDim) {
+            targetWidth = Math.round(videoWidth * (maxDim / videoHeight));
+            targetHeight = maxDim;
+          }
+        }
+
+        canvasRef.current.width = targetWidth;
+        canvasRef.current.height = targetHeight;
+        context.drawImage(videoRef.current, 0, 0, targetWidth, targetHeight);
+        const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.7);
         setCapturedImage(dataUrl);
         
         setIsIdentifying(true);
@@ -260,10 +280,11 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
         }
 
         if (scanMode === 'ai') {
-          handleIdentify(dataUrl);
+          await handleIdentify(dataUrl);
         } else {
           const randomTag = `TAG-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
           setAssetTag(randomTag);
+          setIsIdentifying(false);
         }
       }
     }

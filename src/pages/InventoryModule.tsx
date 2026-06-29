@@ -864,10 +864,15 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
             toast.success("Spreadsheet parsed successfully!", { id });
 
             // Run instant offline-ready local auto-detection of columns
-            runLocalFuzzyMapping(headers);
-
-            // Automatically call AI to suggested columns
-            runAiMapping(headers, content.slice(0, 3));
+            const localMap = runLocalFuzzyMapping(headers);
+            const hasRequiredName = localMap.name !== undefined;
+            const matchedCount = Object.keys(localMap).length;
+            if (hasRequiredName && matchedCount >= 2) {
+              toast.success("Auto-aligned columns instantly using local heuristics!");
+            } else {
+              // Automatically call AI as a smart fallback
+              runAiMapping(headers, content.slice(0, 3));
+            }
           } else {
             toast.error("Parsed CSV file is empty.", { id });
           }
@@ -894,9 +899,14 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
             toast.success("Spreadsheet workbook loaded successfully!", { id });
 
             // Run instant offline-ready local auto-detection of columns
-            runLocalFuzzyMapping(headers);
-
-            runAiMapping(headers, content.slice(0, 3));
+            const localMap = runLocalFuzzyMapping(headers);
+            const hasRequiredName = localMap.name !== undefined;
+            const matchedCount = Object.keys(localMap).length;
+            if (hasRequiredName && matchedCount >= 2) {
+              toast.success("Auto-aligned columns instantly using local heuristics!");
+            } else {
+              runAiMapping(headers, content.slice(0, 3));
+            }
           } else {
             toast.error("Sheet contains no record rows.", { id });
           }
@@ -938,9 +948,14 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
         toast.success("Remote sheet downloaded and prepared successfully!", { id });
         
         // Run instant offline-ready local auto-detection of columns
-        runLocalFuzzyMapping(headersList);
-
-        runAiMapping(headersList, dataRows.slice(0, 3));
+        const localMap = runLocalFuzzyMapping(headersList);
+        const hasRequiredName = localMap.name !== undefined;
+        const matchedCount = Object.keys(localMap).length;
+        if (hasRequiredName && matchedCount >= 2) {
+          toast.success("Auto-aligned columns instantly using local heuristics!");
+        } else {
+          runAiMapping(headersList, dataRows.slice(0, 3));
+        }
       } else {
         toast.error("The spreadsheet fetched was empty.", { id });
       }
@@ -951,7 +966,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   };
 
   // Local offline-ready fuzzy column mapping auto-detection
-  const runLocalFuzzyMapping = (headers: string[]) => {
+  const runLocalFuzzyMapping = (headers: string[]): Record<string, string> => {
     const newMapping: Record<string, string> = {};
     const rules: Record<string, string[]> = {
       name: ['name', 'item', 'title', 'device', 'equipment', 'product', 'gear', 'asset'],
@@ -982,6 +997,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       ...prev,
       ...newMapping
     }));
+    return newMapping;
   };
 
   // Run AI Column Matching Schema Engine using /api/map-inventory
@@ -4184,16 +4200,28 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                 <div className="flex-1 overflow-y-auto flex flex-col h-full select-none">
                   
                   {/* AI Mapping Status Box */}
-                  <div className="p-4 bg-blue-50/40 border-b border-blue-100/50 px-6 md:px-8 flex items-center justify-between flex-shrink-0">
+                  <div className="p-4 bg-blue-50/40 border-b border-blue-100/50 px-6 md:px-8 flex items-center justify-between flex-shrink-0 gap-4">
                     <div className="flex items-center gap-2 text-neutral-850">
                       <Sparkles size={16} className="text-[#0066cc]" />
                       <span className="text-[10px] font-black uppercase tracking-wide">
                         {isMappingLoading ? "🤖 AI is generating schema matches..." : "🤖 Column alignment schemas set"}
                       </span>
                     </div>
-                    <p className="text-[10px] text-neutral-500 font-bold">
-                      Parsed {importData.length} records.
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-[10px] text-neutral-500 font-bold hidden sm:block">
+                        Parsed {importData.length} records.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => runAiMapping(importHeaders, importData.slice(0, 3))}
+                        disabled={isMappingLoading}
+                        className="px-2.5 py-1 bg-[#0066cc] hover:bg-[#0055b3] text-white disabled:opacity-50 text-[9px] font-black uppercase tracking-wider rounded transition flex items-center gap-1 shadow-sm"
+                      >
+                        {isMappingLoading ? (
+                          <div className="w-2.5 h-2.5 border border-white border-t-transparent rounded-full animate-spin" />
+                        ) : "✨ Run AI Auto-Map"}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="p-6 md:p-8 space-y-6 flex-1">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { doc, getDoc, collection, query, onSnapshot, deleteDoc, updateDoc, addDoc, getDocs, writeBatch, where, orderBy, arrayUnion } from 'firebase/firestore';
-import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download, AlertTriangle, Cpu } from 'lucide-react';
+import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download, AlertTriangle, Cpu, Plane, Globe } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Reorder, AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -19,6 +19,7 @@ import ManualCheckoutModal from '../components/ManualCheckoutModal';
 import { checkLimit } from '../lib/limitUtils';
 import ShareModal from '../components/ShareModal';
 import AddPhotoWidget from '../components/AddPhotoWidget';
+import CarnetWidget from '../components/CarnetWidget';
 import { logActivity } from '../services/activityLog';
 import { isSuperAdmin } from '../lib/authHelpers';
 import { useAuth } from '../providers/AuthProvider';
@@ -159,7 +160,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [items, setItems] = useState<PackingItem[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'gallery'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'gallery' | 'carnet'>('list');
   const [isPrintView, setIsPrintView] = useState(false);
   const [printWithPhotos, setPrintWithPhotos] = useState(true);
   const [printCompact, setPrintCompact] = useState(false);
@@ -2960,6 +2961,16 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
               >
                 <ImageIcon size={18} />
               </button>
+              <button
+                onClick={() => setViewMode('carnet')}
+                className={`p-2 rounded-lg transition-all flex items-center gap-1.5 ${
+                  viewMode === 'carnet' ? 'bg-white text-primary shadow-sm animate-pulse' : 'text-neutral-400 hover:text-neutral-600'
+                }`}
+                title="ATA Carnet Travel Manifest"
+              >
+                <Plane size={16} className="rotate-45 text-[#F27D26]" />
+                <span className="text-[9px] font-black uppercase tracking-wider hidden md:inline">Carnet</span>
+              </button>
             </div>
 
             <div className="flex items-center bg-neutral-100 p-1 rounded-xl">
@@ -3073,8 +3084,18 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         </div>
       )}
 
-      <div className="space-y-8">
-        {filteredItems.length > 0 ? (
+      {viewMode === 'carnet' ? (
+        <CarnetWidget
+          list={list!}
+          items={items}
+          onUpdateItem={async (itemId, updatedFields) => {
+            await updateDoc(doc(db, 'packingLists', id!, 'items', itemId), cleanUndefinedFields(updatedFields));
+          }}
+          isOwner={isOwner}
+        />
+      ) : (
+        <div className="space-y-8">
+          {filteredItems.length > 0 ? (
           (Object.entries(groupedItems) as [string, PackingItem[]][]).map(([groupName, groupItems], groupIdx) => (
             <motion.div 
               id={`group-${encodeURIComponent(groupName)}`}
@@ -3581,6 +3602,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
           </div>
         )}
       </div>
+      )}
 
       {/* Add by URL Modal */}
       {showAddByUrlModal && (

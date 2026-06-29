@@ -227,6 +227,14 @@ service cloud.firestore {
              data.name is string && data.name.size() > 0 && data.name.size() < 100;
     }
 
+    function isValidGroup(data) {
+      return data.keys().hasAll(['ownerId', 'name', 'entityType', 'entityIds']) &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.entityType is string &&
+             data.entityIds is list;
+    }
+
 
     // ===============================================================
     // Rules Configuration (Secured Paths)
@@ -554,6 +562,14 @@ service cloud.firestore {
       allow read: if isSignedIn() && (resource == null || isOwner(resource.data.userId) || isAdmin());
       allow create: if isSignedIn() && isOwner(incoming().userId) && isValidActivityLog(incoming());
       allow update, delete: if isAdmin();
+    }
+
+    // 29. Groups
+    match /groups/{groupId} {
+      allow read: if isSignedIn() && (resource == null || resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidGroup(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidGroup(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
   }
 }

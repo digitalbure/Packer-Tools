@@ -315,5 +315,26 @@ Packer Tools includes a robust, context-driven **Global Currency Exchange Servic
 - **Server-Side API Keys Protection**: All private merchant variables, including the **PayPal Secret Key**, are restricted entirely to server-side configurations (`/server/utils/paypal.ts`).
 - **Secure Express Proxies**: Backend endpoints (`/api/paypal/create-order` and `/api/paypal/capture-order`) act as secure gateways, performing authenticated handshakes with official PayPal REST services. This entirely isolates client execution environments from sensitive backend keys while dynamically converting transaction values on-the-fly to ensure flawless multi-currency support.
 
+---
+
+## 📥 17. Hybrid Auto-Mapping & Manual AI Alignments for Bulk Importing (v4.34.0)
+
+Packer Tools introduces a **Hybrid Auto-Mapping Column Alignment Engine** to handle bulk spreadsheet imports (CSV, XLSX) seamlessly without manual column mapping frustration.
+
+### ⚡ Dual-Path Column Auto-Detection:
+1. **Local Fuzzy Heuristics (Instant & Offline)**:
+   - When you upload a spreadsheet, the system instantly runs a local rule-based mapping engine across your column headers.
+   - It matches typical names (e.g., `'qty'`, `'stock'` to Quantity, or `'sn'`, `'barcode'` to Serial Number) using fast fuzzy strings completely client-side.
+   - If the system successfully maps the required `'name'` field and matches at least **two or more** total columns, it immediately applies the mapping and toasts: *"Auto-aligned columns instantly using local heuristics!"*.
+2. **AI-Powered Fallback (Smart & Comprehensive)**:
+   - If local heuristics are insufficient or fail to map the required `'name'` field, the import processor automatically triggers a smart server-side AI Column Matching query (`/api/map-inventory`).
+   - The AI evaluates sample rows of your data alongside headers to predict correct schema targets flawlessly.
+
+### 🎨 Clickable Tactile "✨ Run AI Auto-Map" Controls:
+- Inside the spreadsheet preview sandbox of both the **Gear Library** and the **Custom Inventory Module**, a dedicated **"✨ Run AI Auto-Map"** button is embedded in the status header.
+- At any point during your mapping verification, you can click this button to manually re-run the smart server-side AI auto-alignment, overriding or filling in unmapped columns automatically.
+- Interactive spinners, disabled button states, and toast notifications keep you informed of active network requests and alignment success.
+
+
 
 

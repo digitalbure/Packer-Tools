@@ -363,7 +363,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     }
   };
 
-  const runLocalFuzzyMapping = (headers: string[]) => {
+  const runLocalFuzzyMapping = (headers: string[]): { [key: string]: number } => {
     const newMapping: { [key: string]: number } = {};
     const rules: { [key: string]: string[] } = {
       name: ['name', 'item', 'title', 'device', 'equipment', 'product', 'gear'],
@@ -395,6 +395,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       }
     });
     setImportMapping(newMapping);
+    return newMapping;
   };
 
   const downloadTemplate = (format: 'csv' | 'xlsx') => {
@@ -444,8 +445,14 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             setImportData(rows.slice(1));
             setSandboxEditableData(rows.slice(1));
             setImportStep(2);
-            runLocalFuzzyMapping(headers);
-            mapHeadersAI(headers, rows.slice(1, 4));
+            const localMap = runLocalFuzzyMapping(headers);
+            const hasRequiredName = localMap.name !== undefined;
+            const matchedCount = Object.keys(localMap).length;
+            if (hasRequiredName && matchedCount >= 2) {
+              toast.success("Auto-mapped columns instantly using local heuristics!");
+            } else {
+              mapHeadersAI(headers, rows.slice(1, 4));
+            }
           }
         },
         header: false,
@@ -465,8 +472,14 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             setImportData(json.slice(1));
             setSandboxEditableData(json.slice(1));
             setImportStep(2);
-            runLocalFuzzyMapping(headers);
-            mapHeadersAI(headers, json.slice(1, 4));
+            const localMap = runLocalFuzzyMapping(headers);
+            const hasRequiredName = localMap.name !== undefined;
+            const matchedCount = Object.keys(localMap).length;
+            if (hasRequiredName && matchedCount >= 2) {
+              toast.success("Auto-mapped columns instantly using local heuristics!");
+            } else {
+              mapHeadersAI(headers, json.slice(1, 4));
+            }
           }
         } catch (err) {
           console.error("Error parsing Excel file:", err);
@@ -5845,6 +5858,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-750 text-white border border-neutral-700 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition"
                         >
                           ➕ Add New Row
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            mapHeadersAI(importHeaders, sandboxEditableData.slice(0, 3));
+                          }}
+                          disabled={isMapping}
+                          className="px-3 py-1.5 bg-[#0066cc] hover:bg-[#0055b3] text-white disabled:opacity-50 border border-transparent rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition shadow-md"
+                        >
+                          {isMapping ? (
+                            <div className="w-2.5 h-2.5 border border-white border-t-transparent rounded-full animate-spin" />
+                          ) : '✨ Run AI Auto-Map'}
                         </button>
 
                         <button

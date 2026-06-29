@@ -8,22 +8,28 @@
  */
 export async function compressImage(
   file: File,
-  maxWidth: number = 1200,
-  maxHeight: number = 1200,
-  quality: number = 0.8
+  maxWidth: number = 800,
+  maxHeight: number = 800,
+  quality: number = 0.7
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
+    // Safety check: ensure file is an image
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('File is not an image'));
+      return;
+    }
+
+    // Create a memory-efficient object URL instead of loading the entire raw file into a huge Base64 string
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      try {
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
 
-        // Calculate new dimensions
+        // Calculate new dimensions preserving aspect ratio
         if (width > height) {
           if (width > maxWidth) {
             height *= maxWidth / width;
@@ -41,18 +47,30 @@ export async function compressImage(
 
         const ctx = canvas.getContext('2d');
         if (!ctx) {
+          URL.revokeObjectURL(objectUrl);
           reject(new Error('Failed to get canvas context'));
           return;
         }
 
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Convert to base64 JPEG
+        // Convert to highly optimized base64 JPEG
         const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+        
+        // Always revoke the object URL immediately to release browser memory
+        URL.revokeObjectURL(objectUrl);
         resolve(compressedBase64);
-      };
-      img.onerror = (error) => reject(error);
+      } catch (err) {
+        URL.revokeObjectURL(objectUrl);
+        reject(err);
+      }
     };
-    reader.onerror = (error) => reject(error);
+
+    img.onerror = (error) => {
+      URL.revokeObjectURL(objectUrl);
+      reject(error);
+    };
+
+    img.src = objectUrl;
   });
 }

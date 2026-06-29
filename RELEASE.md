@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.33.0`
+## Current Application Version: `v4.34.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v4.34.0 (Hybrid Auto-Mapping & Manual AI Alignments for Bulk Importing)
+*Released on: June 29, 2026*
+- **Hybrid Auto-Mapping Column Alignment**: Engineered a dual-path alignment engine for uploaded spreadsheet headers. It runs rapid local fuzzy heuristics instantly offline. If key required fields (like item name) are not successfully identified, it seamlessly falls back to the server-side AI Column Matching Schema Engine (`/api/map-inventory`) to ensure maximum coverage and speed.
+- **Tactile 'Run AI Auto-Map' Buttons**: Deployed clickable tactile controls ("✨ Run AI Auto-Map") inside the import sandbox layout of both the main **Gear Library** and **Custom Inventory Module**, giving operators manual on-demand control to trigger or re-run AI-powered header matching.
+- **Enhanced Progress Telemetry & Toasts**: Integrated real-time toast alerts informing users when columns are instantly aligned using local rules, paired with custom spinner indicators and button disabled bindings during concurrent network requests.
 
 ---
 
