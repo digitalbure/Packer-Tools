@@ -543,7 +543,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
         className="bg-white w-full max-w-2xl rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-full md:h-auto max-h-[95vh] md:max-h-[90vh]"
       >
         {/* Header Block */}
-        <div className="px-6 py-5 md:px-8 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 md:px-8 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
           <div>
             <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter text-neutral-900">
               {method === 'choose' ? 'Gear Onboarding Terminal' :
@@ -564,7 +564,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
         </div>
 
         {/* Content Body Scroll */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
           
           {/* METHOD SELECTION (CHOOSE) */}
           {method === 'choose' && (
@@ -768,8 +768,8 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
             <div className="space-y-6">
               
               {/* Photo Attachment & Link block */}
-              <div className="bg-neutral-50 p-6 rounded-[2rem] border border-neutral-100/80 space-y-4">
-                <div className="flex items-center justify-between">
+              <div className="bg-neutral-50 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border border-neutral-100/80 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Camera size={16} className="text-primary" />
                     <h4 className="text-xs font-black uppercase tracking-widest text-neutral-800">
@@ -779,34 +779,36 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                   <span className="text-[10px] font-black uppercase tracking-wider text-[#0066cc]">Optional URL, upload or paste</span>
                 </div>
 
-                <div className="flex gap-3 items-center">
-                  <button
-                    type="button"
-                    onClick={() => setIsManualPhotoPickerOpen(true)}
-                    className="bg-primary hover:bg-primary/95 text-white py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition flex items-center gap-1.5 shadow-sm shrink-0"
-                  >
-                    <Camera size={12} />
-                    <span>Pick / Upload Photo</span>
-                  </button>
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setIsManualPhotoPickerOpen(true)}
+                      className="bg-primary hover:bg-primary/95 text-white py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5 shadow-sm shrink-0 flex-1 sm:flex-none"
+                    >
+                      <Camera size={12} />
+                      <span>Pick / Upload Photo</span>
+                    </button>
+                    {(form.photoUrls?.[0]) && (
+                      <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-neutral-200 bg-neutral-100 shadow-md relative group">
+                        <img src={form.photoUrls[0]} alt="Gear Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, photoUrls: [] })}
+                          className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <input
                     type="url"
                     placeholder="Paste direct photo URL (e.g. Unsplash, Imgur)..."
                     value={form.photoUrls?.[0] || ''}
                     onChange={(e) => setForm({ ...form, photoUrls: e.target.value ? [e.target.value] : [] })}
-                    className="flex-1 bg-white border border-neutral-200 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 font-medium placeholder-neutral-400"
+                    className="w-full sm:flex-1 bg-white border border-neutral-200 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-primary transition text-neutral-800 font-medium placeholder-neutral-400"
                   />
-                  {(form.photoUrls?.[0]) && (
-                    <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-neutral-200 bg-neutral-100 shadow-md relative group">
-                      <img src={form.photoUrls[0]} alt="Gear Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, photoUrls: [] })}
-                        className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 {user && (
@@ -1419,7 +1421,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
         </div>
 
         {/* Footer Navigation Buttons */}
-        <div className="p-5 md:px-8 border-t border-neutral-100 flex items-center justify-between bg-neutral-50/50">
+        <div className="p-4 sm:p-5 md:px-8 border-t border-neutral-100 flex items-center justify-between bg-neutral-50/50">
           <div>
             {method !== 'choose' && step !== 3 && (
               <button 

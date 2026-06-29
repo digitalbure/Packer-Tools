@@ -12,7 +12,7 @@ import QuickActionsDrawer from '../components/QuickActionsDrawer';
 import CommandPalette from '../components/CommandPalette';
 import BetaProspectGate from '../components/BetaProspectGate';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowUp, Layers } from 'lucide-react';
+import { ArrowUp, Layers, AlertTriangle, ExternalLink, X } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, logout } from '../firebase';
 import { IndustryProvider } from '../context/IndustryContext';
@@ -24,6 +24,19 @@ export interface AppLayoutProps {
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [isGroupsDrawerOpen, setIsGroupsDrawerOpen] = React.useState(false);
+  const [quotaExceeded, setQuotaExceeded] = React.useState(() => {
+    return typeof window !== 'undefined' && !!(window as any).__firestore_quota_exceeded__;
+  });
+
+  React.useEffect(() => {
+    const handleQuotaExceeded = () => {
+      setQuotaExceeded(true);
+    };
+    window.addEventListener('firestore_quota_exceeded', handleQuotaExceeded);
+    return () => {
+      window.removeEventListener('firestore_quota_exceeded', handleQuotaExceeded);
+    };
+  }, []);
   const {
     user, setUser,
     adminSettings,
@@ -48,7 +61,49 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   return (
     <IndustryProvider user={user} adminSettings={adminSettings}>
-      <div className={`min-h-screen font-sans flex overflow-hidden w-full ${user && user.layoutTheme === 'workflow' && !isLayoutHidden ? 'bg-[#111113] text-[#dfdfe5]' : 'bg-neutral-50 text-neutral-900'}`}>
+      <div className="flex flex-col w-full min-h-screen">
+        <AnimatePresence>
+          {quotaExceeded && (
+            <motion.div
+              id="firestore-quota-alert-banner"
+              initial={{ opacity: 0, y: -50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -50 }}
+              className="w-full bg-gradient-to-r from-amber-600 via-[#F27D26] to-amber-600 text-white px-4 py-3 text-xs sm:text-sm font-semibold flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg z-[9999] relative border-b border-amber-500/30"
+            >
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-1.5 rounded-lg shrink-0">
+                  <AlertTriangle size={16} className="text-white animate-pulse" />
+                </div>
+                <div>
+                  <span className="font-extrabold uppercase tracking-wide mr-2">Database Quota Exceeded:</span>
+                  <span className="opacity-95 font-medium">Your Firebase project "packer-tools" has reached its free daily Firestore read units limit. The app has switched to cached offline mode. Resets at midnight Pacific Time.</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href="https://console.firebase.google.com/project/packer-tools/firestore/databases/ai-studio-8af96458-c1d9-4cdf-9c9a-815dee7f9c70/data?openUpgradeDialog=true"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white hover:bg-white/95 text-neutral-900 px-3.5 py-1.5 rounded-xl font-bold uppercase tracking-wider text-[10px] sm:text-xs transition flex items-center gap-1.5 shadow-md active:scale-95 whitespace-nowrap"
+                >
+                  <span>Upgrade / Enable Billing</span>
+                  <ExternalLink size={12} />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setQuotaExceeded(false)}
+                  className="hover:bg-white/10 p-1.5 rounded-lg transition text-white"
+                  title="Dismiss"
+                >
+                  <X size={14} className="stroke-[3]" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className={`flex-1 flex overflow-hidden w-full ${user && user.layoutTheme === 'workflow' && !isLayoutHidden ? 'bg-[#111113] text-[#dfdfe5]' : 'bg-neutral-50 text-neutral-900'}`}>
         {user && user.layoutTheme === 'workflow' && !isLayoutHidden ? (
           <WorkflowLayout
             user={user}
@@ -190,6 +245,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           )}
         </AnimatePresence>
       </div>
-    </IndustryProvider>
+    </div>
+  </IndustryProvider>
   );
 };

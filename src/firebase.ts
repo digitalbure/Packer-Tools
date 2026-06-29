@@ -176,8 +176,14 @@ interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errorMsg = error instanceof Error ? error.message : String(error);
+  const isQuotaError = errorMsg.includes('Quota exceeded') || 
+                       errorMsg.includes('quota limits') || 
+                       errorMsg.includes('Quota limit exceeded') || 
+                       errorMsg.includes('free tier database');
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errorMsg,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -193,7 +199,27 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     },
     operationType,
     path
+  };
+
+  if (typeof window !== 'undefined') {
+    if (isQuotaError) {
+      (window as any).__firestore_quota_exceeded__ = true;
+      (window as any).__firestore_quota_error_details__ = JSON.stringify(errInfo);
+      
+      // Notify the application layout to render the styled recovery banner
+      window.dispatchEvent(new CustomEvent('firestore_quota_exceeded', { detail: errInfo }));
+      
+      console.warn('[Firestore Quota Warning]: ', JSON.stringify(errInfo));
+      
+      // Show user-friendly toast instruction
+      toast.error(
+        "Firestore daily read quota exceeded. Running in offline/cached recovery mode. Resets at midnight Pacific Time. Tap the banner to upgrade.",
+        { duration: 15000, id: 'quota-error-toast' }
+      );
+      return; // Do not throw uncaught exceptions for quota limits
+    }
   }
+
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
