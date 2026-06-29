@@ -58,6 +58,7 @@ import { doc, onSnapshot, collection } from 'firebase/firestore';
 import PackerLogo from './PackerLogo';
 import { toast } from 'sonner';
 import OfflineSyncWidget from './OfflineSyncWidget';
+import { useAuth } from '../providers/AuthProvider';
 
 interface SidebarProps {
   user: UserProfile | null;
@@ -71,6 +72,7 @@ interface SidebarProps {
 
 export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen, listsCount }: SidebarProps) {
   const location = useLocation();
+  const { selectedCurrency, setSelectedCurrency, setIsCommunitySelectorOpen } = useAuth();
   const [projectData, setProjectData] = useState<any>(null);
   const [listData, setListData] = useState<any>(null);
 
@@ -1018,6 +1020,52 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
 
       {/* Footer Actions */}
       <div className="p-4 border-t border-neutral-100 space-y-2">
+        {/* Mobile App Preferences Section */}
+        {!isCollapsed && (
+          <div className="lg:hidden bg-neutral-50/80 border border-neutral-150 rounded-2xl p-3.5 mb-2 space-y-3">
+            <h4 className="text-[9px] font-black uppercase tracking-widest text-neutral-400 leading-none">App Preferences</h4>
+            
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[11px] font-bold text-neutral-600">Active Community</span>
+              <button 
+                onClick={() => {
+                  setIsMobileOpen(false);
+                  setIsCommunitySelectorOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-neutral-100 text-neutral-850 rounded-xl text-[10px] font-bold border border-neutral-200 shadow-xs transition cursor-pointer"
+              >
+                <span>
+                  {adminSettings?.communities?.find(c => c.id === user?.selectedCommunity)?.flag || '🌐'}
+                </span>
+                <span className="font-black uppercase tracking-wider">
+                  {adminSettings?.communities?.find(c => c.id === user?.selectedCommunity)?.name?.split(' ')[0] || 'Global'}
+                </span>
+                <span className="text-[7px] text-neutral-400">▼</span>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[11px] font-bold text-neutral-600">Display Currency</span>
+              <div className="relative inline-flex items-center shrink-0">
+                <select
+                  value={selectedCurrency}
+                  onChange={(e) => setSelectedCurrency(e.target.value)}
+                  className="bg-white hover:bg-neutral-100 text-neutral-850 border border-neutral-200 rounded-xl px-2.5 py-1.5 text-[10px] font-bold font-sans transition outline-none focus:ring-1 focus:ring-primary cursor-pointer appearance-none pr-7 pl-2.5 shadow-xs"
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="AUD">AUD (A$)</option>
+                  <option value="FJD">FJD (FJ$)</option>
+                  <option value="CAD">CAD (C$)</option>
+                  <option value="NZD">NZD (NZ$)</option>
+                </select>
+                <span className="absolute right-2.5 text-[7px] text-neutral-400 pointer-events-none">▼</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <OfflineSyncWidget isCollapsed={isCollapsed} />
         <Link
           to="/help"
@@ -1043,7 +1091,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v5.2.0' : 'Version 5.2.0'}
+            {isCollapsed ? 'v5.2.1' : 'Version 5.2.1'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">

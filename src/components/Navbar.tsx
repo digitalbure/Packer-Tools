@@ -41,7 +41,7 @@ export default function Navbar({
 
   return (
     <nav className="bg-paper/80 backdrop-blur-xl border-b border-primary/5 sticky top-0 z-50">
-      <div className="w-full max-w-[1700px] mx-auto px-6 h-20 flex items-center justify-between">
+      <div className="w-full max-w-[1700px] mx-auto px-6 h-16 md:h-20 flex items-center justify-between">
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           <Link to="/" onClick={() => setLandingView?.('saas')} className="flex items-center gap-2 group shrink-0">
             {adminSettings?.branding?.logo ? (
@@ -67,7 +67,7 @@ export default function Navbar({
           {onOpenSelector && (
             <button 
               onClick={onOpenSelector}
-              className="flex items-center gap-1 px-2.5 py-1 bg-neutral-50 hover:bg-neutral-100 text-neutral-600 rounded-full text-xs font-semibold font-sans transition border border-neutral-200/50 cursor-pointer inline-flex shrink-0"
+              className="hidden md:flex items-center gap-1 px-2.5 py-1 bg-neutral-50 hover:bg-neutral-100 text-neutral-600 rounded-full text-xs font-semibold font-sans transition border border-neutral-200/50 cursor-pointer inline-flex shrink-0"
               title="Click to switch community region"
             >
               <span>{currentComm ? currentComm.flag : '🌐'}</span>
@@ -77,7 +77,7 @@ export default function Navbar({
           )}
 
           {/* Currency Dropdown Select */}
-          <div className="relative inline-flex items-center shrink-0">
+          <div className="hidden md:inline-flex relative items-center shrink-0">
             <select
               value={selectedCurrency}
               onChange={(e) => setSelectedCurrency(e.target.value)}
@@ -292,10 +292,52 @@ export default function Navbar({
               </>
             ) : (
               <>
+                {/* Mobile Preferences Card for Guest Users */}
+                <div className="bg-neutral-50 border border-neutral-200/60 rounded-[2rem] p-5 space-y-4 shadow-xs">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">App Preferences</h4>
+                  
+                  {onOpenSelector && (
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-xs font-bold text-neutral-700">Region / Community</span>
+                      <button 
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onOpenSelector();
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-50 text-neutral-800 rounded-xl text-xs font-bold border border-neutral-200/80 shadow-xs transition cursor-pointer"
+                      >
+                        <span>{currentComm ? currentComm.flag : '🌐'}</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider">{currentComm ? currentComm.name : 'Global Portal'}</span>
+                        <span className="text-[8px] text-neutral-400">▼</span>
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-xs font-bold text-neutral-700">Display Currency</span>
+                    <div className="relative inline-flex items-center shrink-0">
+                      <select
+                        value={selectedCurrency}
+                        onChange={(e) => setSelectedCurrency(e.target.value)}
+                        className="bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-200/80 rounded-xl px-3 py-1.5 text-xs font-bold font-sans transition outline-none focus:ring-1 focus:ring-primary cursor-pointer appearance-none pr-8 pl-3 shadow-xs"
+                      >
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="GBP">GBP (£)</option>
+                        <option value="AUD">AUD (A$)</option>
+                        <option value="FJD">FJD (FJ$)</option>
+                        <option value="CAD">CAD (C$)</option>
+                        <option value="NZD">NZD (NZ$)</option>
+                      </select>
+                      <span className="absolute right-3 text-[8px] text-neutral-400 pointer-events-none">▼</span>
+                    </div>
+                  </div>
+                </div>
+
                 <Link 
                   to="/help" 
                   onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-3 text-primary font-bold uppercase text-sm tracking-widest"
+                  className="flex items-center gap-3 text-primary font-bold uppercase text-sm tracking-widest pt-2"
                 >
                   <HelpCircle size={20} />
                   <span>Help Center</span>
