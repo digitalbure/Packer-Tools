@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
-import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc, orderBy, getDocs, where, writeBatch } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc, orderBy, getDocs, where, writeBatch, limit, startAfter, getCountFromServer } from 'firebase/firestore';
 import { 
   Package, 
   Search, 
@@ -615,6 +615,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   };
 
   const [gear, setGear] = useState<GearItem[]>([]);
+  const [gearLimit, setGearLimit] = useState(50);
+  const [totalGearCount, setTotalGearCount] = useState(0);
   const [offlineQueue, setOfflineQueue] = useState<OfflineOperation[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -1470,9 +1472,18 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   }, [user?.uid]);
 
   useEffect(() => {
-    const q = query(collection(db, 'users', user.uid, 'gearLibrary'));
+    const q = query(
+      collection(db, 'users', user.uid, 'gearLibrary'),
+      orderBy('createdAt', 'desc'),
+      limit(gearLimit)
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const rawItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GearItem));
+      
+      // Fetch total count for read-optimization controls
+      getCountFromServer(collection(db, 'users', user.uid, 'gearLibrary'))
+        .then(countSnap => setTotalGearCount(countSnap.data().count))
+        .catch(err => console.warn("Failed to fetch gear count:", err));
       
       // Dynamic synchronization fallback: Map name (case-insensitive) to best populated item details
       const bestItemDetails: Record<string, Partial<GearItem>> = {};
@@ -1563,7 +1574,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       unsubscribeSettings();
       unsubscribeContainers();
     };
-  }, [user.uid]);
+  }, [user.uid, gearLimit]);
 
   useEffect(() => {
     if (!user.uid) return;
@@ -3647,8 +3658,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               <div className="space-y-1">
                 <p className="text-[8px] font-black uppercase tracking-widest text-neutral-400">Suggested Tags</p>
                 <div className="flex flex-wrap gap-1">
-                  {aiSuggestions.tags.map(tag => (
-                    <span key={tag} className="px-2 py-0.5 bg-neutral-50 text-neutral-500 rounded-md text-[8px] font-bold uppercase">{tag}</span>
+                  {aiSuggestions.tags.map((tag, idx) => (
+                    <span key={`${tag}-${idx}`} className="px-2 py-0.5 bg-neutral-50 text-neutral-500 rounded-md text-[8px] font-bold uppercase">{tag}</span>
                   ))}
                 </div>
               </div>
@@ -4022,8 +4033,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     </motion.div>
   );
 
-  const renderTableRow = (item: GearItem) => (
-    <tr key={item.id} className={`border-b transition ${
+  const renderTableRow = (item: GearItem, uniqueKey: string = item.id) => (
+    <tr key={uniqueKey} className={`border-b transition ${
       isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
         ? 'bg-amber-50/40 border-amber-250 border-l-4 border-l-amber-500' 
         : selectedItems.has(item.id) ? 'bg-primary/5' : 'hover:bg-neutral-50 border-neutral-50'
@@ -4154,9 +4165,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     </tr>
   );
 
-  const renderMobileListItem = (item: GearItem) => (
+  const renderMobileListItem = (item: GearItem, uniqueKey: string = item.id) => (
     <div 
-      key={item.id} 
+      key={uniqueKey} 
       className={`p-4 rounded-2xl border flex items-center gap-4 transition-all cursor-pointer ${
         selectedItems.has(item.id)
           ? 'bg-sky-50/10 border-[#0066cc] ring-2 ring-[#0066cc]'
@@ -4798,8 +4809,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   <div className="space-y-2 border-t border-neutral-100 pt-4">
                     <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Secondary Categories</p>
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      {selectedGearItemView.secondaryCategories.map((c) => (
-                        <span key={c} className="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-lg text-[9px] font-bold uppercase tracking-wider transition border border-neutral-200/40">
+                      {selectedGearItemView.secondaryCategories.map((c, idx) => (
+                        <span key={`${c}-${idx}`} className="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-lg text-[9px] font-bold uppercase tracking-wider transition border border-neutral-200/40">
                           {c}
                         </span>
                       ))}
@@ -5363,11 +5374,11 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                         {categoryNormalized === 'Kits' ? 'Kits & Bundles' : categoryNormalized} ({items.length})
                       </td>
                     </tr>
-                    {items.map((item) => renderTableRow(item))}
+                    {items.map((item, idx) => renderTableRow(item, `group-${categoryNormalized}-${item.id}-${idx}`))}
                   </React.Fragment>
                 ))
               ) : (
-                paginatedGear.map((item) => renderTableRow(item))
+                paginatedGear.map((item, idx) => renderTableRow(item, `paginated-${item.id}-${idx}`))
               )}
             </tbody>
             </table>
@@ -5376,7 +5387,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           {/* Mobile List View (Cards) */}
           <div className="md:hidden space-y-3">
             {selectedCategory === 'All' ? (
-              groupedGearEntries.map(({ categoryNormalized, items }) => (
+               groupedGearEntries.map(({ categoryNormalized, items }) => (
                 <div key={categoryNormalized} className="space-y-3 pt-6 first:pt-0">
                   <div className="flex items-center gap-3 border-b border-neutral-100 pb-2">
                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
@@ -5386,13 +5397,55 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       {items.length}
                     </span>
                   </div>
-                  {items.map((item) => renderMobileListItem(item))}
+                  {items.map((item, idx) => renderMobileListItem(item, `group-mob-${categoryNormalized}-${item.id}-${idx}`))}
                 </div>
               ))
             ) : (
-              paginatedGear.map((item) => renderMobileListItem(item))
+              paginatedGear.map((item, idx) => renderMobileListItem(item, `paginated-mob-${item.id}-${idx}`))
             )}
           </div>
+        </div>
+      )}
+
+      {/* Database Pagination & Read Optimization controls */}
+      {totalGearCount > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-neutral-50 px-8 py-5 rounded-3xl border border-neutral-200 shadow-sm w-full mt-4">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-2 w-2 relative">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${gear.length < totalGearCount ? 'bg-amber-400' : 'bg-emerald-400'} opacity-75`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${gear.length < totalGearCount ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
+            </span>
+            <p className="text-xs font-semibold text-neutral-600">
+              {gear.length < totalGearCount ? (
+                <>
+                  Read Protection Active: Loaded <span className="font-mono font-bold text-neutral-800">{gear.length}</span> of <span className="font-mono font-bold text-neutral-800">{totalGearCount}</span> gear items.
+                </>
+              ) : (
+                <>
+                  Read Protection Active: Fully synchronized <span className="font-mono font-bold text-neutral-800">{totalGearCount}</span> of <span className="font-mono font-bold text-neutral-800">{totalGearCount}</span> records.
+                </>
+              )}
+            </p>
+          </div>
+
+          {gear.length < totalGearCount && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setGearLimit(prev => prev + 50)}
+                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-900 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5"
+              >
+                ⚡ Load Next 50 Items
+              </button>
+              <button
+                type="button"
+                onClick={() => setGearLimit(totalGearCount + 10)}
+                className="px-3 py-2 bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-sm"
+              >
+                Synchronize All
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -6320,9 +6373,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           {(newItem.secondaryCategories || []).length === 0 ? (
                             <span className="text-[10px] italic text-neutral-400">No secondary categories assigned. Click preset badges or type custom ones below.</span>
                           ) : (
-                            (newItem.secondaryCategories || []).map(cat => (
+                            (newItem.secondaryCategories || []).map((cat, idx) => (
                               <div
-                                key={cat}
+                                key={`${cat}-${idx}`}
                                 className="px-2.5 py-1 bg-neutral-900 text-white text-[10px] font-bold uppercase rounded-lg flex items-center gap-1.5 shadow-sm"
                               >
                                 <span>{cat}</span>
@@ -7099,9 +7152,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       {(editingItem.secondaryCategories || []).length === 0 ? (
                         <span className="text-[10px] italic text-neutral-400">No secondary categories assigned. Click preset badges or type custom ones below.</span>
                       ) : (
-                        (editingItem.secondaryCategories || []).map(cat => (
+                        (editingItem.secondaryCategories || []).map((cat, idx) => (
                           <div
-                            key={cat}
+                            key={`${cat}-${idx}`}
                             className="px-2.5 py-1 bg-neutral-900 text-white text-[10px] font-bold uppercase rounded-lg flex items-center gap-1.5 shadow-sm"
                           >
                             <span>{cat}</span>

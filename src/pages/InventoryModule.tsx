@@ -61,7 +61,10 @@ import {
   collectionGroup,
   addDoc,
   deleteDoc,
-  setDoc
+  setDoc,
+  limit,
+  startAfter,
+  getCountFromServer
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, GearItem, Organization, Department, Team, AdminSettings } from '../types';
@@ -236,6 +239,8 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   };
 
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [inventoryItemsLimit, setInventoryItemsLimit] = useState(50);
+  const [totalInventoryItemsCount, setTotalInventoryItemsCount] = useState(0);
   const [offlineQueue, setOfflineQueue] = useState<OfflineOperation[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -697,25 +702,37 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     };
   }, [user, user?.orgId]);
 
-  // Load active inventory list items real-time
+  // Load active inventory list items real-time with read limits and scale protection
   useEffect(() => {
     if (!selectedInventory) {
       setInventoryItems([]);
+      setTotalInventoryItemsCount(0);
       return;
     }
 
     setLoadingInventoryItems(true);
     const itemCollection = collection(db, 'inventories', selectedInventory.id, 'items');
-    const unsubItems = onSnapshot(itemCollection, (snap) => {
+    const q = query(
+      itemCollection,
+      orderBy('createdAt', 'desc'),
+      limit(inventoryItemsLimit)
+    );
+
+    const unsubItems = onSnapshot(q, (snap) => {
       setInventoryItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem)));
       setLoadingInventoryItems(false);
+
+      // Fetch total count for read-optimization controls
+      getCountFromServer(itemCollection)
+        .then(countSnap => setTotalInventoryItemsCount(countSnap.data().count))
+        .catch(err => console.warn("Failed to fetch inventory items count:", err));
     }, (err) => {
       handleFirestoreError(err, OperationType.LIST, `inventories/${selectedInventory.id}/items`);
       setLoadingInventoryItems(false);
     });
 
     return () => unsubItems();
-  }, [selectedInventory]);
+  }, [selectedInventory, inventoryItemsLimit]);
 
   // Toggle open inventory editor/creation with baseline visibility targets
   const openCreateInventoryModal = (inv: CustomInventory | null = null) => {
@@ -2053,18 +2070,18 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                         <div className="space-y-2 pt-2 border-t border-neutral-50">
                           <p className="text-[8px] font-black uppercase tracking-wider text-neutral-400 block">AVAILABLE TARGETS</p>
                           <div className="flex flex-wrap gap-1.5 min-h-[2rem]">
-                            {inv.visibility?.orgIds?.map(oid => (
-                              <span key={oid} className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[8px] font-bold uppercase tracking-wide rounded-md">
+                            {inv.visibility?.orgIds?.map((oid, idx) => (
+                              <span key={`${oid}-${idx}`} className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[8px] font-bold uppercase tracking-wide rounded-md">
                                 {organizations.find(o => o.id === oid)?.name || 'Onboarded Org'}
                               </span>
                             ))}
-                            {inv.visibility?.deptIds?.map(did => (
-                              <span key={did} className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-bold uppercase tracking-wide rounded-md">
+                            {inv.visibility?.deptIds?.map((did, idx) => (
+                              <span key={`${did}-${idx}`} className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-bold uppercase tracking-wide rounded-md">
                                 {departments.find(d => d.id === did)?.name || 'Onboarded Dept'}
                               </span>
                             ))}
-                            {inv.visibility?.teamIds?.map(tid => (
-                              <span key={tid} className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-bold uppercase tracking-wide rounded-md">
+                            {inv.visibility?.teamIds?.map((tid, idx) => (
+                              <span key={`${tid}-${idx}`} className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-bold uppercase tracking-wide rounded-md">
                                 {teams.find(t => t.id === tid)?.name || 'Onboarded Team'}
                               </span>
                             ))}
@@ -3247,6 +3264,48 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {/* Custom Inventory Database Pagination & Read Optimization controls */}
+                  {selectedInventory && totalInventoryItemsCount > 0 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-neutral-50 px-8 py-5 rounded-[2rem] border border-neutral-200 shadow-sm w-full mt-4">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-2 w-2 relative">
+                          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${inventoryItems.length < totalInventoryItemsCount ? 'bg-amber-400' : 'bg-emerald-400'} opacity-75`}></span>
+                          <span className={`relative inline-flex rounded-full h-2 w-2 ${inventoryItems.length < totalInventoryItemsCount ? 'bg-amber-500' : 'bg-emerald-500'}`}></span>
+                        </span>
+                        <p className="text-xs font-semibold text-neutral-600">
+                          {inventoryItems.length < totalInventoryItemsCount ? (
+                            <>
+                              Read Protection Active: Loaded <span className="font-mono font-bold text-neutral-800">{inventoryItems.length}</span> of <span className="font-mono font-bold text-neutral-800">{totalInventoryItemsCount}</span> sheet items.
+                            </>
+                          ) : (
+                            <>
+                              Read Protection Active: Fully synchronized <span className="font-mono font-bold text-neutral-800">{totalInventoryItemsCount}</span> of <span className="font-mono font-bold text-neutral-800">{totalInventoryItemsCount}</span> sheet records.
+                            </>
+                          )}
+                        </p>
+                      </div>
+
+                      {inventoryItems.length < totalInventoryItemsCount && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setInventoryItemsLimit(prev => prev + 50)}
+                            className="px-4 py-2 bg-neutral-800 hover:bg-neutral-900 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5"
+                          >
+                            ⚡ Load Next 50 Items
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setInventoryItemsLimit(totalInventoryItemsCount + 10)}
+                            className="px-3 py-2 bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-sm"
+                          >
+                            Synchronize All
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
 

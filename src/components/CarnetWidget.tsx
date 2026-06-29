@@ -324,6 +324,70 @@ export default function CarnetWidget({ list, items, onUpdateItem, isOwner }: Car
 
   return (
     <div className="space-y-8" id="carnet-travel-widget">
+      <style>{`
+        @media print {
+          /* Reset backgrounds and colors */
+          body, html {
+            background: white !important;
+            color: #111827 !important;
+            font-size: 11px !important;
+          }
+          /* Hide non-printable panels */
+          nav, .sidebar, header, footer, button, select, .no-print, [title*="Edit"], #hubspot-messages-iframe-container {
+            display: none !important;
+          }
+          /* Expand the travel widget to fill page width */
+          #carnet-travel-widget {
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          /* Flatten grid cards for compact sheet layouts */
+          .grid {
+            display: grid !important;
+            grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+            gap: 12px !important;
+          }
+          .lg\\:col-span-4 {
+            grid-column: span 4 / span 4 !important;
+          }
+          /* Force rounded corners and borders visible */
+          .border, .border-b, .border-t {
+            border-color: #e5e7eb !important;
+          }
+          /* Clean table formatting */
+          table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            page-break-inside: auto;
+          }
+          tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+          }
+          th {
+            background-color: #f3f4f6 !important;
+            color: #374151 !important;
+            font-size: 8px !important;
+            padding: 6px 12px !important;
+            border-bottom: 2px solid #e5e7eb !important;
+          }
+          td {
+            padding: 8px 12px !important;
+            font-size: 9px !important;
+            border-bottom: 1px solid #f3f4f6 !important;
+          }
+          /* Keep text colors dark and readable */
+          .text-neutral-900, .text-neutral-800 {
+            color: #111827 !important;
+          }
+          .text-[#0066cc] {
+            color: #0066cc !important;
+          }
+        }
+      `}</style>
       
       {/* Upper Analytics & Compliance Audit Dashboard */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -543,6 +607,16 @@ export default function CarnetWidget({ list, items, onUpdateItem, isOwner }: Car
           >
             <Download size={12} />
             <span>Export ATA Carnet CSV</span>
+          </button>
+
+          {/* Print Manifest / Save as PDF */}
+          <button
+            onClick={() => window.print()}
+            className="bg-neutral-900 hover:bg-black text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition flex items-center gap-1.5 shadow-sm"
+            title="Print travel manifest or export as high-resolution PDF document"
+          >
+            <Printer size={12} />
+            <span>Print / Save as PDF</span>
           </button>
         </div>
       </div>

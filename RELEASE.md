@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v4.34.0`
+## Current Application Version: `v5.2.1`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,22 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v5.2.1 (Aesthetic Key Safeguards & Travel Manifest Printing)
+*Released on: June 29, 2026*
+- **Dynamic Render Key Safeguards**: Resolved React double-key rendering and React children mapping collisions across major selection, bulk alignment, and categories list arrays in the main **Gear Library** and **Custom Inventory Module**. Integrated robust key-bindings utilizing incremented index offsets and scope-prefix markers.
+- **Travel Manifest Export & High-Res PDF Print Rules**: Hardened `@media print` style blocks in the custom **ATA Carnet & Travel Manifest** widget. Flattened grid arrays, hid interactive controls/buttons dynamically during printing, applied clean borders, and constrained page-break rules to guarantee pristine physical sheets.
+- **Normalized System Metadata & Version Sync**: Aligned system versions across `package.json`, administrative documentation panels, footer indicators, and navigation rails to reflect the stable `v5.2.1` release.
+
+---
+
+### 🚀 Stable Release: v4.35.0 (Firestore Read-Unit Protection & Scaling Pagination)
+*Released on: June 29, 2026*
+- **Firestore Scale Protection & Read Safeguard**: Engineered dual-path pagination query blocks across both the primary **Gear Library** and the **Custom Inventory Module**. Added lazy query buffers limiting listeners to 50 documents by default (`limit(50)`), protecting users from massive multi-thousand-document read-unit spikes on collection syncs.
+- **Real-Time Low-Overhead Metadata Counting**: Integrated server-side document counter utilities (`getCountFromServer`) that query index counts dynamically on data changes. This tracks the absolute total records in the database with up to 100x lower resource and financial cost than retrieving raw payloads.
+- **Visual Read Optimization Dashboards**: Installed tactile indicators and sync panels inside major list views, displaying current active cache state and total database records. Embedded rapid buttons ("⚡ Load Next 50 Items") for on-demand batch query expansion.
 
 ---
 

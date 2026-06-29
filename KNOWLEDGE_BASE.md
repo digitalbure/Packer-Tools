@@ -335,6 +335,19 @@ Packer Tools introduces a **Hybrid Auto-Mapping Column Alignment Engine** to han
 - At any point during your mapping verification, you can click this button to manually re-run the smart server-side AI auto-alignment, overriding or filling in unmapped columns automatically.
 - Interactive spinners, disabled button states, and toast notifications keep you informed of active network requests and alignment success.
 
+---
+
+## ⚡ 18. Firestore Read-Unit Protection & Scaling Pagination (v4.35.0)
+
+To ensure Packer Tools scales gracefully to thousands of inventory assets without consuming massive cloud database read limits (and potentially hitting free tier daily caps), a dedicated Firestore pagination layer has been added to major lists.
+
+### 🛡️ Active Read Protection Layer:
+- **Default Lazy Buffering**: The primary **Gear Library** and **Custom Inventory Module** list queries are hardcoded with a 50-document limit threshold (`limit(50)`) upon load. This stops browsers from querying full collection states upfront.
+- **Low-Overhead Server Counters**: The layout utilizes Firestore's smart metadata counter utility (`getCountFromServer`), which polls index states to fetch total collection tallies at up to 100x lower overhead than fetching full documents.
+- **Tactile On-Demand Sync controls**: Users are presented with a real-time status card at the footer of both modules. It shows current loaded caching progress (e.g., *“Loaded 50 of 248 total items”*) and hosts simple click controls (e.g., *"⚡ Load Next 50 Items"* and *"Synchronize All"*) to expand the local query window dynamically.
+
+
+
 
 
 
