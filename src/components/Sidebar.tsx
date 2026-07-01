@@ -776,6 +776,16 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
               )}
               <div className="flex flex-col gap-2">
                 <Link
+                  to="/dashboard?tab=lists"
+                  onClick={() => setIsMobileOpen(false)}
+                  className={`flex items-center justify-center gap-3 bg-indigo-600 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}
+                  title={isCollapsed ? 'Lists' : ''}
+                >
+                  <ListChecks size={18} className="group-hover:scale-110 transition-transform shrink-0" />
+                  {!isCollapsed && <span className="text-sm">Lists</span>}
+                </Link>
+
+                <Link
                   to="/library?addGear=true"
                   onClick={() => setIsMobileOpen(false)}
                   className={`flex items-center justify-center gap-3 bg-neutral-900 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}
@@ -1091,7 +1101,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v5.2.1' : 'Version 5.2.1'}
+            {isCollapsed ? 'v5.3.0' : 'Version 5.3.0'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">

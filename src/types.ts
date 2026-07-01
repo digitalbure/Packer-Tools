@@ -513,6 +513,14 @@ export interface PackingItem {
   currency?: string;
   hsCode?: string;
   countryOfOrigin?: string;
+  primaryCategory?: string;
+  category?: string;
+  brand?: string;
+  model?: string;
+  modelNumber?: string;
+  quantity?: number;
+  condition?: string;
+  containerName?: string;
   addOns?: { 
     itemId?: string; 
     name: string; 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { doc, getDoc, collection, query, onSnapshot, deleteDoc, updateDoc, addDoc, getDocs, writeBatch, where, orderBy, arrayUnion } from 'firebase/firestore';
-import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download, AlertTriangle, Cpu, Plane, Globe } from 'lucide-react';
+import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download, AlertTriangle, Cpu, Plane, Globe, FileSpreadsheet, Sparkles, AlertCircle } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Reorder, AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -187,6 +187,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     });
   }, [libraryItems, librarySearchQuery, libraryCategoryFilter]);
   const [editingItem, setEditingItem] = useState<PackingItem | null>(null);
+  const [viewingItem, setViewingItem] = useState<PackingItem | null>(null);
   const [editStep, setEditStep] = useState(1);
   const [isDirty, setIsDirty] = useState(false);
   const [editName, setEditName] = useState('');
@@ -345,6 +346,66 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     return () => window.removeEventListener('open-qr-print-modal', handleOpenQRPrint);
   }, []);
   const [showCreateKitModal, setShowCreateKitModal] = useState(false);
+
+  // --- POWER ONBOARDER & IMPORT MODAL STATE ---
+  const [showPowerImportModal, setShowPowerImportModal] = useState(false);
+  const [stagedItems, setStagedItems] = useState<any[]>([]);
+  const [importTab, setImportTab] = useState<'scan' | 'barcode' | 'lists' | 'inventories' | 'gear'>('gear');
+  const [importSearchQuery, setImportSearchQuery] = useState('');
+  const [browseListId, setBrowseListId] = useState('');
+  const [browseListItems, setBrowseListItems] = useState<any[]>([]);
+  const [loadingListItems, setLoadingListItems] = useState(false);
+  const [userInventories, setUserInventories] = useState<any[]>([]);
+  const [loadingInventories, setLoadingInventories] = useState(false);
+  const [browseInventoryId, setBrowseInventoryId] = useState('');
+  const [browseInventoryItems, setBrowseInventoryItems] = useState<any[]>([]);
+  const [loadingInventoryItems, setLoadingInventoryItems] = useState(false);
+  const [manualName, setManualName] = useState('');
+  const [manualCategory, setManualCategory] = useState('Camera');
+  const [manualWeight, setManualWeight] = useState('');
+  const [manualPrice, setManualPrice] = useState('');
+  const [manualNotes, setManualNotes] = useState('');
+  const [scanPhotoUrl, setScanPhotoUrl] = useState<string | null>(null);
+  const [isScanningImage, setIsScanningImage] = useState(false);
+  const [barcodeQuery, setBarcodeQuery] = useState('');
+  const [isBatchImporting, setIsBatchImporting] = useState(false);
+
+  const handleStageBarcodeMatch = (item: any) => {
+    const isAlreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'barcode');
+    if (isAlreadyStaged) {
+      toast.info("Item is already staged.");
+      return;
+    }
+    const stageData = {
+      id: `barcode-${item.id}`,
+      sourceId: item.id,
+      source: 'barcode',
+      name: item.name || '',
+      category: item.category || item.primaryCategory || 'Camera',
+      brand: item.brand || '',
+      quantity: 1,
+      weight: item.weight || 0,
+      weightUnit: 'kg',
+      price: item.price || 0,
+      notes: item.description || '',
+      photoUrls: item.photoUrls || [],
+      isKit: item.isKit || false,
+      childItemIds: item.childItemIds || [],
+      addOns: item.addOns || [],
+      assetTag: item.assetTag || ''
+    };
+    setStagedItems(prev => [...prev, stageData]);
+    setBarcodeQuery('');
+    toast.success(`Staged barcode match: "${item.name}"`);
+  };
+
+  const handleStageBarcodeAsNew = () => {
+    if (!barcodeQuery.trim()) return;
+    toast.error(
+      `Strict Workflow: Unrecognized Barcode "${barcodeQuery}". You must register this item in your central Gear Library or physical Inventory first!`,
+      { duration: 6000 }
+    );
+  };
   const [allUserPackingLists, setAllUserPackingLists] = useState<PackingList[]>([]);
   const [showCopyMoveModal, setShowCopyMoveModal] = useState(false);
   const [copyMoveMode, setCopyMoveMode] = useState<'copy' | 'move'>('copy');
@@ -621,12 +682,14 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     setCollapsedGroups(new Set());
   };
 
-  const handleBulkGroup = async () => {
-    if (!id || selectedItems.size === 0 || !newGroupName.trim()) return;
+  const handleBulkGroup = async (targetGroupName?: string) => {
+    const groupNameStr = typeof targetGroupName === 'string' ? targetGroupName : '';
+    const groupToApply = groupNameStr || newGroupName;
+    if (!id || selectedItems.size === 0 || !groupToApply.trim()) return;
     
     const batch = writeBatch(db);
     selectedItems.forEach(itemId => {
-      batch.update(doc(db, 'packingLists', id, 'items', itemId), { aiLabel: newGroupName.trim() });
+      batch.update(doc(db, 'packingLists', id, 'items', itemId), { aiLabel: groupToApply.trim() });
     });
 
     try {
@@ -634,8 +697,10 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       setSelectedItems(new Set());
       setShowBulkGroupModal(false);
       setNewGroupName('');
+      toast.success(`Items assigned to ${groupToApply}`);
     } catch (error) {
       console.error("Error bulk grouping items:", error);
+      toast.error("Failed to assign items to group");
     }
   };
 
@@ -986,6 +1051,60 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       loadBgGear();
     }
   }, [user]);
+
+  // --- POWER IMPORT DYNAMIC DATA LOADERS ---
+  useEffect(() => {
+    if (showPowerImportModal && user) {
+      setLoadingInventories(true);
+      const qInvs = query(collection(db, 'inventories'));
+      getDocs(qInvs).then(snap => {
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setUserInventories(list);
+        if (list.length > 0) {
+          setBrowseInventoryId(list[0].id);
+        }
+        setLoadingInventories(false);
+      }).catch(err => {
+        console.error("Error loading inventories:", err);
+        setUserInventories([]);
+        setLoadingInventories(false);
+      });
+    }
+  }, [showPowerImportModal, user]);
+
+  useEffect(() => {
+    if (browseListId) {
+      setLoadingListItems(true);
+      getDocs(collection(db, 'packingLists', browseListId, 'items')).then(snap => {
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setBrowseListItems(list);
+        setLoadingListItems(false);
+      }).catch(err => {
+        console.error("Error loading packing list items:", err);
+        setBrowseListItems([]);
+        setLoadingListItems(false);
+      });
+    } else {
+      setBrowseListItems([]);
+    }
+  }, [browseListId]);
+
+  useEffect(() => {
+    if (browseInventoryId) {
+      setLoadingInventoryItems(true);
+      getDocs(collection(db, 'inventories', browseInventoryId, 'items')).then(snap => {
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setBrowseInventoryItems(list);
+        setLoadingInventoryItems(false);
+      }).catch(err => {
+        console.error("Error loading inventory items:", err);
+        setBrowseInventoryItems([]);
+        setLoadingInventoryItems(false);
+      });
+    } else {
+      setBrowseInventoryItems([]);
+    }
+  }, [browseInventoryId]);
 
   // Background photo/metadata matching logic
   useEffect(() => {
@@ -2727,6 +2846,20 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                   {list && (
                     <button
                       onClick={() => {
+                        setStagedItems([]);
+                        setImportTab('scan');
+                        setShowPowerImportModal(true);
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:brightness-105 rounded-xl font-black shadow-md shrink-0 mr-1 animate-pulse"
+                      title="⚡ Power Onboarder & Multi-Source Importer"
+                    >
+                      <Zap size={16} className="text-white fill-white" />
+                      <span className="text-[10px] uppercase tracking-wider font-extrabold">⚡ Onboard Items</span>
+                    </button>
+                  )}
+                  {list && (
+                    <button
+                      onClick={() => {
                         setTemplateJobType(list.jobType || '');
                         setTemplateTeachingNotes(list.teachingNotes || '');
                         setTemplateName(`${list.name} Template`);
@@ -3142,13 +3275,9 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setNewGroupName(groupName);
-                        // Filter to just this group (though it's already in this group, maybe they want to move items into it?)
-                        // User said "add items to groups after a group has been created"
-                        // If they click here, they want to add *selected* items from other groups TO this group.
-                        handleBulkGroup(); // This might need adjustment to take a target group name
+                        handleBulkGroup(groupName);
                       }}
-                      className="p-2 text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition hidden md:flex items-center gap-1"
+                      className="p-2 text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition flex items-center gap-1"
                     >
                       <Plus size={14} />
                       <span>Add Selected Here</span>
@@ -3186,7 +3315,10 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: itemIdx * 0.05 }}
-                          className={`group bg-white rounded-2xl md:rounded-3xl border transition-all duration-300 flex ${
+                          onClick={() => {
+                            setViewingItem(item);
+                          }}
+                          className={`group bg-white rounded-2xl md:rounded-3xl border transition-all duration-300 flex cursor-pointer ${
                             viewMode === 'list' ? 'p-4 md:p-6 items-center gap-3 md:gap-6' : 
                             'flex-col p-4 gap-4'
                           } ${
@@ -3585,18 +3717,32 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
             <h2 className="text-2xl font-bold text-neutral-900 mb-2">
               {statusFilter === 'all' ? 'No items yet' : `No ${statusFilter} items`}
             </h2>
-            <p className="text-neutral-500 mb-8">
+            <p className="text-neutral-500 mb-8 max-w-md mx-auto">
               {statusFilter === 'all' 
-                ? 'Start adding items to your list using the camera scanner.' 
+                ? 'Onboard items instantly by scanning products/barcodes, importing from existing lists, inventories, or your master gear library.' 
                 : `Try changing your filter to see other items.`}
             </p>
             {isOwner && statusFilter === 'all' && (
-              <Link
-                to={`/scan/${id}`}
-                className="px-8 py-4 bg-neutral-900 text-white rounded-xl font-bold hover:bg-neutral-800 transition shadow-lg"
-              >
-                Open Scanner
-              </Link>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button
+                  onClick={() => {
+                    setStagedItems([]);
+                    setImportTab('scan');
+                    setShowPowerImportModal(true);
+                  }}
+                  className="px-8 py-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-extrabold uppercase text-xs tracking-wider hover:brightness-105 transition shadow-lg flex items-center gap-2"
+                >
+                  <Zap size={16} className="fill-white" />
+                  <span>⚡ Onboard & Import Items</span>
+                </button>
+                <span className="text-neutral-400 font-bold text-xs">or</span>
+                <Link
+                  to={`/scan/${id}`}
+                  className="px-8 py-4 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl font-extrabold uppercase text-xs tracking-wider transition"
+                >
+                  Open Scanner
+                </Link>
+              </div>
             )}
         {/* --- END OF WORKSPACE --- */}
           </div>
@@ -4120,6 +4266,230 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
           </div>
         )}
       </AnimatePresence>
+
+      {/* View Item Details Modal */}
+      {viewingItem && (
+        <div 
+          className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
+          onClick={() => setViewingItem(null)}
+        >
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 md:p-8 border-b border-neutral-100 flex items-start justify-between bg-neutral-50/50">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-xl text-[10px] font-black uppercase tracking-wider">
+                    {viewingItem.aiLabel || viewingItem.primaryCategory || viewingItem.category || 'Item Details'}
+                  </span>
+                  <span className="px-2.5 py-1 bg-neutral-100 text-neutral-500 rounded-xl text-[10px] font-mono font-bold">
+                    {viewingItem.assetTag}
+                  </span>
+                </div>
+                <h2 className="text-xl md:text-2xl font-black text-neutral-900 tracking-tight leading-snug">
+                  {viewingItem.name}
+                </h2>
+              </div>
+              <button 
+                onClick={() => setViewingItem(null)} 
+                className="p-2 hover:bg-neutral-150 rounded-xl transition text-neutral-400 hover:text-neutral-950 shrink-0"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+              {/* Photo Gallery if present */}
+              {viewingItem.photoUrls && viewingItem.photoUrls.length > 0 && (
+                <div className="space-y-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Photo Gallery</span>
+                  <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar snap-x snap-mandatory">
+                    {viewingItem.photoUrls.map((url, idx) => (
+                      <div key={idx} className="w-48 h-36 md:w-64 md:h-48 rounded-2xl overflow-hidden border border-neutral-200 shrink-0 snap-center relative bg-neutral-50">
+                        <img src={url} alt={`${viewingItem.name} ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Bento Details Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 1. Hardware Identity Card */}
+                <div className="p-5 bg-neutral-50 border border-neutral-100 rounded-2xl space-y-3">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Hardware Profile</h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between py-1 border-b border-neutral-100">
+                      <span className="text-neutral-400 font-medium">Brand</span>
+                      <span className="text-neutral-800 font-bold">{viewingItem.brand || '—'}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-neutral-100">
+                      <span className="text-neutral-400 font-medium">Model</span>
+                      <span className="text-neutral-800 font-bold">{viewingItem.model || '—'}</span>
+                    </div>
+                    {viewingItem.modelNumber && (
+                      <div className="flex justify-between py-1 border-b border-neutral-100">
+                        <span className="text-neutral-400 font-medium">Model #</span>
+                        <span className="text-neutral-800 font-mono font-bold">{viewingItem.modelNumber}</span>
+                      </div>
+                    )}
+                    {viewingItem.serialNumber && (
+                      <div className="flex justify-between py-1 border-b border-neutral-100">
+                        <span className="text-neutral-400 font-medium">Serial #</span>
+                        <span className="text-neutral-800 font-mono font-bold">{viewingItem.serialNumber}</span>
+                      </div>
+                    )}
+                    {viewingItem.rfidTag && (
+                      <div className="flex justify-between py-1">
+                        <span className="text-neutral-400 font-medium">RFID Tag</span>
+                        <span className="text-indigo-600 font-mono font-bold">{viewingItem.rfidTag}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Logistics Card */}
+                <div className="p-5 bg-neutral-50 border border-neutral-100 rounded-2xl space-y-3">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Logistics Metrics</h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between py-1 border-b border-neutral-100">
+                      <span className="text-neutral-400 font-medium">Weight</span>
+                      <span className="text-neutral-800 font-bold">
+                        {viewingItem.weight ? `${viewingItem.weight} ${viewingItem.weightUnit || 'g'}` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-neutral-100">
+                      <span className="text-neutral-400 font-medium">Master Price</span>
+                      <span className="text-neutral-800 font-mono font-bold">
+                        {viewingItem.price ? `$${Number(viewingItem.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-neutral-100">
+                      <span className="text-neutral-400 font-medium">Quantity</span>
+                      <span className="text-neutral-800 font-bold">{viewingItem.quantity || 1}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-neutral-100">
+                      <span className="text-neutral-400 font-medium">Condition</span>
+                      <span className="capitalize font-bold text-neutral-800">{viewingItem.condition || 'good'}</span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-neutral-400 font-medium">List Status</span>
+                      <span className={`capitalize font-black px-2 py-0.5 rounded-md text-[10px] ${
+                        viewingItem.status === 'packed' ? 'bg-orange-100 text-orange-600' :
+                        viewingItem.status === 'returned' ? 'bg-green-100 text-green-600' :
+                        'bg-amber-100 text-amber-600'
+                      }`}>
+                        {viewingItem.status || 'pending'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes & Specs Details */}
+              {(viewingItem.description || viewingItem.notes) && (
+                <div className="space-y-4">
+                  {viewingItem.notes && (
+                    <div className="p-5 border border-amber-100 bg-amber-50/20 rounded-2xl space-y-2">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600">Administrative Notes</h4>
+                      <p className="text-xs text-neutral-700 leading-relaxed font-medium italic">"{viewingItem.notes}"</p>
+                    </div>
+                  )}
+
+                  {viewingItem.description && (
+                    <div className="p-5 border border-neutral-100 bg-neutral-50/30 rounded-2xl space-y-2">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Item Biography & Specs</h4>
+                      <p className="text-xs text-neutral-600 leading-relaxed font-medium whitespace-pre-line">{viewingItem.description}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Optics & Lens Specs (if present) */}
+              {((viewingItem as any).lensType || (viewingItem as any).lensMount || (viewingItem as any).focalLength || (viewingItem as any).maxAperture) && (
+                <div className="p-5 bg-[#faf5ff] border border-[#f3e8ff] rounded-2xl space-y-3">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-purple-600">Optics & Lens Taxonomy</h4>
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <span className="text-neutral-400 block text-[10px] uppercase">Lens Type</span>
+                      <span className="text-purple-950 font-bold">{(viewingItem as any).lensType || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400 block text-[10px] uppercase">Lens Mount</span>
+                      <span className="text-purple-950 font-bold">{(viewingItem as any).lensMount || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400 block text-[10px] uppercase">Focal Length</span>
+                      <span className="text-purple-950 font-mono font-bold">{(viewingItem as any).focalLength || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400 block text-[10px] uppercase">Max Aperture</span>
+                      <span className="text-purple-950 font-mono font-bold">{(viewingItem as any).maxAperture || '—'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Add-Ons & Accessories if present */}
+              {viewingItem.addOns && viewingItem.addOns.length > 0 && (
+                <div className="space-y-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Standard In-The-Box Inclusions & Accessories</span>
+                  <div className="border border-neutral-100 rounded-2xl overflow-hidden bg-neutral-50/50">
+                    <table className="w-full border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-neutral-100 text-neutral-500 font-bold border-b border-neutral-200">
+                          <th className="p-3 text-left">Accessory Name</th>
+                          <th className="p-3 text-left">Type</th>
+                          <th className="p-3 text-right">Costing</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-100">
+                        {viewingItem.addOns.map((add, addIdx) => (
+                          <tr key={addIdx} className="hover:bg-neutral-50 transition-colors">
+                            <td className="p-3 font-bold text-neutral-800">{add.name}</td>
+                            <td className="p-3 text-neutral-500">{add.type || 'Accessory'}</td>
+                            <td className="p-3 text-right font-mono font-bold text-neutral-900">
+                              {add.price === 0 ? 'FREE' : `$${add.price}`}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 bg-neutral-50 border-t border-neutral-100 flex gap-4">
+              <button
+                onClick={() => setViewingItem(null)}
+                className="flex-1 py-3.5 bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition rounded-2xl font-bold uppercase tracking-wider text-xs shadow-sm cursor-pointer"
+              >
+                Close
+              </button>
+              {isOwner && (
+                <button
+                  onClick={() => {
+                    const itemToEdit = viewingItem;
+                    setViewingItem(null);
+                    startEditingItem(itemToEdit);
+                  }}
+                  className="flex-1 py-3.5 bg-black text-white hover:bg-neutral-800 transition rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Edit2 size={14} />
+                  <span>Edit Item Info</span>
+                </button>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Edit Item Modal */}
       {editingItem && (
@@ -6644,6 +7014,965 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* --- POWER IMPORT MODAL --- */}
+      <AnimatePresence>
+        {showPowerImportModal && (
+          <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-[2rem] overflow-hidden shadow-2xl w-full max-w-6xl h-[85vh] flex flex-col border border-neutral-100 text-neutral-900"
+            >
+              {/* Modal Header */}
+              <div className="p-6 border-b border-neutral-100 flex items-center justify-between bg-neutral-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                    <Zap size={22} className="fill-primary/20" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black uppercase tracking-tight text-neutral-900 leading-none">⚡ Power Onboarder & Importer</h2>
+                    <p className="text-xs text-neutral-500 font-medium mt-1">Multi-method, bulk selection system from all workspace sources.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPowerImportModal(false)}
+                  className="p-2 hover:bg-neutral-200 rounded-xl transition text-neutral-400 hover:text-neutral-600"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Main Workspace Body */}
+              <div className="flex-1 flex overflow-hidden">
+                {/* Left Panel: Navigation & Active Sources (70% width) */}
+                <div className="w-full md:w-3/5 flex flex-col border-r border-neutral-100 overflow-hidden">
+                  {/* Tabs Selection Bar */}
+                  <div className="flex border-b border-neutral-100 bg-neutral-50/50 p-1.5 overflow-x-auto no-scrollbar">
+                    <button
+                      onClick={() => {
+                        setImportTab('gear');
+                        setImportSearchQuery('');
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'gear' ? 'bg-white text-primary shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+                      }`}
+                    >
+                      <Package size={14} />
+                      <span>Gear Library</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setImportTab('inventories');
+                        setImportSearchQuery('');
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'inventories' ? 'bg-white text-primary shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+                      }`}
+                    >
+                      <Layers size={14} />
+                      <span>From Inventories</span>
+                    </button>
+                    <button
+                      onClick={() => setImportTab('barcode')}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'barcode' ? 'bg-white text-primary shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+                      }`}
+                    >
+                      <QrCode size={14} />
+                      <span>Barcode Scan</span>
+                    </button>
+                  </div>
+
+                  {/* Sub-search Bar (Only for Lists, Inventories, Gear Library) */}
+                  {importTab !== 'scan' && importTab !== 'barcode' && (
+                    <div className="p-4 border-b border-neutral-100 bg-neutral-50/20 flex gap-2">
+                      <div className="relative flex-1">
+                        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                        <input
+                          type="text"
+                          value={importSearchQuery}
+                          onChange={(e) => setImportSearchQuery(e.target.value)}
+                          placeholder="Filter visible items..."
+                          className="w-full pl-10 pr-4 py-2 bg-neutral-100 border-none rounded-xl text-xs font-medium focus:bg-neutral-50 focus:ring-1 focus:ring-primary outline-none transition"
+                        />
+                      </div>
+                      
+                      {importTab === 'lists' && (
+                        <button
+                          onClick={() => {
+                            const visible = browseListItems.filter(item => 
+                              item.name.toLowerCase().includes(importSearchQuery.toLowerCase())
+                            );
+                            visible.forEach(item => {
+                              const alreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'list');
+                              if (!alreadyStaged) {
+                                const stageData = {
+                                  id: `list-${item.id}`,
+                                  sourceId: item.id,
+                                  source: 'list',
+                                  name: item.name || '',
+                                  category: item.category || item.aiLabel || 'Other',
+                                  brand: item.brand || '',
+                                  quantity: item.quantity || 1,
+                                  weight: item.weight || 0,
+                                  weightUnit: 'kg',
+                                  price: item.price || 0,
+                                  notes: item.notes || item.description || '',
+                                  photoUrls: item.photoUrls || [],
+                                  isKit: item.isKit || false,
+                                  childItemIds: item.childItemIds || [],
+                                  addOns: item.addOns || []
+                                };
+                                setStagedItems(prev => [...prev, stageData]);
+                              }
+                            });
+                            toast.success(`Staged all ${visible.length} visible items!`);
+                          }}
+                          className="px-3 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition"
+                        >
+                          Select All
+                        </button>
+                      )}
+
+                      {importTab === 'inventories' && (
+                        <button
+                          onClick={() => {
+                            const visible = browseInventoryItems.filter(item => 
+                              item.name.toLowerCase().includes(importSearchQuery.toLowerCase())
+                            );
+                            visible.forEach(item => {
+                              const alreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'inventory');
+                              if (!alreadyStaged) {
+                                const stageData = {
+                                  id: `inventory-${item.id}`,
+                                  sourceId: item.id,
+                                  source: 'inventory',
+                                  name: item.name || '',
+                                  category: item.category || item.primaryCategory || 'Other',
+                                  brand: item.brand || '',
+                                  quantity: item.quantity || 1,
+                                  weight: item.weight || 0,
+                                  weightUnit: 'kg',
+                                  price: item.price || 0,
+                                  notes: item.notes || item.description || '',
+                                  photoUrls: item.photoUrls || [],
+                                  isKit: item.isKit || false,
+                                  childItemIds: item.childItemIds || [],
+                                  addOns: item.addOns || []
+                                };
+                                setStagedItems(prev => [...prev, stageData]);
+                              }
+                            });
+                            toast.success(`Staged all ${visible.length} visible items!`);
+                          }}
+                          className="px-3 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition"
+                        >
+                          Select All
+                        </button>
+                      )}
+
+                      {importTab === 'gear' && (
+                        <button
+                          onClick={() => {
+                            const visible = bgGearItems.filter(item => 
+                              item.name.toLowerCase().includes(importSearchQuery.toLowerCase())
+                            );
+                            visible.forEach(item => {
+                              const alreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'gear');
+                              if (!alreadyStaged) {
+                                const stageData = {
+                                  id: `gear-${item.id}`,
+                                  sourceId: item.id,
+                                  source: 'gear',
+                                  name: item.name || '',
+                                  category: item.category || item.primaryCategory || 'Other',
+                                  brand: item.brand || '',
+                                  quantity: item.quantity || 1,
+                                  weight: item.weight || 0,
+                                  weightUnit: 'kg',
+                                  price: item.price || 0,
+                                  notes: item.description || '',
+                                  photoUrls: item.photoUrls || [],
+                                  isKit: item.isKit || false,
+                                  childItemIds: item.childItemIds || [],
+                                  addOns: item.addOns || []
+                                };
+                                setStagedItems(prev => [...prev, stageData]);
+                              }
+                            });
+                            toast.success(`Staged all ${visible.length} visible items!`);
+                          }}
+                          className="px-3 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition"
+                        >
+                          Select All
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Active Panel View Render */}
+                  <div className="flex-1 overflow-y-auto p-6">
+                    {/* 1. SCAN AND AI ADD */}
+                    {importTab === 'scan' && (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Image upload client side compression */}
+                          <div className="border-2 border-dashed border-neutral-200 rounded-2xl p-6 text-center hover:bg-neutral-50 transition relative flex flex-col justify-center items-center">
+                            {scanPhotoUrl ? (
+                              <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-neutral-900 border border-neutral-200 flex items-center justify-center">
+                                <img src={scanPhotoUrl} className="max-w-full max-h-full object-contain" alt="Selected" />
+                                <button
+                                  onClick={() => setScanPhotoUrl(null)}
+                                  className="absolute top-2 right-2 p-1.5 bg-neutral-900/60 rounded-full text-white hover:bg-neutral-900 transition"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <Camera className="w-10 h-10 text-neutral-300 mb-2" />
+                                <span className="text-xs font-bold text-neutral-800">Upload or Snap Photo</span>
+                                <span className="text-[10px] text-neutral-400 mt-1">Client-side compressed for rapid save times.</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    setIsScanningImage(true);
+                                    try {
+                                      // Compress canvas-based before upload / usage
+                                      const base64 = await compressImage(file);
+                                      setScanPhotoUrl(base64);
+                                      const rawBase64 = base64.split(',')[1];
+                                      const result = await identifyItem(rawBase64);
+                                      setManualName(result.name || '');
+                                      setManualCategory(result.category || 'Camera');
+                                      setManualNotes(result.organizationTip || '');
+                                      toast.success("AI successfully identified your item!");
+                                    } catch (err) {
+                                      console.error(err);
+                                      toast.error("AI scan failed. Please type details manually.");
+                                    } finally {
+                                      setIsScanningImage(false);
+                                    }
+                                  }}
+                                  className="absolute inset-0 opacity-0 cursor-pointer"
+                                />
+                              </>
+                            )}
+                            {isScanningImage && (
+                              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center gap-2">
+                                <RefreshCw className="animate-spin text-primary" size={24} />
+                                <span className="text-xs font-black uppercase tracking-wider text-neutral-800">AI identifying product...</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* URL Paste Analyzer */}
+                          <div className="border border-neutral-100 bg-neutral-50/50 rounded-2xl p-5 flex flex-col justify-between">
+                            <div className="space-y-2">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">AI Specs Extractor</span>
+                              <p className="text-[11px] text-neutral-500 font-medium">Paste Amazon, B&H, or online retail URL to automatically fetch specifications and categorization.</p>
+                              <input
+                                type="text"
+                                placeholder="E.g. https://www.amazon.com/... or DJI Ronin S3"
+                                value={manualName}
+                                onChange={(e) => setManualName(e.target.value)}
+                                className="w-full px-3 py-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                              />
+                            </div>
+                            <button
+                              onClick={async () => {
+                                if (!manualName.trim()) {
+                                  toast.error("Please enter a product name or paste a URL to analyze.");
+                                  return;
+                                }
+                                setIsScanningImage(true);
+                                try {
+                                  const res = await authenticatedFetch('/api/analyze-item', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ 
+                                      productName: manualName.startsWith('http') ? '' : manualName,
+                                      url: manualName.startsWith('http') ? manualName : ''
+                                    })
+                                  });
+                                  const data = await res.json();
+                                  setManualName(data.name || manualName);
+                                  setManualCategory(data.category || 'Camera');
+                                  if (data.specs) {
+                                    setManualNotes(typeof data.specs === 'object' ? JSON.stringify(data.specs) : String(data.specs));
+                                  }
+                                  toast.success("Intelligence engine loaded product specs!");
+                                } catch (err) {
+                                  console.error(err);
+                                  toast.error("AI Analysis failed. Please fill details manually.");
+                                } finally {
+                                  setIsScanningImage(false);
+                                }
+                              }}
+                              className="w-full mt-4 py-2.5 bg-neutral-950 text-white rounded-xl text-xs font-bold hover:bg-neutral-850 transition flex items-center justify-center gap-1.5"
+                            >
+                              <Sparkles size={14} className="text-amber-400 fill-amber-400 animate-pulse" />
+                              <span>Analyze with AI</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Custom Item Form */}
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Item Name *</label>
+                              <input
+                                type="text"
+                                required
+                                value={manualName}
+                                onChange={(e) => setManualName(e.target.value)}
+                                placeholder="E.g. Canon EOS C300 Mark III"
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Category</label>
+                              <select
+                                value={manualCategory}
+                                onChange={(e) => setManualCategory(e.target.value)}
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                              >
+                                <option value="Camera">Camera / Payload</option>
+                                <option value="Lens">Lens / Optical</option>
+                                <option value="Audio">Audio / Sound</option>
+                                <option value="Lighting">Lighting / Grip</option>
+                                <option value="Rigging">Heavy Tooling & Rigging</option>
+                                <option value="Battery">Power / Batteries</option>
+                                <option value="Accessories">Accessories & Brackets</option>
+                                <option value="Other">Other / General Cargo</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Weight (kg)</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={manualWeight}
+                                onChange={(e) => setManualWeight(e.target.value)}
+                                placeholder="E.g. 1.85"
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Price (USD)</label>
+                              <input
+                                type="number"
+                                step="1"
+                                value={manualPrice}
+                                onChange={(e) => setManualPrice(e.target.value)}
+                                placeholder="E.g. 5499"
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Notes / Specs</label>
+                            <textarea
+                              value={manualNotes}
+                              onChange={(e) => setManualNotes(e.target.value)}
+                              placeholder="E.g. Dual native ISO, Super 35mm sensor..."
+                              className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs h-16 resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              if (!manualName.trim()) {
+                                toast.error("Item name is required.");
+                                return;
+                              }
+                              const stageData = {
+                                id: `manual-${Math.random().toString()}`,
+                                sourceId: '',
+                                source: 'scan',
+                                name: manualName,
+                                category: manualCategory,
+                                brand: '',
+                                quantity: 1,
+                                weight: Number(manualWeight) || 0,
+                                weightUnit: 'kg',
+                                price: Number(manualPrice) || 0,
+                                notes: manualNotes,
+                                photoUrls: scanPhotoUrl ? [scanPhotoUrl] : [],
+                                isKit: false,
+                                childItemIds: [],
+                                addOns: []
+                              };
+                              setStagedItems(prev => [...prev, stageData]);
+                              setManualName('');
+                              setManualCategory('Camera');
+                              setManualWeight('');
+                              setManualPrice('');
+                              setManualNotes('');
+                              setScanPhotoUrl(null);
+                              toast.success("Added item to staged basket!");
+                            }}
+                            className="w-full py-3 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-wider hover:brightness-105 transition shadow-lg"
+                          >
+                            Stage Scanned Item & Save
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 2. BARCODE SEARCH / DIRECT ADD */}
+                    {importTab === 'barcode' && (
+                      <div className="space-y-6">
+                        <div className="border border-neutral-100 bg-neutral-50/50 rounded-2xl p-6 text-center">
+                          <QrCode className="w-12 h-12 text-neutral-400 mx-auto mb-3 animate-pulse" />
+                          <h3 className="text-sm font-black uppercase tracking-tight text-neutral-800">Scan Barcode / RFID Identifier</h3>
+                          <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">Type or scan a barcode, serial, or RFID EPC hex to instantly retrieve matching item records.</p>
+                          
+                          <div className="mt-4 flex gap-2 max-w-md mx-auto">
+                            <input
+                              type="text"
+                              placeholder="E.g. PT-3081A002 or 96-Bit RFID Hex"
+                              value={barcodeQuery}
+                              onChange={(e) => setBarcodeQuery(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  const match = bgGearItems.find(item => 
+                                    (item.assetTag && item.assetTag.toLowerCase() === barcodeQuery.trim().toLowerCase()) ||
+                                    (item.serialNumber && item.serialNumber.toLowerCase() === barcodeQuery.trim().toLowerCase())
+                                  );
+                                  if (match) {
+                                    handleStageBarcodeMatch(match);
+                                  } else {
+                                    handleStageBarcodeAsNew();
+                                  }
+                                }
+                              }}
+                              className="flex-1 px-4 py-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                            <button
+                              onClick={() => {
+                                const match = bgGearItems.find(item => 
+                                  (item.assetTag && item.assetTag.toLowerCase() === barcodeQuery.trim().toLowerCase()) ||
+                                  (item.serialNumber && item.serialNumber.toLowerCase() === barcodeQuery.trim().toLowerCase())
+                                );
+                                if (match) {
+                                  handleStageBarcodeMatch(match);
+                                } else {
+                                  handleStageBarcodeAsNew();
+                                }
+                              }}
+                              className="px-4 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition"
+                            >
+                              Match
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Scan Matching Cards */}
+                        {barcodeQuery.trim() && (
+                          <div className="space-y-3">
+                            <h4 className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Match Status</h4>
+                            {bgGearItems.filter(item => 
+                              (item.assetTag && item.assetTag.toLowerCase().includes(barcodeQuery.trim().toLowerCase())) ||
+                              (item.serialNumber && item.serialNumber.toLowerCase().includes(barcodeQuery.trim().toLowerCase()))
+                            ).map(item => (
+                              <div key={item.id} className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-600">
+                                    <Package size={20} />
+                                  </div>
+                                  <div>
+                                    <span className="text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-500/20">MATCH FOUND</span>
+                                    <h5 className="text-xs font-black text-neutral-900 mt-1">{item.name}</h5>
+                                    <p className="text-[10px] text-neutral-500 mt-0.5">Asset Tag: {item.assetTag || "N/A"}</p>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => handleStageBarcodeMatch(item)}
+                                  className="px-4 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-xs font-bold transition"
+                                >
+                                  Stage Item
+                                </button>
+                              </div>
+                            ))}
+
+                            {bgGearItems.filter(item => 
+                              (item.assetTag && item.assetTag.toLowerCase().includes(barcodeQuery.trim().toLowerCase())) ||
+                              (item.serialNumber && item.serialNumber.toLowerCase().includes(barcodeQuery.trim().toLowerCase()))
+                            ).length === 0 && (
+                              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center text-amber-600">
+                                    <AlertCircle size={20} />
+                                  </div>
+                                  <div>
+                                    <span className="text-[8px] font-black uppercase bg-amber-500/10 text-amber-700 px-1.5 py-0.5 rounded border border-amber-500/20">STRICT WORKFLOW ACTIVE</span>
+                                    <h5 className="text-xs font-black text-neutral-900 mt-1">Barcode Unrecognized</h5>
+                                    <p className="text-[10px] text-neutral-500 mt-0.5">Please add this barcode item to your central Gear Library or physical Inventory first!</p>
+                                  </div>
+                                </div>
+                                <Link
+                                  to="/library"
+                                  className="px-4 py-1.5 bg-neutral-900 text-white hover:bg-neutral-800 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
+                                >
+                                  Go to Library
+                                </Link>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 3. FROM EXISTING LISTS */}
+                    {importTab === 'lists' && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block shrink-0">Source List:</label>
+                          <select
+                            value={browseListId}
+                            onChange={(e) => setBrowseListId(e.target.value)}
+                            className="flex-1 bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                          >
+                            <option value="">-- Select Source Packing List --</option>
+                            {allUserPackingLists.filter(l => l.id !== id).map(l => (
+                              <option key={l.id} value={l.id}>{l.name} (v{l.version || 1})</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {loadingListItems ? (
+                          <div className="py-12 text-center text-neutral-400 font-bold text-xs flex flex-col items-center gap-2">
+                            <RefreshCw className="animate-spin text-primary" size={24} />
+                            <span>Loading other list's manifest items...</span>
+                          </div>
+                        ) : browseListItems.length === 0 ? (
+                          <div className="py-12 text-center text-neutral-400 text-xs font-medium">
+                            No items found in selected list.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[45vh] overflow-y-auto pr-1">
+                            {browseListItems.filter(item => 
+                              item.name.toLowerCase().includes(importSearchQuery.toLowerCase())
+                            ).map(item => {
+                              const staged = stagedItems.some(st => st.sourceId === item.id && st.source === 'list');
+                              return (
+                                <div
+                                  key={item.id}
+                                  onClick={() => {
+                                    const isAlreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'list');
+                                    if (isAlreadyStaged) {
+                                      setStagedItems(prev => prev.filter(st => !(st.sourceId === item.id && st.source === 'list')));
+                                    } else {
+                                      const stageData = {
+                                        id: `list-${item.id}`,
+                                        sourceId: item.id,
+                                        source: 'list',
+                                        name: item.name || '',
+                                        category: item.category || item.aiLabel || 'Other',
+                                        brand: item.brand || '',
+                                        quantity: item.quantity || 1,
+                                        weight: item.weight || 0,
+                                        weightUnit: 'kg',
+                                        price: item.price || 0,
+                                        notes: item.notes || item.description || '',
+                                        photoUrls: item.photoUrls || [],
+                                        isKit: item.isKit || false,
+                                        childItemIds: item.childItemIds || [],
+                                        addOns: item.addOns || []
+                                      };
+                                      setStagedItems(prev => [...prev, stageData]);
+                                    }
+                                  }}
+                                  className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                                    staged ? 'bg-primary/5 border-primary shadow-sm' : 'bg-white border-neutral-100 hover:bg-neutral-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center text-neutral-500 overflow-hidden shrink-0">
+                                      {item.photoUrls && item.photoUrls.length > 0 ? (
+                                        <img src={item.photoUrls[0]} className="w-full h-full object-cover" alt="" />
+                                      ) : (
+                                        <Package size={14} />
+                                      )}
+                                    </div>
+                                    <div className="text-left">
+                                      <h6 className="text-[11px] font-black text-neutral-900 truncate max-w-[150px]">{item.name}</h6>
+                                      <p className="text-[9px] text-neutral-400 uppercase tracking-widest mt-0.5">{item.category || item.aiLabel || 'Other'}</p>
+                                    </div>
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={staged}
+                                    onChange={() => {}} // handled by row click
+                                    className="accent-primary w-4 h-4 rounded border-neutral-300"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 4. FROM CUSTOM INVENTORIES */}
+                    {importTab === 'inventories' && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block shrink-0">Inventory Sheet:</label>
+                          <select
+                            value={browseInventoryId}
+                            onChange={(e) => setBrowseInventoryId(e.target.value)}
+                            className="flex-1 bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                          >
+                            <option value="">-- Select Inventory Sheet --</option>
+                            {userInventories.map(inv => (
+                              <option key={inv.id} value={inv.id}>{inv.name || 'Untitled Inventory'}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {loadingInventoryItems ? (
+                          <div className="py-12 text-center text-neutral-400 font-bold text-xs flex flex-col items-center gap-2">
+                            <RefreshCw className="animate-spin text-primary" size={24} />
+                            <span>Loading inventory sub-items...</span>
+                          </div>
+                        ) : browseInventoryItems.length === 0 ? (
+                          <div className="py-12 text-center text-neutral-400 text-xs font-medium">
+                            No items found in selected inventory sheet.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[45vh] overflow-y-auto pr-1">
+                            {browseInventoryItems.filter(item => 
+                              item.name.toLowerCase().includes(importSearchQuery.toLowerCase())
+                            ).map(item => {
+                              const staged = stagedItems.some(st => st.sourceId === item.id && st.source === 'inventory');
+                              return (
+                                <div
+                                  key={item.id}
+                                  onClick={() => {
+                                    const isAlreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'inventory');
+                                    if (isAlreadyStaged) {
+                                      setStagedItems(prev => prev.filter(st => !(st.sourceId === item.id && st.source === 'inventory')));
+                                    } else {
+                                      const stageData = {
+                                        id: `inventory-${item.id}`,
+                                        sourceId: item.id,
+                                        source: 'inventory',
+                                        name: item.name || '',
+                                        category: item.category || item.primaryCategory || 'Other',
+                                        brand: item.brand || '',
+                                        quantity: item.quantity || 1,
+                                        weight: item.weight || 0,
+                                        weightUnit: 'kg',
+                                        price: item.price || 0,
+                                        notes: item.notes || item.description || '',
+                                        photoUrls: item.photoUrls || [],
+                                        isKit: item.isKit || false,
+                                        childItemIds: item.childItemIds || [],
+                                        addOns: item.addOns || []
+                                      };
+                                      setStagedItems(prev => [...prev, stageData]);
+                                    }
+                                  }}
+                                  className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                                    staged ? 'bg-primary/5 border-primary shadow-sm' : 'bg-white border-neutral-100 hover:bg-neutral-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center text-neutral-500 overflow-hidden shrink-0">
+                                      {item.photoUrls && item.photoUrls.length > 0 ? (
+                                        <img src={item.photoUrls[0]} className="w-full h-full object-cover" alt="" />
+                                      ) : (
+                                        <Package size={14} />
+                                      )}
+                                    </div>
+                                    <div className="text-left">
+                                      <h6 className="text-[11px] font-black text-neutral-900 truncate max-w-[150px]">{item.name}</h6>
+                                      <p className="text-[9px] text-neutral-400 uppercase tracking-widest mt-0.5">{item.category || item.primaryCategory || 'Other'}</p>
+                                    </div>
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={staged}
+                                    onChange={() => {}} // handled by row click
+                                    className="accent-primary w-4 h-4 rounded border-neutral-300"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 5. FROM MASTER GEAR LIBRARY */}
+                    {importTab === 'gear' && (
+                      <div className="space-y-4">
+                        {bgGearItems.length === 0 ? (
+                          <div className="py-12 text-center text-neutral-400 text-xs font-medium">
+                            No items found in master gear library. Create items inside Gear Library first.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1">
+                            {bgGearItems.filter(item => 
+                              item.name.toLowerCase().includes(importSearchQuery.toLowerCase())
+                            ).map(item => {
+                              const staged = stagedItems.some(st => st.sourceId === item.id && st.source === 'gear');
+                              return (
+                                <div
+                                  key={item.id}
+                                  onClick={() => {
+                                    const isAlreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'gear');
+                                    if (isAlreadyStaged) {
+                                      setStagedItems(prev => prev.filter(st => !(st.sourceId === item.id && st.source === 'gear')));
+                                    } else {
+                                      const stageData = {
+                                        id: `gear-${item.id}`,
+                                        sourceId: item.id,
+                                        source: 'gear',
+                                        name: item.name || '',
+                                        category: item.category || item.primaryCategory || 'Other',
+                                        brand: item.brand || '',
+                                        quantity: 1,
+                                        weight: item.weight || 0,
+                                        weightUnit: 'kg',
+                                        price: item.price || 0,
+                                        notes: item.description || '',
+                                        photoUrls: item.photoUrls || [],
+                                        isKit: item.isKit || false,
+                                        childItemIds: item.childItemIds || [],
+                                        addOns: item.addOns || []
+                                      };
+                                      setStagedItems(prev => [...prev, stageData]);
+                                    }
+                                  }}
+                                  className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                                    staged ? 'bg-primary/5 border-primary shadow-sm' : 'bg-white border-neutral-100 hover:bg-neutral-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center text-neutral-500 overflow-hidden shrink-0">
+                                      {item.photoUrls && item.photoUrls.length > 0 ? (
+                                        <img src={item.photoUrls[0]} className="w-full h-full object-cover" alt="" />
+                                      ) : (
+                                        <Package size={14} />
+                                      )}
+                                    </div>
+                                    <div className="text-left">
+                                      <h6 className="text-[11px] font-black text-neutral-900 truncate max-w-[150px]">{item.name}</h6>
+                                      <p className="text-[9px] text-neutral-400 uppercase tracking-widest mt-0.5">{item.category || item.primaryCategory || 'Other'}</p>
+                                    </div>
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={staged}
+                                    onChange={() => {}} // handled by row click
+                                    className="accent-primary w-4 h-4 rounded border-neutral-300"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Panel: Staging Basket & Final Actions (40% width) */}
+                <div className="w-full md:w-2/5 bg-neutral-50 flex flex-col overflow-hidden">
+                  <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-neutral-500">Staging Basket</span>
+                    <button
+                      onClick={() => setStagedItems([])}
+                      className="text-[10px] font-black uppercase text-red-500 hover:text-red-700 transition"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
+                  {/* Staged Items List */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                    {stagedItems.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center text-neutral-400 py-12">
+                        <Package size={30} className="stroke-1 mb-2 text-neutral-300" />
+                        <span className="text-[11px] font-bold">Staging is empty</span>
+                        <p className="text-[10px] text-neutral-400 max-w-[180px] mt-1">Select from other lists, inventories, libraries, or scan items to load them here.</p>
+                      </div>
+                    ) : (
+                      stagedItems.map((item, idx) => (
+                        <div key={item.id || idx} className="p-3 bg-white border border-neutral-200 rounded-xl flex items-center justify-between gap-2 shadow-sm">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-7 h-7 bg-neutral-100 rounded-lg flex items-center justify-center overflow-hidden shrink-0">
+                              {item.photoUrls && item.photoUrls.length > 0 ? (
+                                <img src={item.photoUrls[0]} className="w-full h-full object-cover" alt="" />
+                              ) : (
+                                <Package size={12} className="text-neutral-400" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <h6 className="text-[10px] font-black text-neutral-900 truncate max-w-[110px] leading-tight" title={item.name}>{item.name}</h6>
+                              <span className="text-[8px] font-mono text-neutral-400 uppercase tracking-widest">{item.source || 'scan'}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            {/* Quantity Control */}
+                            <div className="flex items-center bg-neutral-100 px-1.5 py-0.5 rounded-lg border border-neutral-200">
+                              <button
+                                onClick={() => {
+                                  setStagedItems(prev => prev.map((st, i) => 
+                                    i === idx ? { ...st, quantity: Math.max(1, (st.quantity || 1) - 1) } : st
+                                  ));
+                                }}
+                                className="px-1 text-[11px] font-bold hover:text-primary transition"
+                              >
+                                -
+                              </button>
+                              <span className="px-1.5 text-[10px] font-black font-mono">{item.quantity || 1}</span>
+                              <button
+                                onClick={() => {
+                                  setStagedItems(prev => prev.map((st, i) => 
+                                    i === idx ? { ...st, quantity: (st.quantity || 1) + 1 } : st
+                                  ));
+                                }}
+                                className="px-1 text-[11px] font-bold hover:text-primary transition"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            {/* Unstage button */}
+                            <button
+                              onClick={() => {
+                                setStagedItems(prev => prev.filter((_, i) => i !== idx));
+                              }}
+                              className="text-neutral-400 hover:text-red-500 p-1"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Summary & Final Commit Actions */}
+                  <div className="p-4 border-t border-neutral-200 bg-white space-y-3">
+                    <div className="space-y-1 text-left">
+                      <div className="flex justify-between text-[11px] font-bold text-neutral-500">
+                        <span>Total Unique Staged:</span>
+                        <span className="font-mono text-neutral-900">{stagedItems.length} items</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] font-bold text-neutral-500">
+                        <span>Total Units/Copies:</span>
+                        <span className="font-mono text-neutral-900">
+                          {stagedItems.reduce((acc, current) => acc + (current.quantity || 1), 0)} units
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[11px] font-bold text-neutral-500">
+                        <span>Est. Cumulative Payload:</span>
+                        <span className="font-mono text-neutral-900">
+                          {stagedItems.reduce((acc, current) => acc + (Number(current.weight || 0) * (current.quantity || 1)), 0).toFixed(2)} kg
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        if (stagedItems.length === 0) {
+                          toast.error("No items staged for import.");
+                          return;
+                        }
+                        setIsBatchImporting(true);
+                        try {
+                          const batchLimit = 400; // conservative limit below 500
+                          let batch = writeBatch(db);
+                          let count = 0;
+
+                          for (let i = 0; i < stagedItems.length; i++) {
+                            const item = stagedItems[i];
+                            const clonedData = {
+                              name: item.name || '',
+                              listId: id,
+                              status: 'pending',
+                              checked: false,
+                              aiLabel: item.category || 'Other',
+                              description: item.notes || '',
+                              weight: Number(item.weight) || 0,
+                              weightUnit: 'kg',
+                              price: Number(item.price) || 0,
+                              notes: item.notes || '',
+                              isKit: item.isKit || false,
+                              childItemIds: item.childItemIds || [],
+                              photoUrls: item.photoUrls || [],
+                              sourceUrl: item.sourceUrl || '',
+                              addOns: item.addOns || [],
+                              createdAt: new Date().toISOString(),
+                              updatedAt: new Date().toISOString(),
+                              quantity: Number(item.quantity) || 1,
+                              order: items.length + i,
+                              assetTag: item.assetTag || `PT-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
+                            };
+
+                            const newItemRef = doc(collection(db, 'packingLists', id, 'items'));
+                            batch.set(newItemRef, cleanUndefinedFields(clonedData));
+                            count++;
+
+                            if (count >= batchLimit) {
+                              await batch.commit();
+                              batch = writeBatch(db);
+                              count = 0;
+                            }
+                          }
+
+                          if (count > 0) {
+                            await batch.commit();
+                          }
+
+                          toast.success(`Successfully imported ${stagedItems.length} items to your manifest!`);
+                          setShowPowerImportModal(false);
+                          setStagedItems([]);
+                        } catch (err) {
+                          console.error("Batch import failed:", err);
+                          toast.error("Failed to batch import items. Please try again.");
+                        } finally {
+                          setIsBatchImporting(false);
+                        }
+                      }}
+                      disabled={isBatchImporting || stagedItems.length === 0}
+                      className="w-full py-3.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-105 text-white disabled:opacity-50 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2"
+                    >
+                      {isBatchImporting ? (
+                        <>
+                          <RefreshCw className="animate-spin" size={14} />
+                          <span>Importing Items...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap size={14} className="fill-white" />
+                          <span>⚡ Import {stagedItems.length} Items to Manifest</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

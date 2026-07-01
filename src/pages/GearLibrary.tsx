@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
-import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc, orderBy, getDocs, where, writeBatch, limit, startAfter, getCountFromServer } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, addDoc, setDoc, orderBy, getDocs, where, writeBatch, limit, startAfter, getCountFromServer } from 'firebase/firestore';
 import { 
   Package, 
   Search, 
@@ -215,24 +215,67 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [isExportToInventoryOpen, setIsExportToInventoryOpen] = useState(false);
   const [selectedExportInventoryId, setSelectedExportInventoryId] = useState('');
   const [isExportingToInventory, setIsExportingToInventory] = useState(false);
+  const [isCreateNewInventoryForExport, setIsCreateNewInventoryForExport] = useState(false);
+  const [newExportInventoryName, setNewExportInventoryName] = useState('');
+  const [newExportInventoryDesc, setNewExportInventoryDesc] = useState('');
 
   const handleExportToInventory = async () => {
-    if (!selectedExportInventoryId) {
-      toast.error("Please select a target inventory list.");
-      return;
-    }
-    const targetInv = inventories.find(inv => inv.id === selectedExportInventoryId);
-    if (!targetInv) {
-      toast.error("Selected inventory not found.");
-      return;
-    }
+    let targetInventoryId = selectedExportInventoryId;
+    let targetInventoryName = '';
 
     setIsExportingToInventory(true);
-    const toastId = toast.loading(`Exporting ${selectedItems.size} items to ${targetInv.name}...`);
+    const toastId = toast.loading(
+      isCreateNewInventoryForExport 
+        ? `Creating new inventory "${newExportInventoryName}" and exporting...` 
+        : `Exporting items...`
+    );
 
     try {
+      if (isCreateNewInventoryForExport) {
+        if (!newExportInventoryName.trim()) {
+          toast.error("Please provide a name for the new inventory.", { id: toastId });
+          setIsExportingToInventory(false);
+          return;
+        }
+
+        const newDocRef = doc(collection(db, 'inventories'));
+        const payload = {
+          id: newDocRef.id,
+          name: newExportInventoryName.trim(),
+          description: newExportInventoryDesc.trim() || 'Created from Gear Library selection',
+          ownerId: user.uid,
+          ownerEmail: user.email,
+          orgId: user.orgId || '',
+          visibility: {
+            orgIds: user.orgId ? [user.orgId] : [],
+            deptIds: [],
+            teamIds: []
+          },
+          collaborators: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await setDoc(newDocRef, payload);
+        targetInventoryId = newDocRef.id;
+        targetInventoryName = newExportInventoryName.trim();
+      } else {
+        if (!selectedExportInventoryId) {
+          toast.error("Please select a target inventory list.", { id: toastId });
+          setIsExportingToInventory(false);
+          return;
+        }
+        const targetInv = inventories.find(inv => inv.id === selectedExportInventoryId);
+        if (!targetInv) {
+          toast.error("Selected inventory not found.", { id: toastId });
+          setIsExportingToInventory(false);
+          return;
+        }
+        targetInventoryName = targetInv.name;
+      }
+
       const itemsToExport = gear.filter(item => selectedItems.has(item.id));
-      const colRef = collection(db, 'inventories', selectedExportInventoryId, 'items');
+      const colRef = collection(db, 'inventories', targetInventoryId, 'items');
 
       for (let i = 0; i < itemsToExport.length; i += 500) {
         const chunk = itemsToExport.slice(i, i + 500);
@@ -263,10 +306,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         await batch.commit();
       }
 
-      toast.success(`Exported ${itemsToExport.length} items to "${targetInv.name}" successfully!`, { id: toastId });
+      toast.success(`Exported ${itemsToExport.length} items to "${targetInventoryName}" successfully!`, { id: toastId });
       setSelectedItems(new Set());
       setIsExportToInventoryOpen(false);
       setSelectedExportInventoryId('');
+      setNewExportInventoryName('');
+      setNewExportInventoryDesc('');
+      setIsCreateNewInventoryForExport(false);
     } catch (err) {
       console.error(err);
       toast.error("Failed to export items: verification/database error.", { id: toastId });
@@ -8469,32 +8515,83 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
               <div className="p-6 md:p-8 space-y-6">
                 <p className="text-xs text-neutral-500 font-medium leading-relaxed">
-                  Exporting these items will copy them completely with their categories, specs, tags and condition settings to your chosen inventory sheet below.
+                  Exporting these items will copy them completely with their categories, specs, tags, and condition settings.
                 </p>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block font-sans">
-                    Choose Target Inventory List
-                  </label>
-                  {inventories.length === 0 ? (
-                    <div className="text-xs font-bold text-center p-6 bg-neutral-50 border border-neutral-200 text-neutral-400 rounded-2xl">
-                      No custom inventories found. Please create one under the inventories module first!
-                    </div>
-                  ) : (
-                    <select
-                      value={selectedExportInventoryId}
-                      onChange={(e) => setSelectedExportInventoryId(e.target.value)}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs focus:ring-2 focus:ring-neutral-900 outline-none font-bold uppercase tracking-wider transition"
-                    >
-                      <option value="" disabled>Select Custom List...</option>
-                      {inventories.map((inv) => (
-                        <option key={inv.id} value={inv.id}>
-                          {inv.name} ({inv.ownerEmail || 'Shared'})
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                {/* Tab choice */}
+                <div className="flex bg-neutral-100 p-1.5 rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateNewInventoryForExport(false)}
+                    className={`flex-1 py-2 text-center text-xs font-black uppercase tracking-wider rounded-xl transition ${
+                      !isCreateNewInventoryForExport ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
+                    }`}
+                  >
+                    Export to Existing
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateNewInventoryForExport(true)}
+                    className={`flex-1 py-2 text-center text-xs font-black uppercase tracking-wider rounded-xl transition ${
+                      isCreateNewInventoryForExport ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
+                    }`}
+                  >
+                    💡 Create New & Export
+                  </button>
                 </div>
+
+                {isCreateNewInventoryForExport ? (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block font-sans">
+                        New Inventory Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Q2 Facility Maintenance Inventory"
+                        value={newExportInventoryName}
+                        onChange={(e) => setNewExportInventoryName(e.target.value)}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-xs font-bold focus:ring-2 focus:ring-neutral-900 outline-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block font-sans">
+                        Description (Optional)
+                      </label>
+                      <textarea
+                        placeholder="Brief purpose of this custom departmental list..."
+                        value={newExportInventoryDesc}
+                        onChange={(e) => setNewExportInventoryDesc(e.target.value)}
+                        rows={2}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-xs font-bold focus:ring-2 focus:ring-neutral-900 outline-none resize-none"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block font-sans">
+                      Choose Target Inventory List
+                    </label>
+                    {inventories.length === 0 ? (
+                      <div className="text-xs font-bold text-center p-6 bg-neutral-50 border border-neutral-200 text-neutral-400 rounded-2xl">
+                        No custom inventories found. Click "Create New & Export" above to generate one on the fly!
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedExportInventoryId}
+                        onChange={(e) => setSelectedExportInventoryId(e.target.value)}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs focus:ring-2 focus:ring-neutral-900 outline-none font-bold uppercase tracking-wider transition"
+                      >
+                        <option value="" disabled>Select Custom List...</option>
+                        {inventories.map((inv) => (
+                          <option key={inv.id} value={inv.id}>
+                            {inv.name} ({inv.ownerEmail || 'Shared'})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="p-8 bg-neutral-50 border-t border-neutral-100 flex gap-4">
@@ -8505,9 +8602,12 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   Cancel
                 </button>
                 <button
-                  disabled={!selectedExportInventoryId || isExportingToInventory || inventories.length === 0}
+                  disabled={
+                    isExportingToInventory || 
+                    (isCreateNewInventoryForExport ? !newExportInventoryName.trim() : (!selectedExportInventoryId || inventories.length === 0))
+                  }
                   onClick={handleExportToInventory}
-                  className="flex-1 py-4 bg-black text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl font-black uppercase tracking-widest text-xs transition shadow-lg flex items-center justify-center gap-2"
+                  className="flex-1 py-4 bg-black text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl font-black uppercase tracking-widest text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isExportingToInventory ? 'Exporting...' : `Export (${selectedItems.size})`}
                 </button>

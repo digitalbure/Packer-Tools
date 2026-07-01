@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.2.1`
+## Current Application Version: `v5.3.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v5.3.0 (Unified Lists Hub Dashboard & Workspace Inventory Navigation)
+*Released on: June 30, 2026*
+- **Unified Lists Hub Dashboard**: Refactored the dashboard lists layout into a high-density, three-column "Lists Hub". Displaying Pack Lists, Kit templates, and List of Inventories side-by-side with deployment indicators and live counts.
+- **Sidebar Lists Navigation**: Deployed a direct navigation action button for the Lists Hub in the main collapsible Sidebar navigation panel above the "Add Gear" action.
+- **Version Alignment**: Incremented system versions and secure build labels across the codebase including `package.json`, footer status indicators, print styles, and profile notifications.
 
 ---
 

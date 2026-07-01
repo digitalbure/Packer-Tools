@@ -49,6 +49,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, Organization, Department, Team, UserRole, Terminal, AdminSettings } from '../types';
 import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
+import { compressImage } from '../lib/imageUtils';
 import UpgradeNowModal from '../components/UpgradeNowModal';
 import PackerLogo from '../components/PackerLogo';
 import { getAccessToken, signInWithGoogle, setAccessToken } from '../firebase';
@@ -2424,13 +2425,14 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = async () => {
-                              const base64 = reader.result as string;
+                            try {
+                              const base64 = await compressImage(file, 600, 600, 0.7);
                               await updateDoc(doc(db, 'organizations', org.id), { 'settings.branding.logo': base64 });
-                              toast.success("Logo file processed and saved");
-                            };
-                            reader.readAsDataURL(file);
+                              toast.success("Logo compressed and saved successfully!");
+                            } catch (err: any) {
+                              console.error(err);
+                              toast.error("Failed to compress and upload logo.");
+                            }
                           }}
                         />
                       </label>
@@ -2769,15 +2771,17 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                                   type="file"
                                   accept="image/*"
                                   className="hidden"
-                                  onChange={(e) => {
+                                  onChange={async (e) => {
                                     const file = e.target.files?.[0];
                                     if (!file) return;
-                                    const reader = new FileReader();
-                                    reader.onload = () => {
-                                      const base64 = reader.result as string;
+                                    try {
+                                      const base64 = await compressImage(file, 600, 600, 0.7);
                                       setNewDeptLogoUrl(base64);
-                                    };
-                                    reader.readAsDataURL(file);
+                                      toast.success("Logo compressed successfully!");
+                                    } catch (err: any) {
+                                      console.error(err);
+                                      toast.error("Failed to compress logo.");
+                                    }
                                   }}
                                 />
                               </label>
@@ -2876,15 +2880,17 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                                   type="file"
                                   accept="image/*"
                                   className="hidden"
-                                  onChange={(e) => {
+                                  onChange={async (e) => {
                                     const file = e.target.files?.[0];
                                     if (!file) return;
-                                    const reader = new FileReader();
-                                    reader.onload = () => {
-                                      const base64 = reader.result as string;
+                                    try {
+                                      const base64 = await compressImage(file, 600, 600, 0.7);
                                       setNewTeamLogoUrl(base64);
-                                    };
-                                    reader.readAsDataURL(file);
+                                      toast.success("Logo compressed successfully!");
+                                    } catch (err: any) {
+                                      console.error(err);
+                                      toast.error("Failed to compress logo.");
+                                    }
                                   }}
                                 />
                               </label>
@@ -2982,16 +2988,17 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                                   type="file"
                                   accept="image/*"
                                   className="hidden"
-                                  onChange={(e) => {
+                                  onChange={async (e) => {
                                     const file = e.target.files?.[0];
                                     if (!file) return;
-                                    const reader = new FileReader();
-                                    reader.onload = () => {
-                                      const base64 = reader.result as string;
+                                    try {
+                                      const base64 = await compressImage(file, 600, 600, 0.7);
                                       setEditingNode({ ...editingNode, logoUrl: base64 });
-                                      toast.success("File uploaded to form state");
-                                    };
-                                    reader.readAsDataURL(file);
+                                      toast.success("Logo compressed successfully!");
+                                    } catch (err: any) {
+                                      console.error(err);
+                                      toast.error("Failed to compress logo.");
+                                    }
                                   }}
                                 />
                               </label>

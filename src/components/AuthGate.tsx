@@ -74,7 +74,7 @@ export default function AuthGate({ adminSettings }: { adminSettings?: AdminSetti
         {/* Technical Footer */}
         <div className="pt-6 border-t border-neutral-100 text-[10px] text-neutral-400 font-bold uppercase tracking-wider flex items-center justify-between">
           <span>Packer Secure Gate</span>
-          <span>v1.8.8-v2</span>
+          <span>v2.5.0</span>
         </div>
       </div>
     </div>

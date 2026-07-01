@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useIndustry } from '../context/IndustryContext';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, collectionGroup } from 'firebase/firestore';
-import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity, Users, Building2, Globe, Mail, MapPin, Building, Download, ArrowRightLeft } from 'lucide-react';
+import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity, Users, Building2, Globe, Mail, MapPin, Building, Download, ArrowRightLeft, ListChecks, Sparkles } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -67,6 +67,8 @@ function compressAndResizeImage(file: File, maxWidth = 800, maxHeight = 600, qua
 
 export default function Dashboard({ user, adminSettings: propAdminSettings }: { user: UserProfile, adminSettings: AdminSettings | null }) {
   const [lists, setLists] = useState<PackingList[]>([]);
+  const [inventories, setInventories] = useState<any[]>([]);
+  const [createIsTemplate, setCreateIsTemplate] = useState(false);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(propAdminSettings);
   const [loading, setLoading] = useState(true);
@@ -468,6 +470,24 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       handleFirestoreError(error, OperationType.LIST, 'bugs');
     });
 
+    // Real-time custom inventories subscriber for Lists Hub
+    const qInvs = query(collection(db, 'inventories'));
+    const unsubscribeInvs = onSnapshot(qInvs, (snapshot) => {
+      const fetchedInvs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const visible = fetchedInvs.filter((inv: any) => {
+        const isOrgAdmin = user?.role === 'owner' || user?.role === 'admin';
+        if (isOrgAdmin) return true;
+        if (inv.ownerId === user.uid) return true;
+        if (inv.ownerEmail && inv.ownerEmail.toLowerCase() === user.email?.toLowerCase()) return true;
+        if (inv.collaborators?.some((c: any) => c.email && c.email.toLowerCase() === user.email?.toLowerCase())) return true;
+        if (inv.visibility?.orgIds?.includes(user.orgId || '')) return true;
+        return false;
+      });
+      setInventories(visible);
+    }, (error) => {
+      console.error("Dashboard: Error listening to inventories:", error);
+    });
+
     return () => {
       unsubscribeLists();
       unsubscribeReminders();
@@ -477,6 +497,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       unsubscribeUsers();
       unsubscribeOrgs();
       unsubscribeBugs();
+      unsubscribeInvs();
     };
   }, [user.uid]);
 
@@ -530,7 +551,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         ownerEmail: user.email,
         name: newListName,
         description: '',
-        isTemplate: activeTab === 'templates',
+        isTemplate: activeTab === 'templates' || createIsTemplate,
         workspaceId: currentWorkspaceId,
         projectId: selectedProjectId || '',
         shareToken: Math.random().toString(36).substring(2, 15), // Generate token by default
@@ -2309,7 +2330,349 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
             <ActivityLog user={user} />
           </div>
         </div>
-      ) : (activeTab === 'lists' || activeTab === 'templates') ? (
+      ) : activeTab === 'lists' ? (
+        <section className="space-y-8 animate-fadeIn">
+          {/* Welcome Banner / Overview cards */}
+          <div className="bg-gradient-to-r from-indigo-900 via-neutral-900 to-indigo-950 p-6 md:p-8 rounded-[2rem] text-white shadow-xl relative overflow-hidden animate-fadeIn">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/20 rounded-full text-indigo-300 text-[10px] font-black uppercase tracking-wider">
+                  <Sparkles size={12} className="animate-pulse" />
+                  Unified Operations Hub
+                </div>
+                <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter">Lists Hub Dashboard</h2>
+                <p className="text-sm text-neutral-300 font-medium font-sans leading-relaxed">
+                  Track event-specific packing checklists, design modular kit standards, and oversee physical facility inventories.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => {
+                    setCreateIsTemplate(false);
+                    setIsCreating(true);
+                  }}
+                  className="px-5 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-50 hover:-translate-y-0.5 shadow-lg shadow-indigo-600/20 active:translate-y-0 transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Plus size={16} />
+                  New Pack List
+                </button>
+                <button
+                  onClick={() => {
+                    setCreateIsTemplate(true);
+                    setIsCreating(true);
+                  }}
+                  className="px-5 py-3 bg-neutral-800 text-white rounded-xl font-bold text-sm hover:bg-neutral-700 hover:-translate-y-0.5 shadow-lg active:translate-y-0 transition flex items-center gap-2 border border-neutral-700 cursor-pointer"
+                >
+                  <Plus size={16} />
+                  New Kit Template
+                </button>
+                <Link
+                  to="/inventory"
+                  className="px-5 py-3 bg-white text-neutral-900 rounded-xl font-bold text-sm hover:bg-neutral-50 hover:-translate-y-0.5 shadow-lg active:translate-y-0 transition flex items-center gap-2"
+                >
+                  <Layers size={16} />
+                  Go to Inventories
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Core Grid showing Pack Lists, Kit Lists, and List of Inventories */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* 1. Pack Lists Column */}
+            <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6 flex flex-col">
+              <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                    <ListChecks size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-sm uppercase tracking-wide text-neutral-800">Pack Lists</h3>
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase">{workspaceFilteredLists.filter(l => !l.isTemplate).length} Active Manifests</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setCreateIsTemplate(false);
+                    setIsCreating(true);
+                  }}
+                  className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition cursor-pointer"
+                  title="Create New Pack List"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+
+              {/* Pack lists loop */}
+              <div className="space-y-4 flex-1 overflow-y-auto max-h-[600px] pr-1">
+                {workspaceFilteredLists.filter(l => !l.isTemplate).length === 0 ? (
+                  <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-dashed border-neutral-200 animate-fadeIn">
+                    <p className="text-neutral-400 text-xs font-semibold">No packing lists created.</p>
+                    <button
+                      onClick={() => {
+                        setCreateIsTemplate(false);
+                        setIsCreating(true);
+                      }}
+                      className="mt-2 text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
+                    >
+                      Create one now +
+                    </button>
+                  </div>
+                ) : (
+                  workspaceFilteredLists.filter(l => !l.isTemplate).map(list => {
+                    const totalItems = list.items?.length || 0;
+                    const packedItems = list.items?.filter(i => i.packed || i.status === 'packed').length || 0;
+                    const progress = totalItems > 0 ? Math.round((packedItems / totalItems) * 100) : 0;
+                    
+                    return (
+                      <div key={list.id} className="group bg-neutral-50 p-4 rounded-xl border border-neutral-100 hover:border-indigo-200 hover:bg-white hover:shadow-sm transition-all duration-300 relative">
+                        <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => setCheckoutList(list)}
+                            className="p-1 text-indigo-600 hover:bg-indigo-50 rounded cursor-pointer"
+                            title="Check Out / Check In"
+                          >
+                            <ArrowRightLeft size={12} />
+                          </button>
+                          <button
+                            onClick={() => setSharingList(list)}
+                            className="p-1 text-neutral-400 hover:text-indigo-600 rounded cursor-pointer"
+                            title="Share"
+                          >
+                            <Share2 size={12} />
+                          </button>
+                          <button
+                            onClick={(e) => handleDeleteList(e, list.id)}
+                            className="p-1 text-neutral-400 hover:text-red-500 rounded cursor-pointer"
+                            title="Delete"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div>
+                            <Link to={`/list/${list.id}`} className="font-extrabold text-neutral-900 text-sm hover:text-indigo-600 transition block pr-12 line-clamp-1">
+                              {list.name}
+                            </Link>
+                            <p className="text-[10px] text-neutral-400 font-mono mt-0.5">Created: {new Date(list.createdAt).toLocaleDateString()}</p>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className={`px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${
+                              list.status === 'Completed' ? 'bg-green-50 text-green-700 border border-green-100' :
+                              list.status === 'Active' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                              'bg-neutral-100 text-neutral-600'
+                            }`}>
+                              {list.status || 'Draft'}
+                            </span>
+                            <span className="font-bold text-neutral-500">{packedItems}/{totalItems} Packed ({progress}%)</span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="w-full h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-600 transition-all duration-500" style={{ width: `${progress}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* 2. Kit Lists Column */}
+            <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6 flex flex-col">
+              <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center">
+                    <Layers size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-sm uppercase tracking-wide text-neutral-800">Kit Lists</h3>
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase">{workspaceFilteredLists.filter(l => l.isTemplate).length} Standards</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setCreateIsTemplate(true);
+                    setIsCreating(true);
+                  }}
+                  className="p-1.5 bg-pink-50 hover:bg-pink-100 text-pink-600 rounded-lg transition cursor-pointer"
+                  title="Create New Kit Template"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+
+              {/* Kit lists loop */}
+              <div className="space-y-4 flex-1 overflow-y-auto max-h-[600px] pr-1">
+                {workspaceFilteredLists.filter(l => l.isTemplate).length === 0 ? (
+                  <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-dashed border-neutral-200 animate-fadeIn">
+                    <p className="text-neutral-400 text-xs font-semibold">No reusable templates created.</p>
+                    <button
+                      onClick={() => {
+                        setCreateIsTemplate(true);
+                        setIsCreating(true);
+                      }}
+                      className="mt-2 text-xs font-bold text-pink-600 hover:underline cursor-pointer"
+                    >
+                      Create one now +
+                    </button>
+                  </div>
+                ) : (
+                  workspaceFilteredLists.filter(l => l.isTemplate).map(list => {
+                    const totalItems = list.items?.length || 0;
+                    return (
+                      <div key={list.id} className="group bg-neutral-50 p-4 rounded-xl border border-neutral-100 hover:border-pink-200 hover:bg-white hover:shadow-sm transition-all duration-300 relative">
+                        <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => setSharingList(list)}
+                            className="p-1 text-neutral-400 hover:text-pink-600 rounded cursor-pointer"
+                            title="Share"
+                          >
+                            <Share2 size={12} />
+                          </button>
+                          <button
+                            onClick={(e) => handleDeleteList(e, list.id)}
+                            className="p-1 text-neutral-400 hover:text-red-500 rounded cursor-pointer"
+                            title="Delete"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div>
+                            <Link to={`/list/${list.id}`} className="font-extrabold text-neutral-900 text-sm hover:text-pink-600 transition block pr-12 line-clamp-1">
+                              {list.name}
+                            </Link>
+                            {list.description && (
+                              <p className="text-[11px] text-neutral-500 line-clamp-1 mt-0.5">{list.description}</p>
+                            )}
+                            <p className="text-[10px] text-neutral-400 font-mono mt-0.5">Created: {new Date(list.createdAt).toLocaleDateString()}</p>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="px-2 py-0.5 bg-pink-100 text-pink-700 rounded-full font-black uppercase tracking-wider border border-pink-200">
+                              Template Kit
+                            </span>
+                            <span className="font-bold text-neutral-500">{totalItems} Standard Items</span>
+                          </div>
+
+                          {/* Quick deployment shortcut */}
+                          <div className="pt-2 border-t border-neutral-100 flex items-center justify-end">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  // Deploy template as active list
+                                  const docRef = await addDoc(collection(db, 'packingLists'), {
+                                    ownerId: user.uid,
+                                    ownerEmail: user.email,
+                                    name: `${list.name} (Deployed)`,
+                                    description: `Deployed from standard template: ${list.name}`,
+                                    isTemplate: false,
+                                    workspaceId: currentWorkspaceId,
+                                    projectId: '',
+                                    shareToken: Math.random().toString(36).substring(2, 15),
+                                    createdAt: new Date().toISOString(),
+                                    updatedAt: new Date().toISOString(),
+                                    items: list.items || []
+                                  });
+                                  toast.success(`Successfully deployed template as a new Pack List!`);
+                                } catch (e) {
+                                  toast.error("Failed to deploy template list.");
+                                }
+                              }}
+                              className="text-[10px] font-black uppercase tracking-wider text-pink-600 hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              Deploy as Active Pack List <ChevronRight size={10} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* 3. List of Inventories Column */}
+            <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6 flex flex-col">
+              <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                    <Package size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-sm uppercase tracking-wide text-neutral-800">List of Inventories</h3>
+                    <p className="text-[10px] text-neutral-400 font-bold uppercase">{inventories.length} Warehouses</p>
+                  </div>
+                </div>
+                <Link
+                  to="/inventory"
+                  className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition"
+                  title="Create New Inventory"
+                >
+                  <Plus size={16} />
+                </Link>
+              </div>
+
+              {/* Inventories loop */}
+              <div className="space-y-4 flex-1 overflow-y-auto max-h-[600px] pr-1">
+                {inventories.length === 0 ? (
+                  <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-dashed border-neutral-200 animate-fadeIn">
+                    <p className="text-neutral-400 text-xs font-semibold">No physical inventories registered.</p>
+                    <Link
+                      to="/inventory"
+                      className="mt-2 text-xs font-bold text-amber-600 hover:underline inline-block"
+                    >
+                      Go to Inventory Module +
+                    </Link>
+                  </div>
+                ) : (
+                  inventories.map(inv => (
+                    <div key={inv.id} className="group bg-neutral-50 p-4 rounded-xl border border-neutral-100 hover:border-amber-200 hover:bg-white hover:shadow-sm transition-all duration-300 relative">
+                      <div className="space-y-3">
+                        <div>
+                          <Link to="/inventory" className="font-extrabold text-neutral-900 text-sm hover:text-amber-600 transition block line-clamp-1">
+                            {inv.name}
+                          </Link>
+                          {inv.description && (
+                            <p className="text-[11px] text-neutral-500 line-clamp-1 mt-0.5">{inv.description}</p>
+                          )}
+                          <p className="text-[10px] text-neutral-400 font-mono mt-0.5">Updated: {new Date(inv.updatedAt || inv.createdAt).toLocaleDateString()}</p>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-black uppercase tracking-wider border border-amber-200">
+                            Location Storage
+                          </span>
+                          {inv.ownerEmail && (
+                            <span className="text-neutral-400 font-medium truncate max-w-[120px]">{inv.ownerEmail}</span>
+                          )}
+                        </div>
+
+                        <div className="pt-2 border-t border-neutral-100 flex items-center justify-end">
+                          <Link
+                            to="/inventory"
+                            className="text-[10px] font-black uppercase tracking-wider text-amber-600 hover:underline flex items-center gap-1"
+                          >
+                            Open Audit Module <ChevronRight size={10} />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+          </div>
+        </section>
+      ) : activeTab === 'templates' ? (
           <section className="space-y-8">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm">
               <div className="flex-1 relative">
