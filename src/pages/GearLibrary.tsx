@@ -56,6 +56,7 @@ import { logActivity } from '../services/activityLog';
 import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import { toast } from 'sonner';
 import { useAuth } from '../providers/AuthProvider';
+import { useIndustry } from '../context/IndustryContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { compressImage } from '../lib/imageUtils';
@@ -92,6 +93,7 @@ import {
 
 export default function GearLibrary({ user, adminSettings: propAdminSettings }: { user: UserProfile, adminSettings: AdminSettings | null }) {
   const { formatCurrency } = useAuth();
+  const { getAdjustedLabel, customTerms } = useIndustry();
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [dbBrands, setDbBrands] = useState<any[]>([]);
 
@@ -4792,68 +4794,221 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       {/* Item View Popover */}
       <AnimatePresence>
         {selectedGearItemView && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div 
+            className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm flex items-center justify-center z-[110] p-4 overflow-y-auto"
+            onClick={() => setSelectedGearItemView(null)}
+          >
             <motion.div 
-               initial={{ opacity: 0 }}
-               animate={{ opacity: 1 }}
-               exit={{ opacity: 0 }}
-               onClick={() => setSelectedGearItemView(null)}
-               className="absolute inset-0 bg-neutral-950/80 backdrop-blur-md"
-            />
-            <motion.div
-              layoutId={selectedGearItemView.id}
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh] md:max-h-[85vh]"
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
             >
-              <button 
-                onClick={() => setSelectedGearItemView(null)}
-                className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 p-2 bg-black/5 hover:bg-black/10 rounded-full transition text-white md:text-neutral-500"
-              >
-                <X size={20} />
-              </button>
-
-              <div className="w-full md:w-1/2 relative group h-48 sm:h-64 md:h-auto shrink-0">
-                <img src={selectedGearItemView.photoUrls[0]} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent animate-gradient" />
-                <div className="absolute bottom-4 left-4 sm:bottom-8 sm:left-8 z-10">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/80 mb-1 sm:mb-2">{selectedGearItemView.category}</p>
-                  <h2 className="text-2xl sm:text-3xl md:text-5xl font-black text-white uppercase tracking-tighter leading-none">{selectedGearItemView.name}</h2>
+              {/* Header */}
+              <div className="p-6 md:p-8 border-b border-neutral-100 flex items-start justify-between bg-neutral-50/50">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-xl text-[10px] font-black uppercase tracking-wider">
+                      {selectedGearItemView.aiLabel || selectedGearItemView.primaryCategory || selectedGearItemView.category || 'Gear Details'}
+                    </span>
+                    {selectedGearItemView.assetTag && (
+                      <span className="px-2.5 py-1 bg-neutral-100 text-neutral-500 rounded-xl text-[10px] font-mono font-bold">
+                        {selectedGearItemView.assetTag}
+                      </span>
+                    )}
+                    {selectedGearItemView.isKit && (
+                      <span className="px-2.5 py-1 bg-purple-100 text-purple-700 rounded-xl text-[10px] font-black uppercase tracking-wider">
+                        Kit Setup
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-xl md:text-2xl font-black text-neutral-900 tracking-tight leading-snug">
+                    {selectedGearItemView.name}
+                  </h2>
                 </div>
+                <button 
+                  onClick={() => setSelectedGearItemView(null)} 
+                  className="p-2 hover:bg-neutral-150 rounded-xl transition text-neutral-400 hover:text-neutral-950 shrink-0 cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
               </div>
 
-              <div className="w-full md:w-1/2 p-5 sm:p-8 md:p-12 overflow-y-auto space-y-6 sm:space-y-8">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Condition</p>
-                    <div className="flex items-center gap-2">
-                       <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                        selectedGearItemView.condition === 'new' ? 'bg-green-100 text-green-700' :
-                        selectedGearItemView.condition === 'good' ? 'bg-blue-100 text-blue-700' :
-                        selectedGearItemView.condition === 'fair' ? 'bg-amber-100 text-amber-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>{selectedGearItemView.condition}</span>
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+                {/* Photo Gallery */}
+                {selectedGearItemView.photoUrls && selectedGearItemView.photoUrls.length > 0 && (
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Photo Gallery</span>
+                    <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar snap-x snap-mandatory">
+                      {selectedGearItemView.photoUrls.map((url, idx) => (
+                        <div key={idx} className="w-48 h-36 md:w-64 md:h-48 rounded-2xl overflow-hidden border border-neutral-200 shrink-0 snap-center relative bg-neutral-50">
+                          <img src={url} alt={`${selectedGearItemView.name} ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Asset Tag</p>
-                    <p className="font-mono font-bold text-sm tracking-widest">{selectedGearItemView.assetTag}</p>
+                )}
+
+                {/* Bento Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 1. Hardware Profile Card */}
+                  <div className="p-5 bg-neutral-50 border border-neutral-100 rounded-2xl space-y-3">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Hardware Profile</h4>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between py-1 border-b border-neutral-100">
+                        <span className="text-neutral-400 font-medium">Brand</span>
+                        <span className="text-neutral-800 font-bold">{selectedGearItemView.brand || '—'}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-neutral-100">
+                        <span className="text-neutral-400 font-medium">Model</span>
+                        <span className="text-neutral-800 font-bold">{selectedGearItemView.model || '—'}</span>
+                      </div>
+                      {selectedGearItemView.modelNumber && (
+                        <div className="flex justify-between py-1 border-b border-neutral-100">
+                          <span className="text-neutral-400 font-medium">Model #</span>
+                          <span className="text-neutral-800 font-mono font-bold">{selectedGearItemView.modelNumber}</span>
+                        </div>
+                      )}
+                      {selectedGearItemView.serialNumber && (
+                        <div className="flex justify-between py-1 border-b border-neutral-100">
+                          <span className="text-neutral-400 font-medium">Serial #</span>
+                          <span className="text-neutral-800 font-mono font-bold">{selectedGearItemView.serialNumber}</span>
+                        </div>
+                      )}
+                      {selectedGearItemView.releaseYear && (
+                        <div className="flex justify-between py-1 border-b border-neutral-100">
+                          <span className="text-neutral-400 font-medium">Release Year</span>
+                          <span className="text-neutral-800 font-bold">{selectedGearItemView.releaseYear}</span>
+                        </div>
+                      )}
+                      {selectedGearItemView.rfidTag && (
+                        <div className="flex justify-between py-1 border-b border-neutral-100">
+                          <span className="text-neutral-400 font-medium">RFID Tag</span>
+                          <span className="text-indigo-600 font-mono font-bold">{selectedGearItemView.rfidTag}</span>
+                        </div>
+                      )}
+                      {selectedGearItemView.nfcTag && (
+                        <div className="flex justify-between py-1">
+                          <span className="text-neutral-400 font-medium">NFC Tag</span>
+                          <span className="text-amber-600 font-mono font-bold">{selectedGearItemView.nfcTag}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Total Weight</p>
-                    <p className="font-bold text-lg">{selectedGearItemView.weight ? `${selectedGearItemView.weight}g` : 'N/A'}</p>
+
+                  {/* 2. Maintenance & Lifecycle */}
+                  <div className="p-5 bg-neutral-50 border border-neutral-100 rounded-2xl space-y-3">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Status & Lifecycle</h4>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between py-1 border-b border-neutral-100">
+                        <span className="text-neutral-400 font-medium">Condition</span>
+                        <span className={`capitalize font-black px-2 py-0.5 rounded-md text-[10px] ${
+                          selectedGearItemView.condition === 'new' ? 'bg-green-100 text-green-700' :
+                          selectedGearItemView.condition === 'good' ? 'bg-blue-100 text-blue-700' :
+                          selectedGearItemView.condition === 'fair' ? 'bg-amber-100 text-amber-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {selectedGearItemView.condition || 'good'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-neutral-100">
+                        <span className="text-neutral-400 font-medium">Device Status</span>
+                        <span className={`capitalize font-black px-2 py-0.5 rounded-md text-[10px] ${
+                          selectedGearItemView.status === 'available' ? 'bg-green-100 text-green-700' :
+                          selectedGearItemView.status === 'in_use' ? 'bg-blue-100 text-blue-700' :
+                          selectedGearItemView.status === 'maintenance' ? 'bg-orange-100 text-orange-700' :
+                          'bg-neutral-100 text-neutral-700'
+                        }`}>
+                          {selectedGearItemView.status || 'available'}
+                        </span>
+                      </div>
+                      {selectedGearItemView.status === 'in_use' && (
+                        <div className="flex justify-between py-1 border-b border-neutral-100">
+                          <span className="text-neutral-400 font-medium">Current Holder</span>
+                          <span className="text-blue-600 font-bold">{selectedGearItemView.currentHolder || 'Checked Out'}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between py-1 border-b border-neutral-100">
+                        <span className="text-neutral-400 font-medium">Last Maintained</span>
+                        <span className="text-neutral-800 font-bold">{selectedGearItemView.lastMaintenanceDate || '—'}</span>
+                      </div>
+                      <div className="flex justify-between py-1">
+                        <span className="text-neutral-400 font-medium">Next Maintenance</span>
+                        <span className={`font-bold ${isMaintenanceOutdated(selectedGearItemView) ? 'text-red-600 flex items-center gap-1' : 'text-neutral-800'}`}>
+                          {isMaintenanceOutdated(selectedGearItemView) && <AlertTriangle size={12} className="text-red-500 animate-bounce" />}
+                          {(() => {
+                            const item = selectedGearItemView;
+                            if (!item.lastMaintenanceDate || !item.maintenanceIntervalDays) return 'As Needed';
+                            try {
+                              const last = new Date(item.lastMaintenanceDate);
+                              const nextDue = new Date(last.getTime() + (item.maintenanceIntervalDays * 24 * 60 * 60 * 1000));
+                              return format(nextDue, 'yyyy-MM-dd');
+                            } catch {
+                              return 'Error';
+                            }
+                          })()}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Value</p>
-                    <p className="font-bold text-lg">${(selectedGearItemView.price || 0).toLocaleString()}</p>
+
+                  {/* 3. Logistics Metrics */}
+                  <div className="p-5 bg-neutral-50 border border-neutral-100 rounded-2xl space-y-3">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Logistics Metrics</h4>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between py-1 border-b border-neutral-100">
+                        <span className="text-neutral-400 font-medium">Total Weight</span>
+                        <span className="text-neutral-800 font-bold">
+                          {selectedGearItemView.weight ? `${selectedGearItemView.weight} ${selectedGearItemView.weightUnit || 'g'}` : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-neutral-100">
+                        <span className="text-neutral-400 font-medium">Master Price</span>
+                        <span className="text-neutral-800 font-mono font-bold">
+                          {formatCurrency(selectedGearItemView.price || 0, selectedGearItemView.currency || 'USD')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-neutral-100">
+                        <span className="text-neutral-400 font-medium">Quantity</span>
+                        <span className="text-neutral-800 font-bold">{selectedGearItemView.quantity || 1}</span>
+                      </div>
+                      <div className="flex justify-between py-1">
+                        <span className="text-neutral-400 font-medium">Assigned Location</span>
+                        <span className="text-neutral-800 font-bold truncate max-w-[150px]">
+                          {selectedGearItemView.rackId ? (racks.find(r => r.id === selectedGearItemView.rackId)?.name || 'Rack Storage') : 'General Storage'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Operations Telemetry */}
+                  <div className="p-5 bg-neutral-50 border border-neutral-100 rounded-2xl space-y-3">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Field Telemetry</h4>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between py-1 border-b border-neutral-100">
+                        <span className="text-neutral-400 font-medium">Log field usage count</span>
+                        <span className="text-neutral-800 font-bold">{selectedGearItemView.usageCount || 0} runs</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-neutral-100">
+                        <span className="text-neutral-400 font-medium">Tracking Mode</span>
+                        <span className="capitalize text-neutral-800 font-bold">Individual</span>
+                      </div>
+                      <div className="flex justify-between py-1">
+                        <span className="text-neutral-400 font-medium">Telemetry Pulse</span>
+                        <span className="text-green-600 font-bold flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-green-500 animate-ping inline-block" /> Active
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Secondary Categories display in Modal */}
+                {/* Secondary Categories if present */}
                 {selectedGearItemView.secondaryCategories && selectedGearItemView.secondaryCategories.length > 0 && (
-                  <div className="space-y-2 border-t border-neutral-100 pt-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Secondary Categories</p>
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Secondary Categories</span>
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {selectedGearItemView.secondaryCategories.map((c, idx) => (
                         <span key={`${c}-${idx}`} className="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-lg text-[9px] font-bold uppercase tracking-wider transition border border-neutral-200/40">
@@ -4864,107 +5019,185 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   </div>
                 )}
 
-                {/* Registry Details in Modal */}
-                {(selectedGearItemView.model || selectedGearItemView.modelNumber || selectedGearItemView.serialNumber || selectedGearItemView.releaseYear) && (
-                  <div className="border border-neutral-100/80 bg-neutral-50 p-4 rounded-3xl space-y-3.5 text-xs text-neutral-700">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 border-b border-neutral-200/50 pb-1.5">Registry Identifiers</p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-                      {selectedGearItemView.model && (
+                {/* Marketplace Listing Details (if rental or sale enabled) */}
+                {(selectedGearItemView.isAvailableForRent || selectedGearItemView.isAvailableForSale) && (
+                  <div className="p-5 bg-amber-50/30 border border-amber-100 rounded-2xl space-y-3">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600">Marketplace & Commercial Listing</h4>
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      {selectedGearItemView.isAvailableForRent && (
                         <div>
-                          <p className="text-[9px] font-bold uppercase text-neutral-400">Model Name</p>
-                          <p className="font-semibold text-neutral-800">{selectedGearItemView.model}</p>
+                          <span className="text-neutral-400 block text-[10px] uppercase">Rental Rate</span>
+                          <span className="text-neutral-800 font-bold">
+                            {formatCurrency(selectedGearItemView.rentalPrice || 0, selectedGearItemView.currency || 'USD')} / {selectedGearItemView.rentalPeriod || 'day'}
+                          </span>
                         </div>
                       )}
-                      {selectedGearItemView.modelNumber && (
+                      {selectedGearItemView.isAvailableForSale && (
                         <div>
-                          <p className="text-[9px] font-bold uppercase text-neutral-400">Model Number</p>
-                          <p className="font-mono font-bold text-neutral-800">{selectedGearItemView.modelNumber}</p>
+                          <span className="text-neutral-400 block text-[10px] uppercase">Sale Value</span>
+                          <span className="text-neutral-800 font-bold">
+                            {formatCurrency(selectedGearItemView.salePrice || 0, selectedGearItemView.currency || 'USD')}
+                          </span>
                         </div>
                       )}
-                      {selectedGearItemView.serialNumber && (
+                      {selectedGearItemView.rentalDeposit !== undefined && (
                         <div>
-                          <p className="text-[9px] font-bold uppercase text-neutral-400">Serial Number</p>
-                          <p className="font-mono font-bold text-neutral-800 tracking-wider text-xs">{selectedGearItemView.serialNumber}</p>
-                        </div>
-                      )}
-                      {selectedGearItemView.releaseYear && (
-                        <div>
-                          <p className="text-[9px] font-bold uppercase text-neutral-400">Release Date/Year</p>
-                          <p className="font-semibold text-neutral-800">{selectedGearItemView.releaseYear}</p>
+                          <span className="text-neutral-400 block text-[10px] uppercase">Secured Deposit</span>
+                          <span className="text-neutral-800 font-bold">
+                            {formatCurrency(selectedGearItemView.rentalDeposit, selectedGearItemView.currency || 'USD')}
+                          </span>
                         </div>
                       )}
                     </div>
                   </div>
                 )}
 
-                {selectedGearItemView.description && (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Description</p>
-                    <p className="text-neutral-600 leading-relaxed text-sm">{selectedGearItemView.description}</p>
+                {/* Operations Control Panel */}
+                <div className="p-5 border border-indigo-100 bg-indigo-50/10 rounded-2xl space-y-3">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Operations Console</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                    <button 
+                      onClick={() => { handleIncrementUsage(selectedGearItemView); setSelectedGearItemView({...selectedGearItemView, usageCount: (selectedGearItemView.usageCount || 0) + 1}) }}
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-indigo-700 transition shadow-sm cursor-pointer"
+                    >
+                      <CheckCircle2 size={14} />
+                      Log Field Usage (+1)
+                    </button>
+
+                    <button 
+                      onClick={() => { 
+                        setSharingGearItem(selectedGearItemView); 
+                        setSharingGearType(selectedGearItemView.isKit ? 'kit' : 'gear');
+                      }}
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-neutral-900 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-neutral-800 transition shadow-sm cursor-pointer"
+                    >
+                      <Share2 size={14} />
+                      Share & Book Item
+                    </button>
+
+                    <button 
+                      onClick={() => { setSelectedGearItemView(null); navigate(`/gear/${selectedGearItemView.id}`); }}
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-emerald-700 transition shadow-sm cursor-pointer"
+                    >
+                      <QrCode size={14} />
+                      View QR Passport
+                    </button>
+
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => fetchHistory(selectedGearItemView.id)}
+                        className="flex-1 py-3 bg-neutral-100 hover:bg-neutral-200 rounded-xl flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition cursor-pointer"
+                      >
+                        <History size={12} />
+                        History
+                      </button>
+                      <button 
+                        onClick={() => fetchIncidents(selectedGearItemView.id)}
+                        className="flex-1 py-3 bg-neutral-100 hover:bg-neutral-200 rounded-xl flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-widest transition cursor-pointer"
+                      >
+                        <AlertCircle size={12} />
+                        Log Issue
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes & Bio */}
+                {(selectedGearItemView.description || selectedGearItemView.organizationTip) && (
+                  <div className="space-y-4">
+                    {selectedGearItemView.organizationTip && (
+                      <div className="p-5 border border-amber-100 bg-amber-50/20 rounded-2xl space-y-2">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-600">Organization Tip</h4>
+                        <p className="text-xs text-neutral-700 leading-relaxed font-medium italic">"{selectedGearItemView.organizationTip}"</p>
+                      </div>
+                    )}
+
+                    {selectedGearItemView.description && (
+                      <div className="p-5 border border-neutral-100 bg-neutral-50/30 rounded-2xl space-y-2">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Item Biography & Specs</h4>
+                        <p className="text-xs text-neutral-600 leading-relaxed font-medium whitespace-pre-line">{selectedGearItemView.description}</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                <div className="space-y-4 pt-8 border-t border-neutral-100">
-                  <div className="grid grid-cols-2 gap-3">
-                    <button 
-                      onClick={() => { setEditingItem(selectedGearItemView); setSelectedGearItemView(null); }}
-                      className="flex items-center justify-center gap-2 px-6 py-4 bg-neutral-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-800 transition"
-                    >
-                      <Edit2 size={16} />
-                      Edit Item
-                    </button>
-                    <button 
-                      onClick={() => { handleDelete(selectedGearItemView.id); setSelectedGearItemView(null); }}
-                      className="flex items-center justify-center gap-2 px-6 py-4 bg-neutral-100 text-neutral-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-200 transition"
-                    >
-                      <Trash2 size={16} />
-                      Retire
-                    </button>
+                {/* Optics & Lens Specs (if present) */}
+                {(selectedGearItemView.lensType || selectedGearItemView.lensMount || selectedGearItemView.focalLength || selectedGearItemView.maxAperture) && (
+                  <div className="p-5 bg-purple-50/50 border border-purple-100 rounded-2xl space-y-3">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-purple-600">Optics & Lens Taxonomy</h4>
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] uppercase">Lens Type</span>
+                        <span className="text-purple-950 font-bold">{selectedGearItemView.lensType || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] uppercase">Lens Mount</span>
+                        <span className="text-purple-950 font-bold">{selectedGearItemView.lensMount || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] uppercase">Focal Length</span>
+                        <span className="text-purple-950 font-mono font-bold">{selectedGearItemView.focalLength || '—'}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block text-[10px] uppercase">Max Aperture</span>
+                        <span className="text-purple-950 font-mono font-bold">{selectedGearItemView.maxAperture || '—'}</span>
+                      </div>
+                    </div>
                   </div>
+                )}
 
-                  <button 
-                    onClick={() => { 
-                      setSharingGearItem(selectedGearItemView); 
-                      setSharingGearType(selectedGearItemView.isKit ? 'kit' : 'gear');
-                    }}
-                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-primary text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-primary/95 transition shadow-xl shadow-primary/20"
-                  >
-                    <Share2 size={18} />
-                    Share with Customers (Book)
-                  </button>
-
-                  <button 
-                    onClick={() => { setSelectedGearItemView(null); navigate(`/gear/${selectedGearItemView.id}`); }}
-                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-700 transition shadow-xl"
-                  >
-                    <QrCode size={18} />
-                    View Gear Bio Passport (QR)
-                  </button>
-
-                  <button 
-                    onClick={() => { handleIncrementUsage(selectedGearItemView); setSelectedGearItemView({...selectedGearItemView, usageCount: (selectedGearItemView.usageCount || 0) + 1}) }}
-                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-primary text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-primary/90 transition shadow-xl shadow-primary/20"
-                  >
-                    <CheckCircle2 size={18} />
-                    Log Field Usage (+1)
-                  </button>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => fetchHistory(selectedGearItemView.id)}
-                      className="flex-1 py-3 bg-neutral-50 hover:bg-neutral-100 rounded-xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest transition"
-                    >
-                      <History size={14} />
-                      History
-                    </button>
-                    <button 
-                      onClick={() => fetchIncidents(selectedGearItemView.id)}
-                      className="flex-1 py-3 bg-neutral-50 hover:bg-neutral-100 rounded-xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest transition"
-                    >
-                      <AlertCircle size={14} />
-                      Log Issue
-                    </button>
+                {/* Add-Ons & Accessories if present */}
+                {selectedGearItemView.addOns && selectedGearItemView.addOns.length > 0 && (
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Standard In-The-Box Inclusions & Accessories</span>
+                    <div className="border border-neutral-100 rounded-2xl overflow-hidden bg-neutral-50/50">
+                      <table className="w-full border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-neutral-100 text-neutral-500 font-bold border-b border-neutral-200">
+                            <th className="p-3 text-left">Accessory Name</th>
+                            <th className="p-3 text-left">Type</th>
+                            <th className="p-3 text-right">Costing</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100">
+                          {selectedGearItemView.addOns.map((add, addIdx) => (
+                            <tr key={addIdx} className="hover:bg-neutral-50 transition-colors">
+                              <td className="p-3 font-bold text-neutral-800">{add.name}</td>
+                              <td className="p-3 text-neutral-500">{add.type || 'Accessory'}</td>
+                              <td className="p-3 text-right font-mono font-bold text-neutral-900">
+                                {add.price === 0 ? 'FREE' : `$${add.price}`}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 bg-neutral-50 border-t border-neutral-100 flex gap-3">
+                <button
+                  onClick={() => { handleDelete(selectedGearItemView.id); setSelectedGearItemView(null); }}
+                  className="px-5 py-3.5 bg-red-50 text-red-600 hover:bg-red-100 transition rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-sm flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 size={14} />
+                  <span>Retire</span>
+                </button>
+                <button
+                  onClick={() => setSelectedGearItemView(null)}
+                  className="flex-1 py-3.5 bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100 transition rounded-2xl font-bold uppercase tracking-wider text-xs shadow-sm cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => { setEditingItem(selectedGearItemView); setSelectedGearItemView(null); }}
+                  className="flex-1 py-3.5 bg-black text-white hover:bg-neutral-800 transition rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Edit2 size={14} />
+                  <span>Edit Item</span>
+                </button>
               </div>
             </motion.div>
           </div>

@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { doc, getDoc, collection, query, onSnapshot, deleteDoc, updateDoc, addDoc, getDocs, writeBatch, where, orderBy, arrayUnion } from 'firebase/firestore';
-import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download, AlertTriangle, Cpu, Plane, Globe, FileSpreadsheet, Sparkles, AlertCircle } from 'lucide-react';
+import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download, AlertTriangle, Cpu, Plane, Globe, FileSpreadsheet, Sparkles, AlertCircle, Settings, ListChecks, Check, ShieldCheck } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Reorder, AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import * as PAPA from 'papaparse';
 import { toast } from 'sonner';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { UserProfile, PackingList, PackingItem, PackingListVersion, AdminSettings, Contact, GearItem, Project, RentalAgreement } from '../types';
+import { UserProfile, PackingList, PackingItem, PackingListVersion, AdminSettings, Contact, GearItem, Project, RentalAgreement, Container } from '../types';
 import { authenticatedFetch } from '../lib/api';
 import ReminderModal from '../components/ReminderModal';
 import BulkScanModal from '../components/BulkScanModal';
@@ -330,6 +330,13 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [showDuplicateConfirmation, setShowDuplicateConfirmation] = useState(false);
   const isAddingRef = useRef(false);
   const [bgGearItems, setBgGearItems] = useState<GearItem[]>([]);
+  const [hasSyncedLibrary, setHasSyncedLibrary] = useState(false);
+  const [containers, setContainers] = useState<Container[]>([]);
+  const [newContainerName, setNewContainerName] = useState('');
+  const [newContainerType, setNewContainerType] = useState<'toolbox' | 'suitcase' | 'pelican' | 'nanuk' | 'shelf' | 'locker' | 'custom' | 'bag' | 'case'>('pelican');
+  const [showCreateContainerInline, setShowCreateContainerInline] = useState(false);
+  const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
+  const [selectedItemsForContainer, setSelectedItemsForContainer] = useState<Set<string>>(new Set());
   const [isEditingName, setIsEditingName] = useState(false);
   const [editListName, setEditListName] = useState('');
   const [isReidentifying, setIsReidentifying] = useState(false);
@@ -685,7 +692,14 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const handleBulkGroup = async (targetGroupName?: string) => {
     const groupNameStr = typeof targetGroupName === 'string' ? targetGroupName : '';
     const groupToApply = groupNameStr || newGroupName;
-    if (!id || selectedItems.size === 0 || !groupToApply.trim()) return;
+    if (!id) return;
+    if (selectedItems.size === 0) {
+      toast.info("Please select some checklist items first using the checkboxes.", {
+        description: `Then click "Add Selected Here" to move them into "${groupToApply || 'this group'}".`
+      });
+      return;
+    }
+    if (!groupToApply.trim()) return;
     
     const batch = writeBatch(db);
     selectedItems.forEach(itemId => {
@@ -1051,6 +1065,198 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       loadBgGear();
     }
   }, [user]);
+
+  // Automatically sync item photos and info across lists from the main Gear library
+  useEffect(() => {
+    if (user && items.length > 0 && bgGearItems.length > 0 && !hasSyncedLibrary && id) {
+      setHasSyncedLibrary(true);
+      
+      const syncAllWithLibrary = async () => {
+        let updatedCount = 0;
+        const batch = writeBatch(db);
+        
+        items.forEach(item => {
+          // Find matching gear item in library
+          // Match by gearId first, then serialNumber/assetTag, then case-insensitive name
+          const match = bgGearItems.find(g => 
+            (item.gearId && g.id === item.gearId) ||
+            (item.assetTag && g.serialNumber === item.assetTag) ||
+            (g.name && item.name && g.name.toLowerCase() === item.name.toLowerCase())
+          );
+          
+          if (match) {
+            const updates: any = {};
+            
+            // Compare photoUrls (both arrays)
+            const hasPhotoDiff = JSON.stringify(item.photoUrls || []) !== JSON.stringify(match.photoUrls || []);
+            if (hasPhotoDiff) {
+              updates.photoUrls = match.photoUrls || [];
+            }
+            
+            // Compare other properties
+            if (match.brand && item.brand !== match.brand) updates.brand = match.brand;
+            if (match.model && item.model !== match.model) updates.model = match.model;
+            if (match.modelNumber && item.modelNumber !== match.modelNumber) updates.modelNumber = match.modelNumber;
+            if (match.description && item.description !== match.description) updates.description = match.description;
+            if (match.weight && item.weight !== match.weight) updates.weight = match.weight;
+            if (match.weightUnit && item.weightUnit !== match.weightUnit) updates.weightUnit = match.weightUnit;
+            if (match.price && item.price !== match.price) updates.price = match.price;
+            if (match.currency && item.currency !== match.currency) updates.currency = match.currency;
+            if (match.primaryCategory && item.primaryCategory !== match.primaryCategory) {
+              updates.primaryCategory = match.primaryCategory;
+            }
+            if (match.category && item.category !== match.category) {
+              updates.category = match.category;
+            }
+            if (match.condition && item.condition !== match.condition) updates.condition = match.condition;
+            if (match.addOns && JSON.stringify(item.addOns || []) !== JSON.stringify(match.addOns || [])) {
+              updates.addOns = match.addOns || [];
+            }
+            
+            if (Object.keys(updates).length > 0) {
+              const itemRef = doc(db, 'packingLists', id, 'items', item.id);
+              batch.update(itemRef, updates);
+              updatedCount++;
+            }
+          }
+        });
+        
+        if (updatedCount > 0) {
+          try {
+            await batch.commit();
+            toast.success(`Synchronized ${updatedCount} items' photos and details with Gear Library!`, {
+              duration: 4000
+            });
+          } catch (err) {
+            console.error("Error committing automatic gear sync:", err);
+          }
+        }
+      };
+      
+      syncAllWithLibrary();
+    }
+  }, [user, items, bgGearItems, hasSyncedLibrary, id]);
+
+  // Listen to containers/cases from user database
+  useEffect(() => {
+    if (user) {
+      const q = query(collection(db, 'users', user.uid, 'containers'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Container);
+        setContainers(list);
+        if (list.length > 0 && !selectedContainerId) {
+          setSelectedContainerId(list[0].id);
+        }
+      }, (error) => {
+        console.error("Error fetching containers:", error);
+      });
+      return () => unsubscribe();
+    }
+  }, [user, selectedContainerId]);
+
+  const handleCreateContainer = async () => {
+    if (!newContainerName.trim() || !user) {
+      toast.error("Please enter a valid container name.");
+      return;
+    }
+    try {
+      const payload = {
+        ownerId: user.uid,
+        name: newContainerName.trim(),
+        type: newContainerType,
+        items: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      const docRef = await addDoc(collection(db, 'users', user.uid, 'containers'), payload);
+      setNewContainerName('');
+      setShowCreateContainerInline(false);
+      setSelectedContainerId(docRef.id);
+      toast.success("New travel container registered successfully!");
+    } catch (err) {
+      console.error("Error creating container:", err);
+      toast.error("Failed to create travel container");
+    }
+  };
+
+  const handleAssignItemsToContainer = async () => {
+    if (!selectedContainerId || selectedItemsForContainer.size === 0 || !user) {
+      toast.error("Please select a valid container and items.");
+      return;
+    }
+    const container = containers.find(c => c.id === selectedContainerId);
+    if (!container) {
+      toast.error("Selected container not found.");
+      return;
+    }
+    
+    try {
+      const batch = writeBatch(db);
+      const itemIdsArray = Array.from(selectedItemsForContainer);
+      
+      // 1. Update packing list items in Firestore
+      itemIdsArray.forEach(itemId => {
+        const itemRef = doc(db, 'packingLists', id!, 'items', itemId);
+        batch.update(itemRef, { containerName: container.name });
+      });
+      
+      // 2. Add to container.items array
+      const containerRef = doc(db, 'users', user.uid, 'containers', selectedContainerId);
+      const uniqueItems = Array.from(new Set([...(container.items || []), ...itemIdsArray]));
+      batch.update(containerRef, { items: uniqueItems, updatedAt: new Date().toISOString() });
+      
+      await batch.commit();
+      
+      // Update local state and toast
+      setSelectedItemsForContainer(new Set());
+      toast.success(`Successfully assigned ${itemIdsArray.length} items to ${container.name}!`);
+    } catch (err) {
+      console.error("Error assigning items to container:", err);
+      toast.error("Failed to assign items to container");
+    }
+  };
+
+  const handleDeleteContainer = async (containerId: string) => {
+    if (!user || !window.confirm("Are you sure you want to delete this container? All packed items will be unpacked.")) return;
+    try {
+      const container = containers.find(c => c.id === containerId);
+      if (container) {
+        const packedItems = items.filter(it => it.containerName === container.name);
+        const batch = writeBatch(db);
+        packedItems.forEach(item => {
+          const itemRef = doc(db, 'packingLists', id!, 'items', item.id);
+          batch.update(itemRef, { containerName: null });
+        });
+        await batch.commit();
+      }
+      await deleteDoc(doc(db, 'users', user.uid, 'containers', containerId));
+      toast.success("Container deleted successfully");
+    } catch (err) {
+      console.error("Error deleting container:", err);
+      toast.error("Failed to delete container");
+    }
+  };
+
+  const handleRemoveItemFromContainer = async (itemId: string, containerId: string) => {
+    if (!user) return;
+    try {
+      const container = containers.find(c => c.id === containerId);
+      if (!container) return;
+      const batch = writeBatch(db);
+      
+      batch.update(doc(db, 'packingLists', id!, 'items', itemId), { containerName: null });
+      
+      const containerRef = doc(db, 'users', user.uid, 'containers', containerId);
+      const updatedItems = (container.items || []).filter((uid: string) => uid !== itemId);
+      batch.update(containerRef, { items: updatedItems, updatedAt: new Date().toISOString() });
+      
+      await batch.commit();
+      toast.success("Item unpacked from container!");
+    } catch (err) {
+      console.error("Error removing item from container:", err);
+      toast.error("Failed to unpack item");
+    }
+  };
 
   // --- POWER IMPORT DYNAMIC DATA LOADERS ---
   useEffect(() => {
@@ -2822,169 +3028,44 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
               </div>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 md:gap-3">
-            {/* If logged in but not the owner, let them save a copy as a template directly */}
-            {user && !isOwner && list && (
-              <button
-                onClick={() => {
-                  setTemplateJobType(list.jobType || '');
-                  setTemplateTeachingNotes(list.teachingNotes || '');
-                  setTemplateName(`${list.name} Template`);
-                  setShowTemplateModal(true);
-                }}
-                className="flex items-center gap-2 px-3.5 py-2.5 bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 rounded-xl font-bold transition shadow-sm shrink-0"
-                title="Save this list as a reusable template in your workspace"
-              >
-                <Zap size={16} className="text-amber-500 fill-amber-500 animate-pulse" />
-                <span className="text-xs uppercase tracking-wider">Save as Template</span>
-              </button>
-            )}
-
-            {isOwner && (
-              <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
-                <div className="flex-1 md:flex-none flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 md:pb-0">
-                  {list && (
-                    <button
-                      onClick={() => {
-                        setStagedItems([]);
-                        setImportTab('scan');
-                        setShowPowerImportModal(true);
-                      }}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:brightness-105 rounded-xl font-black shadow-md shrink-0 mr-1 animate-pulse"
-                      title="⚡ Power Onboarder & Multi-Source Importer"
-                    >
-                      <Zap size={16} className="text-white fill-white" />
-                      <span className="text-[10px] uppercase tracking-wider font-extrabold">⚡ Onboard Items</span>
-                    </button>
-                  )}
-                  {list && (
-                    <button
-                      onClick={() => {
-                        setTemplateJobType(list.jobType || '');
-                        setTemplateTeachingNotes(list.teachingNotes || '');
-                        setTemplateName(`${list.name} Template`);
-                        setShowTemplateModal(true);
-                      }}
-                      className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 rounded-xl font-bold transition shadow-sm shrink-0 mr-1"
-                      title="Save or Configure as AI Template"
-                    >
-                      <Zap size={16} className="text-amber-500 fill-amber-500" />
-                      <span className="text-xs uppercase tracking-wider font-extrabold">Save as Template</span>
-                    </button>
-                  )}
-                  {list && (
-                    <button
-                      onClick={handleOpenConvertListToKitModal}
-                      className="flex items-center gap-1.5 px-3.5 py-2 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-xl font-bold transition shadow-sm shrink-0 mr-1"
-                      title="Convert List to a Physical Kit in Library"
-                    >
-                      <Package size={16} className="text-primary" />
-                      <span className="text-xs uppercase tracking-wider font-extrabold">Convert to Kit</span>
-                    </button>
-                  )}
-                  {isPro && (
-                    <button
-                      onClick={() => {
-                        setBrandName(list.brandName || '');
-                        setBrandLogo(list.brandLogo || '');
-                        setShowBrandModal(true);
-                      }}
-                      className="p-2.5 bg-white border border-neutral-200 rounded-xl font-bold hover:bg-neutral-50 transition shadow-sm text-neutral-400 hover:text-primary shrink-0"
-                      title="Brand Settings"
-                    >
-                      <Package size={18} />
-                    </button>
-                  )}
+          </div>
+          <div className="w-full">
+            {/* Unified Segmented Navigation Control */}
+            <div className="flex bg-neutral-100 p-1 md:p-1.5 rounded-2xl w-full max-w-2xl mx-auto shadow-sm gap-1">
+              {[
+                { id: 'manifest', label: 'Equipment Checklist', icon: <ListChecks size={16} /> },
+                { id: 'organizers', label: 'Organizers & Cases', icon: <Layers size={16} /> },
+                { id: 'checkout', label: 'Dispatch & Signature', icon: <Shield size={16} /> },
+                { id: 'settings', label: 'Settings & Actions', icon: <Settings size={16} /> },
+              ].map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
                   <button
+                    key={tab.id}
                     onClick={() => {
-                      setReminderItem(null);
-                      setShowReminderModal(true);
+                      setSearchParams({ tab: tab.id });
                     }}
-                    className="p-2.5 bg-white border border-neutral-200 rounded-xl font-bold hover:bg-neutral-50 transition shadow-sm text-neutral-400 hover:text-primary shrink-0"
-                    title="Set List Reminder"
+                    className={`flex-1 flex items-center justify-center gap-1.5 md:gap-2 rounded-xl font-bold text-[10px] md:text-xs uppercase tracking-wider transition-all duration-200 ${
+                      isActive
+                        ? 'bg-neutral-900 text-white shadow-md'
+                        : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50/50'
+                    }`}
                   >
-                    <Bell size={18} />
+                    <span className="shrink-0">{tab.icon}</span>
+                    <span className="hidden sm:inline">{tab.label}</span>
                   </button>
-                  <button
-                    onClick={() => {
-                      if (!canExportList) {
-                        toast.error("Permission denied: You do not have 'Export' permissions to print QR tags or generate PDFs.");
-                        return;
-                      }
-                      setIsQRPrintModalOpen(true);
-                    }}
-                    className="p-2.5 bg-white border border-neutral-200 rounded-xl font-bold hover:bg-neutral-50 transition shadow-sm text-neutral-400 hover:text-primary shrink-0"
-                    title="Print Asset Tags"
-                  >
-                    <Tag size={18} />
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!canExportList) {
-                        toast.error("Permission denied: You do not have 'Export' permissions to generate print layouts or PDFs.");
-                        return;
-                      }
-                      setIsPrintView(true);
-                    }}
-                    className="p-2.5 bg-white border border-neutral-200 rounded-xl font-bold hover:bg-neutral-50 transition shadow-sm text-neutral-400 hover:text-primary shrink-0 animate-pulse bg-primary/5 hover:bg-primary/10 border-primary/20 hover:text-primary"
-                    title="Print List / PDF View"
-                  >
-                    <Printer size={18} className="text-[#F27D26]" />
-                  </button>
-                  <button
-                    onClick={handleExportCSV}
-                    className="p-2.5 bg-white border border-neutral-200 rounded-xl font-bold hover:bg-neutral-50 transition shadow-sm text-neutral-400 hover:text-primary shrink-0 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-600"
-                    title="Export Manifest to CSV"
-                  >
-                    <Download size={18} className="text-emerald-500" />
-                  </button>
-                  <button
-                    onClick={() => setShowHistoryModal(true)}
-                    className="p-2.5 bg-white border border-neutral-200 rounded-xl font-bold hover:bg-neutral-50 transition shadow-sm text-neutral-400 hover:text-primary shrink-0"
-                    title="Version History"
-                  >
-                    <History size={18} />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditRecipientId(list?.recipientId || '');
-                      setEditTransactionType(list?.transactionType || 'Personal');
-                      setEditPrice(list?.price || 0);
-                      setEditCurrency(list?.currency || 'USD');
-                      setEditMarketplaceEnabled(list?.marketplaceEnabled || false);
-                      setEditMarketplaceDetails(list?.marketplaceDetails || '');
-                      setEditImage(list?.image || '');
-                      setEditStatus(list?.status || 'Draft');
-                      setEditBookingFeePercent(list?.bookingFeePercent ?? (user?.defaultBookingFee ?? 10));
-                      setEditSecurityDeposit(list?.securityDeposit ?? (user?.defaultSecurityDeposit ?? 150));
-                      setEditCustomFields(list?.customFields || {});
-                      setShowMarketplaceModal(true);
-                    }}
-                    className="p-2.5 bg-white border border-neutral-200 rounded-xl font-bold hover:bg-neutral-50 transition shadow-sm text-neutral-400 hover:text-primary shrink-0"
-                    title="Marketplace & Recipient"
-                  >
-                    <ShoppingBag size={18} />
-                  </button>
-                  <button
-                    onClick={() => setShowCollaboratorsModal(true)}
-                    className="p-2.5 bg-white border border-neutral-200 rounded-xl font-bold hover:bg-neutral-50 transition shadow-sm text-neutral-400 hover:text-primary shrink-0"
-                    title="Collaborators"
-                  >
-                    <Share2 size={18} />
-                  </button>
-                  <button
-                    onClick={handleDeleteList}
-                    className="p-2.5 bg-white border border-red-100 rounded-xl font-bold hover:bg-red-50 transition shadow-sm text-red-300 hover:text-red-600 shrink-0"
-                    title="Delete Packing List"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-            )}
-
+                );
+              })}
+            </div>
+          </div>
+        </header>
 
         {/* --- START OF WORKSPACE --- */}
+        {activeTab === 'manifest' && (
+          <>
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-neutral-50 pt-6">
+          <div className="flex items-center gap-1.5 md:gap-3">
                 {isGroupingEnabled && (
                   <>
                     <div className="w-px h-4 bg-neutral-200 mx-1"></div>
@@ -3133,7 +3214,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
               </button>
             </div>
           </div>
-        </header>
+        </div>
 
       {/* Bulk Actions Bar */}
       {isOwner && selectedItems.size > 0 && (
@@ -3749,6 +3830,8 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         )}
       </div>
       )}
+          </>
+        )}
 
       {/* Add by URL Modal */}
       {showAddByUrlModal && (
@@ -6722,7 +6805,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                   Cancel
                 </button>
                 <button
-                  onClick={handleBulkGroup}
+                  onClick={() => handleBulkGroup()}
                   disabled={!newGroupName.trim()}
                   className="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition shadow-lg disabled:opacity-50"
                 >
