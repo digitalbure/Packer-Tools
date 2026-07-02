@@ -5532,17 +5532,93 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
       {/* Gear Grid/List */}
       {filteredGear.length === 0 ? (
-        <div className="bg-white rounded-2xl sm:rounded-[3rem] p-8 sm:p-20 text-center border border-dashed border-neutral-200 space-y-6 w-full">
-          <div className="w-24 h-24 bg-neutral-50 rounded-full flex items-center justify-center mx-auto">
-            <Package size={48} className="text-neutral-200" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-2xl font-bold">No gear found</h3>
-            <p className="text-neutral-500 max-w-md mx-auto">
-              Start by adding gear manually or use the {smartPackerName} Scanner to automatically populate your library.
-            </p>
-          </div>
-        </div>
+        gear.length === 0 ? (
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-[2rem] p-8 md:p-16 text-center border border-neutral-150 shadow-xl max-w-4xl mx-auto space-y-8 my-8 flex flex-col items-center justify-center relative overflow-hidden w-full"
+          >
+            {/* Ambient Background decoration */}
+            <div className="absolute top-0 left-1/4 w-96 h-96 bg-accent/5 rounded-full filter blur-3xl pointer-events-none -translate-y-1/2" />
+            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full filter blur-3xl pointer-events-none translate-y-1/2" />
+
+            {/* Icon Stack */}
+            <div className="relative">
+              <div className="w-24 h-24 bg-neutral-50 rounded-full flex items-center justify-center mx-auto border border-neutral-100 shadow-inner relative z-10 animate-pulse">
+                <Package size={44} className="text-neutral-400" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-accent text-white rounded-lg flex items-center justify-center shadow-md animate-bounce">
+                <Plus size={12} />
+              </div>
+              <div className="absolute -bottom-1 -left-1 w-8 h-8 bg-neutral-900 text-white rounded-full flex items-center justify-center shadow-md">
+                <Cpu size={14} className="text-neutral-200" />
+              </div>
+            </div>
+
+            <div className="space-y-3 max-w-lg mx-auto relative z-10">
+              <h3 className="text-xl md:text-2xl font-black uppercase tracking-tight text-neutral-900">
+                Your {customTerms.gearLabelPlural} Library is Empty
+              </h3>
+              <p className="text-neutral-500 text-xs md:text-sm leading-relaxed">
+                Build a centralized database for your {customTerms.gearLabelPlural.toLowerCase()}. 
+                Track current holders, register safety inspections, auto-generate QR asset codes, and enable smart template dispatching.
+              </p>
+            </div>
+
+            {/* CTAs */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-md relative z-10">
+              <button
+                onClick={() => {
+                  triggerHaptic();
+                  setSearchParams({ addGear: 'true' });
+                }}
+                className="w-full sm:w-auto bg-black text-white px-6 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-neutral-800 transition shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95 duration-100"
+              >
+                <Plus size={16} />
+                <span>Add First {customTerms.gearLabelSingular}</span>
+              </button>
+              <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="w-full sm:w-auto bg-neutral-50 hover:bg-neutral-100 text-neutral-800 px-6 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider border border-neutral-200 transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Upload size={16} className="text-neutral-500" />
+                <span>Import Spreadsheet</span>
+              </button>
+            </div>
+
+            {/* Informational Hint */}
+            <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest bg-neutral-50 px-4 py-2 rounded-full border border-neutral-150">
+              💡 Tip: Import an Excel sheet to populate hundreds of items instantly
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl p-8 md:p-16 text-center border border-dashed border-neutral-200 space-y-6 w-full max-w-3xl mx-auto my-6"
+          >
+            <div className="w-16 h-16 bg-neutral-50 rounded-full flex items-center justify-center mx-auto border border-neutral-100">
+              <Search size={28} className="text-neutral-300" />
+            </div>
+            <div className="space-y-2 max-w-md mx-auto">
+              <h3 className="text-lg font-bold text-neutral-800">No matching items found</h3>
+              <p className="text-neutral-500 text-xs md:text-sm">
+                We couldn't find any {customTerms.gearLabelPlural.toLowerCase()} matching your active query, selected category, or condition filters.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedCategory('All');
+                setSelectedCondition('all');
+                setPrivacyLayerFilter('all');
+              }}
+              className="px-5 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer"
+            >
+              Clear Filters & Search
+            </button>
+          </motion.div>
+        )
       ) : viewMode === 'grid' ? (
         selectedCategory === 'All' ? (
           <div className="space-y-12 w-full">

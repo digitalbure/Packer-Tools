@@ -213,7 +213,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
 
   const selectedStarters = user.selectedStarters !== undefined ? user.selectedStarters : ['/tooling', '/organizer', '/travel-cases'];
 
-  const navItems = getAdjustedNav(allowedModules.filter(item => !selectedStarters.includes(item.to)));
+  const navItems = getAdjustedNav(allowedModules.filter(item => !selectedStarters.includes(item.to) && item.to !== '/library' && item.to !== '/organization'));
 
   const adminNavItems = [
     { to: '/admin?tab=analytics', label: 'Platform Analytics', icon: <BarChart3 size={20} /> },
@@ -786,16 +786,6 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                 </Link>
 
                 <Link
-                  to="/library"
-                  onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}
-                  title={isCollapsed ? getAdjustedLabel('library') : ''}
-                >
-                  <Package size={18} className="group-hover:scale-110 transition-transform shrink-0" />
-                  {!isCollapsed && <span className="text-sm">{getAdjustedLabel('library')}</span>}
-                </Link>
-
-                <Link
                   to="/library?addGear=true"
                   onClick={() => setIsMobileOpen(false)}
                   className={`flex items-center justify-center gap-3 bg-neutral-900 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}
@@ -1006,15 +996,63 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
             )}
 
             {/* Admin Section */}
-            {user.isSuperAdmin && (
-              <div className="pt-4 border-t border-neutral-100">
+            <div className="pt-4 border-t border-neutral-100 space-y-1">
+              {!isCollapsed && (
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 px-3 mb-2">Admin</h3>
+              )}
+              
+              {/* Gear Library */}
+              <Link
+                to="/library"
+                onClick={() => setIsMobileOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold transition-all group ${
+                  location.pathname === '/library'
+                    ? 'bg-accent text-white shadow-lg shadow-accent/20'
+                    : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 border-none'
+                } ${isCollapsed ? 'justify-center' : ''}`}
+                title={isCollapsed ? getAdjustedLabel('library') : ''}
+              >
+                <Package size={20} className="shrink-0 group-hover:text-primary transition-colors" />
                 {!isCollapsed && (
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 px-3 mb-2">Management</h3>
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-sm whitespace-nowrap"
+                  >
+                    {getAdjustedLabel('library')}
+                  </motion.span>
                 )}
+              </Link>
+
+              {/* Organization */}
+              <Link
+                to="/organization"
+                onClick={() => setIsMobileOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold transition-all group ${
+                  location.pathname === '/organization'
+                    ? 'bg-accent text-white shadow-lg shadow-accent/20'
+                    : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 border-none'
+                } ${isCollapsed ? 'justify-center' : ''}`}
+                title={isCollapsed ? 'Organization' : ''}
+              >
+                <Building2 size={20} className="shrink-0 group-hover:text-primary transition-colors" />
+                {!isCollapsed && (
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-sm whitespace-nowrap"
+                  >
+                    Organization
+                  </motion.span>
+                )}
+              </Link>
+
+              {/* Admin Panel (Super Admin only) */}
+              {user.isSuperAdmin && (
                 <Link
                   to="/admin"
                   onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-3 rounded-xl font-bold transition-all group ${
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold transition-all group ${
                     isAdminRoute 
                       ? 'bg-accent text-white shadow-lg shadow-accent/20'
                       : 'text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 border-none'
@@ -1032,8 +1070,8 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                     </motion.span>
                   )}
                 </Link>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>

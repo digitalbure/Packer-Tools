@@ -346,8 +346,36 @@ To ensure Packer Tools scales gracefully to thousands of inventory assets withou
 - **Low-Overhead Server Counters**: The layout utilizes Firestore's smart metadata counter utility (`getCountFromServer`), which polls index states to fetch total collection tallies at up to 100x lower overhead than fetching full documents.
 - **Tactile On-Demand Sync controls**: Users are presented with a real-time status card at the footer of both modules. It shows current loaded caching progress (e.g., *“Loaded 50 of 248 total items”*) and hosts simple click controls (e.g., *"⚡ Load Next 50 Items"* and *"Synchronize All"*) to expand the local query window dynamically.
 
+---
 
+## 🗃️ 19. Unified Lists Hub Dashboard & Workspace Navigation (v5.3.0)
 
+Packer Tools v5.3.0 optimizes the primary work spaces dashboard by consolidating various disparate pack, kit, and inventory layouts into a unified, high-density dashboard center.
 
+### 🥞 High-Density Three-Column Layout:
+- **Lists Hub Display**: Packing Lists, Kit Templates, and Custom Inventories are rendered side-by-side in a responsive three-column grid.
+- **Live Status & Quantities**: Every card prints real-time item counts and current deployment indicators (e.g., in-use counts, draft status tags) directly on the dashboard page.
+- **Action Integrations**: Direct "Create New" buttons on each column header enable operators to generate packing manifests or inventories in a single click from their home terminal.
 
+### 📐 Direct Lists Hub Sidebar Link:
+- A dedicated navigation link is embedded in the left-hand Sidebar, positioned above the main "Add Gear" actions, granting rapid single-click entry to the Lists Hub from any sub-page.
+
+---
+
+## 🔗 20. Server-Side OpenGraph Injection & Unified Admin Navigation (v5.4.0)
+
+Packer Tools v5.4.0 introduces professional backend routing overlays to support high-fidelity social sharing previews and collapses administrative workspaces to maximize display density.
+
+### 🌐 Server-Side OpenGraph (OG) Meta Tag Injector:
+- **Express Share Router Proxy**: An Express backend router (`/server/routes/share.ts`) intercepts requests for shared gear bio cards (`/gear/:id`) and travel packing manifests (`/p/:id` or `/list/:id`).
+- **Dynamic Meta Tag Replacements**: The server queries the specified Firestore asset or list metadata, extracts titles, conditions, images, and descriptions, and replaces standard HTML tags with authentic `og:title`, `og:description`, `og:image`, and Twitter card attributes before sending files to client browsers.
+- **No-Hash Canonical URL Paths**: Links on label printers (`QRPrintModal.tsx`) and share sheets (`ShareModal.tsx`) generate clean canonical paths (e.g., `/gear/:id` instead of hash-based `/#/gear/:id`) to facilitate seamless server-side routing and metadata parsing.
+
+### 🛡️ Differentiated QR Code Scan Passports:
+- **Red "Safe Recovery Portal"**: If an asset is scanned and its database status registers as `'missing'`, the external passport view (`GearBioPage.tsx`) renders an urgent, red return banner, enabling finder handshakes and safe returns.
+- **Emerald "Digital Asset Passport"**: If the item status is healthy, the portal renders a premium emerald badge certified as a secure passport, presenting detailed, high-contrast equipment specs without visual clutter.
+
+### 📁 Unified Collapsible "Admin" Sidebar Grouping:
+- **Sidebar Organization**: Consolidated the primary Gear Library (`getAdjustedLabel('library')`), Organization Settings (`/organization`), and platform-wide administrative controls (`/admin`) under a single dedicated "Admin" section.
+- **Double-Nested Left Drawer Removal**: This restructure simplifies high-level layouts, maximizes horizontal screen real-estate for large data tables, and declutters workspace panels for mobile and tablet operators.
 

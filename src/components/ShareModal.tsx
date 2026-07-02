@@ -35,9 +35,9 @@ export default function ShareModal({ type, data, onClose, user }: ShareModalProp
   let shareUrl = '';
   if (isGear) {
     const ownerId = data.ownerId || user?.uid || '';
-    shareUrl = `${window.location.origin}/#/gear/${data.id}?owner=${ownerId}`;
+    shareUrl = `${window.location.origin}/gear/${data.id}?owner=${ownerId}`;
   } else {
-    shareUrl = `${window.location.origin}/#/p/${data.id}${data.shareToken ? `?token=${data.shareToken}` : ''}`;
+    shareUrl = `${window.location.origin}/p/${data.id}${data.shareToken ? `?token=${data.shareToken}` : ''}`;
   }
 
   // Determine if available for booking

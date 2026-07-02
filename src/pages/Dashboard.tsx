@@ -2408,18 +2408,31 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
               {/* Pack lists loop */}
               <div className="space-y-4 flex-1 overflow-y-auto max-h-[600px] pr-1">
                 {workspaceFilteredLists.filter(l => !l.isTemplate).length === 0 ? (
-                  <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-dashed border-neutral-200 animate-fadeIn">
-                    <p className="text-neutral-400 text-xs font-semibold">No packing lists created.</p>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center py-10 px-6 bg-indigo-50/20 rounded-2xl border border-dashed border-indigo-200 space-y-4 flex flex-col items-center justify-center"
+                  >
+                    <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center border border-indigo-100 shadow-sm">
+                      <ListChecks size={20} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-neutral-800 text-xs font-black uppercase tracking-tight">No Active {customTerms.listLabelPlural}</p>
+                      <p className="text-neutral-500 text-[11px] leading-relaxed max-w-[220px] mx-auto">
+                        Create real-time tracking manifests for gear checkout, site mobilization, and safety checklists.
+                      </p>
+                    </div>
                     <button
                       onClick={() => {
                         setCreateIsTemplate(false);
                         setIsCreating(true);
                       }}
-                      className="mt-2 text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider transition shadow-sm hover:shadow flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 duration-100"
                     >
-                      Create one now +
+                      <Plus size={12} />
+                      <span>Create First {customTerms.listLabelSingular}</span>
                     </button>
-                  </div>
+                  </motion.div>
                 ) : (
                   workspaceFilteredLists.filter(l => !l.isTemplate).map(list => {
                     const totalItems = list.items?.length || 0;
@@ -2510,18 +2523,31 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
               {/* Kit lists loop */}
               <div className="space-y-4 flex-1 overflow-y-auto max-h-[600px] pr-1">
                 {workspaceFilteredLists.filter(l => l.isTemplate).length === 0 ? (
-                  <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-dashed border-neutral-200 animate-fadeIn">
-                    <p className="text-neutral-400 text-xs font-semibold">No reusable templates created.</p>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center py-10 px-6 bg-pink-50/20 rounded-2xl border border-dashed border-pink-200 space-y-4 flex flex-col items-center justify-center"
+                  >
+                    <div className="w-12 h-12 bg-pink-50 text-pink-600 rounded-full flex items-center justify-center border border-pink-100 shadow-sm">
+                      <Layers size={20} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-neutral-800 text-xs font-black uppercase tracking-tight">No Standard Templates</p>
+                      <p className="text-neutral-500 text-[11px] leading-relaxed max-w-[220px] mx-auto">
+                        Establish baseline equipment standards for packages, cases, and repeat travel routines.
+                      </p>
+                    </div>
                     <button
                       onClick={() => {
                         setCreateIsTemplate(true);
                         setIsCreating(true);
                       }}
-                      className="mt-2 text-xs font-bold text-pink-600 hover:underline cursor-pointer"
+                      className="w-full bg-pink-600 hover:bg-pink-700 text-white py-2 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider transition shadow-sm hover:shadow flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 duration-100"
                     >
-                      Create one now +
+                      <Plus size={12} />
+                      <span>Establish New Template</span>
                     </button>
-                  </div>
+                  </motion.div>
                 ) : (
                   workspaceFilteredLists.filter(l => l.isTemplate).map(list => {
                     const totalItems = list.items?.length || 0;
@@ -2623,15 +2649,28 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
               {/* Inventories loop */}
               <div className="space-y-4 flex-1 overflow-y-auto max-h-[600px] pr-1">
                 {inventories.length === 0 ? (
-                  <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-dashed border-neutral-200 animate-fadeIn">
-                    <p className="text-neutral-400 text-xs font-semibold">No physical inventories registered.</p>
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center py-10 px-6 bg-amber-50/20 rounded-2xl border border-dashed border-amber-200 space-y-4 flex flex-col items-center justify-center"
+                  >
+                    <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center border border-amber-100 shadow-sm">
+                      <Package size={20} className="text-amber-600" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-neutral-800 text-xs font-black uppercase tracking-tight">No Active Warehouses</p>
+                      <p className="text-neutral-500 text-[11px] leading-relaxed max-w-[220px] mx-auto">
+                        Register bulk inventory sheets, safety audits, shelf items, and consumable stocks.
+                      </p>
+                    </div>
                     <Link
                       to="/inventory"
-                      className="mt-2 text-xs font-bold text-amber-600 hover:underline inline-block"
+                      className="w-full bg-amber-600 hover:bg-amber-700 text-white py-2 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider transition shadow-sm hover:shadow flex items-center justify-center gap-1.5 cursor-pointer text-center"
                     >
-                      Go to Inventory Module +
+                      <Plus size={12} />
+                      <span>Manage Inventories</span>
                     </Link>
-                  </div>
+                  </motion.div>
                 ) : (
                   inventories.map(inv => (
                     <div key={inv.id} className="group bg-neutral-50 p-4 rounded-xl border border-neutral-100 hover:border-amber-200 hover:bg-white hover:shadow-sm transition-all duration-300 relative">

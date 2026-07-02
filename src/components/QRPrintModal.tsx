@@ -1020,7 +1020,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                                   style={{ width: `${itemConfig.qrSize}mm`, height: `${itemConfig.qrSize}mm` }}
                                 >
                                   <QRCodeCanvas
-                                    value={`${window.location.origin}/#/gear/${item.id}`}
+                                    value={`${window.location.origin}/gear/${item.id}`}
                                     size={itemConfig.qrSize * 3.78}
                                     level={itemConfig.qrErrorLevel}
                                     fgColor={itemConfig.qrFgColor}
@@ -1103,7 +1103,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                                   }}
                                 >
                                   <QRCodeCanvas
-                                    value={`${window.location.origin}/#/gear/${item.id}`}
+                                    value={`${window.location.origin}/gear/${item.id}`}
                                     size={itemConfig.qrSize * 3.78}
                                     level={itemConfig.qrErrorLevel}
                                     fgColor={itemConfig.qrFgColor}

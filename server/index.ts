@@ -11,6 +11,7 @@ import emailRouter from "./routes/email";
 import developerRouter from "./routes/developer";
 import googleChatRouter from "./routes/googleChat";
 import mcpRouter from "./routes/mcp";
+import shareRouter from "./routes/share";
 
 async function startServer() {
   const app = express();
@@ -35,6 +36,7 @@ async function startServer() {
   app.use(developerRouter);
   app.use(googleChatRouter);
   app.use(mcpRouter);
+  app.use(shareRouter);
 
   // Vite development middleware vs Static Production bundle
   if (process.env.NODE_ENV !== "production") {

@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.3.0`
+## Current Application Version: `v5.4.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,15 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v5.4.0 (Server-Side OG Meta Tag Injection & Unified Collapsible Admin Sidebar)
+*Released on: July 02, 2026*
+- **Server-Side OpenGraph (OG) Injection**: Developed a custom backend share router `/server/routes/share.ts` to intercept `/gear/:id` and `/p/:id` (or `/list/:id`) query URLs. It queries the matching assets or packing list metadata dynamically in Firestore and injects genuine OpenGraph title, description, image, and Twitter meta tags directly into the delivered `index.html` headers. This replaces simulated client-side mockups with actual high-fidelity social sharing card previews.
+- **Clean Canonical URL QR Code Routing**: Updated QR Code generation canvases across the dashboard (`AddGearModal.tsx`), label printing sheets (`QRPrintModal.tsx`), share drawer modals (`ShareModal.tsx`), and detail pages (`GearBioPage.tsx`) to generate clean URL routes (e.g., `/gear/:id` instead of hash-wrapped `/#/gear/:id`), preventing search indexing issues and aligning with correct server-side proxy interception.
+- **Differentiated Scanning Passports**: Refactored the public asset detail interface (`GearBioPage.tsx`) to render completely custom layouts based on physical state: missing or lost items display an urgent Red "Safe Recovery Portal" return form, while healthy items render an elegant Emerald "Digital Asset Passport" displaying certified equipment specifications.
+- **Unified 'Admin' Collapsible Navigation Sidebar**: Reorganized the primary left-hand navigation panel to consolidate administration tools (Gear Library, Organization Settings, and Super Admin panel) into a single collapsible "Admin" header. This increases layout density, avoids sidebar pollution, and enhances screen real-estate for inventory lists.
 
 ---
 
