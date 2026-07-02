@@ -786,6 +786,16 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                 </Link>
 
                 <Link
+                  to="/library"
+                  onClick={() => setIsMobileOpen(false)}
+                  className={`flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}
+                  title={isCollapsed ? getAdjustedLabel('library') : ''}
+                >
+                  <Package size={18} className="group-hover:scale-110 transition-transform shrink-0" />
+                  {!isCollapsed && <span className="text-sm">{getAdjustedLabel('library')}</span>}
+                </Link>
+
+                <Link
                   to="/library?addGear=true"
                   onClick={() => setIsMobileOpen(false)}
                   className={`flex items-center justify-center gap-3 bg-neutral-900 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}

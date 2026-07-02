@@ -97,13 +97,40 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const { getAdjustedLabel, customTerms } = useIndustry();
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [dbBrands, setDbBrands] = useState<any[]>([]);
+  const [dbCategories, setDbCategories] = useState<any[]>([]);
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'marketplaceBrands'), (snapshot) => {
+    const unsubBrands = onSnapshot(collection(db, 'marketplaceBrands'), (snapshot) => {
       setDbBrands(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (err) => console.warn(err));
-    return () => unsub();
+
+    const unsubCategories = onSnapshot(collection(db, 'marketplaceCategories'), (snapshot) => {
+      const cats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Sort by sortOrder
+      cats.sort((a: any, b: any) => {
+        const orderA = a.sortOrder !== undefined ? a.sortOrder : 9999;
+        const orderB = b.sortOrder !== undefined ? b.sortOrder : 9999;
+        return orderA - orderB;
+      });
+      setDbCategories(cats.filter((c: any) => c.assignToPackerTools !== false));
+    }, (err) => console.warn(err));
+
+    return () => {
+      unsubBrands();
+      unsubCategories();
+    };
   }, []);
+
+  const resolvedCategories = useMemo(() => {
+    if (dbCategories.length > 0) {
+      const names = dbCategories.map(c => c.name);
+      if (!names.includes('Other')) {
+        names.push('Other');
+      }
+      return names;
+    }
+    return ['Camera', 'Lens', 'Audio', 'Lighting', 'Support', 'Electronics', 'Cables', 'Power', 'Accessories', 'Other'];
+  }, [dbCategories]);
   const [importStep, setImportStep] = useState(1);
   const [importData, setImportData] = useState<any[]>([]);
   const [importHeaders, setImportHeaders] = useState<string[]>([]);
@@ -6600,16 +6627,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
                         >
                           <option value="Kit">Kit (Bundle)</option>
-                          <option value="Camera">Camera</option>
-                          <option value="Lens">Lens</option>
-                          <option value="Audio">Audio</option>
-                          <option value="Lighting">Lighting</option>
-                          <option value="Support">Support</option>
-                          <option value="Electronics">Electronics</option>
-                          <option value="Cables">Cables</option>
-                          <option value="Power">Power</option>
-                          <option value="Accessories">Accessories</option>
-                          <option value="Other">Other</option>
+                          {resolvedCategories.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
                         </select>
                       </div>
                       <div className="space-y-2">
@@ -6714,7 +6734,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
                           {/* Quick presets */}
                           <div className="flex flex-wrap gap-1.5 pt-1">
-                            {['Camera', 'Lens', 'Audio', 'Lighting', 'Support', 'Electronics', 'Cables', 'Power', 'Accessories', 'Full Frame', 'Anamorphic', 'Zoom', 'E-mount', 'Other'].map(cat => {
+                            {['Full Frame', 'Anamorphic', 'Zoom', 'E-mount', ...resolvedCategories].map(cat => {
                               const primary = newItem.primaryCategory || newItem.category || 'Other';
                               if (cat === primary) return null;
 
@@ -7403,16 +7423,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
                     >
                       <option value="Kit">Kit (Bundle)</option>
-                      <option value="Camera">Camera</option>
-                      <option value="Lens">Lens</option>
-                      <option value="Audio">Audio</option>
-                      <option value="Lighting">Lighting</option>
-                      <option value="Support">Support</option>
-                      <option value="Electronics">Electronics</option>
-                      <option value="Cables">Cables</option>
-                      <option value="Power">Power</option>
-                      <option value="Accessories">Accessories</option>
-                      <option value="Other">Other</option>
+                      {resolvedCategories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -7490,7 +7503,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
                       {/* Quick presets */}
                       <div className="flex flex-wrap gap-1.5 pt-1">
-                        {['Camera', 'Lens', 'Audio', 'Lighting', 'Support', 'Electronics', 'Cables', 'Power', 'Accessories', 'Full Frame', 'Anamorphic', 'Zoom', 'E-mount', 'Other'].map(cat => {
+                        {['Full Frame', 'Anamorphic', 'Zoom', 'E-mount', ...resolvedCategories].map(cat => {
                           const primary = editingItem.primaryCategory || editingItem.category || 'Other';
                           if (cat === primary) return null;
 
