@@ -12,15 +12,42 @@ export async function compressImage(
   maxHeight: number = 800,
   quality: number = 0.7
 ): Promise<string> {
+  const isHEIC = file.type === 'image/heic' || file.type === 'image/heif' || 
+                 /\.(heic|heif)$/i.test(file.name);
+
+  let fileToProcess = file;
+
+  if (isHEIC) {
+    try {
+      const heic2anyModule: any = await import('heic2any');
+      const heic2any = heic2anyModule.default || heic2anyModule;
+      
+      const convertedBlob = await heic2any({
+        blob: file,
+        toType: 'image/jpeg',
+        quality: quality
+      });
+      
+      const singleBlob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+      const newName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
+      fileToProcess = new File([singleBlob], newName, {
+        type: 'image/jpeg'
+      });
+    } catch (error) {
+      console.error('HEIC conversion failed:', error);
+      throw new Error('Failed to process HEIC photo. Please convert it to JPEG/PNG or try again.');
+    }
+  }
+
   return new Promise((resolve, reject) => {
     // Safety check: ensure file is an image
-    if (!file.type.startsWith('image/')) {
+    if (!isHEIC && fileToProcess.type && !fileToProcess.type.startsWith('image/')) {
       reject(new Error('File is not an image'));
       return;
     }
 
     // Create a memory-efficient object URL instead of loading the entire raw file into a huge Base64 string
-    const objectUrl = URL.createObjectURL(file);
+    const objectUrl = URL.createObjectURL(fileToProcess);
     const img = new Image();
 
     img.onload = () => {

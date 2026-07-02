@@ -58,6 +58,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../providers/AuthProvider';
 import { useIndustry } from '../context/IndustryContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { SwipeableImageGallery } from '../components/SwipeableImageGallery';
 import { format } from 'date-fns';
 import { compressImage } from '../lib/imageUtils';
 import NfcScannerModal from '../components/NfcScannerModal';
@@ -4837,18 +4838,12 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
               {/* Scrollable Content */}
               <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
-                {/* Photo Gallery */}
+                {/* Swipeable Photo Gallery */}
                 {selectedGearItemView.photoUrls && selectedGearItemView.photoUrls.length > 0 && (
-                  <div className="space-y-3">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Photo Gallery</span>
-                    <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar snap-x snap-mandatory">
-                      {selectedGearItemView.photoUrls.map((url, idx) => (
-                        <div key={idx} className="w-48 h-36 md:w-64 md:h-48 rounded-2xl overflow-hidden border border-neutral-200 shrink-0 snap-center relative bg-neutral-50">
-                          <img src={url} alt={`${selectedGearItemView.name} ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <SwipeableImageGallery
+                    photoUrls={selectedGearItemView.photoUrls}
+                    itemName={selectedGearItemView.name}
+                  />
                 )}
 
                 {/* Bento Details Grid */}

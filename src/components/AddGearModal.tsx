@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { collection, query, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, doc, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
-import { UserProfile, GearItem } from '../types';
+import { UserProfile, GearItem, PackingList } from '../types';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -115,6 +115,10 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedExistingId, setSelectedExistingId] = useState<string | null>(null);
 
+  // Packing list selection states
+  const [packingLists, setPackingLists] = useState<PackingList[]>([]);
+  const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
+
   // Success states
   const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null);
   const [newlyCreatedTag, setNewlyCreatedTag] = useState<string>('');
@@ -138,6 +142,22 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     loadInventory();
   }, [isOpen, user]);
 
+  // Load user's packing lists
+  useEffect(() => {
+    if (!isOpen || !user) return;
+    const loadPackingLists = async () => {
+      try {
+        const qRef = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid));
+        const snap = await getDocs(qRef);
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as PackingList);
+        setPackingLists(list);
+      } catch (e) {
+        console.error("Error loading packing lists:", e);
+      }
+    };
+    loadPackingLists();
+  }, [isOpen, user]);
+
   const handleClose = () => {
     // Clear URL params
     const updated = new URLSearchParams(searchParams);
@@ -152,6 +172,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     setSelectedAccessories([]);
     setSelectedExistingId(null);
     setNewlyCreatedId(null);
+    setSelectedListIds([]);
     setForm({
       name: '',
       brand: '',
@@ -366,6 +387,53 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     return clean;
   };
 
+  const addGearItemToSelectedLists = async (gearId: string, gearData: any, childGearItems: any[] = []) => {
+    if (selectedListIds.length === 0) return;
+    try {
+      const batch = writeBatch(db);
+      
+      for (const listId of selectedListIds) {
+        // Query current items to find the next order index
+        const itemsSnap = await getDocs(collection(db, 'packingLists', listId, 'items'));
+        let orderIndex = itemsSnap.size;
+
+        const prepareItemData = (id: string, name: string, data: any, groupLabel?: string) => {
+          const sanitizedData = Object.fromEntries(
+            Object.entries(data).filter(([_, v]) => v !== undefined && typeof v !== 'function')
+          );
+          return {
+            ...sanitizedData,
+            name,
+            gearId: id,
+            listId,
+            aiLabel: groupLabel || data.aiLabel || data.category || 'Other',
+            status: 'pending',
+            order: orderIndex++,
+            createdAt: new Date().toISOString()
+          };
+        };
+
+        const kitGroupLabel = gearData.isKit ? gearData.name : undefined;
+        
+        // Main item
+        const mainItemRef = doc(collection(db, 'packingLists', listId, 'items'));
+        batch.set(mainItemRef, prepareItemData(gearId, gearData.name, gearData, kitGroupLabel));
+
+        // Child/accessory items
+        for (const child of childGearItems) {
+          const childItemRef = doc(collection(db, 'packingLists', listId, 'items'));
+          batch.set(childItemRef, prepareItemData(child.id, child.name, child, kitGroupLabel));
+        }
+      }
+      
+      await batch.commit();
+      toast.success(`Successfully added onboarding gear directly to ${selectedListIds.length} checklist(s)!`);
+    } catch (err) {
+      console.error("Error adding gear item to selected packing lists:", err);
+      toast.error("Failed to add equipment to some selected packing lists.");
+    }
+  };
+
   // Execute full save to Firestore!
   const saveGearItem = async () => {
     if (!user) return;
@@ -387,12 +455,13 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
         for (let i = 1; i <= qtyToGen; i++) {
           const generatedTag = `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
           const createdChildIds: string[] = [];
+          const childGearItems: any[] = [];
 
           if (selectedAccessories.length > 0) {
             // Create child accessory records in Firestore
             for (const acc of selectedAccessories) {
               const accTag = `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-              const docRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), cleanUndefinedFields({
+              const accData = {
                 name: `${form.name} [#${i}] - ${acc}`,
                 brand: form.brand || '',
                 category: 'Electronics',
@@ -406,8 +475,10 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                 photoUrls: ['https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=100'],
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
-              }));
+              };
+              const docRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), cleanUndefinedFields(accData));
               createdChildIds.push(docRef.id);
+              childGearItems.push({ id: docRef.id, ...accData });
             }
           }
 
@@ -437,6 +508,11 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
           };
 
           const mainDocRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), cleanUndefinedFields(mainItemData));
+          
+          if (selectedListIds.length > 0) {
+            await addGearItemToSelectedLists(mainDocRef.id, mainItemData, childGearItems);
+          }
+
           if (i === 1) {
             finalMainId = mainDocRef.id;
             finalMainTag = generatedTag;
@@ -450,12 +526,13 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
       } else {
         const generatedTag = `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
         const createdChildIds: string[] = [];
+        const childGearItems: any[] = [];
         
         if (selectedAccessories.length > 0) {
           // Create child accessory records in Firestore
           for (const acc of selectedAccessories) {
             const accTag = `GEAR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-            const docRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), cleanUndefinedFields({
+            const accData = {
               name: `${form.name} - ${acc}`,
               brand: form.brand || '',
               category: 'Electronics',
@@ -469,8 +546,10 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
               photoUrls: ['https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=100'],
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
-            }));
+            };
+            const docRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), cleanUndefinedFields(accData));
             createdChildIds.push(docRef.id);
+            childGearItems.push({ id: docRef.id, ...accData });
           }
         }
 
@@ -490,6 +569,10 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
 
         const mainDocRef = await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), cleanUndefinedFields(mainItemData));
         
+        if (selectedListIds.length > 0) {
+          await addGearItemToSelectedLists(mainDocRef.id, mainItemData, childGearItems);
+        }
+
         setNewlyCreatedId(mainDocRef.id);
         setNewlyCreatedTag(generatedTag);
         setStep(3); // Go to final QR code success screen
@@ -509,10 +592,26 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     setSaving(true);
     try {
       const itemRef = doc(db, 'users', user.uid, 'gearLibrary', selectedExistingId);
-      await updateDoc(itemRef, cleanUndefinedFields({
+      const updatedData = {
         ...form,
         updatedAt: new Date().toISOString()
-      }));
+      };
+      await updateDoc(itemRef, cleanUndefinedFields(updatedData));
+      
+      let childGearItems: any[] = [];
+      if (form.isKit && form.childItemIds && form.childItemIds.length > 0) {
+        const childrenQuery = query(
+          collection(db, 'users', user.uid, 'gearLibrary'),
+          where('__name__', 'in', form.childItemIds.slice(0, 30))
+        );
+        const childrenSnap = await getDocs(childrenQuery);
+        childGearItems = childrenSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+      }
+
+      if (selectedListIds.length > 0) {
+        await addGearItemToSelectedLists(selectedExistingId, { ...form, id: selectedExistingId }, childGearItems);
+      }
+
       setNewlyCreatedId(selectedExistingId);
       const matched = allGear.find(g => g.id === selectedExistingId);
       setNewlyCreatedTag(matched?.assetTag || 'GEAR-UPDATED');
@@ -1032,6 +1131,73 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                   <p className="text-[9px] text-neutral-400 mt-0.5 leading-normal">
                     Check Private if this kit was prepped for a specific project, client, or individual who is setting up/planning a specific kit.
                   </p>
+                </div>
+
+                {/* Add Directly to Packing Lists */}
+                <div className="sm:col-span-2 bg-neutral-50 p-4 rounded-3xl border border-neutral-100/55 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#0066cc]">📋 Add directly to Packing List(s)</label>
+                    <span className="text-[9px] font-bold text-neutral-400 bg-neutral-100 px-2.5 py-0.5 rounded-full">
+                      {selectedListIds.length} Selected
+                    </span>
+                  </div>
+                  <p className="text-[9px] text-neutral-400 leading-normal">
+                    Select existing checklists or project manifest sheets to automatically insert this equipment into them during onboarding.
+                  </p>
+                  
+                  {packingLists.length === 0 ? (
+                    <div className="text-center py-4 bg-white rounded-2xl border border-dashed border-neutral-200">
+                      <p className="text-[10px] text-neutral-400 font-medium">No existing packing lists found.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleClose();
+                          navigate('/dashboard?createList=true');
+                        }}
+                        className="text-[9px] text-primary font-black uppercase tracking-wider mt-1 hover:underline cursor-pointer"
+                      >
+                        Create your first list
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="max-h-36 overflow-y-auto bg-white border border-neutral-200 rounded-2xl divide-y divide-neutral-100 p-1 space-y-1 scrollbar-thin">
+                      {packingLists.map((list) => {
+                        const isChecked = selectedListIds.includes(list.id);
+                        return (
+                          <label
+                            key={list.id}
+                            className={`flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all ${
+                              isChecked ? 'bg-neutral-50 font-bold' : 'hover:bg-neutral-50/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  setSelectedListIds(prev =>
+                                    prev.includes(list.id)
+                                      ? prev.filter(id => id !== list.id)
+                                      : [...prev, list.id]
+                                  );
+                                }}
+                                className="h-4 w-4 text-primary border-neutral-300 rounded focus:ring-transparent cursor-pointer"
+                              />
+                              <div>
+                                <span className="text-xs text-neutral-800 line-clamp-1">{list.name}</span>
+                                {list.description && (
+                                  <span className="text-[9px] text-neutral-400 line-clamp-1 font-normal mt-0.5">{list.description}</span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-[9px] text-neutral-400 font-mono">
+                              {list.stage === 'proposed' ? 'Draft' : 'Active'}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
 

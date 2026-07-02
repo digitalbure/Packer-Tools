@@ -53,8 +53,6 @@ if (typeof window !== 'undefined' && (window as any)[globalKey]) {
 export const db = dbInstance;
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/chat.spaces');
-googleProvider.addScope('https://www.googleapis.com/auth/chat.messages.create');
 
 let isSigningIn = false;
 let cachedAccessToken: string | null = typeof window !== 'undefined' ? localStorage.getItem('packer_google_access_token') : null;
@@ -69,14 +67,19 @@ export const setAccessToken = (token: string | null) => {
   }
 };
 
-export const signInWithGoogle = async () => {
+export const signInWithGoogle = async (requestChatScopes: boolean | any = false) => {
   if (isSigningIn) {
     console.warn('A sign-in request is already in progress.');
     return null;
   }
   isSigningIn = true;
   try {
-    const result = await signInWithPopup(auth, googleProvider);
+    const provider = new GoogleAuthProvider();
+    if (requestChatScopes === true) {
+      provider.addScope('https://www.googleapis.com/auth/chat.spaces');
+      provider.addScope('https://www.googleapis.com/auth/chat.messages.create');
+    }
+    const result = await signInWithPopup(auth, provider);
     if (result) {
       const credential = GoogleAuthProvider.credentialFromResult(result);
       if (credential?.accessToken) {

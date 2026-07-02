@@ -341,7 +341,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
 
   const handleGoogleChatLogin = async () => {
     try {
-      const result = await signInWithGoogle();
+      const result = await signInWithGoogle(true);
       if (result) {
         const token = getAccessToken();
         setChatToken(token);

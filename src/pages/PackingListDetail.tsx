@@ -23,6 +23,7 @@ import CarnetWidget from '../components/CarnetWidget';
 import { logActivity } from '../services/activityLog';
 import { isSuperAdmin } from '../lib/authHelpers';
 import { useAuth } from '../providers/AuthProvider';
+import { SwipeableImageGallery } from '../components/SwipeableImageGallery';
 
 const cleanUndefinedFields = (obj: any): any => {
   if (obj === null || typeof obj !== 'object') {
@@ -4387,18 +4388,12 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
-              {/* Photo Gallery if present */}
+              {/* Swipeable Photo Gallery */}
               {viewingItem.photoUrls && viewingItem.photoUrls.length > 0 && (
-                <div className="space-y-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Photo Gallery</span>
-                  <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar snap-x snap-mandatory">
-                    {viewingItem.photoUrls.map((url, idx) => (
-                      <div key={idx} className="w-48 h-36 md:w-64 md:h-48 rounded-2xl overflow-hidden border border-neutral-200 shrink-0 snap-center relative bg-neutral-50">
-                        <img src={url} alt={`${viewingItem.name} ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <SwipeableImageGallery
+                  photoUrls={viewingItem.photoUrls}
+                  itemName={viewingItem.name}
+                />
               )}
 
               {/* Bento Details Grid */}
