@@ -330,7 +330,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 text-center sm:text-left">
                 <div className="space-y-1">
                   <span className="text-[10px] uppercase font-black tracking-widest bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-md inline-block select-none">
-                    PACKER SYSTEM v5.3.0 Stable
+                    PACKER SYSTEM v5.5.0 Stable
                   </span>
                   <h2 className="text-2xl font-black tracking-tight flex items-center justify-center sm:justify-start gap-1.5 uppercase">
                     <QrCode size={24} className="text-primary" />
