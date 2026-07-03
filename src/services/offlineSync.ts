@@ -263,6 +263,120 @@ class OfflineSyncManager {
       toast.error(`Failed to synchronize ${failCount} offline operation(s). Check queue details.`);
     }
   }
+
+  // Cache gear list locally in the Service Worker's IndexedDB
+  async cacheGearList(userId: string, gearList: any[]): Promise<void> {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'CACHE_GEAR_LIST',
+        payload: { userId, gearList }
+      });
+    }
+  }
+
+  // Retrieve gear list cached in the Service Worker's IndexedDB
+  async getCachedGearList(userId: string): Promise<any[]> {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+      try {
+        const local = localStorage.getItem(`gear_cache_${userId}`);
+        return local ? JSON.parse(local) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    return new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = (event) => {
+        if (event.data && event.data.type === 'GEAR_LIST_RESPONSE') {
+          resolve(event.data.gearList || []);
+        } else {
+          resolve([]);
+        }
+      };
+
+      navigator.serviceWorker.controller?.postMessage(
+        { type: 'GET_CACHED_GEAR_LIST', payload: { userId } },
+        [channel.port2]
+      );
+    });
+  }
+
+  // Cache custom inventories metadata in the Service Worker's IndexedDB
+  async cacheInventories(userId: string, inventories: any[]): Promise<void> {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'CACHE_INVENTORIES',
+        payload: { userId, inventories }
+      });
+    }
+  }
+
+  // Retrieve custom inventories cached in the Service Worker's IndexedDB
+  async getCachedInventories(userId: string): Promise<any[]> {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+      try {
+        const local = localStorage.getItem(`inventories_cache_${userId}`);
+        return local ? JSON.parse(local) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    return new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = (event) => {
+        if (event.data && event.data.type === 'INVENTORIES_RESPONSE') {
+          resolve(event.data.inventories || []);
+        } else {
+          resolve([]);
+        }
+      };
+
+      navigator.serviceWorker.controller?.postMessage(
+        { type: 'GET_CACHED_INVENTORIES', payload: { userId } },
+        [channel.port2]
+      );
+    });
+  }
+
+  // General metadata caching
+  async cacheMetadataRecord(id: string, data: any): Promise<void> {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'CACHE_METADATA_RECORD',
+        payload: { id, data }
+      });
+    }
+  }
+
+  // Retrieve general metadata
+  async getCachedMetadataRecord(id: string): Promise<any> {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+      try {
+        const local = localStorage.getItem(`meta_cache_${id}`);
+        return local ? JSON.parse(local) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    return new Promise((resolve) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = (event) => {
+        if (event.data && event.data.type === 'METADATA_RECORD_RESPONSE' && event.data.id === id) {
+          resolve(event.data.data);
+        } else {
+          resolve(null);
+        }
+      };
+
+      navigator.serviceWorker.controller?.postMessage(
+        { type: 'GET_CACHED_METADATA_RECORD', payload: { id } },
+        [channel.port2]
+      );
+    });
+  }
 }
 
 export const offlineSync = new OfflineSyncManager();

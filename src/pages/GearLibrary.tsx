@@ -1142,6 +1142,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     }
   };
 
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const type = params.get('type');
@@ -1149,9 +1151,20 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       setSelectedCategory('Kits');
       setSearchTerm('');
     }
+    if (params.get('addGear') === 'true') {
+      setIsAddModalOpen(true);
+    }
   }, [location.search]);
 
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  useEffect(() => {
+    if (!isAddModalOpen) {
+      if (searchParams.get('addGear') === 'true') {
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('addGear');
+        setSearchParams(newParams);
+      }
+    }
+  }, [isAddModalOpen, searchParams, setSearchParams]);
   const [newItem, setNewItem] = useState<Partial<GearItem>>({
     name: '',
     category: 'Other',
@@ -1524,6 +1537,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         console.error("Error loading offline cache:", e);
       }
     }
+
+    // Load robust local IndexedDB cache from Service Worker
+    offlineSync.getCachedGearList(user.uid).then(swCachedGear => {
+      if (Array.isArray(swCachedGear) && swCachedGear.length > 0) {
+        setGear(swCachedGear);
+        setLoading(false);
+      }
+    }).catch(err => {
+      console.warn("Failed to load gear list from Service Worker:", err);
+    });
     
     const containerKey = `containers_cache_${user.uid}`;
     const cachedCon = localStorage.getItem(containerKey);
@@ -1619,6 +1642,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       const sortedGearList = items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setGear(sortedGearList);
       localStorage.setItem(`gear_cache_${user.uid}`, JSON.stringify(sortedGearList));
+      offlineSync.cacheGearList(user.uid, sortedGearList);
       const syncTime = new Date().toISOString();
       localStorage.setItem(`gear_cache_sync_time_${user.uid}`, syncTime);
       setLastSyncTime(syncTime);

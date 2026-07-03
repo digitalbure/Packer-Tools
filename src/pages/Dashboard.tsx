@@ -327,6 +327,26 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
     }
   }, [newBugTitle, newBugDesc, user?.uid]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('addList') === 'true') {
+      setCreateIsTemplate(false);
+      setIsCreating(true);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!isCreating) {
+      const params = new URLSearchParams(location.search);
+      if (params.get('addList') === 'true') {
+        const newParams = new URLSearchParams(location.search);
+        newParams.delete('addList');
+        const searchStr = newParams.toString();
+        navigate(location.pathname + (searchStr ? `?${searchStr}` : ''), { replace: true });
+      }
+    }
+  }, [isCreating, location.search, location.pathname, navigate]);
+
   const handleRecordItemMaintenanceDoc = async (itemId: string, itemName: string) => {
     try {
       await updateDoc(doc(db, 'users', user.uid, 'gearLibrary', itemId), {

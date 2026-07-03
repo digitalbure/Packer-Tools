@@ -76,7 +76,7 @@ import { isFeatureEnabled } from '../lib/featureUtils';
 import * as PAPA from 'papaparse';
 import * as XLSX from 'xlsx';
 import { authenticatedFetch } from '../lib/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import NfcScannerModal from '../components/NfcScannerModal';
 import AddPhotoWidget from '../components/AddPhotoWidget';
 
@@ -137,6 +137,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   const [activeTab, setActiveTab] = useState<'custom_inventories' | 'global_allocations' | 'physical_map'>('custom_inventories');
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   // NFC Scanner State variables
   const [isNfcModalOpen, setIsNfcModalOpen] = useState(false);
@@ -515,6 +516,26 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
   // Multi-selector creation / dialog states
   const [isCreatingInventory, setIsCreatingInventory] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('addSheet') === 'true' || params.get('addInventory') === 'true') {
+      setIsCreatingInventory(true);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!isCreatingInventory) {
+      const params = new URLSearchParams(location.search);
+      if (params.get('addSheet') === 'true' || params.get('addInventory') === 'true') {
+        const newParams = new URLSearchParams(location.search);
+        newParams.delete('addSheet');
+        newParams.delete('addInventory');
+        const searchStr = newParams.toString();
+        navigate(location.pathname + (searchStr ? `?${searchStr}` : ''), { replace: true });
+      }
+    }
+  }, [isCreatingInventory, location.search, location.pathname, navigate]);
   const [editingInventory, setEditingInventory] = useState<CustomInventory | null>(null);
   const [inventoryFormName, setInventoryFormName] = useState('');
   const [inventoryFormDesc, setInventoryFormDesc] = useState('');
@@ -601,6 +622,19 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
   const canUseInventory = isFeatureEnabled('inventoryManagement', user, adminSettings);
 
+  // Early local cache loading for custom inventories from Service Worker's IndexedDB
+  useEffect(() => {
+    if (!user?.uid) return;
+    offlineSync.getCachedInventories(user.uid).then(swCachedInvs => {
+      if (Array.isArray(swCachedInvs) && swCachedInvs.length > 0) {
+        setInventories(swCachedInvs);
+        setLoadingInventories(false);
+      }
+    }).catch(err => {
+      console.warn("Failed to load inventories from Service Worker:", err);
+    });
+  }, [user?.uid]);
+
   // Load baseline directory data (organizations, depts, teams, users) & Inventories real-time
   useEffect(() => {
     if (!user) return;
@@ -643,6 +677,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
         return false;
       });
       setInventories(visible);
+      offlineSync.cacheInventories(user.uid, visible);
       setLoadingInventories(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'inventories');

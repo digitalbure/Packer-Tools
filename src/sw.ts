@@ -80,7 +80,8 @@ registerRoute(
 
 const DB_NAME = 'packer-offline-sync';
 const STORE_NAME = 'operations';
-const DB_VERSION = 1;
+const METADATA_STORE_NAME = 'inventory_metadata';
+const DB_VERSION = 2;
 
 // Initialize IndexedDB in the Service Worker
 function openDatabase(): Promise<IDBDatabase> {
@@ -92,6 +93,9 @@ function openDatabase(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains(METADATA_STORE_NAME)) {
+        db.createObjectStore(METADATA_STORE_NAME, { keyPath: 'id' });
+      }
     };
 
     request.onsuccess = () => {
@@ -102,6 +106,41 @@ function openDatabase(): Promise<IDBDatabase> {
       reject(request.error);
     };
   });
+}
+
+// Fetch a metadata record by key/id
+async function getMetadataRecord(id: string): Promise<any> {
+  try {
+    const db = await openDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(METADATA_STORE_NAME, 'readonly');
+      const store = transaction.objectStore(METADATA_STORE_NAME);
+      const request = store.get(id);
+
+      request.onsuccess = () => resolve(request.result ? request.result.data : null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.error('[SW] Error retrieving metadata:', err);
+    return null;
+  }
+}
+
+// Put a metadata record by key/id
+async function saveMetadataRecord(id: string, data: any): Promise<void> {
+  try {
+    const db = await openDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(METADATA_STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(METADATA_STORE_NAME);
+      const request = store.put({ id, data });
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.error('[SW] Error saving metadata:', err);
+  }
 }
 
 // Fetch all queued operations
@@ -225,6 +264,45 @@ swSelf.addEventListener('message', async (event) => {
     case 'FORCE_SYNC':
       // Client explicitly telling service worker to announce a sync trigger
       await notifyClients({ type: 'BACKGROUND_SYNC_TRIGGER' });
+      break;
+
+    case 'CACHE_GEAR_LIST':
+      if (data.payload && data.payload.userId) {
+        await saveMetadataRecord(`gear_${data.payload.userId}`, data.payload.gearList);
+      }
+      break;
+
+    case 'GET_CACHED_GEAR_LIST':
+      if (data.payload && data.payload.userId && event.ports && event.ports[0]) {
+        const gearList = await getMetadataRecord(`gear_${data.payload.userId}`);
+        event.ports[0].postMessage({ type: 'GEAR_LIST_RESPONSE', gearList: gearList || [] });
+      }
+      break;
+
+    case 'CACHE_INVENTORIES':
+      if (data.payload && data.payload.userId) {
+        await saveMetadataRecord(`inventories_${data.payload.userId}`, data.payload.inventories);
+      }
+      break;
+
+    case 'GET_CACHED_INVENTORIES':
+      if (data.payload && data.payload.userId && event.ports && event.ports[0]) {
+        const inventories = await getMetadataRecord(`inventories_${data.payload.userId}`);
+        event.ports[0].postMessage({ type: 'INVENTORIES_RESPONSE', inventories: inventories || [] });
+      }
+      break;
+
+    case 'CACHE_METADATA_RECORD':
+      if (data.payload && data.payload.id) {
+        await saveMetadataRecord(data.payload.id, data.payload.data);
+      }
+      break;
+
+    case 'GET_CACHED_METADATA_RECORD':
+      if (data.payload && data.payload.id && event.ports && event.ports[0]) {
+        const recordData = await getMetadataRecord(data.payload.id);
+        event.ports[0].postMessage({ type: 'METADATA_RECORD_RESPONSE', id: data.payload.id, data: recordData });
+      }
       break;
 
     default:
