@@ -99,20 +99,45 @@ class OfflineSyncManager {
 
   // Request the latest queue from the Service Worker
   async loadQueue(): Promise<OfflineOperation[]> {
+    const localFallback = () => {
+      return typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('packer_offline_queue_fallback') || '[]') : [];
+    };
+
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
-      const fallback = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('packer_offline_queue_fallback') || '[]') : [];
+      const fallback = localFallback();
       this.queue = fallback;
       this.notify();
       return fallback;
     }
 
     return new Promise((resolve) => {
+      let resolved = false;
+      const timeoutId = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.warn('[OfflineSync] loadQueue timed out. Falling back to localStorage.');
+          const fallback = localFallback();
+          this.queue = fallback;
+          this.notify();
+          resolve(fallback);
+        }
+      }, 500);
+
       const channel = new MessageChannel();
       channel.port1.onmessage = (event) => {
-        if (event.data && event.data.type === 'QUEUE_RESPONSE') {
-          this.queue = event.data.queue || [];
-          this.notify();
-          resolve(this.queue);
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeoutId);
+          if (event.data && event.data.type === 'QUEUE_RESPONSE') {
+            this.queue = event.data.queue || [];
+            this.notify();
+            resolve(this.queue);
+          } else {
+            const fallback = localFallback();
+            this.queue = fallback;
+            this.notify();
+            resolve(fallback);
+          }
         }
       };
 
@@ -276,22 +301,39 @@ class OfflineSyncManager {
 
   // Retrieve gear list cached in the Service Worker's IndexedDB
   async getCachedGearList(userId: string): Promise<any[]> {
-    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+    const localFallback = () => {
       try {
         const local = localStorage.getItem(`gear_cache_${userId}`);
         return local ? JSON.parse(local) : [];
       } catch {
         return [];
       }
+    };
+
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+      return localFallback();
     }
 
     return new Promise((resolve) => {
+      let resolved = false;
+      const timeoutId = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.warn('[OfflineSync] getCachedGearList timed out. Falling back.');
+          resolve(localFallback());
+        }
+      }, 500);
+
       const channel = new MessageChannel();
       channel.port1.onmessage = (event) => {
-        if (event.data && event.data.type === 'GEAR_LIST_RESPONSE') {
-          resolve(event.data.gearList || []);
-        } else {
-          resolve([]);
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeoutId);
+          if (event.data && event.data.type === 'GEAR_LIST_RESPONSE') {
+            resolve(event.data.gearList || []);
+          } else {
+            resolve(localFallback());
+          }
         }
       };
 
@@ -314,22 +356,39 @@ class OfflineSyncManager {
 
   // Retrieve custom inventories cached in the Service Worker's IndexedDB
   async getCachedInventories(userId: string): Promise<any[]> {
-    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+    const localFallback = () => {
       try {
         const local = localStorage.getItem(`inventories_cache_${userId}`);
         return local ? JSON.parse(local) : [];
       } catch {
         return [];
       }
+    };
+
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+      return localFallback();
     }
 
     return new Promise((resolve) => {
+      let resolved = false;
+      const timeoutId = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.warn('[OfflineSync] getCachedInventories timed out. Falling back.');
+          resolve(localFallback());
+        }
+      }, 500);
+
       const channel = new MessageChannel();
       channel.port1.onmessage = (event) => {
-        if (event.data && event.data.type === 'INVENTORIES_RESPONSE') {
-          resolve(event.data.inventories || []);
-        } else {
-          resolve([]);
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeoutId);
+          if (event.data && event.data.type === 'INVENTORIES_RESPONSE') {
+            resolve(event.data.inventories || []);
+          } else {
+            resolve(localFallback());
+          }
         }
       };
 
@@ -352,22 +411,39 @@ class OfflineSyncManager {
 
   // Retrieve general metadata
   async getCachedMetadataRecord(id: string): Promise<any> {
-    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+    const localFallback = () => {
       try {
         const local = localStorage.getItem(`meta_cache_${id}`);
         return local ? JSON.parse(local) : null;
       } catch {
         return null;
       }
+    };
+
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+      return localFallback();
     }
 
     return new Promise((resolve) => {
+      let resolved = false;
+      const timeoutId = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.warn('[OfflineSync] getCachedMetadataRecord timed out. Falling back.');
+          resolve(localFallback());
+        }
+      }, 500);
+
       const channel = new MessageChannel();
       channel.port1.onmessage = (event) => {
-        if (event.data && event.data.type === 'METADATA_RECORD_RESPONSE' && event.data.id === id) {
-          resolve(event.data.data);
-        } else {
-          resolve(null);
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeoutId);
+          if (event.data && event.data.type === 'METADATA_RECORD_RESPONSE' && event.data.id === id) {
+            resolve(event.data.data);
+          } else {
+            resolve(localFallback());
+          }
         }
       };
 

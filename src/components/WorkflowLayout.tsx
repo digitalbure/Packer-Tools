@@ -33,6 +33,7 @@ import { auth, db, logout } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import PackerLogo from './PackerLogo';
 import { useAuth } from '../providers/AuthProvider';
+import WhatsNewModal from './WhatsNewModal';
 
 interface WorkflowLayoutProps {
   user: UserProfile;
@@ -61,6 +62,7 @@ export default function WorkflowLayout({
   const { selectedCurrency, setSelectedCurrency } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'inventory' | 'projects' | 'checkout' | 'utilities' | 'adminPanel'>('inventory');
+  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
 
   // Multi-Industry hook integration
   const activeCommunities = adminSettings?.communities || [
@@ -270,10 +272,20 @@ export default function WorkflowLayout({
 
         {/* Right: Quick console command, Avatar profile & Layout Selector */}
         <div className="flex items-center gap-4 shrink-0 font-mono">
+          {/* Whats New release hub */}
+          <button
+            onClick={() => setIsWhatsNewOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a1a1f] hover:bg-[#222228] text-neutral-450 hover:text-white rounded-md transition border border-[#2a2a32] cursor-pointer text-xs font-semibold select-none active:scale-95 whitespace-nowrap"
+            title="What's New in Packer Tools"
+          >
+            <Info size={12} className="text-primary animate-pulse" />
+            <span className="text-[8px] uppercase tracking-widest font-black hidden lg:inline">WHAT'S NEW</span>
+          </button>
+
           {/* Quick-Access Command Palette Search */}
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1f] hover:bg-[#222228] text-neutral-400 hover:text-white rounded-md transition border border-[#2a2a32] cursor-pointer text-xs select-none"
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1f] hover:bg-[#222228] text-neutral-450 hover:text-white rounded-md transition border border-[#2a2a32] cursor-pointer text-xs select-none"
             title="Open Search Console (⌘K)"
           >
             <Search size={12} className="text-neutral-500" />
@@ -442,6 +454,7 @@ export default function WorkflowLayout({
           </button>
         </div>
       </footer>
+      <WhatsNewModal isOpen={isWhatsNewOpen} onClose={() => setIsWhatsNewOpen(false)} />
     </div>
   );
 }

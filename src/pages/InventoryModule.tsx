@@ -639,6 +639,10 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   useEffect(() => {
     if (!user) return;
 
+    const safetyTimeout = setTimeout(() => {
+      setLoadingInventories(false);
+    }, 2500);
+
     // Real-time custom inventories subscriber
     const inventoriesQuery = query(collection(db, 'inventories'));
     const unsubInvs = onSnapshot(inventoriesQuery, (snap) => {
@@ -728,6 +732,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     });
 
     return () => {
+      clearTimeout(safetyTimeout);
       unsubInvs();
       unsubOrgs();
       unsubDepts();

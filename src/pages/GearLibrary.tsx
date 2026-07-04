@@ -241,105 +241,177 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     }
   };
 
-  // States and handler for exporting from central gear library to any custom inventories
+  // States and handler for exporting/moving from central gear library to any custom inventories or packing lists
   const [isExportToInventoryOpen, setIsExportToInventoryOpen] = useState(false);
+  const [exportTargetType, setExportTargetType] = useState<'inventory' | 'packingList'>('inventory');
   const [selectedExportInventoryId, setSelectedExportInventoryId] = useState('');
+  const [selectedExportPackingListId, setSelectedExportPackingListId] = useState('');
   const [isExportingToInventory, setIsExportingToInventory] = useState(false);
   const [isCreateNewInventoryForExport, setIsCreateNewInventoryForExport] = useState(false);
   const [newExportInventoryName, setNewExportInventoryName] = useState('');
   const [newExportInventoryDesc, setNewExportInventoryDesc] = useState('');
+  const [packingLists, setPackingLists] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const qLists = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid));
+    const unsub = onSnapshot(qLists, (snap) => {
+      const lists = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setPackingLists(lists);
+    }, (err) => {
+      console.error("Error loading packing lists in GearLibrary:", err);
+      handleFirestoreError(err, OperationType.LIST, 'packingLists');
+    });
+    return unsub;
+  }, [user?.uid]);
 
   const handleExportToInventory = async () => {
-    let targetInventoryId = selectedExportInventoryId;
-    let targetInventoryName = '';
+    let targetId = exportTargetType === 'inventory' ? selectedExportInventoryId : selectedExportPackingListId;
+    let targetName = '';
 
     setIsExportingToInventory(true);
     const toastId = toast.loading(
       isCreateNewInventoryForExport 
-        ? `Creating new inventory "${newExportInventoryName}" and exporting...` 
-        : `Exporting items...`
+        ? `Creating new ${exportTargetType === 'inventory' ? 'inventory' : 'packing list'} "${newExportInventoryName}" and copying...` 
+        : `Copying items...`
     );
 
     try {
       if (isCreateNewInventoryForExport) {
         if (!newExportInventoryName.trim()) {
-          toast.error("Please provide a name for the new inventory.", { id: toastId });
+          toast.error(`Please provide a name for the new ${exportTargetType === 'inventory' ? 'inventory' : 'packing list'}.`, { id: toastId });
           setIsExportingToInventory(false);
           return;
         }
 
-        const newDocRef = doc(collection(db, 'inventories'));
-        const payload = {
-          id: newDocRef.id,
-          name: newExportInventoryName.trim(),
-          description: newExportInventoryDesc.trim() || 'Created from Gear Library selection',
-          ownerId: user.uid,
-          ownerEmail: user.email,
-          orgId: user.orgId || '',
-          visibility: {
-            orgIds: user.orgId ? [user.orgId] : [],
-            deptIds: [],
-            teamIds: []
-          },
-          collaborators: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-
-        await setDoc(newDocRef, payload);
-        targetInventoryId = newDocRef.id;
-        targetInventoryName = newExportInventoryName.trim();
-      } else {
-        if (!selectedExportInventoryId) {
-          toast.error("Please select a target inventory list.", { id: toastId });
-          setIsExportingToInventory(false);
-          return;
-        }
-        const targetInv = inventories.find(inv => inv.id === selectedExportInventoryId);
-        if (!targetInv) {
-          toast.error("Selected inventory not found.", { id: toastId });
-          setIsExportingToInventory(false);
-          return;
-        }
-        targetInventoryName = targetInv.name;
-      }
-
-      const itemsToExport = gear.filter(item => selectedItems.has(item.id));
-      const colRef = collection(db, 'inventories', targetInventoryId, 'items');
-
-      for (let i = 0; i < itemsToExport.length; i += 500) {
-        const chunk = itemsToExport.slice(i, i + 500);
-        const batch = writeBatch(db);
-        chunk.forEach(item => {
-          const docRef = doc(colRef);
-          batch.set(docRef, {
-            id: docRef.id,
-            name: item.name || '',
-            description: item.description || '',
-            brand: item.brand || '',
-            model: item.model || '',
-            modelNumber: item.modelNumber || '',
-            serialNumber: item.serialNumber || '',
-            primaryCategory: item.category || 'Other',
-            weight: item.weight || null,
-            weightUnit: item.weightUnit || 'g',
-            price: item.price || 0,
-            condition: item.condition || 'good',
-            quantity: item.quantity || 1,
-            status: item.status || 'available',
-            assetTag: item.assetTag || `ASSET-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-            photoUrls: item.photoUrls || ['https://picsum.photos/seed/gear/400/400'],
+        if (exportTargetType === 'inventory') {
+          const newDocRef = doc(collection(db, 'inventories'));
+          const payload = {
+            id: newDocRef.id,
+            name: newExportInventoryName.trim(),
+            description: newExportInventoryDesc.trim() || 'Created from Gear Library selection',
+            ownerId: user.uid,
+            ownerEmail: user.email,
+            orgId: user.orgId || '',
+            visibility: {
+              orgIds: user.orgId ? [user.orgId] : [],
+              deptIds: [],
+              teamIds: []
+            },
+            collaborators: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          await setDoc(newDocRef, payload);
+          targetId = newDocRef.id;
+          targetName = newExportInventoryName.trim();
+        } else {
+          // Create packing list
+          const newDocRef = await addDoc(collection(db, 'packingLists'), {
+            ownerId: user.uid,
+            ownerEmail: user.email,
+            name: newExportInventoryName.trim(),
+            description: newExportInventoryDesc.trim() || 'Created from Gear Library selection',
+            isTemplate: false,
+            workspaceId: '',
+            projectId: '',
+            shareToken: Math.random().toString(36).substring(2, 15),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           });
-        });
-        await batch.commit();
+          targetId = newDocRef.id;
+          targetName = newExportInventoryName.trim();
+        }
+      } else {
+        if (!targetId) {
+          toast.error(`Please select a target ${exportTargetType === 'inventory' ? 'inventory list' : 'packing list'}.`, { id: toastId });
+          setIsExportingToInventory(false);
+          return;
+        }
+        if (exportTargetType === 'inventory') {
+          const targetInv = inventories.find(inv => inv.id === targetId);
+          if (!targetInv) {
+            toast.error("Selected inventory not found.", { id: toastId });
+            setIsExportingToInventory(false);
+            return;
+          }
+          targetName = targetInv.name;
+        } else {
+          const targetList = packingLists.find(list => list.id === targetId);
+          if (!targetList) {
+            toast.error("Selected packing list not found.", { id: toastId });
+            setIsExportingToInventory(false);
+            return;
+          }
+          targetName = targetList.name;
+        }
       }
 
-      toast.success(`Exported ${itemsToExport.length} items to "${targetInventoryName}" successfully!`, { id: toastId });
+      const itemsToExport = gear.filter(item => selectedItems.has(item.id));
+
+      if (exportTargetType === 'inventory') {
+        const colRef = collection(db, 'inventories', targetId, 'items');
+        for (let i = 0; i < itemsToExport.length; i += 500) {
+          const chunk = itemsToExport.slice(i, i + 500);
+          const batch = writeBatch(db);
+          chunk.forEach(item => {
+            const docRef = doc(colRef);
+            batch.set(docRef, {
+              id: docRef.id,
+              name: item.name || '',
+              description: item.description || '',
+              brand: item.brand || '',
+              model: item.model || '',
+              modelNumber: item.modelNumber || '',
+              serialNumber: item.serialNumber || '',
+              primaryCategory: item.category || 'Other',
+              weight: item.weight || null,
+              weightUnit: item.weightUnit || 'g',
+              price: item.price || 0,
+              condition: item.condition || 'good',
+              quantity: item.quantity || 1,
+              status: item.status || 'available',
+              assetTag: item.assetTag || `ASSET-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+              photoUrls: item.photoUrls || ['https://picsum.photos/seed/gear/400/400'],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            });
+          });
+          await batch.commit();
+        }
+      } else {
+        // Exporting to packing list (packingLists/{listId}/items)
+        const colRef = collection(db, 'packingLists', targetId, 'items');
+        for (let i = 0; i < itemsToExport.length; i += 500) {
+          const chunk = itemsToExport.slice(i, i + 500);
+          const batch = writeBatch(db);
+          chunk.forEach(item => {
+            const docRef = doc(colRef);
+            batch.set(docRef, {
+              id: docRef.id,
+              listId: targetId,
+              name: item.name || '',
+              aiLabel: item.category || 'Other',
+              status: 'pending',
+              priority: 'Medium',
+              photoUrls: item.photoUrls || [],
+              quantity: item.quantity || 1,
+              assetTag: item.assetTag || `AI-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+              createdAt: new Date().toISOString(),
+              notes: (item.brand || item.model) ? `Brand: ${item.brand || ''}, Model: ${item.model || ''}` : '',
+              description: item.description || '',
+              gearItemId: item.id
+            });
+          });
+          await batch.commit();
+        }
+      }
+
+      toast.success(`Exported ${itemsToExport.length} items to "${targetName}" successfully!`, { id: toastId });
       setSelectedItems(new Set());
       setIsExportToInventoryOpen(false);
       setSelectedExportInventoryId('');
+      setSelectedExportPackingListId('');
       setNewExportInventoryName('');
       setNewExportInventoryDesc('');
       setIsCreateNewInventoryForExport(false);
@@ -1571,6 +1643,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   }, [user?.uid]);
 
   useEffect(() => {
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 2500);
+
     const q = query(
       collection(db, 'users', user.uid, 'gearLibrary'),
       orderBy('createdAt', 'desc'),
@@ -1670,6 +1746,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     });
 
     return () => {
+      clearTimeout(safetyTimeout);
       unsubscribe();
       unsubscribeSettings();
       unsubscribeContainers();
@@ -8517,10 +8594,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 onClick={() => setIsExportToInventoryOpen(true)}
                 disabled={selectedItems.size === 0}
                 className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Export selected assets to CSV/inventory"
+                title="Copy/Export selected assets to other lists"
               >
                 <Upload size={14} className="text-emerald-200" />
-                <span>Export</span>
+                <span>Move to List</span>
               </button>
 
               <button 
@@ -8836,13 +8913,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             >
               <div className="p-6 md:p-8 flex items-center justify-between border-b border-[#f4f4f5]">
                 <div className="flex items-center gap-3">
-                  <span className="p-3 bg-neutral-900 text-white rounded-2xl">
+                  <label className="p-3 bg-neutral-900 text-white rounded-2xl">
                     <FileSpreadsheet size={20} />
-                  </span>
+                  </label>
                   <div>
-                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Export Gear Selection</h3>
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Export / Copy to Lists</h3>
                     <p className="text-[10px] font-black uppercase tracking-widest text-[#0066cc]">
-                      Target {selectedItems.size} items to custom list
+                      Target {selectedItems.size} items to custom lists
                     </p>
                   </div>
                 </div>
@@ -8856,10 +8933,43 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
               <div className="p-6 md:p-8 space-y-6">
                 <p className="text-xs text-neutral-500 font-medium leading-relaxed">
-                  Exporting these items will copy them completely with their categories, specs, tags, and condition settings.
+                  Copying these items will completely replicate them into your chosen list or checklist.
                 </p>
 
-                {/* Tab choice */}
+                {/* List Type Selector */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block font-sans">
+                    Select Target Type
+                  </label>
+                  <div className="flex bg-neutral-100 p-1.5 rounded-2xl">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExportTargetType('inventory');
+                        setIsCreateNewInventoryForExport(false);
+                      }}
+                      className={`flex-1 py-2.5 text-center text-xs font-black uppercase tracking-wider rounded-xl transition ${
+                        exportTargetType === 'inventory' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
+                      }`}
+                    >
+                      📁 Custom Sheet
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExportTargetType('packingList');
+                        setIsCreateNewInventoryForExport(false);
+                      }}
+                      className={`flex-1 py-2.5 text-center text-xs font-black uppercase tracking-wider rounded-xl transition ${
+                        exportTargetType === 'packingList' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
+                      }`}
+                    >
+                      ✈️ Packing List
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tab choice (Existing vs New) */}
                 <div className="flex bg-neutral-100 p-1.5 rounded-2xl">
                   <button
                     type="button"
@@ -8868,7 +8978,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       !isCreateNewInventoryForExport ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
                     }`}
                   >
-                    Export to Existing
+                    Copy to Existing
                   </button>
                   <button
                     type="button"
@@ -8877,7 +8987,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       isCreateNewInventoryForExport ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
                     }`}
                   >
-                    💡 Create New & Export
+                    💡 Create New & Copy
                   </button>
                 </div>
 
@@ -8885,11 +8995,11 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block font-sans">
-                        New Inventory Name
+                        New {exportTargetType === 'inventory' ? 'Inventory' : 'Packing List'} Name
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g. Q2 Facility Maintenance Inventory"
+                        placeholder={exportTargetType === 'inventory' ? "e.g. Facility Maintenance Inventory" : "e.g. European Production Tour 2026"}
                         value={newExportInventoryName}
                         onChange={(e) => setNewExportInventoryName(e.target.value)}
                         className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-xs font-bold focus:ring-2 focus:ring-neutral-900 outline-none"
@@ -8900,7 +9010,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                         Description (Optional)
                       </label>
                       <textarea
-                        placeholder="Brief purpose of this custom departmental list..."
+                        placeholder="Brief purpose of this checklist or custom list..."
                         value={newExportInventoryDesc}
                         onChange={(e) => setNewExportInventoryDesc(e.target.value)}
                         rows={2}
@@ -8911,25 +9021,46 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 ) : (
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block font-sans">
-                      Choose Target Inventory List
+                      Choose Target {exportTargetType === 'inventory' ? 'Custom Sheet' : 'Packing List'}
                     </label>
-                    {inventories.length === 0 ? (
-                      <div className="text-xs font-bold text-center p-6 bg-neutral-50 border border-neutral-200 text-neutral-400 rounded-2xl">
-                        No custom inventories found. Click "Create New & Export" above to generate one on the fly!
-                      </div>
+                    {exportTargetType === 'inventory' ? (
+                      inventories.length === 0 ? (
+                        <div className="text-xs font-bold text-center p-6 bg-neutral-50 border border-neutral-200 text-neutral-400 rounded-2xl">
+                          No custom sheets found. Click "Create New & Copy" above to generate one on the fly!
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedExportInventoryId}
+                          onChange={(e) => setSelectedExportInventoryId(e.target.value)}
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs focus:ring-2 focus:ring-neutral-900 outline-none font-bold uppercase tracking-wider transition"
+                        >
+                          <option value="" disabled>Select Custom Sheet...</option>
+                          {inventories.map((inv) => (
+                            <option key={inv.id} value={inv.id}>
+                              {inv.name} ({inv.ownerEmail || 'Shared'})
+                            </option>
+                          ))}
+                        </select>
+                      )
                     ) : (
-                      <select
-                        value={selectedExportInventoryId}
-                        onChange={(e) => setSelectedExportInventoryId(e.target.value)}
-                        className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs focus:ring-2 focus:ring-neutral-900 outline-none font-bold uppercase tracking-wider transition"
-                      >
-                        <option value="" disabled>Select Custom List...</option>
-                        {inventories.map((inv) => (
-                          <option key={inv.id} value={inv.id}>
-                            {inv.name} ({inv.ownerEmail || 'Shared'})
-                          </option>
-                        ))}
-                      </select>
+                      packingLists.length === 0 ? (
+                        <div className="text-xs font-bold text-center p-6 bg-neutral-50 border border-neutral-200 text-neutral-400 rounded-2xl">
+                          No packing lists found. Click "Create New & Copy" above to generate one on the fly!
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedExportPackingListId}
+                          onChange={(e) => setSelectedExportPackingListId(e.target.value)}
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs focus:ring-2 focus:ring-neutral-900 outline-none font-bold uppercase tracking-wider transition"
+                        >
+                          <option value="" disabled>Select Packing List...</option>
+                          {packingLists.map((list) => (
+                            <option key={list.id} value={list.id}>
+                              {list.name} ({list.ownerEmail || 'Owned'})
+                            </option>
+                          ))}
+                        </select>
+                      )
                     )}
                   </div>
                 )}
@@ -8945,12 +9076,18 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 <button
                   disabled={
                     isExportingToInventory || 
-                    (isCreateNewInventoryForExport ? !newExportInventoryName.trim() : (!selectedExportInventoryId || inventories.length === 0))
+                    (isCreateNewInventoryForExport 
+                      ? !newExportInventoryName.trim() 
+                      : (exportTargetType === 'inventory' 
+                          ? (!selectedExportInventoryId || inventories.length === 0) 
+                          : (!selectedExportPackingListId || packingLists.length === 0)
+                        )
+                    )
                   }
                   onClick={handleExportToInventory}
                   className="flex-1 py-4 bg-black text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl font-black uppercase tracking-widest text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {isExportingToInventory ? 'Exporting...' : `Export (${selectedItems.size})`}
+                  {isExportingToInventory ? 'Copying...' : `Copy Selected (${selectedItems.size})`}
                 </button>
               </div>
             </motion.div>

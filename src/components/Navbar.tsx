@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, LayoutDashboard, Settings, Package, User, Menu, X, Zap, HelpCircle, Server, Home, Truck, ShieldCheck, Briefcase, Search, Layout, CreditCard } from 'lucide-react';
+import { LogIn, LogOut, LayoutDashboard, Settings, Package, User, Menu, X, Zap, HelpCircle, Server, Home, Truck, ShieldCheck, Briefcase, Search, Layout, CreditCard, Info } from 'lucide-react';
 import PackerLogo from './PackerLogo';
 import { signInWithGoogle, logout } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import { useAuth } from '../providers/AuthProvider';
+import WhatsNewModal from './WhatsNewModal';
 
 export default function Navbar({ 
   user, 
@@ -27,6 +28,7 @@ export default function Navbar({
   onToggleLayoutTheme?: () => void
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
   const { selectedCurrency, setSelectedCurrency } = useAuth();
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -111,6 +113,15 @@ export default function Navbar({
                   <kbd className="px-1.5 py-0.5 rounded bg-white border border-neutral-250 text-[9px] font-mono text-neutral-450 shadow-xs leading-none">⌘K</kbd>
                 </button>
 
+                <button
+                  onClick={() => setIsWhatsNewOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 h-10 bg-neutral-50 hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900 rounded-xl transition border border-neutral-200/50 cursor-pointer text-xs font-semibold select-none active:scale-95 whitespace-nowrap"
+                  title="What's New in Packer Tools"
+                >
+                  <Info size={14} className="text-primary animate-pulse" />
+                  <span className="text-[9px] uppercase font-black tracking-widest text-neutral-500">What's New</span>
+                </button>
+
                 {onToggleLayoutTheme && (
                   <button
                     onClick={onToggleLayoutTheme}
@@ -164,13 +175,22 @@ export default function Navbar({
         {/* Mobile Search & Menu Toggles Grouped */}
         <div className="md:hidden flex items-center gap-1 shrink-0">
           {user && (
-            <button 
-              onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
-              className="p-2 text-primary hover:bg-neutral-100 rounded-lg transition cursor-pointer flex items-center justify-center shrink-0"
-              title="Open Search Console"
-            >
-              <Search size={22} className="text-neutral-500 hover:text-neutral-900" />
-            </button>
+            <>
+              <button
+                onClick={() => setIsWhatsNewOpen(true)}
+                className="p-2 text-primary hover:bg-neutral-100 rounded-lg transition cursor-pointer flex items-center justify-center shrink-0"
+                title="What's New"
+              >
+                <Info size={22} className="text-primary animate-pulse" />
+              </button>
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+                className="p-2 text-primary hover:bg-neutral-100 rounded-lg transition cursor-pointer flex items-center justify-center shrink-0"
+                title="Open Search Console"
+              >
+                <Search size={22} className="text-neutral-500 hover:text-neutral-900" />
+              </button>
+            </>
           )}
 
           <button 
@@ -357,6 +377,7 @@ export default function Navbar({
           </div>
         </div>
       )}
+      <WhatsNewModal isOpen={isWhatsNewOpen} onClose={() => setIsWhatsNewOpen(false)} />
     </nav>
   );
 }
