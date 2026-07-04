@@ -4953,12 +4953,12 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                           </div>
 
                           <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                            {activeFulfillOrder.items.map((item: any) => {
+                            {activeFulfillOrder.items.map((item: any, idx: number) => {
                               const isVerified = !!verifiedItemsMap[`${activeFulfillOrder.id}_${item.id}`];
                               return (
                                 <button
                                   type="button"
-                                  key={item.id}
+                                  key={`${item.id}_${idx}`}
                                   onClick={() => {
                                     setVerifiedItemsMap(prev => ({
                                       ...prev,

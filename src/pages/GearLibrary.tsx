@@ -74,6 +74,7 @@ const triggerHaptic = () => {
 };
 import { Camera, Sparkles, Wand2, Lightbulb, Check, Layers, Luggage, Box, Briefcase, QrCode, Loader2, RefreshCw, Server, HelpCircle, ClipboardCheck } from 'lucide-react';
 import QRPrintModal from '../components/QRPrintModal';
+import LazyImage from '../components/LazyImage';
 import { suggestItemMetadata, identifyItem } from '../services/geminiService';
 import { checkLimit, canUseAI, trackAIUsage } from '../lib/limitUtils';
 import { 
@@ -3919,7 +3920,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           <button 
             type="button"
             onClick={(e) => toggleItemSelection(item.id, e)}
-            className={`w-7 h-7 md:w-8 md:h-8 rounded-lg md:rounded-xl border-2 flex items-center justify-center transition-all ${
+            className={`w-7 h-7 md:w-8 md:h-8 rounded-lg md:rounded-xl border-2 flex items-center justify-center transition-all no-min-h aspect-square shrink-0 ${
               selectedItems.has(item.id) 
                 ? 'bg-[#0066cc] border-[#0066cc] text-white shadow-lg scale-110' 
                 : isMultiSelectMode
@@ -3941,8 +3942,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           </div>
         )}
 
-        <img 
-          src={item.photoUrls[0]} 
+        <LazyImage 
+          src={item.photoUrls?.[0]} 
           alt={item.name} 
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
         />
@@ -4113,7 +4114,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           <button 
             type="button"
             onClick={(e) => { e.stopPropagation(); toggleItemSelection(item.id, e); }}
-            className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${
+            className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all no-min-h aspect-square shrink-0 ${
               selectedItems.has(item.id) 
                 ? 'bg-[#0066cc] border-[#0066cc] text-white shadow-lg scale-110' 
                 : isMultiSelectMode
@@ -4134,8 +4135,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           </div>
         )}
 
-        <img 
-          src={item.photoUrls[0]} 
+        <LazyImage 
+          src={item.photoUrls?.[0]} 
           alt={item.name} 
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
         />
@@ -4220,7 +4221,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         <button 
           type="button"
           onClick={(e) => toggleItemSelection(item.id, e)}
-          className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${
+          className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all no-min-h aspect-square shrink-0 ${
             selectedItems.has(item.id) 
               ? 'bg-primary border-primary text-white' 
               : 'bg-white border-neutral-200 hover:border-primary/50'
@@ -4232,7 +4233,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       <td className="px-8 py-4">
         <div className="flex items-center gap-4">
           <div className="relative">
-            <img src={item.photoUrls[0]} className="w-12 h-12 rounded-xl object-cover border border-neutral-100" />
+            <LazyImage src={item.photoUrls?.[0]} className="w-12 h-12 rounded-xl object-cover border border-neutral-100" />
             {item.status === 'in_use' && (
               <div className="absolute inset-0 bg-neutral-900/60 rounded-xl flex items-center justify-center">
                 <span className="text-[7px] font-black text-rose-500 bg-white px-0.5 rounded leading-none">OUT</span>
@@ -4362,7 +4363,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     >
       <div 
         onClick={(e) => { e.stopPropagation(); toggleItemSelection(item.id, e); }}
-        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer shrink-0 aspect-square no-min-h ${
           selectedItems.has(item.id) 
             ? 'bg-[#0066cc] border-[#0066cc] text-white' 
             : isMultiSelectMode
@@ -4373,7 +4374,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         <Check size={12} className={selectedItems.has(item.id) || isMultiSelectMode ? 'opacity-100' : 'opacity-0'} />
       </div>
       <div className="relative shrink-0">
-        <img src={item.photoUrls[0]} className="w-16 h-16 rounded-xl object-cover border border-neutral-100 shrink-0" />
+        <LazyImage src={item.photoUrls?.[0]} className="w-16 h-16 rounded-xl object-cover border border-neutral-100 shrink-0" />
         {item.status === 'in_use' && (
           <div className="absolute inset-0 bg-neutral-900/60 rounded-xl flex items-center justify-center">
             <span className="text-[8px] font-black text-rose-500 bg-white px-1 py-0.5 rounded leading-none shadow">OUT</span>
@@ -5796,7 +5797,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                         setSelectedItems(next);
                       }
                     }}
-                    className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${
+                    className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all no-min-h aspect-square shrink-0 ${
                       paginatedGear.length > 0 && paginatedGear.every(i => selectedItems.has(i.id))
                         ? 'bg-primary border-primary text-white' 
                         : 'bg-white border-neutral-200'
@@ -7419,7 +7420,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           {childItems.map(item => (
                             <div key={item.id} className="flex items-center justify-between p-4 bg-neutral-50 rounded-2xl border border-neutral-100 group">
                               <div className="flex items-center gap-3">
-                                <img src={item.photoUrls[0]} className="w-10 h-10 object-cover rounded-lg" />
+                                <LazyImage src={item.photoUrls?.[0]} className="w-10 h-10 object-cover rounded-lg" />
                                 <div>
                                   <p className="text-sm font-bold">{item.name}</p>
                                   <p className="text-[10px] text-neutral-400 font-mono">{item.assetTag}</p>
@@ -8238,7 +8239,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       {childItems.map(item => (
                         <div key={item.id} className="flex items-center justify-between p-4 bg-neutral-50 rounded-2xl border border-neutral-100 group">
                           <div className="flex items-center gap-3">
-                            <img src={item.photoUrls[0]} className="w-10 h-10 object-cover rounded-lg" />
+                            <LazyImage src={item.photoUrls?.[0]} className="w-10 h-10 object-cover rounded-lg" />
                             <div>
                               <p className="text-sm font-bold">{item.name}</p>
                               <p className="text-[10px] text-neutral-400 font-mono">{item.assetTag}</p>
@@ -8536,6 +8537,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         onClose={() => setIsQRPrintModalOpen(false)}
         items={gear}
         user={user}
+        initialSelectedIds={selectedItems}
       />
 
       {/* Floating Action Bar for Selections */}
@@ -8644,6 +8646,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               >
                 <Sliders size={14} className="text-purple-400 font-bold" />
                 <span>Change Status</span>
+              </button>
+
+              <button 
+                onClick={() => setIsQRPrintModalOpen(true)}
+                disabled={selectedItems.size === 0}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap"
+                title="Generate and print QR codes/labels for selected items"
+              >
+                <QrCode size={14} className="text-blue-400 font-bold" />
+                <span>Print QR</span>
               </button>
 
               <button 
@@ -9168,7 +9180,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     <div key={item.id} className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200 flex items-center gap-3">
                       <div className="w-12 h-12 rounded-xl overflow-hidden bg-neutral-200 border border-neutral-300 shrink-0">
                         {item.photoUrls?.[0] ? (
-                          <img referrerPolicy="no-referrer" src={item.photoUrls[0]} className="w-full h-full object-cover" alt={item.name} />
+                          <LazyImage src={item.photoUrls[0]} className="w-full h-full object-cover" alt={item.name} />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-neutral-400 bg-neutral-100 text-xs font-bold">
                             #{idx + 1}
@@ -9377,7 +9389,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           className="w-full flex items-center justify-between p-4 bg-white border border-neutral-100 rounded-2xl hover:border-primary hover:bg-primary/5 transition group text-left"
                         >
                           <div className="flex items-center gap-3">
-                            <img src={item.photoUrls[0]} className="w-10 h-10 object-cover rounded-lg" />
+                            <LazyImage src={item.photoUrls?.[0]} className="w-10 h-10 object-cover rounded-lg" />
                             <div>
                               <p className="font-bold text-neutral-900">{item.name}</p>
                               <p className="text-[10px] text-neutral-400 font-mono">{item.assetTag}</p>
@@ -9531,7 +9543,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       >
                         <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-neutral-100">
                           {container.photoUrls?.[0] ? (
-                            <img src={container.photoUrls[0]} className="w-full h-full object-cover" />
+                            <LazyImage src={container.photoUrls[0]} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-neutral-50 text-neutral-300">
                               <Box size={24} />
@@ -10113,7 +10125,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                               }}
                               className={`relative group h-20 rounded-xl overflow-hidden border transition text-left ${isSelected ? 'border-primary ring-2 ring-primary' : 'border-neutral-200 hover:border-neutral-400'}`}
                             >
-                              <img src={p.url} className="w-full h-full object-cover" />
+                              <LazyImage src={p.url} className="w-full h-full object-cover" />
                               <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 text-[7px] text-white font-mono truncate">
                                 {p.itemName}
                               </div>
@@ -10151,7 +10163,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                             }}
                             className={`relative group h-20 rounded-xl overflow-hidden border transition text-left ${isSelected ? 'border-primary ring-2 ring-primary' : 'border-neutral-200 hover:border-neutral-400'}`}
                           >
-                            <img src={p.url} className="w-full h-full object-cover" />
+                            <LazyImage src={p.url} className="w-full h-full object-cover" />
                             <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 text-[7px] text-white font-mono truncate">
                               {p.itemName}
                             </div>

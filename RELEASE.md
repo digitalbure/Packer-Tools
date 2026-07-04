@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.4.0`
+## Current Application Version: `v5.8.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,39 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v5.8.0 (Physical Avery Label Sheets Mode & Storage Exhaustion Safeguards)
+*Released on: July 04, 2026*
+- **Avery Label Sheets Mode**: Developed a high-precision print designer supporting standard physical label sheet layouts (Avery 5160, 5161, 5162, 5163, L7160, etc.) in `QRPrintModal.tsx`. It handles multi-column margins, rows, labels spacing, and page-breaks dynamically.
+- **Avery Start Slot Selector**: Integrated starting-position selector logic allowing users to bypass previously used label slots when loading partially-used sheets, preventing physical card wastage.
+- **Dashed Guideline Bounds Toggling**: Implemented interactive guideline toggle buttons enabling users to preview physical grid boundaries during layout alignment.
+- **Storage QuotaExceeded Monkey-Patch Safeguards**: Embedded global monkey-patch interceptors for both `localStorage` and `sessionStorage` in `src/main.tsx` that detect Safari/Chrome private-mode storage failures and auto-purge obsolete cache data.
+- **Checkout Unique Compound Keys**: Addressed duplicate key rendering warnings inside the order fulfillment list in `KioskMode.tsx` using unique index and compound id values.
+
+---
+
+### 🚀 Stable Release: v5.7.0 (Bulk List Copying & Multi-Select Operations)
+*Released on: July 03, 2026*
+- **Cross-List Bulk Copying**: Engineered advanced replication tools allowing coordinators to replicate selected gear library items completely into custom inventory sheets or packing lists, complete with automatic item instantiation.
+- **Fast Status Updates**: Instantly transitions selected assets across Available, In Use, Maintenance, Retired, or Missing states, utilizing chunked Firestore batches.
+- **Real-Time List Sync**: Configured deep-listening subscriptions for active packing lists, enabling on-the-fly list creations and exports in the multi-select terminal.
+
+---
+
+### 🚀 Stable Release: v5.6.0 (Mobile Direct Load & Loading Safeguards)
+*Released on: July 02, 2026*
+- **Direct Item Loading**: Allows items to be loaded directly to new or existing lists/inventories from the mobile central Add menu without requiring prior library registration.
+- **Multi-Way Cross Synchronization**: Choose to automatically register directly loaded items to the Central Gear Library, or replicate them across both packing lists and custom sheet inventories.
+- **Loading Skeleton Safety Fallbacks**: Added 2.5-second automated fallbacks to real-time sync connections, ensuring the app gracefully bypasses slow database snapshots and never remains stuck.
+
+---
+
+### 🚀 Stable Release: v5.5.0 (Service Worker IndexedDB Caching)
+*Released on: July 02, 2026*
+- **Resilient SW Caching**: Primary gear library list and custom inventories are cached locally inside the Service Worker's IndexedDB, avoiding blank screens.
+- **Automated Offline Failover**: The app seamlessly detects project read-quota exceptions or internet outages and instantly feeds records from the local database.
 
 ---
 

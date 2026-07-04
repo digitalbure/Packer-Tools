@@ -203,7 +203,10 @@ const AIRecognitionDisplay = ({ config }: { config?: AdminSettings['aiRecognitio
     }
   ];
 
-  const items = config?.items || defaultItems;
+  const rawItems = Array.isArray(config?.items) ? config.items : [];
+  const validItems = rawItems.filter((item: any) => item && typeof item === 'object' && typeof item.image === 'string' && item.image.trim() !== '');
+  const items = validItems.length > 0 ? validItems : defaultItems;
+
   const interval = config?.interval || 6000;
   const isEnabled = config?.enabled !== false;
 
@@ -219,6 +222,8 @@ const AIRecognitionDisplay = ({ config }: { config?: AdminSettings['aiRecognitio
 
   if (!isEnabled) return null;
 
+  const currentItem = items[index] || items[0] || defaultItems[0];
+
   return (
     <div className="flex-1 relative bg-neutral-200 overflow-hidden min-h-[400px] lg:min-h-full">
       <AnimatePresence mode="wait">
@@ -228,8 +233,8 @@ const AIRecognitionDisplay = ({ config }: { config?: AdminSettings['aiRecognitio
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           transition={{ duration: 1.5, ease: "easeInOut" }}
-          src={items[index].image}
-          alt={items[index].name}
+          src={currentItem.image}
+          alt={currentItem.name}
           className="absolute inset-0 w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-1000"
           referrerPolicy="no-referrer"
         />
@@ -246,7 +251,7 @@ const AIRecognitionDisplay = ({ config }: { config?: AdminSettings['aiRecognitio
               exit={{ scale: 0.8, opacity: 0 }}
               className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-white"
             >
-              {iconMap[items[index].icon] || <Package size={24} />}
+              {iconMap[currentItem.icon] || <Package size={24} />}
             </motion.div>
           </AnimatePresence>
           <div>
@@ -262,7 +267,7 @@ const AIRecognitionDisplay = ({ config }: { config?: AdminSettings['aiRecognitio
                 exit={{ y: -5, opacity: 0 }}
                 className="text-xs text-neutral-500"
               >
-                <span className="font-bold text-primary">{items[index].name}</span> {items[index].details}
+                <span className="font-bold text-primary">{currentItem.name}</span> {currentItem.details || ''}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -664,7 +669,7 @@ export default function LandingPage({
 
             <div className="grid gap-6 w-full">
               {plans.length > 0 ? (
-                plans.map((plan) => {
+                plans.map((plan, idx) => {
                   const isPaid = plan.price > 0;
                   const trialInfo = plan.trialEnabled && plan.trialDays ? `${plan.trialDays}-Day Free Trial` : null;
                   
@@ -685,7 +690,7 @@ export default function LandingPage({
 
                   return (
                     <div 
-                      key={plan.id} 
+                      key={`${plan.id || ''}-${idx}`} 
                       className={`p-6 sm:p-8 rounded-[2rem] flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-all relative overflow-hidden text-left ${
                         isPaid ? 'bg-white text-primary shadow-2xl scale-102 border border-neutral-100' : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
                       }`}
@@ -728,11 +733,11 @@ export default function LandingPage({
 
                         {/* Feature Tags list */}
                         <div className="flex flex-wrap gap-1.5 pt-1">
-                          {Array.isArray(plan.features) ? plan.features.slice(0, 3).map((f) => {
+                          {Array.isArray(plan.features) ? plan.features.slice(0, 3).map((f, i) => {
                             const label = featureKeyLabels[f] || f.replace(/([A-Z])/g, ' $1');
                             return (
                               <span 
-                                key={f} 
+                                key={`${f}-${i}`} 
                                 className={`text-[8px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md ${
                                   isPaid 
                                     ? 'bg-neutral-150 text-neutral-600 border border-neutral-200/50' 

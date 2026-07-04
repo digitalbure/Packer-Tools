@@ -379,3 +379,62 @@ Packer Tools v5.4.0 introduces professional backend routing overlays to support 
 - **Sidebar Organization**: Consolidated the primary Gear Library (`getAdjustedLabel('library')`), Organization Settings (`/organization`), and platform-wide administrative controls (`/admin`) under a single dedicated "Admin" section.
 - **Double-Nested Left Drawer Removal**: This restructure simplifies high-level layouts, maximizes horizontal screen real-estate for large data tables, and declutters workspace panels for mobile and tablet operators.
 
+---
+
+## 💾 21. Service Worker IndexedDB Caching & Offline Failover (v5.5.0)
+
+Packer Tools v5.5.0 introduces resilient client-side storage architectures utilizing service worker caching and IndexedDB to guarantee smooth operations in remote or disconnected field environments (e.g., film locations or outdoor expeditions).
+
+### 🛰️ Resilient SW Caching:
+- The system automatically caches primary gear collections, custom list structures, and user profiles inside an IndexedDB instance managed by the custom Service Worker (`src/sw.ts`).
+- Assets, templates, and layouts load instantly from the local database, completely avoiding blank white screens even during critical cellular dropouts.
+
+### 🔌 Automated Offline Failover:
+- The application continuously monitors Firestore connections. Upon detecting a quota exception, database read threshold, or internet outage, it instantly redirects all UI listing components to poll from local IndexedDB collections seamlessly.
+
+---
+
+## 📱 22. Mobile Direct Load & Loading Safeguards (v5.6.0)
+
+Packer Tools v5.6.0 focuses on mobile velocity and loading stability under high network latency.
+
+### 🎒 Direct Item Loading:
+- Operators can scan or add items directly to active packing lists or custom inventories from the main mobile central floating Add menu, skipping the multi-step central library registration.
+- Selectable cross-sync options give coordinators the choice to automatically save these newly added items back to the central master Gear Library.
+
+### ⏳ Loading Skeleton Safety Fallbacks:
+- Added 2.5-second automated fallbacks to real-time sync connections. If a slow cellular connection halts Firestore snapshot responses, the app gracefully bypasses the spinner and renders local/cached data.
+
+---
+
+## 📋 23. Cross-List Bulk Copying & Status Operations (v5.7.0)
+
+Packer Tools v5.7.0 introduces high-efficiency bulk tools to coordinate mass inventory transfers and multi-asset status changes.
+
+### ⚙️ Cross-List Replication:
+- Enables users to replicate selected gear library items completely into custom inventory sheets or packing lists with a single click, automating item instantiation across workspace documents.
+
+### ⚡ Batch Status Transitions:
+- Operators can select dozens of items inside the multi-select terminal and change their status (e.g., Available, In Use, Maintenance, Retired, or Missing) instantly using partitioned, Firestore-safe 500-item chunks.
+
+---
+
+## 🖨️ 24. Physical Avery Label Sheets Mode & Start Slot Selector (v5.8.0)
+
+Packer Tools v5.8.0 implements full physical label sheet support alongside local storage quota protection tools, completing the asset identification loop.
+
+### 📄 Avery Sheet Template Mode:
+- **Built-in Avery Layouts**: Toggle between standard continuous ribbon layouts and physical multi-column label sheets. Supports 8 industry-standard Avery templates including Avery 5160, 5161, 5162, 5163, 5164, 5167, L7160, and L7163.
+- **Precision CSS Spacing**: Automatically generates precise columns, row layouts, margins, column gaps, and row gaps to align with your printed paper dimensions perfectly.
+- **Interactive Guidelines Toggle**: Quickly toggle dashed visual guidelines around empty positions to check alignment before sending documents to physical laser printers.
+
+### 🎯 Avery Start Slot Selection:
+- To prevent waste when using partially printed Avery sheets, operators can select a custom starting slot (e.g., starting at label position 7). The layout generator automatically leaves previous slots blank, starting the print job exactly where requested.
+
+### 🛡️ Storage QuotaExceeded Safeguards:
+- Monkey-patches `localStorage` and `sessionStorage` globally at startup in `src/main.tsx`. If Safari or Chrome throws a `QuotaExceededError` (common in Private Browsing), the app automatically purges non-critical cache files, recent views, and autosaves, retrying the write operation to prevent application crashes.
+
+### 🔑 Unique Checkout Compound Keys:
+- Hardened the order fulfillment rendering queue in Kiosk Mode to use compound unique identifiers (`${item.id}_${idx}`), completely resolving key warnings when rendering identical bulk items inside active cargo orders.
+
+

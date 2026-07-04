@@ -8,13 +8,39 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   const releases = [
     {
-      version: 'v5.7.0',
+      version: 'v5.8.0',
       tag: 'Latest',
       tagBg: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+      title: 'Physical Avery Sheets Mode & Storage Safeguards',
+      date: 'July 2026',
+      icon: Sparkles,
+      color: 'text-primary',
+      updates: [
+        {
+          title: 'Avery Label Sheet Designer',
+          desc: 'Toggle between standard ribbons and physical multi-column label sheets (Avery 5160, 5161, 5162, etc.). Custom-tailor margins, row layouts, and spacing presets effortlessly.',
+          badge: 'Avery Printing'
+        },
+        {
+          title: 'Start Slot Selector',
+          desc: 'Select a custom starting label slot when printing partially-used Avery sheets to prevent unnecessary material waste.',
+          badge: 'Start Slot'
+        },
+        {
+          title: 'Storage Exhaustion Monkey-Patch',
+          desc: 'Engineered automatic interceptors for localStorage and sessionStorage, auto-purging obsolete cache entries on private-browsing QuotaExceeded errors.',
+          badge: 'Crash Protection'
+        }
+      ]
+    },
+    {
+      version: 'v5.7.0',
+      tag: 'Bulk Operations',
+      tagBg: 'bg-indigo-50 text-indigo-700 border-indigo-100',
       title: 'Bulk List Copying & Multi-Select Operations',
       date: 'July 2026',
       icon: Sparkles,
@@ -272,7 +298,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                 <span>PACKER ENGINE CORE STABLE</span>
               </div>
               <span className="text-[10px] uppercase font-black tracking-wide">
-                Build v5.7.0
+                Build v5.8.0
               </span>
             </div>
           </motion.div>

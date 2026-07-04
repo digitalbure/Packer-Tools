@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, 
@@ -74,6 +74,7 @@ interface QRPrintModalProps {
   onClose: () => void;
   items: PrintableItem[];
   user?: UserProfile | null;
+  initialSelectedIds?: Set<string>;
 }
 
 const PRESETS: Record<LabelConfig['layout'], Partial<LabelConfig>> = {
@@ -105,21 +106,161 @@ const TEMPLATES: LabelTemplate[] = [
   { id: 'tiny', name: 'Micro Tag Dot (12 x 12mm)', width: 12, height: 12, qrSize: 10, fontSize: 0, columns: 8, layout: 'tiny' }
 ];
 
-export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintModalProps) {
+export interface AveryTemplate {
+  id: string;
+  name: string;
+  columns: number;
+  rows: number;
+  labelWidth: number;  // mm
+  labelHeight: number; // mm
+  marginTop: number;   // mm
+  marginLeft: number;  // mm
+  gapX: number;        // mm
+  gapY: number;        // mm
+  pageSize: 'letter' | 'a4';
+}
+
+export const AVERY_TEMPLATES: AveryTemplate[] = [
+  {
+    id: 'avery5160',
+    name: 'Avery 5160 / 8160 (30 Labels - 2.625\" x 1\")',
+    columns: 3,
+    rows: 10,
+    labelWidth: 66.67,
+    labelHeight: 25.4,
+    marginTop: 12.7,
+    marginLeft: 4.7,
+    gapX: 3.175,
+    gapY: 0,
+    pageSize: 'letter'
+  },
+  {
+    id: 'avery5161',
+    name: 'Avery 5161 / 8161 (20 Labels - 4\" x 1\")',
+    columns: 2,
+    rows: 10,
+    labelWidth: 101.6,
+    labelHeight: 25.4,
+    marginTop: 12.7,
+    marginLeft: 4.0,
+    gapX: 3.8,
+    gapY: 0,
+    pageSize: 'letter'
+  },
+  {
+    id: 'avery5162',
+    name: 'Avery 5162 / 8162 (14 Labels - 4\" x 1.33\")',
+    columns: 2,
+    rows: 7,
+    labelWidth: 101.6,
+    labelHeight: 33.8,
+    marginTop: 21.0,
+    marginLeft: 4.0,
+    gapX: 3.8,
+    gapY: 0,
+    pageSize: 'letter'
+  },
+  {
+    id: 'avery5163',
+    name: 'Avery 5163 / 8163 (10 Labels - 4\" x 2\")',
+    columns: 2,
+    rows: 5,
+    labelWidth: 101.6,
+    labelHeight: 50.8,
+    marginTop: 12.7,
+    marginLeft: 4.0,
+    gapX: 3.8,
+    gapY: 0,
+    pageSize: 'letter'
+  },
+  {
+    id: 'avery5164',
+    name: 'Avery 5164 / 8164 (6 Labels - 4\" x 3.33\")',
+    columns: 2,
+    rows: 3,
+    labelWidth: 101.6,
+    labelHeight: 84.6,
+    marginTop: 12.7,
+    marginLeft: 4.0,
+    gapX: 3.8,
+    gapY: 0,
+    pageSize: 'letter'
+  },
+  {
+    id: 'avery5167',
+    name: 'Avery 5167 (80 Mini Labels - 1.75\" x 0.5\")',
+    columns: 4,
+    rows: 20,
+    labelWidth: 44.45,
+    labelHeight: 12.7,
+    marginTop: 12.7,
+    marginLeft: 7.6,
+    gapX: 7.6,
+    gapY: 0,
+    pageSize: 'letter'
+  },
+  {
+    id: 'averyL7160',
+    name: 'Avery L7160 (A4 - 21 Labels - 63.5 x 38.1mm)',
+    columns: 3,
+    rows: 7,
+    labelWidth: 63.5,
+    labelHeight: 38.1,
+    marginTop: 15.1,
+    marginLeft: 7.2,
+    gapX: 2.5,
+    gapY: 0,
+    pageSize: 'a4'
+  },
+  {
+    id: 'averyL7163',
+    name: 'Avery L7163 (A4 - 14 Labels - 99.1 x 38.1mm)',
+    columns: 2,
+    rows: 7,
+    labelWidth: 99.1,
+    labelHeight: 38.1,
+    marginTop: 15.1,
+    marginLeft: 4.7,
+    gapX: 2.5,
+    gapY: 0,
+    pageSize: 'a4'
+  }
+];
+
+export default function QRPrintModal({ isOpen, onClose, items, user, initialSelectedIds }: QRPrintModalProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [showDesign, setShowDesign] = useState(true);
   const [smartMode, setSmartMode] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('custom');
   
+  // Sheet layout mode state
+  const [sheetMode, setSheetMode] = useState(false);
+  const [selectedAveryTemplateId, setSelectedAveryTemplateId] = useState<string>('avery5160');
+  const [sheetStartIndex, setSheetStartIndex] = useState<number>(1);
+  const [showSheetGuidelines, setShowSheetGuidelines] = useState<boolean>(true);
+  
   // Designer Tab switcher
-  const [designerTab, setDesignerTab] = useState<'basic' | 'qr_style' | 'device_cable' | 'data_edit'>('basic');
+  const [designerTab, setDesignerTab] = useState<'basic' | 'qr_style' | 'device_cable' | 'data_edit' | 'guide'>('basic');
   
   // Local reactive list offsets to edit labels before printing
   const [editedItems, setEditedItems] = useState<Record<string, { name: string; brand: string; assetTag: string }>>({});
   
   // Item currently selected for editing in Tab 4
   const [focusedItemId, setFocusedItemId] = useState<string>('');
+
+  // Sync initialSelectedIds when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      if (initialSelectedIds && initialSelectedIds.size > 0) {
+        setSelectedIds(new Set(initialSelectedIds));
+        setFocusedItemId(Array.from(initialSelectedIds)[0]);
+      } else {
+        setSelectedIds(new Set());
+        setFocusedItemId('');
+      }
+    }
+  }, [isOpen, initialSelectedIds]);
 
   const [config, setConfig] = useState<LabelConfig>({
     width: 76,
@@ -257,6 +398,41 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
 
   const selectedItems = items.filter(i => selectedIds.has(i.id));
 
+  // Dynamic sheets calculation for Avery and standard custom labels
+  const sheetPages = useMemo(() => {
+    if (!sheetMode) return [];
+    
+    const template = AVERY_TEMPLATES.find(t => t.id === selectedAveryTemplateId) || AVERY_TEMPLATES[0];
+    const labelsPerSheet = template.columns * template.rows;
+    const pages: (PrintableItem | null)[][] = [];
+    
+    let itemIndex = 0;
+    let pageIndex = 0;
+    
+    while (itemIndex < selectedItems.length) {
+      const pageLabels: (PrintableItem | null)[] = Array(labelsPerSheet).fill(null);
+      const startOffset = pageIndex === 0 ? (sheetStartIndex - 1) : 0;
+      
+      for (let slot = startOffset; slot < labelsPerSheet; slot++) {
+        if (itemIndex < selectedItems.length) {
+          pageLabels[slot] = selectedItems[itemIndex];
+          itemIndex++;
+        } else {
+          break;
+        }
+      }
+      
+      pages.push(pageLabels);
+      pageIndex++;
+    }
+    
+    if (pages.length === 0) {
+      pages.push(Array(labelsPerSheet).fill(null));
+    }
+    
+    return pages;
+  }, [sheetMode, selectedItems, selectedAveryTemplateId, sheetStartIndex]);
+
   // Edit fields handler for localized asset data overrides
   const handleEditField = (itemId: string, field: 'name' | 'brand' | 'assetTag', value: string) => {
     setEditedItems(prev => {
@@ -303,6 +479,152 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
       brand: edit ? edit.brand : (item.brand || item.category || 'General'),
       assetTag: edit ? edit.assetTag : (item.assetTag || 'TAG-PENDING')
     };
+  };
+
+  const renderLabelInner = (item: PrintableItem, itemConfig: LabelConfig) => {
+    const rItem = getResolvedItem(item);
+    const isCable = itemConfig.layout === 'cable';
+
+    if (isCable) {
+      return (
+        <div className="w-full h-full flex items-center relative gap-2">
+          {/* 1. Length/Tag Color Indicator Band Wrap Tail */}
+          <div 
+            className="absolute left-0 top-0 bottom-0 w-3 shrink-0 print:border-r print:border-black"
+            style={{ backgroundColor: itemConfig.cableBandColor }}
+          />
+          
+          {/* 2. Inner QR Code wrap */}
+          <div 
+            className="p-0.5 bg-white border border-neutral-200 rounded shrink-0 ml-3 print:border-black print:p-0"
+            style={{ width: `${itemConfig.qrSize}mm`, height: `${itemConfig.qrSize}mm` }}
+          >
+            <QRCodeCanvas
+              value={`${window.location.origin}/gear/${item.id}`}
+              size={itemConfig.qrSize * 3.78}
+              level={itemConfig.qrErrorLevel}
+              fgColor={itemConfig.qrFgColor}
+              bgColor={itemConfig.qrBgColor}
+              includeMargin={false}
+              style={{ width: '100%', height: '100%' }}
+            />
+          </div>
+
+          {/* 3. Cable Specific description details */}
+          <div className="flex-1 min-w-0 pr-1 flex flex-col justify-center text-left leading-none" style={{ fontSize: `${itemConfig.fontSize}pt` }}>
+            <div className="flex items-center gap-1 mb-0.5 font-sans">
+              <span className="text-[7px] font-black uppercase tracking-wider bg-black text-white px-1 py-0.5 rounded-sm shrink-0 leading-none">
+                {itemConfig.cableType.toUpperCase()}
+              </span>
+              <span className="text-[7.5px] text-neutral-800 font-extrabold truncate uppercase font-mono leading-none">
+                {itemConfig.cableLength}
+              </span>
+              {itemConfig.cableDirection !== 'none' && (
+                <span className="text-[6.5px] font-mono text-neutral-500 font-extrabold shrink-0 leading-none">
+                  M➔F
+                </span>
+              )}
+            </div>
+            {itemConfig.showName && (
+              <p className="font-extrabold text-[8px] text-neutral-900 truncate uppercase tracking-tight">
+                {rItem.name}
+              </p>
+            )}
+            {itemConfig.showTag && (
+              <p className="text-[6px] font-mono font-bold text-neutral-500 mt-0.5 select-all">
+                {rItem.assetTag}
+              </p>
+            )}
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div className="w-full h-full flex flex-col justify-between items-center relative">
+          {/* Secure Device Warning stripe */}
+          {itemConfig.deviceWarningBorder && (
+            <div className="absolute inset-0 border-4 border-amber-400 pointer-events-none print:border-black" style={{ borderStyle: 'double' }}>
+              {/* Stripes Accent background */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-amber-400 print:bg-black" />
+            </div>
+          )}
+
+          {/* Card Header section */}
+          {itemConfig.layout !== 'tiny' && (
+            <div className={`w-full flex justify-between items-start ${itemConfig.deviceWarningBorder ? 'px-1.5 pt-1.5' : ''}`}>
+              {itemConfig.showTag && (
+                <div className="text-left leading-none">
+                  <span className="text-[6px] font-black uppercase text-neutral-400 tracking-wider">Asset System</span>
+                  <p className="text-[8.5px] font-mono font-black text-neutral-900">{rItem.assetTag}</p>
+                </div>
+              )}
+              <div className="text-right leading-none flex flex-col items-end">
+                {itemConfig.showBrand && (
+                  <span className="text-[6.5px] font-extrabold text-neutral-500 uppercase tracking-widest truncate max-w-[80px]">
+                    {rItem.brand}
+                  </span>
+                )}
+                {itemConfig.deviceWarningBorder && (
+                  <span className="text-[5.5px] uppercase font-bold text-red-500 shrink-0">
+                    {itemConfig.deviceClass}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* QR Canvas Frame */}
+          <div 
+            className={`bg-white p-1 rounded-sm border shrink-0 ${itemConfig.qrCornersRounded ? 'rounded-xl' : ''}`}
+            style={{ 
+              width: `${itemConfig.qrSize}mm`, 
+              height: `${itemConfig.qrSize}mm`,
+              borderColor: '#e5e7eb'
+            }}
+          >
+            <QRCodeCanvas
+              value={`${window.location.origin}/gear/${item.id}`}
+              size={itemConfig.qrSize * 3.78}
+              level={itemConfig.qrErrorLevel}
+              fgColor={itemConfig.qrFgColor}
+              bgColor={itemConfig.qrBgColor}
+              includeMargin={false}
+              style={{ width: '100%', height: '100%' }}
+            />
+          </div>
+
+          {/* Label description text */}
+          {itemConfig.layout !== 'tiny' && (
+            <div 
+              className={`w-full text-center space-y-0.5 leading-none mb-1 ${itemConfig.deviceWarningBorder ? 'pb-1' : ''}`}
+              style={{ fontSize: `${itemConfig.fontSize}pt` }}
+            >
+              {itemConfig.showName && (
+                <p className="font-black truncate uppercase tracking-tight text-neutral-900 px-1">
+                  {rItem.name}
+                </p>
+              )}
+
+              {/* Physical specs (weight & conditions) */}
+              {itemConfig.deviceWarningBorder && (
+                <div className="flex items-center justify-center gap-1.5 text-[6px] font-sans font-extrabold text-neutral-600">
+                  <span>WT: {itemConfig.deviceWeight}</span>
+                  <span>•</span>
+                  <span className="text-amber-600 font-black">{itemConfig.deviceCondition}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tiny identifier bottom helper */}
+          {itemConfig.layout === 'standard' && !itemConfig.deviceWarningBorder && (
+            <div className="absolute bottom-0 left-0 right-0 flex justify-center opacity-40">
+              <p className="text-[5px] text-neutral-400 font-mono font-bold uppercase tracking-wider">Scan via Packer Tools</p>
+            </div>
+          )}
+        </div>
+      );
+    }
   };
 
   const currentFocusedItem = useMemo(() => {
@@ -387,7 +709,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                     id="designer-config-rail"
                   >
                     {/* Inner tab selectors */}
-                    <div className="grid grid-cols-4 bg-neutral-950 border-b border-neutral-800 text-[10px] font-black uppercase text-center text-neutral-400">
+                    <div className="grid grid-cols-5 bg-neutral-950 border-b border-neutral-800 text-[9.5px] font-black uppercase text-center text-neutral-400">
                       <button
                         onClick={() => setDesignerTab('basic')}
                         className={`py-3 transition flex flex-col items-center gap-1 border-r border-neutral-800 select-none ${designerTab === 'basic' ? 'bg-neutral-900 text-white border-b-2 border-b-primary font-bold' : 'hover:bg-neutral-900/50'}`}
@@ -411,10 +733,17 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                       </button>
                       <button
                         onClick={() => setDesignerTab('data_edit')}
-                        className={`py-3 transition flex flex-col items-center gap-1 select-none ${designerTab === 'data_edit' ? 'bg-neutral-900 text-white border-b-2 border-b-primary font-bold' : 'hover:bg-neutral-900/50'}`}
+                        className={`py-3 transition flex flex-col items-center gap-1 border-r border-neutral-800 select-none ${designerTab === 'data_edit' ? 'bg-neutral-900 text-white border-b-2 border-b-primary font-bold' : 'hover:bg-neutral-900/50'}`}
                       >
                         <Edit3 size={12} />
                         <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => setDesignerTab('guide')}
+                        className={`py-3 transition flex flex-col items-center gap-1 select-none ${designerTab === 'guide' ? 'bg-neutral-900 text-white border-b-2 border-b-primary font-bold' : 'hover:bg-neutral-900/50'}`}
+                      >
+                        <Info size={12} />
+                        <span>Guide</span>
                       </button>
                     </div>
 
@@ -525,6 +854,111 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                               }}
                               className="w-full h-1 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-primary"
                             />
+                          </div>
+
+                          {/* 🏷️ Real-time Avery Sheet Configuration */}
+                          <div className="space-y-3 pt-3.5 border-t border-neutral-800 bg-neutral-950/40 p-3.5 rounded-2xl border border-neutral-800">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
+                                <Layers size={12} className="text-primary" />
+                                <span>Sheet / Avery Template Mode</span>
+                              </span>
+                              <button
+                                onClick={() => {
+                                  const nextMode = !sheetMode;
+                                  setSheetMode(nextMode);
+                                  if (nextMode) {
+                                    const template = AVERY_TEMPLATES.find(t => t.id === selectedAveryTemplateId);
+                                    if (template) {
+                                      setConfig(prev => ({
+                                        ...prev,
+                                        width: template.labelWidth,
+                                        height: template.labelHeight,
+                                        columns: template.columns,
+                                      }));
+                                    }
+                                  }
+                                }}
+                                className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${
+                                  sheetMode ? 'bg-primary' : 'bg-neutral-800'
+                                }`}
+                                type="button"
+                              >
+                                <span
+                                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                                    sheetMode ? 'translate-x-[22px]' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                            
+                            {sheetMode && (
+                              <div className="space-y-3 pt-2.5 border-t border-neutral-800/50 animate-in slide-in-from-top-2 duration-200">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-bold text-neutral-400 uppercase">Standard Sheet</label>
+                                  <select
+                                    value={selectedAveryTemplateId}
+                                    onChange={(e) => {
+                                      const tempId = e.target.value;
+                                      setSelectedAveryTemplateId(tempId);
+                                      const template = AVERY_TEMPLATES.find(t => t.id === tempId);
+                                      if (template) {
+                                        setConfig(prev => ({
+                                          ...prev,
+                                          width: template.labelWidth,
+                                          height: template.labelHeight,
+                                          columns: template.columns,
+                                        }));
+                                        const maxLabels = template.columns * template.rows;
+                                        if (sheetStartIndex > maxLabels) {
+                                          setSheetStartIndex(1);
+                                        }
+                                      }
+                                    }}
+                                    className="w-full p-2 bg-neutral-950 border border-neutral-800 text-neutral-200 rounded-lg text-xs font-bold outline-none focus:border-primary cursor-pointer font-sans"
+                                  >
+                                    {AVERY_TEMPLATES.map(t => (
+                                      <option key={t.id} value={t.id}>{t.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-neutral-400 uppercase">Start Slot</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max={(() => {
+                                        const template = AVERY_TEMPLATES.find(t => t.id === selectedAveryTemplateId);
+                                        return template ? template.columns * template.rows : 30;
+                                      })()}
+                                      value={sheetStartIndex}
+                                      onChange={(e) => {
+                                        const val = Math.max(1, Number(e.target.value));
+                                        setSheetStartIndex(val);
+                                      }}
+                                      className="w-full p-2 bg-neutral-950 border border-neutral-800 text-white rounded-lg text-xs font-mono font-bold outline-none focus:border-primary"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="text-[9px] font-bold text-neutral-400 uppercase">Guidelines</label>
+                                    <button
+                                      onClick={() => setShowSheetGuidelines(!showSheetGuidelines)}
+                                      className={`w-full p-2 rounded-lg text-xs font-black border transition ${showSheetGuidelines ? 'bg-primary/20 border-primary text-primary' : 'bg-neutral-950 border-neutral-800 text-neutral-400'}`}
+                                      type="button"
+                                    >
+                                      {showSheetGuidelines ? 'Show Guidelines' : 'Hide Guidelines'}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <p className="text-[9.5px] text-neutral-500 italic leading-relaxed">
+                                  Perfect for layout on full adhesive sheets. Helps avoid wasting label positions.
+                                </p>
+                              </div>
+                            )}
                           </div>
 
                           <div className="space-y-2.5 pt-2 border-t border-neutral-800">
@@ -865,11 +1299,11 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                             <div className="space-y-2">
                               <span className="text-[10px] font-black uppercase text-neutral-400 block pb-1 border-b border-neutral-850">Selected Print Queue ({selectedItems.length})</span>
                               <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1.5">
-                                {selectedItems.map(item => {
+                                {selectedItems.map((item, idx) => {
                                   const rItem = getResolvedItem(item);
                                   return (
                                     <button
-                                      key={item.id}
+                                      key={`${item.id}-${idx}`}
                                       onClick={() => setFocusedItemId(item.id)}
                                       className={`w-full p-2 bg-neutral-950 hover:bg-neutral-900 rounded-xl border text-left transition ${focusedItemId === item.id ? 'border-primary' : 'border-neutral-800'}`}
                                       type="button"
@@ -882,6 +1316,139 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                               </div>
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* Tab 5: QR, NFC & RFID Hardware & Media Guide */}
+                      {designerTab === 'guide' && (
+                        <div className="space-y-6 animate-in fade-in duration-300 text-neutral-350 text-xs">
+                          <h3 className="text-xs uppercase font-extrabold tracking-widest text-primary border-b border-neutral-800 pb-1.5 flex items-center gap-1.5">
+                            <Info size={14} className="text-primary" />
+                            <span>Hardware & Media Guide</span>
+                          </h3>
+
+                          {/* 1. Recommended Printers */}
+                          <div className="space-y-2">
+                            <h4 className="font-extrabold text-white text-[11px] uppercase tracking-wide flex items-center gap-1">
+                              <span>🖨️</span> Suggested QR Printers
+                            </h4>
+                            <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 space-y-2">
+                              <div>
+                                <p className="font-bold text-white text-[10.5px]">Industrial / Desktop:</p>
+                                <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">
+                                  <strong>Zebra ZD421 / ZD621 (Thermal Transfer):</strong> The gold standard for permanent, scratch-proof synthetic asset tags using resin ribbons.
+                                </p>
+                                <p className="text-[10px] text-neutral-400 mt-1 leading-relaxed">
+                                  <strong>Brother TD-4420DN / DYMO 550:</strong> Excellent high-speed desktop direct thermal options for staging/temporary warehouse labeling.
+                                </p>
+                              </div>
+                              <div className="border-t border-neutral-850 pt-2">
+                                <p className="font-bold text-white text-[10.5px]">On-the-Go / Portable:</p>
+                                <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">
+                                  <strong>Brother P-Touch Cube Plus (PT-P710BT):</strong> Best mobile bluetooth ribbon labeler for cable tags and micro dots up to 24mm.
+                                </p>
+                                <p className="text-[10px] text-neutral-400 mt-1 leading-relaxed">
+                                  <strong>Niimbot B21 / B1:</strong> Inkless portable Bluetooth thermal printers for on-the-spot field tag replacements.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 2. Media & Materials */}
+                          <div className="space-y-2">
+                            <h4 className="font-extrabold text-white text-[11px] uppercase tracking-wide flex items-center gap-1">
+                              <span>🏷️</span> Durable Media Materials
+                            </h4>
+                            <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 space-y-2 leading-relaxed text-[10px] text-neutral-400">
+                              <p>
+                                <strong className="text-white">Gloss Polyester (PET):</strong> Best for general hardware, camera bodies, and cases. Resistant to water, chemicals, and extreme temperatures.
+                              </p>
+                              <p className="border-t border-neutral-850 pt-2">
+                                <strong className="text-white">Vinyl Tape (PT-PTouch):</strong> Crucial for cables and curved rigging shafts. Conforms easily without curling or peeling under friction.
+                              </p>
+                              <p className="border-t border-neutral-850 pt-2">
+                                <strong className="text-white">Self-Laminating Cable Wraps:</strong> Has a white printable area plus an attached clear tail that wraps entirely around the cable, sealing the printed QR code from weather/friction.
+                              </p>
+                              <p className="border-t border-neutral-850 pt-2">
+                                <strong className="text-white">Isolating Overlaminates:</strong> Clear heavy-duty adhesive films applied manually over printed tags to shield against abrasion in rough transit cases.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* 3. Placement Tips by Category */}
+                          <div className="space-y-2">
+                            <h4 className="font-extrabold text-white text-[11px] uppercase tracking-wide flex items-center gap-1">
+                              <span>📦</span> Best Practices by Asset Type
+                            </h4>
+                            <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 space-y-2 text-[10px] text-neutral-400 leading-relaxed">
+                              <div>
+                                <span className="font-bold text-white text-[10px]">📷 Devices & Rigs (Lenses, Monitors):</span>
+                                <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                                  <li>Position on flat, recessed surfaces to avoid shear friction.</li>
+                                  <li>Ensure high-contrast colors (e.g. white border around black QR) for rapid focal acquisitions.</li>
+                                </ul>
+                              </div>
+                              <div className="border-t border-neutral-850 pt-2">
+                                <span className="font-bold text-white text-[10px]">🔌 Cables & Adaptors:</span>
+                                <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                                  <li>Apply labels 2-4 inches away from connector boots.</li>
+                                  <li>Utilize "cable tail" wraps or double-sided flag seals.</li>
+                                </ul>
+                              </div>
+                              <div className="border-t border-neutral-850 pt-2">
+                                <span className="font-bold text-white text-[10px]">💼 Cases & Cargo Trunks:</span>
+                                <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                                  <li>Clean case area with Isopropyl Alcohol (IPA) to eliminate oils.</li>
+                                  <li>Apply in recessed handles/latches or on flat faces under the handle block to shield from scraping during loading.</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 4. NFC Integration */}
+                          <div className="space-y-2">
+                            <h4 className="font-extrabold text-white text-[11px] uppercase tracking-wide flex items-center gap-1">
+                              <span>📡</span> NFC (Near Field Communication)
+                            </h4>
+                            <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 space-y-2 text-[10px] text-neutral-400 leading-relaxed">
+                              <p>
+                                NFC allows lightning-fast smartphone tapping without launching the camera or adjusting focus.
+                              </p>
+                              <p className="border-t border-neutral-850 pt-2">
+                                <strong className="text-white">Tag Standard:</strong> Buy standard <strong className="text-neutral-200">NTAG213</strong> or <strong className="text-neutral-200">NTAG215</strong> wet-inlays or rigid disc tags (13.56 MHz, standard ISO 14443-A).
+                              </p>
+                              <p className="border-t border-neutral-850 pt-2">
+                                <strong className="text-amber-400">⚠️ CRITICAL On-Metal Rule:</strong> Standard NFC tags will be completely shorted out if applied to aluminum camera rigs, steel racks, or tripod stems. You <strong>MUST buy "On-Metal NFC Tags"</strong>, which feature a thin protective ferrite barrier layer that isolates the antenna loop from the metallic chassis.
+                              </p>
+                              <p className="border-t border-neutral-850 pt-2">
+                                <strong className="text-white">How to Program:</strong> Use a standard app (e.g., "NFC Tools" on iOS/Android). Select "Write" &gt; "Add Record" &gt; "URL", and paste the Packer Tools deep link:
+                                <code className="block mt-1 p-1 bg-neutral-900 rounded text-[9px] font-mono break-all text-neutral-300 font-bold leading-normal">
+                                  {window.location.origin}/gear/[item_id]
+                                </code>
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* 5. RFID Integration */}
+                          <div className="space-y-2">
+                            <h4 className="font-extrabold text-white text-[11px] uppercase tracking-wide flex items-center gap-1">
+                              <span>🏷️</span> RFID (Radio Frequency Identification)
+                            </h4>
+                            <div className="bg-neutral-950 p-3 rounded-xl border border-neutral-850 space-y-2 text-[10px] text-neutral-400 leading-relaxed">
+                              <p>
+                                RFID excels at bulk-scans of sealed road cases, warehouse bays, or complete truckloads without line-of-sight.
+                              </p>
+                              <p className="border-t border-neutral-850 pt-2">
+                                <strong className="text-white">Tag Standard:</strong> Use <strong className="text-neutral-200">UHF RFID tags</strong> operating in the 860-960 MHz range conforming to <strong className="text-neutral-200">EPC Gen2 / ISO 18000-6C</strong> standards.
+                              </p>
+                              <p className="border-t border-neutral-850 pt-2">
+                                <strong className="text-white">Antenna and Metal:</strong> Similar to NFC, use rigid "RFID Metal Tags" (with high dielectric spacer backings) when tagging tools, lenses, or containers.
+                              </p>
+                              <p className="border-t border-neutral-850 pt-2">
+                                <strong className="text-white">Tag Placement:</strong> Ensure the RFID chip tag is positioned pointing outwards. Keep tags away from large bodies of liquid (e.g. wet chemical drums or large lithium batteries) which absorb radio frequencies.
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       )}
 
@@ -934,12 +1501,12 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
 
                   {/* Multi-Select Horizontal Carousel */}
                   <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 border border-dashed border-neutral-100 rounded-2xl bg-neutral-50/40">
-                    {filteredItems.map(item => {
+                    {filteredItems.map((item, idx) => {
                       const rItem = getResolvedItem(item);
                       const isSelected = selectedIds.has(item.id);
                       return (
                         <button
-                          key={item.id}
+                          key={`${item.id}-${idx}`}
                           onClick={() => toggleSelect(item.id)}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition text-xs font-semibold ${
                             isSelected
@@ -961,35 +1528,121 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
 
                 {/* Print Layout Engine Stage */}
                 <div className="flex-1 overflow-y-auto p-8 bg-neutral-100 print:bg-white print:p-0">
-                  <div 
-                    className="grid gap-6 print:gap-1 p-2 justify-center"
-                    style={{ 
-                      gridTemplateColumns: smartMode ? 'repeat(auto-fill, minmax(220px, 1fr))' : `repeat(${config.columns}, minmax(0, max-content))`,
-                      display: 'grid'
-                    }}
-                    id="printed-sticker-grid"
-                  >
-                    {selectedItems.length === 0 ? (
-                      <div className="col-span-full py-24 text-center space-y-4 print:hidden bg-white rounded-3xl border border-neutral-200 border-dashed p-6 max-w-lg mx-auto">
-                        <div className="w-16 h-16 bg-primary/5 border border-primary/15 text-primary rounded-full flex items-center justify-center mx-auto">
-                          <Tag size={28} />
-                        </div>
-                        <h4 className="text-base font-black uppercase text-neutral-800">Your design plate is empty!</h4>
-                        <p className="text-neutral-500 text-xs leading-relaxed">
-                          Click any of the equipment tag pills above to insert them into your live design preview workspace.
-                        </p>
+                  
+                  {selectedItems.length === 0 ? (
+                    <div className="col-span-full py-24 text-center space-y-4 print:hidden bg-white rounded-3xl border border-neutral-200 border-dashed p-6 max-w-lg mx-auto">
+                      <div className="w-16 h-16 bg-primary/5 border border-primary/15 text-primary rounded-full flex items-center justify-center mx-auto">
+                        <Tag size={28} />
                       </div>
-                    ) : (
-                      selectedItems.map(item => {
-                        const itemConfig = getSmartConfig(item);
-                        const rItem = getResolvedItem(item);
+                      <h4 className="text-base font-black uppercase text-neutral-800">Your design plate is empty!</h4>
+                      <p className="text-neutral-500 text-xs leading-relaxed">
+                        Click any of the equipment tag pills above to insert them into your live design preview workspace.
+                      </p>
+                    </div>
+                  ) : sheetMode ? (
+                    /* 📄 Avery Sheet Template Grid Mode */
+                    <div 
+                      className="flex flex-col items-center gap-8 w-full print:gap-0 print:p-0"
+                      id="printed-sticker-grid"
+                    >
+                      {sheetPages.map((pageLabels, pageIdx) => {
+                        const template = AVERY_TEMPLATES.find(t => t.id === selectedAveryTemplateId) || AVERY_TEMPLATES[0];
                         
-                        // Decide specific render attributes for devices vs cables
+                        return (
+                          <div
+                            key={`avery-page-${pageIdx}`}
+                            className="bg-white shadow-lg print:shadow-none print:m-0 border border-neutral-200 print:border-none relative flex flex-col justify-start page-break-after-always overflow-hidden shrink-0"
+                            style={{
+                              width: template.pageSize === 'letter' ? '215.9mm' : '210mm',
+                              height: template.pageSize === 'letter' ? '279.4mm' : '297mm',
+                              paddingLeft: `${template.marginLeft}mm`,
+                              paddingTop: `${template.marginTop}mm`,
+                              boxSizing: 'border-box'
+                            }}
+                          >
+                            {/* Visual Guidelines label (hidden during physical print) */}
+                            {showSheetGuidelines && (
+                              <div className="absolute top-2.5 right-2.5 px-2 py-1 bg-primary/10 text-primary border border-primary/20 text-[9px] font-black uppercase rounded select-none print:hidden z-10">
+                                Avery Sheet Page {pageIdx + 1} ({template.pageSize.toUpperCase()})
+                              </div>
+                            )}
+
+                            {/* Label grid structure with specified template gaps */}
+                            <div
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: `repeat(${template.columns}, ${template.labelWidth}mm)`,
+                                gridTemplateRows: `repeat(${template.rows}, ${template.labelHeight}mm)`,
+                                columnGap: `${template.gapX}mm`,
+                                rowGap: `${template.gapY}mm`
+                              }}
+                            >
+                              {pageLabels.map((item, slotIdx) => {
+                                if (!item) {
+                                  // Empty slot on the Avery sheet
+                                  return (
+                                    <div
+                                      key={`empty-${pageIdx}-${slotIdx}`}
+                                      className="border border-dashed border-neutral-150 flex items-center justify-center relative select-none print:border-none"
+                                      style={{
+                                        width: `${template.labelWidth}mm`,
+                                        height: `${template.labelHeight}mm`,
+                                        boxSizing: 'border-box'
+                                      }}
+                                    >
+                                      {showSheetGuidelines && (
+                                        <span className="text-[8px] font-bold text-neutral-300 font-mono print:hidden">
+                                          Slot {slotIdx + 1} (Empty)
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                }
+
+                                const itemConfig = getSmartConfig(item);
+                                const isFocused = focusedItemId === item.id;
+                                
+                                return (
+                                  <div
+                                    key={`label-${pageIdx}-${slotIdx}-${item.id}`}
+                                    onClick={() => setFocusedItemId(item.id)}
+                                    className={`bg-white text-black border/90 transition cursor-pointer print:rounded-none print:shadow-none print:break-inside-avoid overflow-hidden relative flex flex-col items-center justify-between ${
+                                      isFocused ? 'ring-2 ring-primary border-primary z-20 shadow' : 'border border-neutral-200 print:border-transparent'
+                                    } ${showSheetGuidelines ? 'hover:ring-1 hover:ring-primary/50' : ''}`}
+                                    style={{
+                                      width: `${template.labelWidth}mm`,
+                                      height: `${template.labelHeight}mm`,
+                                      padding: itemConfig.layout === 'tiny' ? '1mm' : '2mm 3mm',
+                                      backgroundColor: itemConfig.qrBgColor,
+                                      boxSizing: 'border-box'
+                                    }}
+                                  >
+                                    {renderLabelInner(item, itemConfig)}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* 🖨️ Continuous Label Ribbon Mode */
+                    <div 
+                      className="grid gap-6 print:gap-1 p-2 justify-center"
+                      style={{ 
+                        gridTemplateColumns: smartMode ? 'repeat(auto-fill, minmax(220px, 1fr))' : `repeat(${config.columns}, minmax(0, max-content))`,
+                        display: 'grid'
+                      }}
+                      id="printed-sticker-grid"
+                    >
+                      {selectedItems.map((item, idx) => {
+                        const itemConfig = getSmartConfig(item);
                         const isCable = itemConfig.layout === 'cable';
                         
                         return (
                           <div 
-                            key={item.id} 
+                            key={`${item.id}-${idx}`} 
                             onClick={() => setFocusedItemId(item.id)}
                             className={`bg-white text-black border/90 shadow-sm hover:ring-2 hover:ring-primary transition cursor-pointer print:border-black print:rounded-none print:shadow-none print:break-inside-avoid overflow-hidden relative flex ${
                               isCable ? 'flex-row items-center border border-neutral-300' : 'flex-col items-center justify-between border border-neutral-200'
@@ -1002,155 +1655,12 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
                               boxSizing: 'border-box'
                             }}
                           >
-                            
-                            {/* Layout specific render styles */}
-                            {isCable ? (
-                              /* Cable Layout Loop Design */
-                              <div className="w-full h-full flex items-center relative gap-2">
-                                
-                                {/* 1. Length/Tag Color Indicator Band Wrap Tail */}
-                                <div 
-                                  className="absolute left-0 top-0 bottom-0 w-3 shrink-0 print:border-r print:border-black"
-                                  style={{ backgroundColor: itemConfig.cableBandColor }}
-                                />
-                                
-                                {/* 2. Inner QR Code wrap */}
-                                <div 
-                                  className="p-0.5 bg-white border border-neutral-200 rounded shrink-0 ml-3 print:border-black print:p-0"
-                                  style={{ width: `${itemConfig.qrSize}mm`, height: `${itemConfig.qrSize}mm` }}
-                                >
-                                  <QRCodeCanvas
-                                    value={`${window.location.origin}/gear/${item.id}`}
-                                    size={itemConfig.qrSize * 3.78}
-                                    level={itemConfig.qrErrorLevel}
-                                    fgColor={itemConfig.qrFgColor}
-                                    bgColor={itemConfig.qrBgColor}
-                                    includeMargin={false}
-                                    style={{ width: '100%', height: '100%' }}
-                                  />
-                                </div>
-
-                                {/* 3. Cable Specific description details */}
-                                <div className="flex-1 min-w-0 pr-1 flex flex-col justify-center text-left leading-none" style={{ fontSize: `${itemConfig.fontSize}pt` }}>
-                                  <div className="flex items-center gap-1 mb-0.5">
-                                    <span className="text-[7px] font-black uppercase tracking-wider bg-black text-white px-1 rounded-sm shrink-0">
-                                      {itemConfig.cableType.toUpperCase()}
-                                    </span>
-                                    <span className="text-[7.5px] text-neutral-800 font-extrabold truncate uppercase font-mono">
-                                      {itemConfig.cableLength}
-                                    </span>
-                                    {itemConfig.cableDirection !== 'none' && (
-                                      <span className="text-[6.5px] font-mono text-neutral-500 font-extrabold shrink-0">
-                                        M➔F
-                                      </span>
-                                    )}
-                                  </div>
-                                  {itemConfig.showName && (
-                                    <p className="font-extrabold text-[8px] text-neutral-900 truncate uppercase tracking-tight">
-                                      {rItem.name}
-                                    </p>
-                                  )}
-                                  {itemConfig.showTag && (
-                                    <p className="text-[6px] font-mono font-bold text-neutral-500 mt-0.5 select-all">
-                                      {rItem.assetTag}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            ) : (
-                              /* Standard/Square/Tiny Industrial and Device badge layouts */
-                              <div className="w-full h-full flex flex-col justify-between items-center relative">
-                                
-                                {/* Secure Device Warning stripe */}
-                                {itemConfig.deviceWarningBorder && (
-                                  <div className="absolute inset-0 border-4 border-amber-400 pointer-events-none print:border-black" style={{ borderStyle: 'double' }}>
-                                    {/* Stripes Accent background */}
-                                    <div className="absolute top-0 left-0 right-0 h-1 bg-amber-400 print:bg-black" />
-                                  </div>
-                                )}
-
-                                {/* Card Header section */}
-                                {itemConfig.layout !== 'tiny' && (
-                                  <div className={`w-full flex justify-between items-start ${itemConfig.deviceWarningBorder ? 'px-1.5 pt-1.5' : ''}`}>
-                                    {itemConfig.showTag && (
-                                      <div className="text-left leading-none">
-                                        <span className="text-[6px] font-black uppercase text-neutral-400 tracking-wider">Asset System</span>
-                                        <p className="text-[8.5px] font-mono font-black text-neutral-900">{rItem.assetTag}</p>
-                                      </div>
-                                    )}
-                                    <div className="text-right leading-none flex flex-col items-end">
-                                      {itemConfig.showBrand && (
-                                        <span className="text-[6.5px] font-extrabold text-neutral-500 uppercase tracking-widest truncate max-w-[80px]">
-                                          {rItem.brand}
-                                        </span>
-                                      )}
-                                      {itemConfig.deviceWarningBorder && (
-                                        <span className="text-[5.5px] uppercase font-bold text-red-500 shrink-0">
-                                          {itemConfig.deviceClass}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* QR Canvas Frame */}
-                                <div 
-                                  className={`bg-white p-1 rounded-sm border shrink-0 ${itemConfig.qrCornersRounded ? 'rounded-xl' : ''}`}
-                                  style={{ 
-                                    width: `${itemConfig.qrSize}mm`, 
-                                    height: `${itemConfig.qrSize}mm`,
-                                    borderColor: '#e5e7eb'
-                                  }}
-                                >
-                                  <QRCodeCanvas
-                                    value={`${window.location.origin}/gear/${item.id}`}
-                                    size={itemConfig.qrSize * 3.78}
-                                    level={itemConfig.qrErrorLevel}
-                                    fgColor={itemConfig.qrFgColor}
-                                    bgColor={itemConfig.qrBgColor}
-                                    includeMargin={false}
-                                    style={{ width: '100%', height: '100%' }}
-                                  />
-                                </div>
-
-                                {/* Label description text */}
-                                {itemConfig.layout !== 'tiny' && (
-                                  <div 
-                                    className={`w-full text-center space-y-0.5 leading-none mb-1 ${itemConfig.deviceWarningBorder ? 'pb-1' : ''}`}
-                                    style={{ fontSize: `${itemConfig.fontSize}pt` }}
-                                  >
-                                    {itemConfig.showName && (
-                                      <p className="font-black truncate uppercase tracking-tight text-neutral-900 px-1">
-                                        {rItem.name}
-                                      </p>
-                                    )}
-
-                                    {/* Physical specs (weight & conditions) */}
-                                    {itemConfig.deviceWarningBorder && (
-                                      <div className="flex items-center justify-center gap-1.5 text-[6px] font-sans font-extrabold text-neutral-600">
-                                        <span>WT: {itemConfig.deviceWeight}</span>
-                                        <span>•</span>
-                                        <span className="text-amber-600 font-black">{itemConfig.deviceCondition}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Tiny identifier bottom helper */}
-                                {itemConfig.layout === 'standard' && !itemConfig.deviceWarningBorder && (
-                                  <div className="absolute bottom-0 left-0 right-0 flex justify-center opacity-40">
-                                    <p className="text-[5px] text-neutral-400 font-mono font-bold uppercase tracking-wider">Scan via Packer Tools</p>
-                                  </div>
-                                )}
-
-                              </div>
-                            )}
-
+                            {renderLabelInner(item, itemConfig)}
                           </div>
                         );
-                      })
-                    )}
-                  </div>
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer Controls: Hidden on Print */}
@@ -1191,14 +1701,28 @@ export default function QRPrintModal({ isOpen, onClose, items, user }: QRPrintMo
               #designer-config-rail, .print\\:hidden, button, select, input {
                 display: none !important;
               }
-              #printed-sticker-grid {
-                grid-template-columns: repeat(${config.columns}, min-content) !important;
-                gap: 1.5mm !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                background: white !important;
-                display: grid !important;
-              }
+              ${sheetMode ? `
+                #printed-sticker-grid {
+                  display: block !important;
+                  width: 100% !important;
+                  background: white !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
+                .page-break-after-always {
+                  page-break-after: always !important;
+                  break-after: page !important;
+                }
+              ` : `
+                #printed-sticker-grid {
+                  grid-template-columns: repeat(${config.columns}, min-content) !important;
+                  gap: 1.5mm !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  background: white !important;
+                  display: grid !important;
+                }
+              `}
             }
           `}} />
         </div>

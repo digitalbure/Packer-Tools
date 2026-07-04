@@ -478,7 +478,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
         <div className="flex flex-wrap gap-2">
           {nodeGear.slice(0, 5).map(g => (
             <div key={g.id} className="w-8 h-8 rounded-lg border border-white/10 overflow-hidden bg-white/5 group relative" title={g.name}>
-              <img src={g.photoUrls[0]} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition" />
+              <img src={g.photoUrls?.[0] || 'https://picsum.photos/seed/gear/400/400'} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition" />
             </div>
           ))}
           {nodeGear.length > 5 && (

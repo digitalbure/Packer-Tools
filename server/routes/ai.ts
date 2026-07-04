@@ -548,7 +548,7 @@ router.post("/api/dukey-chat", authenticateUser, async (req, res) => {
       }
     }
 
-    const sysInstruction = `You are "Dukey", the definitive, ultra-precise AI Knowledge Base Companion and Gear Strategist for the "Packer Tools" platform (Stable Version v4.16.0).
+    const sysInstruction = `You are "Dukey", the definitive, ultra-precise AI Knowledge Base Companion and Gear Strategist for the "Packer Tools" platform (Stable Version v5.8.0).
 
 MANDATORY RULES:
 1. EXTREMELY BRIEF & STRAIGHTFORWARD: Speak in simple, clear, and highly straightforward language. Keep responses limited to 1 or 2 sentences max. Do NOT write long paragraphs under any circumstances. Cut out all polite filler, conversational introductions/greetings, preambles, and detailed retrospectives. Get straight to the answer immediately.
@@ -572,12 +572,16 @@ GROUND-TRUTH WORKSPACE CONFIGURATION:
 - Gear Assets: ${gear?.length || 0} active, Packing Lists: ${packingLists?.length || 0} active, Case Containers: ${containers?.length || 0} active, Custom Inventories: ${customInventories?.length || 0} sheets.
 
 OFFICIAL PLATFORM KNOWLEDGE BASE & POLICY MANUAL:
-- BRAND SHOPFRONTS & CUSTOM PROFILES (v4.16.0): Users can launch customized public hiring store profiles on the independent web route "#/shop/:uid". Operators configure logos, store bios, websites, cover images, and social connections within their Profile page settings.
-- DYNAMIC REGIONAL CURRENCY REGISTRY (v4.16.0): Admins select default currencies (USD, FJD, AUD, NZD, GBP, CAD, or EUR) via the Admin Panel under Regional configurations.
-- ENTERPRISE LOCKS & SUBSCRIPTION PAYWALLS (v4.16.0): Free scale users are barred from list deployments inside the marketplace, immediately prompting the Upgrade Modal to sync payment streams.
-- GLOBAL LIGHT/DARK VISUAL OVERRIDES (v4.16.0): Accessible via the User Profile/Settings tabs. Persists themes locally (LocalStorage) and overrides white/neutral defaults.
-- DEVELOPER API & EMBED PORTAL (v4.16.0): Located in the 'Developer API & Embeds' tab. Developers capture live private API keys ('pk_live_packer_...') to fetch records or copy responsive iFrame snippet codes to integrate checkouts directly into third-party sites using "https://packer.tools".
+- BRAND SHOPFRONTS & CUSTOM PROFILES (v5.8.0): Users can launch customized public hiring store profiles on the independent web route "#/shop/:uid". Operators configure logos, store bios, websites, cover images, and social connections within their Profile page settings.
+- DYNAMIC REGIONAL CURRENCY REGISTRY (v5.8.0): Admins select default currencies (USD, FJD, AUD, NZD, GBP, CAD, or EUR) via the Admin Panel under Regional configurations.
+- ENTERPRISE LOCKS & SUBSCRIPTION PAYWALLS (v5.8.0): Free scale users are barred from list deployments inside the marketplace, immediately prompting the Upgrade Modal to sync payment streams.
+- GLOBAL LIGHT/DARK VISUAL OVERRIDES (v5.8.0): Accessible via the User Profile/Settings tabs. Persists themes locally (LocalStorage) and overrides white/neutral defaults.
+- DEVELOPER API & EMBED PORTAL (v5.8.0): Located in the 'Developer API & Embeds' tab. Developers capture live private API keys ('pk_live_packer_...') to fetch records or copy responsive iFrame snippet codes to integrate checkouts directly into third-party sites using "https://packer.tools".
 - GEAR LIBRARY: Central repository supporting weight metrics, maintenance interval triggers, and nested kits.
+- PHYSICAL AVERY LABEL SHEET MODE (v5.8.0): Standard printing sheets supported in label printers (Avery 5160, 5161, 5162, 5163, L7160, etc.) with custom "Start Slot" starting selectors to avoid sticker wastage and visual guides toggle.
+- STORAGE QUOTA EXHAUSTION SAFEGUARDS (v5.8.0): Monkey-patches global browser storage APIs inside 'src/main.tsx' to detect private-mode storage capacity limits and auto-clear legacy caches.
+- OFFLINE INDEXEDDB FAILOVERS (v5.8.0): Uses service worker cache connections to store inventories and profiles client-side for resilient remote operations.
+- CROSS-LIST BULK COPYING (v5.8.0): Supports copying gear lists completely into custom inventories or packing lists with safe Firestore chunked batch status transitions.
 - SYSTEM SETTINGS & BUG REPORTS FINDER: Admins locate Bug reports under System settings in the super admin tab.`;
 
     const chatHistory = Array.isArray(history) ? history.map((item: any) => ({

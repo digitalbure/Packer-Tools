@@ -2728,7 +2728,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                       setSelectedInventoryItems(next);
                                     }
                                   }}
-                                  className="w-5 h-5 border border-neutral-300 rounded flex items-center justify-center bg-white hover:border-black cursor-pointer"
+                                  className="w-5 h-5 border border-neutral-300 rounded flex items-center justify-center bg-white hover:border-black cursor-pointer no-min-h aspect-square shrink-0"
                                 >
                                   {paginatedInventoryItems.length > 0 && paginatedInventoryItems.every(i => selectedInventoryItems.has(i.id)) && <Check size={12} strokeWidth={4} />}
                                 </button>
@@ -2759,7 +2759,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                   <td className="p-4">
                                     <button
                                       onClick={(e) => toggleInventoryItemSelection(item.id, e)}
-                                      className={`w-5 h-5 border rounded flex items-center justify-center transition-colors cursor-pointer ${
+                                      className={`w-5 h-5 border rounded flex items-center justify-center transition-colors cursor-pointer no-min-h aspect-square shrink-0 ${
                                         selectedInventoryItems.has(item.id) 
                                           ? 'bg-black border-black text-white shadow' 
                                           : 'bg-white border-neutral-300 hover:border-black'
@@ -2943,7 +2943,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                               {isSelectedInventoryEditable && (
                                 <button
                                   onClick={(e) => toggleInventoryItemSelection(item.id, e)}
-                                  className={`w-5 h-5 border rounded flex items-center justify-center transition-colors cursor-pointer mt-0.5 shrink-0 ${
+                                  className={`w-5 h-5 border rounded flex items-center justify-center transition-colors cursor-pointer mt-0.5 shrink-0 no-min-h aspect-square ${
                                     selectedInventoryItems.has(item.id) 
                                       ? 'bg-black border-black text-white shadow' 
                                       : 'bg-white border-neutral-300'
@@ -3241,7 +3241,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                   <button 
                                     type="button"
                                     onClick={(e) => toggleInventoryItemSelection(item.id, e)}
-                                    className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer ${
+                                    className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer no-min-h aspect-square shrink-0 ${
                                       selectedInventoryItems.has(item.id) 
                                         ? 'bg-black border-black text-white shadow-md' 
                                         : 'bg-white/80 backdrop-blur border-white/20 text-transparent hover:border-black/20 hover:text-black/10'

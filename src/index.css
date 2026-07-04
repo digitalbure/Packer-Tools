@@ -50,7 +50,7 @@
 
   /* Mobile touch targets optimization: only set height, don't force flexbox layout which overrides specific inline button behaviors */
   @media (max-width: 768px) {
-    button {
+    button:not(.no-min-h) {
       min-height: 44px;
     }
     
@@ -59,6 +59,10 @@
       font-size: 16px !important;
     }
   }
+
+.no-min-h {
+  min-height: 0px !important;
+}
 
 @layer components {
   .glass {
