@@ -106,7 +106,7 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
     });
   }, [isLoadDirectModalOpen, user?.uid]);
 
-  if (!user || isKeyboardOpen) return null;
+  if (!user) return null;
 
   // Tabs configured with routes and custom labels
   const tabs = [
@@ -833,59 +833,61 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
         )}
       </AnimatePresence>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden px-4 pb-4 pt-1 bg-gradient-to-t from-neutral-50/90 via-neutral-50/80 to-transparent pointer-events-none">
-        <div className="w-full max-w-md mx-auto pointer-events-auto bg-white/95 backdrop-blur-xl rounded-[2rem] border border-neutral-100 shadow-2xl flex items-center justify-between py-2.5 px-3">
-          {tabs.map((tab, idx) => {
-            const isCenterTab = idx === 2; // Add button
-            
-            if (isCenterTab) {
+      {!isKeyboardOpen && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden px-4 pb-4 pt-1 bg-gradient-to-t from-neutral-50/90 via-neutral-50/80 to-transparent pointer-events-none">
+          <div className="w-full max-w-md mx-auto pointer-events-auto bg-white/95 backdrop-blur-xl rounded-[2rem] border border-neutral-100 shadow-2xl flex items-center justify-between py-2.5 px-3">
+            {tabs.map((tab, idx) => {
+              const isCenterTab = idx === 2; // Add button
+              
+              if (isCenterTab) {
+                return (
+                  <button
+                    key="add-action-button"
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className="flex flex-col items-center justify-center flex-1 h-10 relative select-none cursor-pointer focus:outline-none"
+                  >
+                    <div className="transition-all duration-300">
+                      {tab.icon}
+                    </div>
+                  </button>
+                );
+              }
+
+              const isActive = tab.activePattern?.test(location.pathname);
+
               return (
-                <button
-                  key="add-action-button"
-                  onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="flex flex-col items-center justify-center flex-1 h-10 relative select-none cursor-pointer focus:outline-none"
+                <Link
+                  key={tab.to}
+                  to={tab.to || '#'}
+                  className="flex flex-col items-center justify-center flex-1 h-12 relative select-none"
                 >
-                  <div className="transition-all duration-300">
+                  <div 
+                    className={`transition-all duration-300 ${
+                      isActive 
+                        ? 'text-black scale-110' 
+                        : 'text-neutral-400 hover:text-neutral-600'
+                    }`}
+                  >
                     {tab.icon}
                   </div>
-                </button>
+
+                  <span 
+                    className={`text-[9px] font-black uppercase tracking-wider mt-1 transition-colors duration-250 truncate max-w-[70px] ${
+                      isActive ? 'text-black font-extrabold' : 'text-neutral-400'
+                    }`}
+                  >
+                    {tab.label}
+                  </span>
+
+                  {isActive && (
+                    <span className="absolute bottom-0 w-1.5 h-1.5 rounded-full bg-black" />
+                  )}
+                </Link>
               );
-            }
-
-            const isActive = tab.activePattern?.test(location.pathname);
-
-            return (
-              <Link
-                key={tab.to}
-                to={tab.to || '#'}
-                className="flex flex-col items-center justify-center flex-1 h-12 relative select-none"
-              >
-                <div 
-                  className={`transition-all duration-300 ${
-                    isActive 
-                      ? 'text-black scale-110' 
-                      : 'text-neutral-400 hover:text-neutral-600'
-                  }`}
-                >
-                  {tab.icon}
-                </div>
-
-                <span 
-                  className={`text-[9px] font-black uppercase tracking-wider mt-1 transition-colors duration-250 truncate max-w-[70px] ${
-                    isActive ? 'text-black font-extrabold' : 'text-neutral-400'
-                  }`}
-                >
-                  {tab.label}
-                </span>
-
-                {isActive && (
-                  <span className="absolute bottom-0 w-1.5 h-1.5 rounded-full bg-black" />
-                )}
-              </Link>
-            );
-          })}
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }
