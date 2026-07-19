@@ -79,6 +79,7 @@ import { authenticatedFetch } from '../lib/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import NfcScannerModal from '../components/NfcScannerModal';
 import AddPhotoWidget from '../components/AddPhotoWidget';
+import QRPrintModal from '../components/QRPrintModal';
 
 interface InventoryModuleProps {
   user: UserProfile | null;
@@ -189,6 +190,34 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   const [printWithPhotos, setPrintWithPhotos] = useState(true);
   const [printCompact, setPrintCompact] = useState(true);
   const [printGrouping, setPrintGrouping] = useState(true);
+
+  // Load-In/Load-Out Packing Manifest PDF states
+  const [printLayout, setPrintLayout] = useState<'standard' | 'manifest'>('standard');
+  const [manifestId, setManifestId] = useState('');
+  const [manifestProject, setManifestProject] = useState('');
+  const [manifestOperator, setManifestOperator] = useState('');
+  const [manifestLocation, setManifestLocation] = useState('');
+  const [manifestLoadInDate, setManifestLoadInDate] = useState('');
+  const [manifestLoadOutDate, setManifestLoadOutDate] = useState('');
+  const [manifestStatus, setManifestStatus] = useState('Draft');
+
+  // Label Studio & Manifest filter states
+  const [isQRPrintModalOpen, setIsQRPrintModalOpen] = useState(false);
+  const [printOnlySelected, setPrintOnlySelected] = useState(false);
+
+  useEffect(() => {
+    if (selectedInventory) {
+      setManifestProject(selectedInventory.name || '');
+      setManifestId(`PM-${selectedInventory.id.slice(0, 5).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`);
+      setManifestOperator(user?.displayName || user?.email || 'Field Operator');
+      setManifestLocation(selectedInventory.description || 'Main Event Site');
+      
+      const today = new Date().toISOString().split('T')[0];
+      const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+      setManifestLoadInDate(today);
+      setManifestLoadOutDate(tomorrow);
+    }
+  }, [selectedInventory, user]);
 
   // BOM Lead Time & Supply Chain Risk Analyzer states
   const [bomAnalysisResult, setBomAnalysisResult] = useState<any | null>(null);
@@ -1521,6 +1550,23 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     return filteredInventoryItems.reduce((acc, current) => acc + ((current.price || 0) * (current.quantity || 1)), 0);
   }, [filteredInventoryItems]);
 
+  const printableSelectedItems = useMemo(() => {
+    return inventoryItems
+      .filter(item => selectedInventoryItems.has(item.id))
+      .map(item => ({
+        id: item.id,
+        name: item.name,
+        assetTag: item.assetTag,
+        brand: item.brand,
+        category: item.primaryCategory,
+        serial: item.serialNumber,
+        model: item.model || item.modelNumber,
+        ownerId: item.assignedTo || '',
+        status: item.status,
+        condition: item.condition
+      }));
+  }, [inventoryItems, selectedInventoryItems]);
+
   const toggleFormVisibilityOrg = (id: string) => {
     setVisibilityOrgs(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
@@ -1735,11 +1781,21 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   }
 
   if (isPrintView) {
-    const activeItems = filteredInventoryItems;
+    const activeItems = printOnlySelected 
+      ? filteredInventoryItems.filter(item => selectedInventoryItems.has(item.id))
+      : filteredInventoryItems;
     const statsTotal = activeItems.length;
     const totalQty = activeItems.reduce((acc, it) => acc + (it.quantity || 1), 0);
     const totalVal = activeItems.reduce((acc, it) => acc + ((it.price || 0) * (it.quantity || 1)), 0);
     const attentionNeeded = activeItems.filter(it => it.condition === 'poor' || it.status === 'maintenance').length;
+
+    // Calculate total weight for packing manifests
+    const totalWeight = activeItems.reduce((acc, it) => {
+      const weightVal = Number(it.weight) || 0;
+      const qty = Number(it.quantity) || 1;
+      return acc + (weightVal * qty);
+    }, 0);
+    const weightUnit = activeItems.find(it => it.weightUnit)?.weightUnit || 'lbs';
 
     const printGroups = (printGrouping 
       ? Object.entries(
@@ -1784,6 +1840,9 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
             tr {
               page-break-inside: avoid !important;
             }
+            .page-break-inside-avoid {
+              page-break-inside: avoid !important;
+            }
             .text-print-black {
               color: #000000 !important;
             }
@@ -1793,62 +1852,175 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
           }
         `}</style>
         
-        <div className="no-print bg-neutral-950 border-b border-neutral-800 p-4 sticky top-0 z-50 shadow-xl flex flex-wrap justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsPrintView(false)}
-              className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold transition duration-200 cursor-pointer"
-            >
-              <ChevronLeft size={16} />
-              <span>Back to Sheets</span>
-            </button>
-            <div className="h-4 w-px bg-neutral-800" />
-            <h2 className="text-sm font-extrabold uppercase tracking-wider text-neutral-300">
-              Print Inventory Report Preview
-            </h2>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={printWithPhotos}
-                onChange={(e) => setPrintWithPhotos(e.target.checked)}
-                className="rounded border-neutral-700 bg-neutral-900 text-[#F27D26] focus:ring-[#F27D26] w-4 h-4 cursor-pointer"
-              />
-              <span>Include Status & Condition</span>
-            </label>
+        {/* Dynamic Multi-Mode Preview Toolbar */}
+        <div className="no-print bg-neutral-950 border-b border-neutral-800 p-4 sticky top-0 z-50 shadow-xl flex flex-col gap-4">
+          <div className="flex flex-wrap justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsPrintView(false)}
+                className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold transition duration-200 cursor-pointer"
+              >
+                <ChevronLeft size={16} />
+                <span>Back to Sheets</span>
+              </button>
+              <div className="h-4 w-px bg-neutral-800" />
+              
+              {/* Layout Tab Switcher */}
+              <div className="flex bg-neutral-900 p-1 rounded-xl border border-neutral-850">
+                <button
+                  type="button"
+                  onClick={() => setPrintLayout('standard')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${printLayout === 'standard' ? 'bg-[#F27D26] text-white' : 'text-neutral-400 hover:text-white'}`}
+                >
+                  Standard Report
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintLayout('manifest')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${printLayout === 'manifest' ? 'bg-[#F27D26] text-white' : 'text-neutral-400 hover:text-white'}`}
+                >
+                  📦 Packing Manifest
+                </button>
+              </div>
+            </div>
             
-            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={printCompact}
-                onChange={(e) => setPrintCompact(e.target.checked)}
-                className="rounded border-neutral-700 bg-neutral-900 text-[#F27D26] focus:ring-[#F27D26] w-4 h-4 cursor-pointer"
-              />
-              <span>Compact Row Spacing</span>
-            </label>
+            <div className="flex flex-wrap items-center gap-4">
+              {printLayout === 'standard' ? (
+                <>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={printWithPhotos}
+                      onChange={(e) => setPrintWithPhotos(e.target.checked)}
+                      className="rounded border-neutral-700 bg-neutral-900 text-[#F27D26] focus:ring-[#F27D26] w-4 h-4 cursor-pointer"
+                    />
+                    <span>Include Status & Condition</span>
+                  </label>
+                  
+                  <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={printCompact}
+                      onChange={(e) => setPrintCompact(e.target.checked)}
+                      className="rounded border-neutral-700 bg-neutral-900 text-[#F27D26] focus:ring-[#F27D26] w-4 h-4 cursor-pointer"
+                    />
+                    <span>Compact Row Spacing</span>
+                  </label>
+                </>
+              ) : null}
 
-            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={printGrouping}
-                onChange={(e) => setPrintGrouping(e.target.checked)}
-                className="rounded border-neutral-700 bg-neutral-900 text-[#F27D26] focus:ring-[#F27D26] w-4 h-4 cursor-pointer"
-              />
-              <span>Group by Category</span>
-            </label>
+              <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={printGrouping}
+                  onChange={(e) => setPrintGrouping(e.target.checked)}
+                  className="rounded border-neutral-700 bg-neutral-900 text-[#F27D26] focus:ring-[#F27D26] w-4 h-4 cursor-pointer"
+                />
+                <span>Group by Category</span>
+              </label>
 
-            <div className="h-4 w-px bg-neutral-800" />
+              {selectedInventoryItems.size > 0 && (
+                <label className="flex items-center gap-2 text-xs font-semibold text-neutral-300 cursor-pointer bg-neutral-900 border border-neutral-800 px-3 py-1.5 rounded-xl hover:bg-neutral-850 transition">
+                  <input
+                    type="checkbox"
+                    checked={printOnlySelected}
+                    onChange={(e) => setPrintOnlySelected(e.target.checked)}
+                    className="rounded border-neutral-700 bg-neutral-900 text-[#F27D26] focus:ring-[#F27D26] w-4 h-4 cursor-pointer"
+                  />
+                  <span className="flex items-center gap-1.5">
+                    <span>Format Selected Only</span>
+                    <span className="bg-[#F27D26] text-white text-[9px] px-1.5 py-0.5 rounded-full font-black">
+                      {selectedInventoryItems.size}
+                    </span>
+                  </span>
+                </label>
+              )}
 
-            <button
-              onClick={() => window.print()}
-              className="flex items-center gap-2 px-5 py-2 bg-[#F27D26] hover:bg-[#F27D26]/90 text-white rounded-xl text-xs font-black uppercase tracking-wider transition duration-200 shadow-md shadow-primary/20 cursor-pointer"
-            >
-              <Printer size={16} />
-              <span>Print Report / Save PDF</span>
-            </button>
+              <div className="h-4 w-px bg-neutral-800" />
+
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-5 py-2 bg-[#F27D26] hover:bg-[#F27D26]/90 text-white rounded-xl text-xs font-black uppercase tracking-wider transition duration-200 shadow-md shadow-primary/20 cursor-pointer"
+              >
+                <Printer size={16} />
+                <span>{printLayout === 'manifest' ? 'Print Manifest / Save PDF' : 'Print Report / Save PDF'}</span>
+              </button>
+            </div>
           </div>
+
+          {/* manifest interactive calibration parameters */}
+          {printLayout === 'manifest' && (
+            <div className="bg-neutral-900 p-4 rounded-2xl border border-neutral-800 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
+              <div className="flex flex-col gap-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Manifest Ref ID</span>
+                <input
+                  type="text"
+                  value={manifestId}
+                  onChange={(e) => setManifestId(e.target.value)}
+                  className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-[#F27D26]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Project / Event</span>
+                <input
+                  type="text"
+                  value={manifestProject}
+                  onChange={(e) => setManifestProject(e.target.value)}
+                  className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-[#F27D26]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Logistics Operator</span>
+                <input
+                  type="text"
+                  value={manifestOperator}
+                  onChange={(e) => setManifestOperator(e.target.value)}
+                  className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-[#F27D26]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Destination Site</span>
+                <input
+                  type="text"
+                  value={manifestLocation}
+                  onChange={(e) => setManifestLocation(e.target.value)}
+                  className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-[#F27D26]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Load-In Date</span>
+                <input
+                  type="date"
+                  value={manifestLoadInDate}
+                  onChange={(e) => setManifestLoadInDate(e.target.value)}
+                  className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-[#F27D26]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Load-Out Date</span>
+                <input
+                  type="date"
+                  value={manifestLoadOutDate}
+                  onChange={(e) => setManifestLoadOutDate(e.target.value)}
+                  className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-[#F27D26]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Manifest Status</span>
+                <select
+                  value={manifestStatus}
+                  onChange={(e) => setManifestStatus(e.target.value)}
+                  className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-[#F27D26]"
+                >
+                  <option value="Draft">Draft</option>
+                  <option value="Ready">Ready</option>
+                  <option value="In Transit">In Transit</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 bg-neutral-900 overflow-y-auto py-8 px-4 no-print flex justify-center">
@@ -1856,132 +2028,373 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
             id="print-area"
             className="w-full max-w-4xl bg-white text-neutral-900 p-10 shadow-2xl rounded-2xl border border-neutral-200 font-sans print:shadow-none print:border-none"
           >
-            <div className="space-y-6 text-print-black">
-              <div className="flex justify-between items-start border-b-2 border-neutral-900 pb-5">
-                <div className="space-y-1">
-                  <h1 className="text-2xl font-black uppercase tracking-tight text-neutral-950">
-                    {selectedInventory?.name || 'Departmental Inventory'}
-                  </h1>
-                  <p className="text-xs text-neutral-500 uppercase tracking-widest font-black">
-                    Master Asset Registry & Inventory Sheet
-                  </p>
-                  <p className="text-[10px] text-neutral-400 font-bold mt-1">
-                    Generated: {new Date().toLocaleString()}
-                  </p>
+            {printLayout === 'standard' ? (
+              /* ========================================================
+                 LAYOUT A: STANDARD INVENTORY REGISTER REPORT
+                 ======================================================== */
+              <div className="space-y-6 text-print-black">
+                <div className="flex justify-between items-start border-b-2 border-neutral-900 pb-5">
+                  <div className="space-y-1">
+                    <h1 className="text-2xl font-black uppercase tracking-tight text-neutral-950">
+                      {selectedInventory?.name || 'Departmental Inventory'}
+                    </h1>
+                    <p className="text-xs text-neutral-500 uppercase tracking-widest font-black">
+                      Master Asset Registry & Inventory Sheet
+                    </p>
+                    <p className="text-[10px] text-neutral-400 font-bold mt-1">
+                      Generated: {new Date().toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-mono font-black text-white bg-neutral-950 px-3 py-1.5 rounded-lg uppercase tracking-wider">
+                      Packer Tools Report
+                    </span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-xs font-mono font-black text-white bg-neutral-950 px-3 py-1.5 rounded-lg uppercase tracking-wider">
-                    Packer Tools Report
-                  </span>
-                </div>
-              </div>
 
-              {/* Stat Boxes */}
-              <div className="grid grid-cols-4 gap-4 bg-neutral-50 border border-neutral-200 p-4 rounded-2xl border-print-gray">
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Unique Models</p>
-                  <p className="text-xl font-black text-neutral-900">{statsTotal}</p>
+                {/* Stat Boxes */}
+                <div className="grid grid-cols-4 gap-4 bg-neutral-50 border border-neutral-200 p-4 rounded-2xl border-print-gray">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Unique Models</p>
+                    <p className="text-xl font-black text-neutral-900">{statsTotal}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Total Stock Quantity</p>
+                    <p className="text-xl font-black text-neutral-900">{totalQty}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Financial Valuation</p>
+                    <p className="text-xl font-black text-emerald-700">${totalVal.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Attention Needed</p>
+                    <p className="text-xl font-black text-amber-600">{attentionNeeded}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Total Stock Quantity</p>
-                  <p className="text-xl font-black text-neutral-900">{totalQty}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Financial Valuation</p>
-                  <p className="text-xl font-black text-emerald-700">${totalVal.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-wider text-neutral-400">Attention Needed</p>
-                  <p className="text-xl font-black text-amber-600">{attentionNeeded}</p>
-                </div>
-              </div>
 
-              {/* Table Data */}
-              <div className="space-y-6">
-                {printGroups.map(([groupName, groupItems]) => (
-                  <div key={groupName} className="space-y-2">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-neutral-800 border-b border-neutral-300 pb-1 flex items-center justify-between border-print-gray">
-                      <span>{groupName}</span>
-                      <span className="text-[10px] text-neutral-500 font-normal">({groupItems.length} items)</span>
-                    </h3>
-                    
-                    <div className="border border-neutral-200 rounded-xl overflow-hidden border-print-gray">
-                      <table className="w-full text-left border-collapse text-[10px]">
-                        <thead>
-                          <tr className="bg-neutral-50 text-neutral-500 uppercase tracking-widest font-black border-b border-neutral-200 border-print-gray">
-                            <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[100px]`}>Asset Tag</th>
-                            <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'}`}>Item Details</th>
-                            <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[120px]`}>Brand / Model</th>
-                            <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[60px] text-center`}>Qty</th>
-                            <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[80px] text-right`}>Price</th>
-                            {printWithPhotos && (
-                              <>
-                                <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[70px] text-center`}>Condition</th>
-                                <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[85px] text-center`}>Status</th>
-                              </>
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-neutral-100 divide-print-gray">
-                          {groupItems.map(item => (
-                            <tr key={item.id} className="hover:bg-neutral-50/50">
-                              <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} font-mono text-neutral-400 font-bold`}>
-                                {item.assetTag || 'N/A'}
-                              </td>
-                              <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'}`}>
-                                <p className="font-extrabold text-neutral-900 text-[10.5px]">{item.name}</p>
-                                {item.description && !printCompact && (
-                                  <p className="text-[9px] text-neutral-400 mt-0.5 leading-snug line-clamp-1">{item.description}</p>
-                                )}
-                              </td>
-                              <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-neutral-600 truncate`}>
-                                {item.brand || '-'} {item.model ? `• ${item.model}` : ''}
-                              </td>
-                              <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-center font-bold text-neutral-900`}>
-                                {item.quantity || 1}
-                              </td>
-                              <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-right font-mono font-bold text-neutral-900`}>
-                                ${item.price ? item.price.toLocaleString() : '0'}
-                              </td>
+                {/* Table Data */}
+                <div className="space-y-6">
+                  {printGroups.map(([groupName, groupItems]) => (
+                    <div key={groupName} className="space-y-2">
+                      <h3 className="text-xs font-black uppercase tracking-wider text-neutral-800 border-b border-neutral-300 pb-1 flex items-center justify-between border-print-gray">
+                        <span>{groupName}</span>
+                        <span className="text-[10px] text-neutral-500 font-normal">({groupItems.length} items)</span>
+                      </h3>
+                      
+                      <div className="border border-neutral-200 rounded-xl overflow-hidden border-print-gray">
+                        <table className="w-full text-left border-collapse text-[10px]">
+                          <thead>
+                            <tr className="bg-neutral-50 text-neutral-500 uppercase tracking-widest font-black border-b border-neutral-200 border-print-gray">
+                              <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[100px]`}>Asset Tag</th>
+                              <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'}`}>Item Details</th>
+                              <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[120px]`}>Brand / Model</th>
+                              <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[60px] text-center`}>Qty</th>
+                              <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[80px] text-right`}>Price</th>
                               {printWithPhotos && (
                                 <>
-                                  <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-center uppercase text-[9px] font-black`}>
-                                    <span className={`px-1.5 py-0.5 rounded ${
-                                      item.condition === 'new' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                                      item.condition === 'good' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                                      item.condition === 'fair' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                                      'bg-red-50 text-red-700 border border-red-100'
-                                    }`}>
-                                      {item.condition || 'good'}
-                                    </span>
-                                  </td>
-                                  <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-center uppercase text-[9px] font-black`}>
-                                    <span className={`px-1.5 py-0.5 rounded ${
-                                      item.status === 'available' ? 'bg-emerald-950 text-white' :
-                                      item.status === 'in_use' ? 'bg-[#F27D26] text-white' :
-                                      item.status === 'maintenance' ? 'bg-red-500 text-white' :
-                                      'bg-neutral-500 text-white'
-                                    }`}>
-                                      {item.status || 'available'}
-                                    </span>
-                                  </td>
+                                  <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[70px] text-center`}>Condition</th>
+                                  <th className={`px-3 ${printCompact ? 'py-1.5' : 'py-3'} w-[85px] text-center`}>Status</th>
                                 </>
                               )}
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-100 divide-print-gray">
+                            {groupItems.map(item => (
+                              <tr key={item.id} className="hover:bg-neutral-50/50">
+                                <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} font-mono text-neutral-400 font-bold`}>
+                                  {item.assetTag || 'N/A'}
+                                </td>
+                                <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'}`}>
+                                  <p className="font-extrabold text-neutral-900 text-[10.5px]">{item.name}</p>
+                                  {item.description && !printCompact && (
+                                    <p className="text-[9px] text-neutral-400 mt-0.5 leading-snug line-clamp-1">{item.description}</p>
+                                  )}
+                                </td>
+                                <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-neutral-600 truncate`}>
+                                  {item.brand || '-'} {item.model ? `• ${item.model}` : ''}
+                                </td>
+                                <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-center font-bold text-neutral-900`}>
+                                  {item.quantity || 1}
+                                </td>
+                                <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-right font-mono font-bold text-neutral-900`}>
+                                  ${item.price ? item.price.toLocaleString() : '0'}
+                                </td>
+                                {printWithPhotos && (
+                                  <>
+                                    <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-center uppercase text-[9px] font-black`}>
+                                      <span className={`px-1.5 py-0.5 rounded ${
+                                        item.condition === 'new' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                        item.condition === 'good' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                                        item.condition === 'fair' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                                        'bg-red-50 text-red-700 border border-red-100'
+                                      }`}>
+                                        {item.condition || 'good'}
+                                      </span>
+                                    </td>
+                                    <td className={`px-3 ${printCompact ? 'py-1.5' : 'py-2.5'} text-center uppercase text-[9px] font-black`}>
+                                      <span className={`px-1.5 py-0.5 rounded ${
+                                        item.status === 'available' ? 'bg-emerald-950 text-white' :
+                                        item.status === 'in_use' ? 'bg-[#F27D26] text-white' :
+                                        item.status === 'maintenance' ? 'bg-red-500 text-white' :
+                                        'bg-neutral-500 text-white'
+                                      }`}>
+                                        {item.status || 'available'}
+                                      </span>
+                                    </td>
+                                  </>
+                                )}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Disclaimer */}
+                <div className="border-t border-neutral-200 pt-5 text-center text-[9px] text-neutral-400 font-bold uppercase tracking-wider flex justify-between border-print-gray">
+                  <span>Certified Offline Asset Audit Slip</span>
+                  <span>Powering corporate equipment and logistics workflow</span>
+                </div>
+              </div>
+            ) : (
+              /* ========================================================
+                 LAYOUT B: PROFESSIONAL LOAD-IN/LOAD-OUT PACKING MANIFEST
+                 ======================================================== */
+              <div className="space-y-6 text-print-black">
+                {/* Manifest Branding Header */}
+                <div className="flex justify-between items-start border-b-4 border-neutral-900 pb-5">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-black uppercase tracking-widest bg-neutral-950 text-white px-2 py-0.5 rounded">
+                        LOGISTICS & RIGGING
+                      </span>
+                      <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest">
+                        | Secure Gate Manifest
+                      </span>
+                    </div>
+                    <h1 className="text-3xl font-black uppercase tracking-tighter text-neutral-950 leading-none mt-1">
+                      EQUIPMENT PACKING MANIFEST
+                    </h1>
+                    <p className="text-[10px] text-neutral-500 uppercase tracking-[0.25em] font-black mt-1">
+                      LOAD-IN & LOAD-OUT VERIFIED DISPATCH STATEMENT
+                    </p>
+                  </div>
+                  <div className="text-right flex flex-col items-end gap-1.5">
+                    <span className="text-xs font-mono font-black text-white bg-neutral-950 px-3 py-1.5 rounded-lg uppercase tracking-wider">
+                      {manifestStatus.toUpperCase()}
+                    </span>
+                    <span className="text-[9px] font-mono font-black text-neutral-500 uppercase">
+                      REF ID: {manifestId}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Manifest Detailed Parameters Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 border border-neutral-200 rounded-2xl bg-neutral-50/50 text-xs border-print-gray">
+                  <div className="space-y-0.5">
+                    <p className="text-[8px] uppercase tracking-wider font-black text-neutral-400">PROJECT / EVENT NAME</p>
+                    <p className="font-extrabold text-neutral-900 uppercase tracking-tight">{manifestProject || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-[8px] uppercase tracking-wider font-black text-neutral-400">DISPATCHING CONTROLLER</p>
+                    <p className="font-extrabold text-neutral-900 uppercase tracking-tight">{manifestOperator || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-[8px] uppercase tracking-wider font-black text-neutral-400">DESTINATION / STAGE</p>
+                    <p className="font-extrabold text-neutral-900 uppercase tracking-tight">{manifestLocation || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-[8px] uppercase tracking-wider font-black text-neutral-400">MANIFEST CREATED</p>
+                    <p className="font-extrabold text-neutral-900">{new Date().toLocaleString()}</p>
+                  </div>
+
+                  <div className="space-y-0.5 border-t border-neutral-200 pt-2 border-print-gray">
+                    <p className="text-[8px] uppercase tracking-wider font-black text-neutral-400">TARGET LOAD-IN DATE</p>
+                    <p className="font-extrabold text-neutral-950">
+                      {manifestLoadInDate ? new Date(manifestLoadInDate).toLocaleDateString(undefined, { dateStyle: 'long' }) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="space-y-0.5 border-t border-neutral-200 pt-2 border-print-gray">
+                    <p className="text-[8px] uppercase tracking-wider font-black text-neutral-400">TARGET LOAD-OUT DATE</p>
+                    <p className="font-extrabold text-neutral-950">
+                      {manifestLoadOutDate ? new Date(manifestLoadOutDate).toLocaleDateString(undefined, { dateStyle: 'long' }) : 'N/A'}
+                    </p>
+                  </div>
+                  <div className="space-y-0.5 border-t border-neutral-200 pt-2 border-print-gray col-span-2">
+                    <p className="text-[8px] uppercase tracking-wider font-black text-neutral-400">ORIGINATING INVENTORY REGISTER</p>
+                    <p className="font-extrabold text-neutral-900 uppercase tracking-tight">{selectedInventory?.name || 'MASTER SHEET'}</p>
+                  </div>
+                </div>
+
+                {/* Manifest Key Metrics Summary Blocks */}
+                <div className="grid grid-cols-4 gap-4 bg-neutral-950 text-white p-5 rounded-2xl border-print-gray">
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-neutral-400">UNIQUE ITEMS</p>
+                    <p className="text-2xl font-black text-white mt-1 leading-none">{statsTotal}</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-neutral-400">TOTAL UNIT COUNT</p>
+                    <p className="text-2xl font-black text-white mt-1 leading-none">{totalQty}</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-neutral-400">TOTAL FREIGHT WEIGHT</p>
+                    <p className="text-2xl font-black text-[#F27D26] mt-1 leading-none">
+                      {totalWeight > 0 ? `${totalWeight.toLocaleString()} ${weightUnit}` : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-neutral-400">INSURANCE VALUATION</p>
+                    <p className="text-2xl font-black text-emerald-400 mt-1 leading-none">${totalVal.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {/* Manifest Checklist Tables */}
+                <div className="space-y-6">
+                  {printGroups.map(([groupName, groupItems]) => (
+                    <div key={groupName} className="space-y-2">
+                      <h3 className="text-xs font-black uppercase tracking-wider text-neutral-900 border-b border-neutral-300 pb-1 flex items-center justify-between border-print-gray">
+                        <span>{groupName}</span>
+                        <span className="text-[9px] text-neutral-400 font-bold">({groupItems.length} lines)</span>
+                      </h3>
+                      
+                      <div className="border border-neutral-300 rounded-xl overflow-hidden border-print-gray">
+                        <table className="w-full text-left border-collapse text-[9.5px]">
+                          <thead>
+                            <tr className="bg-neutral-50 text-neutral-500 uppercase tracking-wider font-black border-b border-neutral-300 border-print-gray">
+                              <th className="px-2 py-2 w-[70px] text-center border-r border-neutral-200 border-print-gray">
+                                LOAD IN
+                              </th>
+                              <th className="px-2 py-2 w-[70px] text-center border-r border-neutral-200 border-print-gray">
+                                LOAD OUT
+                              </th>
+                              <th className="px-3 py-2 w-[110px] border-r border-neutral-200 border-print-gray">Asset Tag</th>
+                              <th className="px-3 py-2">Equipment Details / Spec</th>
+                              <th className="px-3 py-2 w-[140px] border-l border-neutral-200 border-print-gray">Brand & Model</th>
+                              <th className="px-2 py-2 w-[45px] text-center border-l border-neutral-200 border-print-gray">Qty</th>
+                              <th className="px-3 py-2 w-[70px] text-right border-l border-neutral-200 border-print-gray">Weight</th>
+                              <th className="px-3 py-2 w-[75px] text-right border-l border-neutral-200 border-print-gray">Ins. Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-200 divide-print-gray">
+                            {groupItems.map(item => (
+                              <tr key={item.id} className="hover:bg-neutral-50/50">
+                                {/* Load-In Check Box Column */}
+                                <td className="px-2 py-1.5 text-center border-r border-neutral-200 border-print-gray w-[70px]">
+                                  <div className="flex flex-col items-center justify-center">
+                                    <div className="w-3.5 h-3.5 border-2 border-neutral-400 rounded flex items-center justify-center text-transparent text-[8px] font-black">
+                                      ✓
+                                    </div>
+                                    <span className="text-[6.5px] text-neutral-400 uppercase tracking-tighter mt-0.5">Initials</span>
+                                  </div>
+                                </td>
+                                {/* Load-Out Check Box Column */}
+                                <td className="px-2 py-1.5 text-center border-r border-neutral-200 border-print-gray w-[70px]">
+                                  <div className="flex flex-col items-center justify-center">
+                                    <div className="w-3.5 h-3.5 border-2 border-neutral-400 rounded flex items-center justify-center text-transparent text-[8px] font-black">
+                                      ✓
+                                    </div>
+                                    <span className="text-[6.5px] text-neutral-400 uppercase tracking-tighter mt-0.5">Initials</span>
+                                  </div>
+                                </td>
+                                {/* Asset Tag */}
+                                <td className="px-3 py-1.5 font-mono text-neutral-400 font-extrabold border-r border-neutral-200 border-print-gray whitespace-nowrap">
+                                  {item.assetTag || 'N/A'}
+                                </td>
+                                {/* Equipment Details */}
+                                <td className="px-3 py-1.5">
+                                  <p className="font-black text-neutral-950 text-[10.5px] uppercase tracking-tight">{item.name}</p>
+                                  {item.serialNumber && (
+                                    <p className="text-[8px] font-mono text-neutral-400 uppercase">S/N: {item.serialNumber}</p>
+                                  )}
+                                </td>
+                                {/* Brand/Model */}
+                                <td className="px-3 py-1.5 text-neutral-600 truncate border-l border-neutral-200 border-print-gray text-[9px] uppercase font-bold">
+                                  {item.brand || 'N/A'} {item.model ? `• ${item.model}` : ''}
+                                </td>
+                                {/* Quantity */}
+                                <td className="px-2 py-1.5 text-center font-black text-neutral-900 border-l border-neutral-200 border-print-gray text-[11px]">
+                                  {item.quantity || 1}
+                                </td>
+                                {/* Weight */}
+                                <td className="px-3 py-1.5 text-right font-mono font-bold text-neutral-500 border-l border-neutral-200 border-print-gray text-[9px]">
+                                  {item.weight ? `${item.weight} ${item.weightUnit || 'lbs'}` : '-'}
+                                </td>
+                                {/* Insurance Value */}
+                                <td className="px-3 py-1.5 text-right font-mono font-bold text-neutral-900 border-l border-neutral-200 border-print-gray text-[9px]">
+                                  ${item.price ? item.price.toLocaleString() : '0'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Sign Off custody blocks */}
+                <div className="border-t-2 border-neutral-900 pt-5 mt-6 space-y-4 border-print-gray page-break-inside-avoid">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">CHAIN OF CUSTODY LOGISTICS SIGNATURES</p>
+                  <div className="grid grid-cols-3 gap-6 text-[10px]">
+                    <div className="border border-neutral-200 p-4 rounded-2xl bg-neutral-50/20 border-print-gray">
+                      <p className="font-extrabold text-neutral-950 uppercase tracking-wider text-[8.5px]">1. LOADING DISPATCH HANDOFF</p>
+                      <div className="space-y-2.5 text-[9px] text-neutral-500 mt-2">
+                        <p>All items verified and loaded outward.</p>
+                        <div className="pt-2 border-b border-neutral-300 border-print-gray pb-1">
+                          <span className="text-[7.5px] text-neutral-400">Operator Name:</span>
+                        </div>
+                        <div className="pt-2 border-b border-neutral-300 border-print-gray pb-1">
+                          <span className="text-[7.5px] text-neutral-400">Signature:</span>
+                        </div>
+                        <div className="pt-1">
+                          <span className="text-[8px] text-neutral-400 font-bold">Date: ________________________</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border border-neutral-200 p-4 rounded-2xl bg-neutral-50/20 border-print-gray">
+                      <p className="font-extrabold text-neutral-950 uppercase tracking-wider text-[8.5px]">2. SITE INWARD RECEIPT</p>
+                      <div className="space-y-2.5 text-[9px] text-neutral-500 mt-2">
+                        <p>All items checked on-site upon arrival.</p>
+                        <div className="pt-2 border-b border-neutral-300 border-print-gray pb-1">
+                          <span className="text-[7.5px] text-neutral-400">Receiver Name:</span>
+                        </div>
+                        <div className="pt-2 border-b border-neutral-300 border-print-gray pb-1">
+                          <span className="text-[7.5px] text-neutral-400">Signature:</span>
+                        </div>
+                        <div className="pt-1">
+                          <span className="text-[8px] text-neutral-400 font-bold">Date: ________________________</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border border-neutral-200 p-4 rounded-2xl bg-neutral-50/20 border-print-gray">
+                      <p className="font-extrabold text-neutral-950 uppercase tracking-wider text-[8.5px]">3. LOAD-OUT RETRIEVAL VERIFICATION</p>
+                      <div className="space-y-2.5 text-[9px] text-neutral-500 mt-2">
+                        <p>All items packed and returned post-event.</p>
+                        <div className="pt-2 border-b border-neutral-300 border-print-gray pb-1">
+                          <span className="text-[7.5px] text-neutral-400">Inspector Name:</span>
+                        </div>
+                        <div className="pt-2 border-b border-neutral-300 border-print-gray pb-1">
+                          <span className="text-[7.5px] text-neutral-400">Signature:</span>
+                        </div>
+                        <div className="pt-1">
+                          <span className="text-[8px] text-neutral-400 font-bold">Date: ________________________</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
 
-              {/* Disclaimer */}
-              <div className="border-t border-neutral-200 pt-5 text-center text-[9px] text-neutral-400 font-bold uppercase tracking-wider flex justify-between border-print-gray">
-                <span>Certified Offline Asset Audit Slip</span>
-                <span>Powering corporate equipment and logistics workflow</span>
+                {/* Footer bar */}
+                <div className="border-t border-neutral-200 pt-5 text-center text-[9px] text-neutral-400 font-bold uppercase tracking-wider flex justify-between border-print-gray">
+                  <span>Certified Packer Tools Cargo Manifest</span>
+                  <span>Systematic high-volume equipment logistics oversight</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -3478,6 +3891,28 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       >
                         <Layers className="w-4 h-4 text-emerald-400" />
                         <span>To Gear Library</span>
+                      </button>
+
+                      <button 
+                        onClick={() => setIsQRPrintModalOpen(true)}
+                        className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 transition shadow-lg whitespace-nowrap border border-white/5"
+                        title="Send selected items to Label Studio for customization and printing"
+                      >
+                        <Tag className="w-4 h-4 text-[#F27D26]" />
+                        <span>Print Labels</span>
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setPrintLayout('manifest');
+                          setPrintOnlySelected(true);
+                          setIsPrintView(true);
+                        }}
+                        className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#F27D26] hover:bg-[#F27D26]/90 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
+                        title="Format selected items into a single PDF Packing Manifest"
+                      >
+                        <Printer className="w-4 h-4 text-white" />
+                        <span>Format Manifest</span>
                       </button>
 
                       <button 
@@ -5102,6 +5537,14 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
           </div>
         )}
       </AnimatePresence>
+
+      <QRPrintModal
+        isOpen={isQRPrintModalOpen}
+        onClose={() => setIsQRPrintModalOpen(false)}
+        items={printableSelectedItems}
+        user={user}
+        initialSelectedIds={selectedInventoryItems}
+      />
 
       <NfcScannerModal
         isOpen={isNfcModalOpen}

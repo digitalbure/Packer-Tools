@@ -11,10 +11,11 @@ import {
   ArrowLeft, Camera, QrCode, Tag, Check, Pencil, Save, 
   Trash2, ShieldAlert, BadgeInfo, Scale, DollarSign, Wrench, Calendar,
   Clock, Heart, ShoppingBag, Plus, Eye, Share2, Printer, CheckCircle,
-  Phone, Mail, MessageSquare, AlertTriangle, ShieldCheck
+  Phone, Mail, MessageSquare, AlertTriangle, ShieldCheck, SlidersHorizontal
 } from 'lucide-react';
 import PickupDropoffWidget, { PickupDropoffState } from '../components/PickupDropoffWidget';
 import AssetIdentificationPanel from '../components/AssetIdentificationPanel';
+import QRPrintModal from '../components/QRPrintModal';
 
 interface GearBioPageProps {
   user: UserProfile | null;
@@ -44,6 +45,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
   const [editForm, setEditForm] = useState<Partial<GearItem>>({});
   const [ownerProfile, setOwnerProfile] = useState<any>(null);
   const [revealContact, setRevealContact] = useState(false);
+  const [isQRPrintModalOpen, setIsQRPrintModalOpen] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -1464,13 +1466,25 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
               <p className="text-[10px] text-neutral-400 max-w-sm">
                 Each onboarded item receives a custom digital passport QR tag. Scan code with the camera controller to update tracking logs or verify inventory instantly.
               </p>
-              <button
-                onClick={handlePrintLabel}
-                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-neutral-800 transition"
-              >
-                <Printer size={12} />
-                <span>Print Tag Label</span>
-              </button>
+              <div className="mt-2 flex flex-wrap gap-2 justify-center sm:justify-start">
+                <button
+                  onClick={handlePrintLabel}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-neutral-800 transition"
+                >
+                  <Printer size={12} />
+                  <span>Print Tag Label</span>
+                </button>
+                {user && (
+                  <button
+                    type="button"
+                    onClick={() => setIsQRPrintModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition"
+                  >
+                    <SlidersHorizontal size={12} />
+                    <span>Label Studio</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="bg-white p-3 rounded-2xl border border-neutral-100 shadow-md">
@@ -1623,6 +1637,13 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
           </div>
         )}
       </AnimatePresence>
+
+      <QRPrintModal
+        isOpen={isQRPrintModalOpen}
+        onClose={() => setIsQRPrintModalOpen(false)}
+        items={item ? [item] : []}
+        user={user}
+      />
     </div>
   );
 }

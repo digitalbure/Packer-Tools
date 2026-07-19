@@ -1430,7 +1430,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
             {/* Active Beta Notifications Desk */}
             <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8">
             <header className="space-y-1">
-              <span className="micro-label bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded-full inline-block font-black">Release Build v5.5.0</span>
+              <span className="micro-label bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded-full inline-block font-black">Release Build v5.9.0</span>
               <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
                 <Mail className="text-primary shrink-0" />
                 <span>Notification Testing Desk</span>
@@ -1648,7 +1648,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
             <div className="space-y-2 relative">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] bg-primary/20 text-primary border border-primary/30 font-black px-2.5 py-1 rounded-xl uppercase tracking-widest animate-pulse">
-                  App PWA v5.00
+                  App PWA v5.9.0
                 </span>
                 {isInstalled && (
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black px-2.5 py-1 rounded-xl uppercase tracking-widest">
