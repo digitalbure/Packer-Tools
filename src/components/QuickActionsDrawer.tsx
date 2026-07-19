@@ -358,14 +358,14 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
     contextDesc = "Currently in your master Gear Library. Print adhesive tags, perform audits, or trigger inspections.";
     contextActions = [
       {
-        title: "Print QR Barcode Tags",
-        description: "Open printable label sheet overlay with physical ID tracking details.",
+        title: "Label Studio (Visual Designer)",
+        description: "Open the high-fidelity label designer. Craft custom adhesive tags, cable wrap layouts, and print batch templates.",
         icon: <Printer size={18} />,
         onClick: () => {
           setIsOpen(false);
           setActiveModal('tags');
         },
-        colorClass: "bg-blue-50 text-blue-600"
+        colorClass: "bg-[#0066cc]/10 text-[#0066cc]"
       },
       {
         title: "Log Fleet Inspection",

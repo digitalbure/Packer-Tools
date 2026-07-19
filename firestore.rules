@@ -571,5 +571,31 @@ service cloud.firestore {
       allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidGroup(incoming());
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
+
+    // 30. Label Studio Custom Templates
+    match /users/{userId}/labelTemplates/{templateId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+      
+      match /versions/{versionId} {
+        allow read, write: if isSignedIn() && isOwner(userId);
+      }
+    }
+
+    // 31. Label Studio Printer Profiles
+    match /users/{userId}/printerProfiles/{profileId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
+
+    // 32. Label Studio Print History Logs
+    match /users/{userId}/printHistory/{historyId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
+
+    // 33. Label Studio Marketplace Templates
+    match /marketplaceTemplates/{templateId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
   }
 }

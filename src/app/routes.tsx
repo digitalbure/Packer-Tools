@@ -71,6 +71,7 @@ const OrganizerBioPage = lazyWithRetry(() => import('../pages/OrganizerBioPage')
 const OrganizerIOPage = lazyWithRetry(() => import('../pages/OrganizerIOPage'));
 const RFIDModule = lazyWithRetry(() => import('../pages/RFIDModule'));
 const GroupsModule = lazyWithRetry(() => import('../pages/GroupsModule'));
+const IdResolutionPage = lazyWithRetry(() => import('../pages/IdResolutionPage'));
 
 // Component AuthGate (replaces inline Gate component)
 const AuthGate = lazyWithRetry(() => import('../components/AuthGate'));
@@ -187,6 +188,7 @@ export function AnimatedRoutes() {
         <Route path="/pg/:slug" element={<PageViewer />} />
         <Route path="/kiosk" element={<KioskMode user={user} adminSettings={adminSettings} />} />
         <Route path="/gear/:id" element={<GearBioPage user={user} adminSettings={adminSettings} />} />
+        <Route path="/id/:token" element={<IdResolutionPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/help" element={<HelpCenter user={user} />} />
         

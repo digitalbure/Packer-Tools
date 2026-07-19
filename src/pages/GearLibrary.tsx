@@ -8652,10 +8652,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 onClick={() => setIsQRPrintModalOpen(true)}
                 disabled={selectedItems.size === 0}
                 className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap"
-                title="Generate and print QR codes/labels for selected items"
+                title="Launch Label Studio designer for selected gear items"
               >
                 <QrCode size={14} className="text-blue-400 font-bold" />
-                <span>Print QR</span>
+                <span>Label Studio</span>
               </button>
 
               <button 

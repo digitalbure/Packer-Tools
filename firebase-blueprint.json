@@ -459,9 +459,48 @@
         "entityIds": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["ownerId", "name", "entityType", "entityIds"]
+    },
+    "LabelTemplate": {
+      "title": "Label Template",
+      "description": "Custom visual label design template stored in Label Studio.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "elements": { "type": "array" },
+        "layout": { "type": "string" },
+        "category": { "type": "string" },
+        "isPublic": { "type": "boolean" },
+        "isFavorite": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["ownerId", "name"]
     }
   },
   "firestore": {
+    "/users/{userId}/labelTemplates/{templateId}": {
+      "schema": "LabelTemplate",
+      "description": "User custom label templates inside Label Studio."
+    },
+    "/users/{userId}/labelTemplates/{templateId}/versions/{versionId}": {
+      "schema": "object",
+      "description": "Snapshots of label templates for version control."
+    },
+    "/users/{userId}/printerProfiles/{profileId}": {
+      "schema": "object",
+      "description": "Saved label printer profiles."
+    },
+    "/users/{userId}/printHistory/{historyId}": {
+      "schema": "object",
+      "description": "Log of printed labels and assets."
+    },
+    "/marketplaceTemplates/{templateId}": {
+      "schema": "LabelTemplate",
+      "description": "Marketplace published label templates."
+    },
     "/bugs/{bugId}": {
       "schema": "BugReport",
       "description": "Collection of user-reported bugs and issues."

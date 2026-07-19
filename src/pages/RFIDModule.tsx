@@ -103,7 +103,8 @@ export default function RFIDModule({ user, adminSettings }: { user: UserProfile;
 
   // Read registered gear items to enable tagging real items
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'gear'), (snapshot) => {
+    if (!user?.uid) return;
+    const unsubscribe = onSnapshot(collection(db, 'users', user.uid, 'gearLibrary'), (snapshot) => {
       const gear: GearItem[] = [];
       snapshot.forEach((doc) => {
         gear.push({ id: doc.id, ...doc.data() } as GearItem);
@@ -111,7 +112,7 @@ export default function RFIDModule({ user, adminSettings }: { user: UserProfile;
       setFirestoreGear(gear);
     });
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   // Web Audio Context initialization for high-fidelity geiger chime
   const startAudio = () => {

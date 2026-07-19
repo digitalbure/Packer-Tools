@@ -975,15 +975,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               photoURL: firebaseUser.photoURL || '',
               orgId: initialOrgId,
               plan: isInvitedGuest ? 'enterprise' : 'free',
-              trialEnabled: isInvitedGuest ? true : undefined,
-              trialStartDate: isInvitedGuest ? new Date().toISOString() : undefined,
-              trialEndDate: isInvitedGuest ? new Date(Date.now() + 3 * 30 * 24 * 60 * 60 * 1000).toISOString() : undefined,
-              subscriptionStatus: isInvitedGuest ? 'trialing' : undefined,
-              betaTrialInitialized: isInvitedGuest ? true : undefined,
               isSuperAdmin: isSuperAdminClaim,
               role: isSuperAdminClaim ? 'owner' : 'viewer',
               createdAt: new Date().toISOString(),
             };
+            if (isInvitedGuest) {
+              newUser.trialEnabled = true;
+              newUser.trialStartDate = new Date().toISOString();
+              newUser.trialEndDate = new Date(Date.now() + 3 * 30 * 24 * 60 * 60 * 1000).toISOString();
+              newUser.subscriptionStatus = 'trialing';
+              newUser.betaTrialInitialized = true;
+            }
             await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
             setUser(newUser);
           }

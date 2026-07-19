@@ -14,6 +14,7 @@ import {
   Phone, Mail, MessageSquare, AlertTriangle, ShieldCheck
 } from 'lucide-react';
 import PickupDropoffWidget, { PickupDropoffState } from '../components/PickupDropoffWidget';
+import AssetIdentificationPanel from '../components/AssetIdentificationPanel';
 
 interface GearBioPageProps {
   user: UserProfile | null;
@@ -1444,6 +1445,12 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {item && (
+            <div className="mb-4">
+              <AssetIdentificationPanel asset={item} user={user} onUpdate={() => window.location.reload()} />
             </div>
           )}
 
