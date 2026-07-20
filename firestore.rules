@@ -519,13 +519,18 @@ service cloud.firestore {
 
     // 24. Sheet Inventories & Subcollections (Items)
     match /inventories/{inventoryId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() || resource.data.publicSharingEnabled == true;
       allow create: if isSignedIn() && isOwner(incoming().ownerId);
       allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isOrgMember(resource.data.orgId) || isAdmin());
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
 
       match /items/{itemId} {
-        allow read, write: if isSignedIn() && (
+        allow read: if resource.data.publicSharingEnabled == true || (isSignedIn() && (
+          isOwner(get(/databases/$(database)/documents/inventories/$(inventoryId)).data.ownerId) ||
+          isOrgMember(get(/databases/$(database)/documents/inventories/$(inventoryId)).data.orgId) ||
+          isAdmin()
+        ));
+        allow write: if isSignedIn() && (
           isOwner(get(/databases/$(database)/documents/inventories/$(inventoryId)).data.ownerId) ||
           isOrgMember(get(/databases/$(database)/documents/inventories/$(inventoryId)).data.orgId) ||
           isAdmin()

@@ -27,6 +27,10 @@ interface PrintableItem {
   ownerId?: string;
   status?: string;
   condition?: string;
+  ownerName?: string;
+  ownerPhone?: string;
+  ownerEmail?: string;
+  ownerBio?: string;
 }
 
 export interface AveryTemplate {
@@ -215,6 +219,24 @@ const PRESET_STUDIO_TEMPLATES: StudioTemplate[] = [
       { id: '4', type: 'qr', content: 'bio', x: 66, y: 8, width: 28, height: 56, qrDest: 'bio' },
       { id: '5', type: 'text', content: 'SYSTEM PASSPORT ID: {{asset.assetTag}}', x: 6, y: 78, width: 88, height: 15, font: 'JetBrains Mono', fontSize: 8, fontWeight: 'bold' }
     ]
+  },
+  {
+    id: 'tpl_certags_portrait',
+    name: 'Certags-Style Portrait Plate',
+    width: 45,
+    height: 80,
+    layout: 'standard',
+    category: 'Industrial Tags',
+    elements: [
+      { id: '1', type: 'shape', content: 'rectangle', x: 4, y: 3, width: 92, height: 94, shapeType: 'rectangle', bgColor: 'transparent', color: '#000000' },
+      { id: '2', type: 'text', content: 'Property Of', x: 10, y: 8, width: 80, height: 5, font: 'Inter', fontSize: 6.5, fontWeight: 'bold', align: 'center', color: '#000000' },
+      { id: '3', type: 'text', content: '{{asset.brand}}', x: 10, y: 15, width: 80, height: 10, font: 'Inter', fontSize: 11, fontWeight: 'black', align: 'center', color: '#000000' },
+      { id: '4', type: 'shape', content: 'divider', x: 15, y: 28, width: 70, height: 1, shapeType: 'divider', bgColor: '#000000', color: '#000000' },
+      { id: '5', type: 'text', content: 'Asset Number', x: 10, y: 33, width: 80, height: 5, font: 'Inter', fontSize: 6.5, fontWeight: 'bold', align: 'center', color: '#000000' },
+      { id: '6', type: 'text', content: '{{asset.assetTag}}', x: 10, y: 40, width: 80, height: 10, font: 'JetBrains Mono', fontSize: 10, fontWeight: 'bold', align: 'center', color: '#000000' },
+      { id: '7', type: 'qr', content: 'bio', x: 25, y: 55, width: 50, height: 28, qrDest: 'bio', qrFgColor: '#000000', qrBgColor: '#ffffff' },
+      { id: '8', type: 'text', content: 'Scan Passport', x: 10, y: 86, width: 80, height: 5, font: 'Inter', fontSize: 5, fontWeight: 'bold', align: 'center', color: '#000000' }
+    ]
   }
 ];
 
@@ -224,13 +246,20 @@ interface QRPrintModalProps {
   items: PrintableItem[];
   user: UserProfile | null;
   initialSelectedIds?: Set<string>;
+  initialTab?: 'designs' | 'templates' | 'print' | 'nfc' | 'rfid' | 'batch' | 'devices' | 'tag_inventory' | 'history' | 'settings';
 }
 
-export default function QRPrintModal({ isOpen, onClose, items, user, initialSelectedIds }: QRPrintModalProps) {
+export default function QRPrintModal({ isOpen, onClose, items, user, initialSelectedIds, initialTab }: QRPrintModalProps) {
   // -------------------------------------------------------------
   // STATE MANAGEMENT
   // -------------------------------------------------------------
   const [activeTab, setActiveTab] = useState<'designs' | 'templates' | 'print' | 'nfc' | 'rfid' | 'batch' | 'devices' | 'tag_inventory' | 'history' | 'settings'>('templates');
+
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [previewItemId, setPreviewItemId] = useState<string>('');
 
@@ -289,6 +318,8 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
 
   // Custom User Saved templates in Firestore / Local state
   const [userTemplates, setUserTemplates] = useState<StudioTemplate[]>([]);
+  const [globalTemplates, setGlobalTemplates] = useState<StudioTemplate[]>([]);
+  const [templateScope, setTemplateScope] = useState<'user' | 'global'>('user');
   const [isSavingTemplate, setIsSavingTemplate] = useState<boolean>(false);
   const [templateName, setTemplateName] = useState<string>('My Custom Tag Layout');
 
@@ -314,6 +345,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   // Sync templates from Firestore
   useEffect(() => {
     if (user?.uid) {
+      // 1. Fetch personal user templates
       const q = query(collection(db, 'users', user.uid, 'labelTemplates'));
       getDocs(q).then((snap) => {
         const templatesList: StudioTemplate[] = snap.docs.map((doc) => ({
@@ -321,8 +353,23 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
           ...doc.data()
         })) as StudioTemplate[];
         setUserTemplates(templatesList);
+        if (templatesList.length > 0) {
+          loadPresetTemplate(templatesList[0]);
+        }
       }).catch((err) => {
-        console.warn("Could not load templates from Firestore, using local state instead:", err);
+        console.warn("Could not load templates from Firestore:", err);
+      });
+
+      // 2. Fetch global marketplace templates
+      const qGlobal = query(collection(db, 'marketplaceTemplates'));
+      getDocs(qGlobal).then((snap) => {
+        const templatesList: StudioTemplate[] = snap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data()
+        })) as StudioTemplate[];
+        setGlobalTemplates(templatesList);
+      }).catch((err) => {
+        console.warn("Could not load global templates from Firestore:", err);
       });
     }
   }, [user]);
@@ -641,6 +688,10 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
     parsed = parsed.replace(/\{\{asset\.category\}\}/gi, asset.category || 'N/A');
     parsed = parsed.replace(/\{\{asset\.status\}\}/gi, asset.status || 'N/A');
     parsed = parsed.replace(/\{\{asset\.condition\}\}/gi, asset.condition || 'N/A');
+    parsed = parsed.replace(/\{\{asset\.ownerName\}\}/gi, asset.ownerName || 'N/A');
+    parsed = parsed.replace(/\{\{asset\.ownerPhone\}\}/gi, asset.ownerPhone || 'N/A');
+    parsed = parsed.replace(/\{\{asset\.ownerEmail\}\}/gi, asset.ownerEmail || 'N/A');
+    parsed = parsed.replace(/\{\{asset\.ownerBio\}\}/gi, asset.ownerBio || 'N/A');
     return parsed;
   };
 
@@ -791,23 +842,44 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
     }
     setIsSavingTemplate(true);
     try {
-      const colRef = collection(db, 'users', user.uid, 'labelTemplates');
-      const docData = {
-        name: templateName,
-        width: canvasWidth,
-        height: canvasHeight,
-        layout: canvasLayout,
-        elements: canvasElements,
-        category: 'Custom Layouts',
-        createdAt: new Date().toISOString()
-      };
-      const docRef = await addDoc(colRef, docData);
-      const newTemplate: StudioTemplate = { id: docRef.id, ...docData };
-      setUserTemplates(prev => [...prev, newTemplate]);
-      toast.success("Successfully persisted visual template to Firebase Firestore!");
+      if (templateScope === 'global') {
+        // Save to global collection
+        const colRef = collection(db, 'marketplaceTemplates');
+        const docData = {
+          name: templateName,
+          width: canvasWidth,
+          height: canvasHeight,
+          layout: canvasLayout,
+          elements: canvasElements,
+          category: 'Global Layouts',
+          createdAt: new Date().toISOString(),
+          ownerId: user.uid,
+          ownerName: user.displayName || 'Admin'
+        };
+        const docRef = await addDoc(colRef, docData);
+        const newTemplate: StudioTemplate = { id: docRef.id, ...docData };
+        setGlobalTemplates(prev => [...prev, newTemplate]);
+        toast.success("Successfully persisted global template to shared organizational library!");
+      } else {
+        // Save to user private collection
+        const colRef = collection(db, 'users', user.uid, 'labelTemplates');
+        const docData = {
+          name: templateName,
+          width: canvasWidth,
+          height: canvasHeight,
+          layout: canvasLayout,
+          elements: canvasElements,
+          category: 'Custom Layouts',
+          createdAt: new Date().toISOString()
+        };
+        const docRef = await addDoc(colRef, docData);
+        const newTemplate: StudioTemplate = { id: docRef.id, ...docData };
+        setUserTemplates(prev => [...prev, newTemplate]);
+        toast.success("Successfully persisted personal template to your cloud storage!");
+      }
     } catch (error) {
       console.error(error);
-      toast.error("Could not write template to Firestore. Stored locally instead.");
+      toast.error("Could not write template. Stored locally instead.");
     } finally {
       setIsSavingTemplate(false);
     }
@@ -937,7 +1009,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                   Label Studio
                 </h2>
                 <span className="text-[9px] uppercase font-black tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded">
-                  v5.9.0 PRO
+                  v5.10.0 PRO
                 </span>
               </div>
               <p className="text-xs text-neutral-400">
@@ -1120,23 +1192,43 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
               {/* TAB CONTENT: DESIGNS (ELEMENTS & DYNAMIC FIELDS) */}
               {activeTab === 'designs' && (
                 <div className="space-y-4">
+                  {userTemplates.length === 0 && (
+                    <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-200 text-xs space-y-1.5 shadow-sm">
+                      <div className="flex items-center gap-1.5 font-black text-[11px] uppercase tracking-wider">
+                        <Sparkles size={14} className="text-amber-400 animate-pulse shrink-0" />
+                        <span>Save Custom Template</span>
+                      </div>
+                      <p className="text-[10px] text-neutral-300 leading-relaxed">
+                        No custom label layout is set up yet. Use the canvas to customize your layout. When ready, enter a template name in the publisher below and click <strong>Save to Studio Cloud</strong> to make it a reusable template for future printings!
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <h3 className="text-xs font-black uppercase text-neutral-400 tracking-wider">Dynamic Fields</h3>
                     <p className="text-[10px] text-neutral-500 leading-relaxed mt-0.5">
                       Inserts custom variables which replace dynamically based on the active preview asset parameters.
                     </p>
                     <div className="grid grid-cols-2 gap-1.5 pt-2">
-                      {['brand', 'name', 'assetTag', 'serial', 'model', 'category', 'status', 'condition'].map((f) => (
-                        <button
-                          key={f}
-                          type="button"
-                          onClick={() => addDynamicField(f)}
-                          className="py-1.5 px-2 bg-[#1e1e24] hover:bg-[#25252d] border border-neutral-800 text-neutral-300 rounded-lg text-left text-[11px] font-bold transition flex items-center gap-1 capitalize"
-                        >
-                          <Type size={10} className="text-[#ff4f3a]" />
-                          <span className="truncate">{f === 'assetTag' ? 'Asset Tag' : f}</span>
-                        </button>
-                      ))}
+                      {['brand', 'name', 'assetTag', 'serial', 'model', 'category', 'status', 'condition', 'ownerName', 'ownerPhone', 'ownerEmail', 'ownerBio'].map((f) => {
+                        const labels: Record<string, string> = {
+                          assetTag: 'Asset Tag',
+                          ownerName: 'Custodian Name',
+                          ownerPhone: 'Custodian Phone',
+                          ownerEmail: 'Custodian Email',
+                          ownerBio: 'Custodian Bio'
+                        };
+                        return (
+                          <button
+                            key={f}
+                            type="button"
+                            onClick={() => addDynamicField(f)}
+                            className="py-1.5 px-2 bg-[#1e1e24] hover:bg-[#25252d] border border-neutral-800 text-neutral-300 rounded-lg text-left text-[11px] font-bold transition flex items-center gap-1"
+                          >
+                            <Type size={10} className="text-[#ff4f3a]" />
+                            <span className="truncate">{labels[f] || f}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -1229,6 +1321,31 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                               <p className="text-[10px] text-neutral-500 mt-0.5">{tmpl.width}x{tmpl.height}mm • Custom</p>
                             </div>
                             <FolderOpen size={13} className="text-neutral-500" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {globalTemplates.length > 0 && (
+                    <div className="pt-3 border-t border-neutral-800/60 space-y-2">
+                      <div className="flex items-center gap-1">
+                        <Share2 size={12} className="text-emerald-400" />
+                        <h4 className="text-xs font-black uppercase text-neutral-400 tracking-wider">Global Shared Templates</h4>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2">
+                        {globalTemplates.map((tmpl) => (
+                          <button
+                            key={tmpl.id}
+                            type="button"
+                            onClick={() => loadPresetTemplate(tmpl)}
+                            className="p-3 bg-emerald-950/20 hover:bg-emerald-950/40 rounded-xl border border-dashed border-emerald-800/60 text-left transition flex items-center justify-between"
+                          >
+                            <div>
+                              <p className="font-bold text-xs text-emerald-200">{tmpl.name}</p>
+                              <p className="text-[10px] text-emerald-500 mt-0.5">{tmpl.width}x{tmpl.height}mm • Shared Global</p>
+                            </div>
+                            <Share2 size={13} className="text-emerald-500" />
                           </button>
                         ))}
                       </div>
@@ -2545,6 +2662,33 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                       className="w-full bg-[#1e1e24] border border-neutral-800 rounded-lg p-2 text-xs text-white"
                       placeholder="Template design title..."
                     />
+                    
+                    <div className="flex gap-2 p-1 bg-[#141416] border border-neutral-800 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setTemplateScope('user')}
+                        className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition ${
+                          templateScope === 'user' 
+                            ? 'bg-[#1e1e24] border border-neutral-800 text-white shadow-sm' 
+                            : 'text-neutral-500 hover:text-neutral-300'
+                        }`}
+                      >
+                        Personal (User)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTemplateScope('global')}
+                        className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition flex items-center justify-center gap-1 ${
+                          templateScope === 'global' 
+                            ? 'bg-emerald-600 text-white shadow-sm' 
+                            : 'text-neutral-500 hover:text-neutral-300'
+                        }`}
+                      >
+                        <Share2 size={10} />
+                        Global (Org)
+                      </button>
+                    </div>
+
                     <button
                       onClick={handleSaveUserTemplate}
                       disabled={isSavingTemplate}

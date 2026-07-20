@@ -235,6 +235,7 @@ export interface PackingList {
   teachingNotes?: string;
   brandName?: string;
   brandLogo?: string;
+  brandColor?: string;
   shareToken?: string;
   recipientId?: string;
   recipientName?: string;
@@ -405,6 +406,7 @@ export interface GearItem {
   focusType?: string;
   nfcTag?: string;
   rfidTag?: string;
+  ownerBio?: string;
 }
 
 export interface Container {

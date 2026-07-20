@@ -8,12 +8,38 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   const releases = [
     {
-      version: 'v5.9.0',
+      version: 'v5.10.0',
       tag: 'Latest',
+      tagBg: 'bg-orange-50 text-orange-700 border-orange-100',
+      title: 'Haptics & Public Read-Only Sharing Links',
+      date: 'July 2026',
+      icon: Sparkles,
+      color: 'text-orange-500',
+      updates: [
+        {
+          title: 'Haptic Micro-interactions',
+          desc: 'Integrated window.navigator.vibrate haptic triggers into primary on-set interactions like QR scanning and packing additions for high-fidelity physical feedback.',
+          badge: 'Haptic Feedback'
+        },
+        {
+          title: 'Public Read-Only Sharing',
+          desc: 'Generate secure, unique public sharing links for individual assets or inventory items allowing non-authenticated guests to view bio, coordinates, and contact details.',
+          badge: 'Public Sharing'
+        },
+        {
+          title: 'Logo Branding Export',
+          desc: 'Fully customizable company logo uploads and custom primary hex colors automatically populated on generated packing manifest PDFs.',
+          badge: 'Branding PDF'
+        }
+      ]
+    },
+    {
+      version: 'v5.9.0',
+      tag: 'Previous',
       tagBg: 'bg-emerald-50 text-emerald-700 border-emerald-100',
       title: 'Batch PDF Packing Manifest & Label Studio',
       date: 'July 2026',
@@ -324,7 +350,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                 <span>PACKER ENGINE CORE STABLE</span>
               </div>
               <span className="text-[10px] uppercase font-black tracking-wide">
-                Build v5.9.0
+                Build v5.10.0
               </span>
             </div>
           </motion.div>

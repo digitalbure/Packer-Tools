@@ -46,7 +46,8 @@ import {
   FileText,
   RefreshCw,
   Sliders,
-  Printer
+  Printer,
+  Copy
 } from 'lucide-react';
 import { 
   collection, 
@@ -126,6 +127,11 @@ export interface InventoryItem {
   teamId?: string;
   assignedTo?: string;
   visibility?: 'public' | 'private' | 'team' | 'dept' | 'org';
+  ownerName?: string;
+  ownerPhone?: string;
+  ownerEmail?: string;
+  ownerBio?: string;
+  publicSharingEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
   isOfflinePending?: boolean;
@@ -594,6 +600,11 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     visibility?: 'public' | 'private' | 'team' | 'dept' | 'org';
     trackingMode?: 'batch' | 'individual';
     nfcTag?: string;
+    ownerName?: string;
+    ownerPhone?: string;
+    ownerEmail?: string;
+    ownerBio?: string;
+    publicSharingEnabled?: boolean;
   }>({
     name: '',
     description: '',
@@ -609,7 +620,12 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     photoUrl: '',
     visibility: 'public',
     trackingMode: 'batch',
-    nfcTag: ''
+    nfcTag: '',
+    ownerName: '',
+    ownerPhone: '',
+    ownerEmail: '',
+    ownerBio: '',
+    publicSharingEnabled: false
   });
 
   const [invSerialPrefix, setInvSerialPrefix] = useState('');
@@ -1359,9 +1375,11 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
               label: `Add asset: ${formRest.name}`
             });
             toast.success("Added asset offline. Queue updated for synchronization!");
+            triggerHaptic();
           } else {
             await setDoc(itemDocRef, newAssetData);
             toast.success("Asset added to selected inventory list.");
+            triggerHaptic();
           }
         }
       }
@@ -1395,7 +1413,12 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       visibility: item.visibility || 'public',
       trackingMode: item.trackingMode || 'batch',
       // @ts-ignore
-      nfcTag: item.nfcTag || ''
+      nfcTag: item.nfcTag || '',
+      ownerName: item.ownerName || '',
+      ownerPhone: item.ownerPhone || '',
+      ownerEmail: item.ownerEmail || '',
+      ownerBio: item.ownerBio || '',
+      publicSharingEnabled: item.publicSharingEnabled || false
     });
     setIsAddingItemManually(true);
   };
@@ -5267,6 +5290,102 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                     onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
                     className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-xs outline-none focus:ring-1 focus:ring-black"
                   />
+                </div>
+
+                {/* Public Bio & External Sharing Section */}
+                <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-[#0066cc]/10 flex items-center justify-center text-[#0066cc]">
+                        <Globe size={16} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-extrabold uppercase tracking-wider text-neutral-800">Public Access & Sharing</h4>
+                        <p className="text-[10px] text-neutral-400">Generate non-authenticated details page</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={itemForm.publicSharingEnabled || false}
+                        onChange={(e) => setItemForm({ ...itemForm, publicSharingEnabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#0066cc] h-5" />
+                    </label>
+                  </div>
+
+                  {itemForm.publicSharingEnabled && (
+                    <div className="space-y-4 pt-2 border-t border-neutral-200/60 animate-in fade-in duration-300">
+                      {editingItem && (
+                        <div className="bg-white rounded-xl p-3 border border-[#0066cc]/20 flex items-center justify-between gap-3">
+                          <div className="truncate flex-1">
+                            <span className="text-[9px] font-black uppercase text-[#0066cc] block">Public Sharing Link</span>
+                            <span className="text-[10px] font-mono text-neutral-500 block truncate select-all">
+                              {`${window.location.origin}/inventory-item/${selectedInventory.id}/${editingItem.id}`}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const url = `${window.location.origin}/inventory-item/${selectedInventory.id}/${editingItem.id}`;
+                              navigator.clipboard.writeText(url);
+                              toast.success("Public sharing link copied to clipboard!");
+                            }}
+                            className="p-2 hover:bg-[#0066cc]/10 text-[#0066cc] rounded-lg transition shrink-0 cursor-pointer"
+                            title="Copy Link"
+                          >
+                            <Copy size={14} />
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Custodian/Owner Name</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Sarah Connor"
+                            value={itemForm.ownerName || ''}
+                            onChange={(e) => setItemForm({ ...itemForm, ownerName: e.target.value })}
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-black h-10"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Contact Phone</label>
+                          <input
+                            type="tel"
+                            placeholder="+1 (555) 019-2834"
+                            value={itemForm.ownerPhone || ''}
+                            onChange={(e) => setItemForm({ ...itemForm, ownerPhone: e.target.value })}
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-black h-10"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Contact Email</label>
+                        <input
+                          type="email"
+                          placeholder="sarah@acmelogistics.com"
+                          value={itemForm.ownerEmail || ''}
+                          onChange={(e) => setItemForm({ ...itemForm, ownerEmail: e.target.value })}
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-black h-10"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block ml-1">Custodian Biography & Notes</label>
+                        <textarea
+                          placeholder="Experienced mechanical engineer, senior rigging supervisor..."
+                          value={itemForm.ownerBio || ''}
+                          rows={2}
+                          onChange={(e) => setItemForm({ ...itemForm, ownerBio: e.target.value })}
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-black"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-4 border-t border-neutral-100 flex-shrink-0">

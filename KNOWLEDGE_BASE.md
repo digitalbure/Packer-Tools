@@ -437,4 +437,34 @@ Packer Tools v5.8.0 implements full physical label sheet support alongside local
 ### 🔑 Unique Checkout Compound Keys:
 - Hardened the order fulfillment rendering queue in Kiosk Mode to use compound unique identifiers (`${item.id}_${idx}`), completely resolving key warnings when rendering identical bulk items inside active cargo orders.
 
+---
+
+## 🔗 25. Public Sharing Links & Company Branding Exports (v5.9.0)
+
+Packer Tools introduces secure, read-only external sharing views and professional PDF branding configurations.
+
+### 🌐 Non-Authenticated Public Sharing:
+- **Share Controls**: Toggle public sharing for individual inventory assets or library gear. This creates a secure, hash-secured public page.
+- **External Bio View**: Stakeholders, external crew, or finders can view the item's specifications, real-time location/custodian status, physical description, and corporate contact bio.
+- **No Login Required**: Viewing a shared public asset link does not require a user account or login authentication, ensuring seamless ad-hoc field logistics.
+
+### 🎨 Logo & Color Branding Exports:
+- **Custom Branding Settings**: Within the PDF Export feature configuration panel, users can upload a custom PNG/JPEG company logo and define a primary corporate hex color.
+- **Automated Manifest Theme**: The uploaded logo is embedded at the top of all generated cargo manifest PDFs, and the primary brand color is applied to borders, header backgrounds, and typography styles.
+
+---
+
+## 📱 26. Mobile Haptic Feedback & Tactile Notifications (v5.10.0)
+
+Packer Tools v5.10.0 implements native physical haptics for critical on-set mobile workflows.
+
+### ⚡ Tactile QR & Barcode Scanning:
+- When a QR code or barcode is successfully recognized using the camera scanner or Kiosk Mode terminal, the mobile device triggers a short double-vibration pulse to confirm the scan.
+
+### 🥞 List Addition Success Feedback:
+- Adding items manually, using the AI crawler, or running bulk imports triggers a clean, single-vibration tactile click, confirming that items are securely added to the checklist without requiring users to look at the screen.
+
+### 🛠️ Cross-Platform Navigator API:
+- Leverages the robust browser `window.navigator.vibrate` standard, safely wrapped with browser-compatibility checks, silent fallbacks for desktop setups, and multi-pulse haptic profiles for successful vs. error outcomes.
+
 

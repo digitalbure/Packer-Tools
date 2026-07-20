@@ -11,7 +11,7 @@ import {
   ArrowLeft, Camera, QrCode, Tag, Check, Pencil, Save, 
   Trash2, ShieldAlert, BadgeInfo, Scale, DollarSign, Wrench, Calendar,
   Clock, Heart, ShoppingBag, Plus, Eye, Share2, Printer, CheckCircle,
-  Phone, Mail, MessageSquare, AlertTriangle, ShieldCheck, SlidersHorizontal
+  Phone, Mail, MessageSquare, AlertTriangle, ShieldCheck, SlidersHorizontal, User
 } from 'lucide-react';
 import PickupDropoffWidget, { PickupDropoffState } from '../components/PickupDropoffWidget';
 import AssetIdentificationPanel from '../components/AssetIdentificationPanel';
@@ -46,6 +46,43 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
   const [ownerProfile, setOwnerProfile] = useState<any>(null);
   const [revealContact, setRevealContact] = useState(false);
   const [isQRPrintModalOpen, setIsQRPrintModalOpen] = useState(false);
+  const [userTemplates, setUserTemplates] = useState<any[]>([]);
+  const [initialPrintTab, setInitialPrintTab] = useState<'designs' | 'print'>('designs');
+
+  useEffect(() => {
+    if (user?.uid) {
+      const q = query(collection(db, 'users', user.uid, 'labelTemplates'));
+      getDocs(q).then((snap) => {
+        const templatesList = snap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setUserTemplates(templatesList);
+      }).catch((err) => {
+        console.warn("Could not check user templates:", err);
+      });
+    }
+  }, [user]);
+
+  const printableItems = React.useMemo(() => {
+    if (!item) return [];
+    return [{
+      id: item.id,
+      name: item.name,
+      assetTag: item.assetTag || '',
+      brand: item.brand || '',
+      category: item.primaryCategory || item.category || '',
+      serial: item.serialNumber || '',
+      model: item.model || item.modelNumber || '',
+      ownerId: item.ownerId || '',
+      status: item.status || '',
+      condition: item.condition || '',
+      ownerName: item.recoveryContactName || ownerProfile?.displayName || '',
+      ownerPhone: item.recoveryContactPhone || ownerProfile?.phoneNumber || '',
+      ownerEmail: item.recoveryContactEmail || ownerProfile?.email || '',
+      ownerBio: item.ownerBio || ownerProfile?.bio || ''
+    }];
+  }, [item, ownerProfile]);
 
   useEffect(() => {
     if (item) {
@@ -260,6 +297,10 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
           rentalPrice: editForm.rentalPrice || 0,
           rentalPeriod: editForm.rentalPeriod || 'day',
           currency: editForm.currency || '$',
+          ownerBio: editForm.ownerBio || '',
+          recoveryContactName: editForm.recoveryContactName || '',
+          recoveryContactPhone: editForm.recoveryContactPhone || '',
+          recoveryContactEmail: editForm.recoveryContactEmail || '',
           updatedAt: updatedAtStr
         });
       });
@@ -352,7 +393,12 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
   };
 
   const handlePrintLabel = () => {
-    window.print();
+    if (userTemplates.length > 0) {
+      setInitialPrintTab('print');
+    } else {
+      setInitialPrintTab('designs');
+    }
+    setIsQRPrintModalOpen(true);
   };
 
   const qrValue = item ? `${window.location.origin}/gear/${item.id}?owner=${item.ownerId}` : '';
@@ -610,6 +656,70 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                 </div>
               </div>
 
+            </div>
+          </div>
+
+          {/* Owner Bio & Contact Passport Card */}
+          <div className="bg-white border border-neutral-200/60 rounded-[2.5rem] p-8 shadow-xl shadow-neutral-100/50 space-y-6 text-left">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+              <div>
+                <h3 className="text-base font-black tracking-tight uppercase flex items-center gap-2 text-neutral-800">
+                  <User size={18} className="text-[#ff4f3a]" />
+                  <span>Custodian Passport & Biography</span>
+                </h3>
+                <p className="text-[11px] text-neutral-400 mt-1">
+                  Registered owner biography, logistics profile, and direct recovery coordinates.
+                </p>
+              </div>
+              <span className="px-2.5 py-1 bg-neutral-100 text-neutral-600 rounded-full text-[9px] font-black uppercase tracking-widest">
+                VERIFIED OWNER
+              </span>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+              <img 
+                src={ownerProfile?.photoURL || 'https://picsum.photos/seed/avatar/100/100'} 
+                alt={item.recoveryContactName || ownerProfile?.displayName || 'Custodian'}
+                className="w-20 h-20 rounded-2xl object-cover shrink-0 border border-neutral-200 shadow-sm"
+                referrerPolicy="no-referrer"
+              />
+              <div className="space-y-4 flex-1 w-full font-sans">
+                <div>
+                  <h4 className="text-lg font-black text-neutral-900 leading-none">
+                    {item.recoveryContactName || ownerProfile?.displayName || 'Private Equipment Manager'}
+                  </h4>
+                  {ownerProfile?.company && (
+                    <p className="text-xs text-neutral-400 mt-1 font-bold uppercase tracking-wider">{ownerProfile.company}</p>
+                  )}
+                </div>
+
+                <div className="bg-neutral-50/80 border border-neutral-100 p-4 rounded-2xl">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 mb-1">Biography / Bio</p>
+                  <p className="text-xs text-neutral-600 leading-relaxed font-medium italic">
+                    "{item.ownerBio || ownerProfile?.bio || 'Certified Packer Tools custodian. This device is actively registered under our high-volume logistics setup for professional operations.'}"
+                  </p>
+                </div>
+
+                {/* Direct Contact Details Block */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="p-3 bg-neutral-50 border border-neutral-100 rounded-xl space-y-1">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Direct Contact Phone</p>
+                    <p className="text-xs font-bold text-neutral-800">
+                      {!revealContact 
+                        ? (item.recoveryContactPhone ? `${item.recoveryContactPhone.slice(0, 5)}••••••` : 'Not Publicly Shared')
+                        : (item.recoveryContactPhone || ownerProfile?.phoneNumber || 'Not Publicly Shared')}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-neutral-50 border border-neutral-100 rounded-xl space-y-1">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Direct Contact Email</p>
+                    <p className="text-xs font-bold text-neutral-800 font-mono">
+                      {!revealContact 
+                        ? (item.recoveryContactEmail || ownerProfile?.email ? `${(item.recoveryContactEmail || ownerProfile?.email).slice(0, 3)}••••@••••.com` : 'Not Publicly Shared')
+                        : (item.recoveryContactEmail || ownerProfile?.email || 'Not Publicly Shared')}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1450,6 +1560,118 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
             </div>
           )}
 
+          {/* Owner Custodian Bio & Contact Passport Card */}
+          {item && (
+            <div className="bg-white border border-neutral-100 rounded-[2.5rem] p-8 shadow-xl shadow-neutral-150/50 space-y-6 text-left">
+              <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-neutral-800 flex items-center gap-2">
+                    <User size={18} className="text-[#ff4f3a]" />
+                    <span>Custodian Passport & Biography</span>
+                  </h3>
+                  <p className="text-[10px] text-neutral-400 mt-1">
+                    How scanners and visitors view your identity brief and direct contact details.
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest">
+                  {isEditing ? "EDITING MODE" : "PUBLIC PREVIEW"}
+                </span>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-6 items-start">
+                <img 
+                  src={ownerProfile?.photoURL || 'https://picsum.photos/seed/avatar/100/100'} 
+                  alt={editForm.recoveryContactName || ownerProfile?.displayName || 'Custodian'}
+                  className="w-20 h-20 rounded-2xl object-cover shrink-0 border-2 border-neutral-100 shadow-sm"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="space-y-4 flex-1 w-full font-sans">
+                  {isEditing ? (
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Custodian Full Name</label>
+                        <input
+                          type="text"
+                          value={editForm.recoveryContactName || ''}
+                          onChange={(e) => setEditForm({ ...editForm, recoveryContactName: e.target.value })}
+                          placeholder={user?.displayName || "Custodian Display Name"}
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                        />
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Owner Biography / Bio</label>
+                        <textarea
+                          rows={3}
+                          value={editForm.ownerBio || ''}
+                          onChange={(e) => setEditForm({ ...editForm, ownerBio: e.target.value })}
+                          placeholder="e.g. Lead Director of Photography specializing in commercials and nature documentaries. Owner of Red Sky Studios and Packer Tools partner."
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed font-medium"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Direct Contact Phone</label>
+                          <input
+                            type="text"
+                            value={editForm.recoveryContactPhone || ''}
+                            onChange={(e) => setEditForm({ ...editForm, recoveryContactPhone: e.target.value })}
+                            placeholder="e.g. +1 555-0199"
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Direct Contact Email</label>
+                          <input
+                            type="email"
+                            value={editForm.recoveryContactEmail || ''}
+                            onChange={(e) => setEditForm({ ...editForm, recoveryContactEmail: e.target.value })}
+                            placeholder={user?.email || "e.g. finder@example.com"}
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-lg font-black text-neutral-900 leading-none">
+                          {item.recoveryContactName || ownerProfile?.displayName || 'Private Equipment Manager'}
+                        </h4>
+                        {ownerProfile?.company && (
+                          <p className="text-xs text-neutral-400 mt-1 font-bold uppercase tracking-wider">{ownerProfile.company}</p>
+                        )}
+                      </div>
+
+                      <div className="bg-neutral-50/80 border border-neutral-100 p-4 rounded-2xl">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 mb-1">Biography / Bio</p>
+                        <p className="text-xs text-neutral-600 leading-relaxed font-medium italic">
+                          "{item.ownerBio || ownerProfile?.bio || 'Certified Packer Tools custodian. This device is actively registered under our high-volume logistics setup for professional operations.'}"
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div className="p-3 bg-neutral-50 border border-neutral-100 rounded-xl space-y-1">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Direct Contact Phone</p>
+                          <p className="text-xs font-bold text-neutral-800 font-mono">
+                            {item.recoveryContactPhone || ownerProfile?.phoneNumber || 'Not Publicly Shared'}
+                          </p>
+                        </div>
+                        <div className="p-3 bg-neutral-50 border border-neutral-100 rounded-xl space-y-1">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Direct Contact Email</p>
+                          <p className="text-xs font-bold text-neutral-800 font-mono">
+                            {item.recoveryContactEmail || ownerProfile?.email || 'Not Publicly Shared'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {item && (
             <div className="mb-4">
               <AssetIdentificationPanel asset={item} user={user} onUpdate={() => window.location.reload()} />
@@ -1641,8 +1863,9 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
       <QRPrintModal
         isOpen={isQRPrintModalOpen}
         onClose={() => setIsQRPrintModalOpen(false)}
-        items={item ? [item] : []}
+        items={printableItems}
         user={user}
+        initialTab={initialPrintTab}
       />
     </div>
   );

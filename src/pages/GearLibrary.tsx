@@ -2982,6 +2982,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         ? `Batch generated ${newItem.quantity} serialized copies successfully!` 
         : 'Gear added to library'
       );
+      triggerHaptic();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/gearLibrary`);
     }

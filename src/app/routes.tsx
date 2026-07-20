@@ -64,6 +64,7 @@ const PageViewer = lazyWithRetry(() => import('../pages/PageViewer'));
 const KioskMode = lazyWithRetry(() => import('../pages/KioskMode'));
 const ListingsModule = lazyWithRetry(() => import('../pages/ListingsModule'));
 const GearBioPage = lazyWithRetry(() => import('../pages/GearBioPage'));
+const PublicInventoryItemView = lazyWithRetry(() => import('../pages/PublicInventoryItemView'));
 const ShopPage = lazyWithRetry(() => import('../pages/ShopPage'));
 const ScenarioBuilder = lazyWithRetry(() => import('../pages/ScenarioBuilder'));
 const TravellerModule = lazyWithRetry(() => import('../pages/TravellerModule'));
@@ -188,6 +189,7 @@ export function AnimatedRoutes() {
         <Route path="/pg/:slug" element={<PageViewer />} />
         <Route path="/kiosk" element={<KioskMode user={user} adminSettings={adminSettings} />} />
         <Route path="/gear/:id" element={<GearBioPage user={user} adminSettings={adminSettings} />} />
+        <Route path="/inventory-item/:inventoryId/:itemId" element={<PublicInventoryItemView />} />
         <Route path="/id/:token" element={<IdResolutionPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/help" element={<HelpCenter user={user} />} />

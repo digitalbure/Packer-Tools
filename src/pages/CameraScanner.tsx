@@ -22,6 +22,22 @@ const base64ToFile = (dataurl: string, filename: string): File => {
   return new File([u8arr], filename, { type: mime });
 };
 
+const triggerHaptic = (type: 'success' | 'scan' | 'error' = 'success') => {
+  if (typeof window !== 'undefined' && window.navigator && typeof window.navigator.vibrate === 'function') {
+    try {
+      if (type === 'scan') {
+        window.navigator.vibrate([20, 40, 20]); // double pulse for QR success
+      } else if (type === 'error') {
+        window.navigator.vibrate([100, 50, 100]); // heavy dual pulse
+      } else {
+        window.navigator.vibrate(15); // short single pulse for generic success
+      }
+    } catch (e) {
+      // safe backup fallback
+    }
+  }
+};
+
 export default function CameraScanner({ user, adminSettings }: { user: UserProfile, adminSettings: AdminSettings | null }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -93,6 +109,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
 
   const handleQrDetected = async (decodedText: string): Promise<boolean> => {
     toast.success("Passport QR Code detected!");
+    triggerHaptic('scan');
     
     let gearId = '';
     let ownerId = '';
@@ -408,6 +425,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
         };
         await addDoc(collection(db, 'users', user.uid, 'gearLibrary'), gearItem);
         toast.success("Added to Gear Library!");
+        triggerHaptic('success');
       }
       
       confetti({
@@ -615,6 +633,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
                           setCapturedImage('https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=300');
                         }
                         toast.success(`Loaded "${gear.name}" from your Gear database!`);
+                        triggerHaptic('success');
                       }}
                       className="w-full flex items-center justify-between p-2.5 bg-white hover:bg-neutral-50 border border-neutral-150 rounded-xl transition duration-150 text-left group"
                     >

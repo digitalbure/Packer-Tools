@@ -25,6 +25,22 @@ import { isSuperAdmin } from '../lib/authHelpers';
 import { useAuth } from '../providers/AuthProvider';
 import { SwipeableImageGallery } from '../components/SwipeableImageGallery';
 
+const triggerHaptic = (type: 'success' | 'scan' | 'error' = 'success') => {
+  if (typeof window !== 'undefined' && window.navigator && typeof window.navigator.vibrate === 'function') {
+    try {
+      if (type === 'scan') {
+        window.navigator.vibrate([20, 40, 20]); // double pulse for QR success
+      } else if (type === 'error') {
+        window.navigator.vibrate([100, 50, 100]); // heavy dual pulse
+      } else {
+        window.navigator.vibrate(15); // short single pulse for generic success
+      }
+    } catch (e) {
+      // safe backup fallback
+    }
+  }
+};
+
 const cleanUndefinedFields = (obj: any): any => {
   if (obj === null || typeof obj !== 'object') {
     return obj;
@@ -344,6 +360,17 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [quickAddName, setQuickAddName] = useState('');
   const [brandName, setBrandName] = useState('');
   const [brandLogo, setBrandLogo] = useState('');
+  const [brandColor, setBrandColor] = useState('#F27D26');
+  const [showPdfBrandingSettings, setShowPdfBrandingSettings] = useState(false);
+  const [isLogoPickerOpen, setIsLogoPickerOpen] = useState(false);
+
+  useEffect(() => {
+    if (list) {
+      setBrandName(list.brandName || '');
+      setBrandLogo(list.brandLogo || '');
+      setBrandColor(list.brandColor || '#F27D26');
+    }
+  }, [list]);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [isQRPrintModalOpen, setIsQRPrintModalOpen] = useState(false);
   useEffect(() => {
@@ -405,6 +432,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     setStagedItems(prev => [...prev, stageData]);
     setBarcodeQuery('');
     toast.success(`Staged barcode match: "${item.name}"`);
+    triggerHaptic('scan');
   };
 
   const handleStageBarcodeAsNew = () => {
@@ -1367,6 +1395,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       setShowQuickAddModal(false);
       setShowDuplicateConfirmation(false);
       toast.success(`Added ${quickAddName} to list.`);
+      triggerHaptic('success');
     } catch (error) {
       console.error("Error adding item:", error);
       toast.error("Failed to add item");
@@ -1585,6 +1614,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       
       setSourceInput('');
       toast.success("Intelligence engine added item to list!");
+      triggerHaptic('success');
     } catch (e) {
       toast.error("AI Analysis failed. Please use Quick Add.");
     } finally {
@@ -1659,6 +1689,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       setCrawledResult(null);
       setShowAddByUrlModal(false);
       toast.success(`Scraped item "${crawledResult.name}" added successfully!`);
+      triggerHaptic('success');
     } catch (error) {
       console.error("Error saving scraped item:", error);
       toast.error("Failed to save crawled item");
@@ -2600,11 +2631,24 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
               <span>Group by Category</span>
             </label>
 
+            <button
+              onClick={() => setShowPdfBrandingSettings(!showPdfBrandingSettings)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition duration-200 cursor-pointer ${
+                showPdfBrandingSettings
+                  ? 'bg-[#F27D26] text-white'
+                  : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700'
+              }`}
+            >
+              <Settings size={14} className={showPdfBrandingSettings ? "animate-spin" : ""} />
+              <span>PDF Branding</span>
+            </button>
+
             <div className="h-4 w-px bg-neutral-800" />
 
             <button
               onClick={() => window.print()}
               className="flex items-center gap-2 px-5 py-2 bg-[#F27D26] hover:bg-[#F27D26]/90 text-white rounded-xl text-xs font-black uppercase tracking-wider transition duration-200 shadow-md shadow-primary/20 cursor-pointer"
+              style={{ backgroundColor: brandColor || '#F27D26' }}
             >
               <Printer size={16} />
               <span>Print Manifest</span>
@@ -2612,13 +2656,183 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
           </div>
         </div>
 
+        {showPdfBrandingSettings && (
+          <div className="no-print bg-neutral-950 border-b border-neutral-800 p-6 text-neutral-200 animate-in slide-in-from-top duration-300">
+            <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+              {/* Left Column: Brand Identity */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-[#F27D26] flex items-center gap-1.5">
+                    <Settings size={14} />
+                    <span>Company / Brand Profile</span>
+                  </h3>
+                  <p className="text-[10px] text-neutral-400 mt-0.5">
+                    Set the branding elements to be automatically applied to the generated PDF layout.
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Company Name</label>
+                    <input
+                      type="text"
+                      value={brandName}
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        setBrandName(val);
+                        if (id) {
+                          await updateDoc(doc(db, 'packingLists', id), { brandName: val.trim() });
+                        }
+                      }}
+                      placeholder="e.g. Acme Film Studios"
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs font-semibold text-white outline-none focus:ring-1 focus:ring-[#F27D26] h-10"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Logo Upload / URL</label>
+                      <button
+                        type="button"
+                        onClick={() => setIsLogoPickerOpen(true)}
+                        className="text-[9px] font-black uppercase tracking-wider text-[#F27D26] hover:underline cursor-pointer"
+                      >
+                        Upload Image
+                      </button>
+                    </div>
+                    <input
+                      type="url"
+                      value={brandLogo}
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        setBrandLogo(val);
+                        if (id) {
+                          await updateDoc(doc(db, 'packingLists', id), { brandLogo: val.trim() });
+                        }
+                      }}
+                      placeholder="https://example.com/logo.png"
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs font-semibold text-white outline-none focus:ring-1 focus:ring-[#F27D26] h-10 font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Middle Column: Primary Branding Color */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-[#F27D26] flex items-center gap-1.5">
+                    <span className="w-3.5 h-3.5 rounded-full border border-neutral-700 bg-current" style={{ color: brandColor }} />
+                    <span>Primary Branding Color</span>
+                  </h3>
+                  <p className="text-[10px] text-neutral-400 mt-0.5">
+                    Define the primary color theme used for accents, headers, and checkboxes.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={brandColor}
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        setBrandColor(val);
+                        if (id) {
+                          await updateDoc(doc(db, 'packingLists', id), { brandColor: val });
+                        }
+                      }}
+                      className="w-10 h-10 bg-neutral-900 border border-neutral-800 rounded-xl p-1 cursor-pointer outline-none focus:ring-1 focus:ring-[#F27D26]"
+                    />
+                    <input
+                      type="text"
+                      value={brandColor}
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        setBrandColor(val);
+                        if (id && val.match(/^#[0-9A-Fa-f]{6}$/)) {
+                          await updateDoc(doc(db, 'packingLists', id), { brandColor: val });
+                        }
+                      }}
+                      placeholder="#F27D26"
+                      className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs font-mono text-white outline-none focus:ring-1 focus:ring-[#F27D26] h-10"
+                    />
+                  </div>
+
+                  {/* Preset Colors */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {['#F27D26', '#10B981', '#3B82F6', '#6366F1', '#EC4899', '#000000', '#14B8A6', '#F59E0B'].map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={async () => {
+                          setBrandColor(color);
+                          if (id) {
+                            await updateDoc(doc(db, 'packingLists', id), { brandColor: color });
+                          }
+                        }}
+                        className={`w-6 h-6 rounded-lg transition duration-200 border-2 cursor-pointer ${
+                          brandColor.toLowerCase() === color.toLowerCase() ? 'border-white scale-110 shadow-lg' : 'border-neutral-800 hover:border-neutral-500'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Visual Preview */}
+              <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-2xl flex flex-col items-center justify-center text-center space-y-2 h-full min-h-[120px]">
+                {brandLogo ? (
+                  <img
+                    src={brandLogo}
+                    alt="Logo Preview"
+                    className="max-h-12 max-w-[160px] object-contain mb-1"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-neutral-400">
+                    <ImageIcon size={18} />
+                  </div>
+                )}
+                <div>
+                  <h4 className="text-xs font-black text-white">{brandName || "No Brand Name Set"}</h4>
+                  <p className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider mt-1">
+                    Theme: <span style={{ color: brandColor }}>{brandColor}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <AddPhotoWidget
+              isOpen={isLogoPickerOpen}
+              onClose={() => setIsLogoPickerOpen(false)}
+              onPhotoAdded={async (urls) => {
+                if (urls.length > 0) {
+                  const url = urls[0];
+                  setBrandLogo(url);
+                  if (id) {
+                    await updateDoc(doc(db, 'packingLists', id), { brandLogo: url });
+                  }
+                }
+              }}
+              user={user}
+              adminSettings={adminSettings}
+              targetName="branding logo"
+            />
+          </div>
+        )}
+
         <div className="flex-1 bg-neutral-900 overflow-y-auto py-8 px-4 no-print flex justify-center">
           <div
             id="print-area"
             className="w-full max-w-4xl bg-white text-neutral-900 p-10 shadow-2xl rounded-2xl border border-neutral-200 font-sans print:shadow-none print:border-none"
           >
             <div className="space-y-6 text-print-black">
-              <div className="flex justify-between items-start border-b-2 border-neutral-900 pb-5">
+              <div 
+                className="flex justify-between items-start border-b-2 pb-5"
+                style={{ borderBottomColor: brandColor || '#171717' }}
+              >
                 <div className="space-y-1">
                   {list.brandName ? (
                     <div className="flex items-center gap-2 mb-2">
@@ -2683,7 +2897,10 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                   if (groupItems.length === 0) return null;
                   return (
                     <div key={groupName} className="space-y-3">
-                      <h2 className="text-sm font-black uppercase tracking-widest text-neutral-900 border-b border-neutral-300 pb-1 flex justify-between items-center bg-neutral-50 px-2.5 py-1.5 rounded-lg border-l-4 border-l-[#F27D26]/60">
+                      <h2 
+                        className="text-sm font-black uppercase tracking-widest text-neutral-900 border-b border-neutral-300 pb-1 flex justify-between items-center bg-neutral-50 px-2.5 py-1.5 rounded-lg border-l-4"
+                        style={{ borderLeftColor: brandColor || '#F27D26' }}
+                      >
                         <span>{groupName}</span>
                         <span className="text-[10px] font-mono text-neutral-500 font-bold">({groupItems.length} items)</span>
                       </h2>
@@ -2708,7 +2925,13 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                   <td className={`text-center align-middle ${printCompact ? 'py-1.5' : 'py-3'}`}>
                                     <div className="flex justify-center">
                                       {isPacked ? (
-                                        <div className="w-5 h-5 rounded-md border-2 border-neutral-900 bg-neutral-950 flex items-center justify-center text-white print:-webkit-print-color-adjust">
+                                        <div 
+                                          className="w-5 h-5 rounded-md border-2 flex items-center justify-center text-white print:-webkit-print-color-adjust"
+                                          style={{
+                                            backgroundColor: brandColor || '#0a0a0a',
+                                            borderColor: brandColor || '#0a0a0a'
+                                          }}
+                                        >
                                           <span className="text-[10px] font-black">✓</span>
                                         </div>
                                       ) : (
@@ -8024,6 +8247,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                           }
 
                           toast.success(`Successfully imported ${stagedItems.length} items to your manifest!`);
+                          triggerHaptic('success');
                           setShowPowerImportModal(false);
                           setStagedItems([]);
                         } catch (err) {
