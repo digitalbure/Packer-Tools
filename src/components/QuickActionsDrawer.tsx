@@ -145,6 +145,15 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
     return unsub;
   }, [user.uid]);
 
+  // Handle global trigger for opening the Label Studio modal
+  useEffect(() => {
+    const handleOpenLabelStudio = () => {
+      setActiveModal('tags');
+    };
+    window.addEventListener('open-label-studio', handleOpenLabelStudio);
+    return () => window.removeEventListener('open-label-studio', handleOpenLabelStudio);
+  }, []);
+
   // ACTION 1: Real export to CSV
   const handleExportCSV = () => {
     if (gearList.length === 0) {

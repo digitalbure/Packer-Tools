@@ -48,7 +48,8 @@ import {
   Code,
   Smartphone,
   Bug,
-  MapPin
+  MapPin,
+  Printer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings, FeatureKey } from '../types';
@@ -204,6 +205,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/organizer', label: 'Organizer', icon: <Layers size={20} />, feature: 'organizer' as FeatureKey },
     { to: '/travel-cases', label: 'Travel Cases', icon: <Briefcase size={20} />, feature: 'travelCases' as FeatureKey },
     { to: '/rfid', label: 'RFID Logistics', icon: <Cpu size={20} />, feature: 'rfidTracking' as FeatureKey },
+    { to: '#label-studio', label: 'Label Studio', icon: <Printer size={20} /> },
   ];
 
   const allowedModules = allAvailableModules.filter(item => {
@@ -844,6 +846,19 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                   <QrCode size={18} className="group-hover:scale-110 transition-transform shrink-0" />
                   {!isCollapsed && <span className="text-sm">Scan to Pack</span>}
                 </Link>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('open-label-studio'));
+                    setIsMobileOpen(false);
+                  }}
+                  className="flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group w-full"
+                  title={isCollapsed ? 'Label Studio' : ''}
+                >
+                  <Printer size={18} className="group-hover:scale-110 transition-transform shrink-0" />
+                  {!isCollapsed && <span className="text-sm">Label Studio</span>}
+                </button>
               </div>
             </div>
 
@@ -864,6 +879,12 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                       <Link
                         to={isKioskDisabled ? '#' : item.to}
                         onClick={(e) => {
+                          if (item.to === '#label-studio') {
+                            e.preventDefault();
+                            window.dispatchEvent(new CustomEvent('open-label-studio'));
+                            setIsMobileOpen(false);
+                            return;
+                          }
                           if (isKioskDisabled) {
                             e.preventDefault();
                             toast.error("The self-service Gear Kiosk is a premium module. Please subscribe to Pro or Enterprise plans to activate Kiosk check-out!");
