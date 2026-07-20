@@ -1581,7 +1581,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
         name: item.name,
         assetTag: item.assetTag,
         brand: item.brand,
-        category: item.primaryCategory,
+        category: item.primaryCategory || 'Other',
         serial: item.serialNumber,
         model: item.model || item.modelNumber,
         ownerId: item.assignedTo || '',
@@ -1589,6 +1589,21 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
         condition: item.condition
       }));
   }, [inventoryItems, selectedInventoryItems]);
+
+  const printableAllInventoryItems = useMemo(() => {
+    return inventoryItems.map(item => ({
+      id: item.id,
+      name: item.name,
+      assetTag: item.assetTag,
+      brand: item.brand,
+      category: item.primaryCategory || 'Other',
+      serial: item.serialNumber,
+      model: item.model || item.modelNumber,
+      ownerId: item.assignedTo || '',
+      status: item.status,
+      condition: item.condition
+    }));
+  }, [inventoryItems]);
 
   const toggleFormVisibilityOrg = (id: string) => {
     setVisibilityOrgs(prev => 
@@ -3333,6 +3348,16 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                         <Layers size={14} />
                                       </button>
                                       <button
+                                        onClick={() => {
+                                          setSelectedInventoryItems(new Set([item.id]));
+                                          setIsQRPrintModalOpen(true);
+                                        }}
+                                        className="p-2 text-[#F27D26] hover:text-[#D15F15] hover:bg-orange-50 rounded-lg transition cursor-pointer"
+                                        title="Print Label"
+                                      >
+                                        <Printer size={14} />
+                                      </button>
+                                      <button
                                         onClick={() => openEditItemModal(item)}
                                         className="p-2 text-neutral-500 hover:text-black hover:bg-neutral-100 rounded-lg transition cursor-pointer"
                                         title="Edit Item"
@@ -3498,6 +3523,17 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                     >
                                       <Layers size={10} />
                                       <span>Add</span>
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedInventoryItems(new Set([item.id]));
+                                        setIsQRPrintModalOpen(true);
+                                      }}
+                                      className="p-1 px-1.5 text-orange-600 hover:bg-orange-50 rounded-xl border border-orange-100 transition flex items-center justify-center cursor-pointer font-black uppercase text-[8px] tracking-wider gap-1"
+                                      title="Print Label"
+                                    >
+                                      <Printer size={10} />
+                                      <span>Print</span>
                                     </button>
                                     <button
                                       onClick={() => openEditItemModal(item)}
@@ -5660,7 +5696,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       <QRPrintModal
         isOpen={isQRPrintModalOpen}
         onClose={() => setIsQRPrintModalOpen(false)}
-        items={printableSelectedItems}
+        items={printableAllInventoryItems}
         user={user}
         initialSelectedIds={selectedInventoryItems}
       />

@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.8.0`
+## Current Application Version: `v5.10.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,21 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v5.10.0 (Mobile Haptic Feedback & Tactile Notifications)
+*Released on: July 18, 2026*
+- **Tactile QR & Barcode Scanning**: Integrates tactile, physical haptics for scanner actions on mobile setups. Recognizing a QR code or barcode triggers a short double-vibration pulse to confirm scans.
+- **List Addition Success Feedback**: Manual additions, AI-crawls, or spreadsheet imports trigger a clean, single-vibration tactile click, confirming items are successfully added without screen checking.
+- **Cross-Platform Navigator API Wrapper**: Programmed resilient `window.navigator.vibrate` standard wrappers, including silent fallbacks for desktop setups and multi-pulse feedback for error outcomes.
+
+---
+
+### 🚀 Stable Release: v5.9.0 (Public Sharing Links & Company Branding Exports)
+*Released on: July 12, 2026*
+- **Non-Authenticated Public Sharing**: Securely share individual asset profiles or packing lists via read-only hash-secured pages. Stakeholders, crew, or finders can view details, live location status, and contact bio without an account or login.
+- **Logo & Color Branding Manifests**: Added uploader inside the PDF export config panel for corporate logos and custom primary hex colors. Logos are auto-embedded on generated cargo manifests, and brand colors apply dynamically to borders and styling.
 
 ---
 

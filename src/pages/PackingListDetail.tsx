@@ -3779,15 +3779,29 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                     </button>
                                   )}
                                   {isPro && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        startEditingItem(item);
-                                      }}
-                                      className="p-1 text-neutral-300 hover:text-primary transition"
-                                    >
-                                      <Edit2 size={14} />
-                                    </button>
+                                    <>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedItems(new Set([item.id]));
+                                          setIsQRPrintModalOpen(true);
+                                        }}
+                                        className="p-1 text-neutral-300 hover:text-emerald-500 transition"
+                                        title="Print Label"
+                                      >
+                                        <Printer size={14} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          startEditingItem(item);
+                                        }}
+                                        className="p-1 text-neutral-300 hover:text-primary transition"
+                                        title="Edit Item"
+                                      >
+                                        <Edit2 size={14} />
+                                      </button>
+                                    </>
                                   )}
                                   <button
                                     onClick={(e) => {
@@ -8285,6 +8299,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         onClose={() => setIsQRPrintModalOpen(false)}
         items={items}
         user={user}
+        initialSelectedIds={selectedItems}
       />
         </div>
       </div>

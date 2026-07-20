@@ -15,6 +15,7 @@ import { GearItem, UserProfile } from '../types';
 import { doc, updateDoc, collection, addDoc, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
+import { getLabelRecommendation } from '../services/labelSuggester';
 
 interface PrintableItem {
   id: string;
@@ -139,7 +140,7 @@ interface CanvasElement {
   isLocked?: boolean;
 }
 
-interface StudioTemplate {
+export interface StudioTemplate {
   id: string;
   name: string;
   width: number; // mm
@@ -149,7 +150,7 @@ interface StudioTemplate {
   category: string;
 }
 
-const PRESET_STUDIO_TEMPLATES: StudioTemplate[] = [
+export const PRESET_STUDIO_TEMPLATES: StudioTemplate[] = [
   {
     id: 'tpl_asset_tag',
     name: 'Standard Asset Label',
@@ -237,6 +238,34 @@ const PRESET_STUDIO_TEMPLATES: StudioTemplate[] = [
       { id: '7', type: 'qr', content: 'bio', x: 25, y: 55, width: 50, height: 28, qrDest: 'bio', qrFgColor: '#000000', qrBgColor: '#ffffff' },
       { id: '8', type: 'text', content: 'Scan Passport', x: 10, y: 86, width: 80, height: 5, font: 'Inter', fontSize: 5, fontWeight: 'bold', align: 'center', color: '#000000' }
     ]
+  },
+  {
+    id: 'tpl_small_electronics_thermal',
+    name: 'High-Res Small Electronics Tag',
+    width: 35,
+    height: 15,
+    layout: 'tiny',
+    category: 'Small Electronics',
+    elements: [
+      { id: '1', type: 'text', content: '{{asset.brand}}', x: 3, y: 5, width: 55, height: 18, font: 'Inter', fontSize: 5, fontWeight: 'bold' },
+      { id: '2', type: 'text', content: '{{asset.name}}', x: 3, y: 25, width: 55, height: 35, font: 'Inter', fontSize: 6.5, fontWeight: 'black' },
+      { id: '3', type: 'qr', content: 'bio', x: 62, y: 10, width: 35, height: 80, qrDest: 'bio' },
+      { id: '4', type: 'text', content: '{{asset.assetTag}}', x: 3, y: 65, width: 55, height: 20, font: 'JetBrains Mono', fontSize: 5, fontWeight: 'bold' }
+    ]
+  },
+  {
+    id: 'tpl_rack_mount_tag',
+    name: 'Heavy-Duty Rack Mount Strip',
+    width: 90,
+    height: 12,
+    layout: 'standard',
+    category: 'Rack Mounts',
+    elements: [
+      { id: '1', type: 'shape', content: 'divider', x: 0, y: 0, width: 3, height: 100, bgColor: '#10b981', shapeType: 'divider' },
+      { id: '2', type: 'text', content: 'RACK UNIT: {{asset.name}}', x: 5, y: 10, width: 60, height: 40, font: 'Inter', fontSize: 7, fontWeight: 'black' },
+      { id: '3', type: 'text', content: 'BRAND: {{asset.brand}} | {{asset.assetTag}}', x: 5, y: 55, width: 60, height: 35, font: 'JetBrains Mono', fontSize: 5.5, fontWeight: 'bold', color: '#64748b' },
+      { id: '4', type: 'qr', content: 'bio', x: 80, y: 10, width: 15, height: 80, qrDest: 'bio' }
+    ]
   }
 ];
 
@@ -311,6 +340,9 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   const [sheetMode, setSheetMode] = useState<boolean>(false);
   const [selectedAveryTemplateId, setSelectedAveryTemplateId] = useState<string>('avery5160');
   const [sheetStartIndex, setSheetStartIndex] = useState<number>(1);
+  const [showCropMarks, setShowCropMarks] = useState<boolean>(false);
+  const [printOffsetX, setPrintOffsetX] = useState<number>(0); // mm
+  const [printOffsetY, setPrintOffsetY] = useState<number>(0); // mm
 
   // Search parameters for batch printing
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -326,6 +358,9 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   // -------------------------------------------------------------
   // SELECTION & INIT DYNAMICS
   // -------------------------------------------------------------
+  const [lastSuggestedItemId, setLastSuggestedItemId] = useState<string>('');
+  const [currentRecommendation, setCurrentRecommendation] = useState<any>(null);
+
   useEffect(() => {
     if (initialSelectedIds && initialSelectedIds.size > 0) {
       setSelectedIds(new Set(initialSelectedIds));
@@ -391,6 +426,37 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
       condition: 'Excellent'
     };
   }, [items, previewItemId]);
+
+  // Smart template suggest mechanism on item selection
+  useEffect(() => {
+    if (isOpen && activePreviewItem && activePreviewItem.id !== lastSuggestedItemId) {
+      setLastSuggestedItemId(activePreviewItem.id);
+      
+      const recommendation = getLabelRecommendation(
+        activePreviewItem.name,
+        activePreviewItem.category || '',
+        { brand: activePreviewItem.brand, model: activePreviewItem.model }
+      );
+      
+      setCurrentRecommendation(recommendation);
+
+      const suggestedTpl = PRESET_STUDIO_TEMPLATES.find(t => t.id === recommendation.suggestedTemplateId) || PRESET_STUDIO_TEMPLATES[0];
+
+      if (suggestedTpl) {
+        // Load suggested parameters silently to keep interface seamless, then show smart toast feedback
+        setCanvasWidth(suggestedTpl.width);
+        setCanvasHeight(suggestedTpl.height);
+        setCanvasLayout(suggestedTpl.layout);
+        setCanvasElements(JSON.parse(JSON.stringify(suggestedTpl.elements)));
+        setSelectedElementId(null);
+        setSelectedElementIds([]);
+        toast.info(`Smart Analyzer: Auto-mapped to "${suggestedTpl.name}" for category "${activePreviewItem.category || 'Other'}".`, {
+          icon: '✨',
+          description: `Best on: ${recommendation.recommendedMaterial}`
+        });
+      }
+    }
+  }, [isOpen, activePreviewItem, lastSuggestedItemId]);
 
   // -------------------------------------------------------------
   // CANVAS MODIFICATION WRAPPERS (WITH UNDO)
@@ -996,32 +1062,78 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
       {/* Perfect Print Isolation styles */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          body {
-            visibility: hidden !important;
-            background: white !important;
-          }
-          #label-studio-workspace-print-root,
-          #label-studio-workspace-print-root * {
-            visibility: visible !important;
-          }
-          #label-studio-workspace-print-root {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
+          /* Force physical document boundaries with zero margins and hidden default overflows */
+          html, body {
             height: auto !important;
+            overflow: visible !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
-            display: block !important;
           }
+          
+          /* Instantly suppress the visual generation/rendering of the original full application UI */
+          body > *:not(#label-studio-workspace) {
+            display: none !important;
+          }
+          
+          #root {
+            display: block !important;
+            position: static !important;
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+          
+          #root > *:not(#label-studio-workspace) {
+            display: none !important;
+          }
+          
+          /* Unfold the modal background and framing panels completely so only the printable elements remain */
+          #label-studio-workspace {
+            display: block !important;
+            position: static !important;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: auto !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          
+          #label-studio-workspace > *:not(#label-studio-workspace-print-root) {
+            display: none !important;
+          }
+          
+          /* Prime isolated container for natural stream layout flows */
+          #label-studio-workspace-print-root {
+            display: block !important;
+            visibility: visible !important;
+            position: static !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            width: auto !important;
+            height: auto !important;
+          }
+          
           .page-break-after-always {
             page-break-after: always !important;
             break-after: page !important;
           }
+          
           @page {
             margin: 0 !important;
-            size: auto;
+            size: ${sheetMode 
+              ? (AVERY_TEMPLATES.find(t => t.id === selectedAveryTemplateId)?.pageSize === 'a4' ? '210mm 297mm' : '8.5in 11in') 
+              : `${canvasWidth}mm ${canvasHeight}mm`
+            };
           }
         }
       `}} />
@@ -1316,6 +1428,77 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
               {/* TAB CONTENT: PRESETS */}
               {activeTab === 'templates' && (
                 <div className="space-y-4">
+                  {currentRecommendation && activePreviewItem && (
+                    <div className="p-3 bg-gradient-to-br from-amber-500/10 to-[#ff4f3a]/10 border border-amber-500/30 rounded-xl space-y-2">
+                      <div className="flex items-center gap-1.5 text-amber-400">
+                        <Sparkles size={14} className="animate-pulse" />
+                        <span className="text-[10px] font-black uppercase tracking-wider">Smart Label Recommendation</span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px] font-bold">
+                          <span className="text-neutral-400">Target Item:</span>
+                          <span className="text-white font-semibold truncate max-w-[140px]">{activePreviewItem.name}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px] font-bold">
+                          <span className="text-neutral-400">Category:</span>
+                          <span className="text-amber-300 font-semibold">{activePreviewItem.category || 'Other'}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px] font-bold">
+                          <span className="text-neutral-400">Label Type:</span>
+                          <span className="text-neutral-200">
+                            {PRESET_STUDIO_TEMPLATES.find(t => t.id === currentRecommendation.suggestedTemplateId)?.name || 'Standard'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[11px] font-bold">
+                          <span className="text-neutral-400 font-bold">Dimensions:</span>
+                          <span className="text-neutral-200 font-mono text-[10px]">{currentRecommendation.labelDimensions.width}x{currentRecommendation.labelDimensions.height}mm</span>
+                        </div>
+                        <div className="pt-1.5 border-t border-neutral-800/80 space-y-1">
+                          <div>
+                            <span className="text-[8px] font-black uppercase tracking-wider text-neutral-500 block">Recommended Printer Tech</span>
+                            <span className="text-[10px] text-neutral-300 font-semibold">{currentRecommendation.recommendedPrinterType}</span>
+                          </div>
+                          <div>
+                            <span className="text-[8px] font-black uppercase tracking-wider text-neutral-500 block">Recommended Material</span>
+                            <span className="text-[10px] text-neutral-300 font-semibold">{currentRecommendation.recommendedMaterial}</span>
+                          </div>
+                          <div>
+                            <span className="text-[8px] font-black uppercase tracking-wider text-neutral-500 block">Print Settings Specs</span>
+                            <div className="grid grid-cols-2 gap-1 text-[9px] text-neutral-400 font-mono mt-0.5">
+                              <div>Method: <span className="text-neutral-200">{currentRecommendation.printSettings.printMethod}</span></div>
+                              <div>Resolution: <span className="text-neutral-200">{currentRecommendation.printSettings.resolution}</span></div>
+                              <div>Speed: <span className="text-neutral-200">{currentRecommendation.printSettings.speed} IPS</span></div>
+                              <div>Darkness: <span className="text-neutral-200">{currentRecommendation.printSettings.darkness}</span></div>
+                            </div>
+                          </div>
+                          <div className="text-[10px] text-neutral-400 italic leading-relaxed pt-1 border-t border-neutral-800/40">
+                            "{currentRecommendation.justification}"
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const suggestedTpl = PRESET_STUDIO_TEMPLATES.find(t => t.id === currentRecommendation.suggestedTemplateId);
+                          if (suggestedTpl) {
+                            setCanvasWidth(suggestedTpl.width);
+                            setCanvasHeight(suggestedTpl.height);
+                            setCanvasLayout(suggestedTpl.layout);
+                            setCanvasElements(JSON.parse(JSON.stringify(suggestedTpl.elements)));
+                            setSelectedElementId(null);
+                            setSelectedElementIds([]);
+                            toast.success(`Applied ${suggestedTpl.name} layout!`);
+                          }
+                        }}
+                        className="w-full py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-white font-bold text-[9px] uppercase rounded-lg border border-amber-500/30 transition flex items-center justify-center gap-1"
+                      >
+                        <Sparkles size={11} />
+                        Apply Optimal Preset Layout
+                      </button>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-black uppercase text-neutral-400 tracking-wider">Design Layout Presets</h3>
                     <span className="text-[10px] text-neutral-500">Pick to load</span>
@@ -1416,6 +1599,64 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                         <p className="text-[9px] text-neutral-400 mt-0.5">Resolution: {p.resolution}</p>
                       </button>
                     ))}
+                  </div>
+
+                  {/* Crop Marks & Offsets Calibration block */}
+                  <div className="pt-4 border-t border-neutral-800/60 space-y-3">
+                    <h4 className="text-xs font-black uppercase text-neutral-300 tracking-wider">Calibration & Overlay</h4>
+                    
+                    <label className="flex items-center gap-3 p-2.5 bg-[#1e1e24]/40 border border-neutral-800 rounded-xl hover:bg-[#1e1e24]/70 transition cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={showCropMarks}
+                        onChange={(e) => setShowCropMarks(e.target.checked)}
+                        className="w-4 h-4 rounded border-neutral-800 text-[#ff4f3a] focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                      />
+                      <div className="flex-1">
+                        <p className="text-[10px] font-black uppercase text-white tracking-widest">Show Crop & Trim Marks</p>
+                        <p className="text-[9px] text-neutral-500">Renders alignment corner indicators for manual cutting</p>
+                      </div>
+                    </label>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Alignment Offsets (Calibration)</span>
+                        <button 
+                          onClick={() => { setPrintOffsetX(0); setPrintOffsetY(0); }}
+                          className="text-[9px] text-neutral-500 hover:text-white underline font-bold"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-[#1e1e24] border border-neutral-800 p-2 rounded-xl">
+                          <label className="text-[8px] font-black uppercase tracking-wider text-neutral-500 block mb-1">X-Offset (Horizontal)</label>
+                          <div className="flex items-center gap-1">
+                            <input 
+                              type="number" 
+                              step="0.5"
+                              value={printOffsetX}
+                              onChange={(e) => setPrintOffsetX(parseFloat(e.target.value) || 0)}
+                              className="bg-transparent text-white font-mono text-xs w-full focus:outline-none border-none p-0"
+                            />
+                            <span className="text-[9px] text-neutral-500 font-bold">mm</span>
+                          </div>
+                        </div>
+                        <div className="bg-[#1e1e24] border border-neutral-800 p-2 rounded-xl">
+                          <label className="text-[8px] font-black uppercase tracking-wider text-neutral-500 block mb-1">Y-Offset (Vertical)</label>
+                          <div className="flex items-center gap-1">
+                            <input 
+                              type="number" 
+                              step="0.5"
+                              value={printOffsetY}
+                              onChange={(e) => setPrintOffsetY(parseFloat(e.target.value) || 0)}
+                              className="bg-transparent text-white font-mono text-xs w-full focus:outline-none border-none p-0"
+                            />
+                            <span className="text-[9px] text-neutral-500 font-bold">mm</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2751,7 +2992,14 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
       </div>
 
       {/* Perfect, Isolated Print Root Container */}
-      <div id="label-studio-workspace-print-root" className="hidden print:block bg-white text-black p-0 m-0">
+      <div 
+        id="label-studio-workspace-print-root" 
+        className="hidden print:block bg-white text-black p-0 m-0"
+        style={{
+          transform: `translate(${printOffsetX}mm, ${printOffsetY}mm)`,
+          transformOrigin: 'top left'
+        }}
+      >
         {sheetMode ? (
           /* ======================== 📄 AVERY SHEETS PRINTING ======================== */
           <div className="flex flex-col items-center gap-0 p-0 m-0">
@@ -2803,6 +3051,15 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                             boxSizing: 'border-box'
                           }}
                         >
+                          {showCropMarks && (
+                            <div className="absolute inset-0 pointer-events-none select-none z-50 print:block">
+                              <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-neutral-400 pointer-events-none" style={{ marginTop: '-0.5px', marginLeft: '-0.5px' }} />
+                              <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-neutral-400 pointer-events-none" style={{ marginTop: '-0.5px', marginRight: '-0.5px' }} />
+                              <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-neutral-400 pointer-events-none" style={{ marginBottom: '-0.5px', marginLeft: '-0.5px' }} />
+                              <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-neutral-400 pointer-events-none" style={{ marginBottom: '-0.5px', marginRight: '-0.5px' }} />
+                            </div>
+                          )}
+
                           {/* Core Elements Rendering in Avery Loop */}
                           {canvasElements.map((el) => {
                             const resolvedText = el.type === 'text' ? parseDynamicVariables(el.content, item) : '';
@@ -2881,6 +3138,15 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                     boxSizing: 'border-box'
                   }}
                 >
+                  {showCropMarks && (
+                    <div className="absolute inset-0 pointer-events-none select-none z-50 print:block">
+                      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-neutral-400 pointer-events-none" style={{ marginTop: '-0.5px', marginLeft: '-0.5px' }} />
+                      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-neutral-400 pointer-events-none" style={{ marginTop: '-0.5px', marginRight: '-0.5px' }} />
+                      <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-neutral-400 pointer-events-none" style={{ marginBottom: '-0.5px', marginLeft: '-0.5px' }} />
+                      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-neutral-400 pointer-events-none" style={{ marginBottom: '-0.5px', marginRight: '-0.5px' }} />
+                    </div>
+                  )}
+
                   {/* Elements Loop on Live Canvas */}
                   {canvasElements.map((el) => {
                     const resolvedText = el.type === 'text' ? parseDynamicVariables(el.content, item) : '';
