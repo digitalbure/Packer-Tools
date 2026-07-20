@@ -993,7 +993,40 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
       className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4 print:p-0 print:bg-white print:static print:inset-auto font-sans"
       id="label-studio-workspace"
     >
-      <div className="bg-[#121214] text-neutral-100 w-full max-w-7xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] border border-neutral-800 print:bg-white print:text-black print:shadow-none print:rounded-none print:max-h-none print:w-auto print:h-auto print:border-none">
+      {/* Perfect Print Isolation styles */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          body {
+            visibility: hidden !important;
+            background: white !important;
+          }
+          #label-studio-workspace-print-root,
+          #label-studio-workspace-print-root * {
+            visibility: visible !important;
+          }
+          #label-studio-workspace-print-root {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            display: block !important;
+          }
+          .page-break-after-always {
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+          @page {
+            margin: 0 !important;
+            size: auto;
+          }
+        }
+      `}} />
+
+      <div className="bg-[#121214] text-neutral-100 w-full max-w-7xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] border border-neutral-800 print:hidden">
         
         {/* =========================================================
             HEADER & ACTIONS PANEL
@@ -2715,6 +2748,200 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
 
         </div>
 
+      </div>
+
+      {/* Perfect, Isolated Print Root Container */}
+      <div id="label-studio-workspace-print-root" className="hidden print:block bg-white text-black p-0 m-0">
+        {sheetMode ? (
+          /* ======================== 📄 AVERY SHEETS PRINTING ======================== */
+          <div className="flex flex-col items-center gap-0 p-0 m-0">
+            {sheetPages.map((pageLabels, pageIdx) => {
+              const template = AVERY_TEMPLATES.find(t => t.id === selectedAveryTemplateId) || AVERY_TEMPLATES[0];
+              return (
+                <div
+                  key={`print-avery-page-${pageIdx}`}
+                  className="bg-white print:m-0 print:border-none relative flex flex-col justify-start page-break-after-always overflow-hidden shrink-0"
+                  style={{
+                    width: template.pageSize === 'letter' ? '215.9mm' : '210mm',
+                    height: template.pageSize === 'letter' ? '279.4mm' : '297mm',
+                    paddingLeft: `${template.marginLeft}mm`,
+                    paddingTop: `${template.marginTop}mm`,
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  {/* Layout grid structure */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${template.columns}, ${template.labelWidth}mm)`,
+                      gridTemplateRows: `repeat(${template.rows}, ${template.labelHeight}mm)`,
+                      columnGap: `${template.gapX}mm`,
+                      rowGap: `${template.gapY}mm`
+                    }}
+                  >
+                    {pageLabels.map((item, slotIdx) => {
+                      if (!item) {
+                        return (
+                          <div
+                            key={`print-empty-${pageIdx}-${slotIdx}`}
+                            style={{
+                              width: `${template.labelWidth}mm`,
+                              height: `${template.labelHeight}mm`,
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={`print-label-${pageIdx}-${slotIdx}-${item.id}`}
+                          className="bg-white text-black relative overflow-hidden flex flex-col justify-stretch"
+                          style={{
+                            width: `${template.labelWidth}mm`,
+                            height: `${template.labelHeight}mm`,
+                            boxSizing: 'border-box'
+                          }}
+                        >
+                          {/* Core Elements Rendering in Avery Loop */}
+                          {canvasElements.map((el) => {
+                            const resolvedText = el.type === 'text' ? parseDynamicVariables(el.content, item) : '';
+                            return (
+                              <div
+                                key={`print-el-${el.id}`}
+                                className="absolute select-none pointer-events-none"
+                                style={{
+                                  left: `${el.x}%`,
+                                  top: `${el.y}%`,
+                                  width: `${el.width}%`,
+                                  height: `${el.height}%`,
+                                }}
+                              >
+                                {el.type === 'text' && (
+                                  <p 
+                                    className="w-full overflow-hidden truncate leading-none uppercase text-black"
+                                    style={{
+                                      fontFamily: el.font === 'JetBrains Mono' ? 'monospace' : 'sans-serif',
+                                      fontSize: `${el.fontSize || 8}pt`,
+                                      fontWeight: el.fontWeight === 'black' ? 900 : (el.fontWeight === 'bold' ? 700 : 400),
+                                      textAlign: el.align || 'left',
+                                      color: el.color || '#000000',
+                                      margin: 0,
+                                      padding: 0
+                                    }}
+                                  >
+                                    {resolvedText}
+                                  </p>
+                                )}
+                                {el.type === 'qr' && (
+                                  <div className="w-full h-full flex items-center justify-center p-0.5 bg-white border border-neutral-100">
+                                    <QRCodeCanvas
+                                      value={getQrUrlValue(el, item)}
+                                      size={48}
+                                      level="M"
+                                      fgColor={el.qrFgColor || '#000000'}
+                                      bgColor={el.qrBgColor || '#ffffff'}
+                                      style={{ width: '100%', height: '100%' }}
+                                    />
+                                  </div>
+                                )}
+                                {el.type === 'shape' && (
+                                  <div 
+                                    className="w-full h-full"
+                                    style={{
+                                      backgroundColor: el.bgColor || 'transparent',
+                                      borderColor: el.color || '#000000',
+                                      borderWidth: el.shapeType === 'rectangle' ? '1px' : '0',
+                                      borderRadius: el.shapeType === 'circle' ? '50%' : '0'
+                                    }}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* ======================== 🖨️ CONTINUOUS THERMAL ROLL PRINTING ======================== */
+          <div className="flex flex-col items-start gap-0 p-0 m-0">
+            {selectedItemsToPrint.map((item, idx) => {
+              return (
+                <div
+                  key={`print-roll-label-${item.id}-${idx}`}
+                  className="bg-white text-black relative overflow-hidden flex flex-col justify-stretch page-break-after-always shrink-0"
+                  style={{
+                    width: `${canvasWidth}mm`,
+                    height: `${canvasHeight}mm`,
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  {/* Elements Loop on Live Canvas */}
+                  {canvasElements.map((el) => {
+                    const resolvedText = el.type === 'text' ? parseDynamicVariables(el.content, item) : '';
+                    return (
+                      <div
+                        key={`print-roll-el-${el.id}`}
+                        className="absolute select-none pointer-events-none"
+                        style={{
+                          left: `${el.x}%`,
+                          top: `${el.y}%`,
+                          width: `${el.width}%`,
+                          height: `${el.height}%`,
+                        }}
+                      >
+                        {el.type === 'text' && (
+                          <p 
+                            className="w-full overflow-hidden truncate leading-none uppercase text-black"
+                            style={{
+                              fontFamily: el.font === 'JetBrains Mono' ? 'monospace' : 'sans-serif',
+                              fontSize: `${el.fontSize || 8}pt`,
+                              fontWeight: el.fontWeight === 'black' ? 900 : (el.fontWeight === 'bold' ? 700 : 400),
+                              textAlign: el.align || 'left',
+                              color: el.color || '#000000',
+                              margin: 0,
+                              padding: 0
+                            }}
+                          >
+                            {resolvedText}
+                          </p>
+                        )}
+                        {el.type === 'qr' && (
+                          <div className="w-full h-full flex flex-col items-center justify-center p-0.5 bg-white border border-neutral-100 relative pointer-events-none">
+                            <QRCodeCanvas
+                              value={getQrUrlValue(el, item)}
+                              size={64}
+                              level="M"
+                              fgColor={el.qrFgColor || '#000000'}
+                              bgColor={el.qrBgColor || '#ffffff'}
+                              style={{ width: '100%', height: '100%' }}
+                            />
+                          </div>
+                        )}
+                        {el.type === 'shape' && (
+                          <div 
+                            className="w-full h-full pointer-events-none"
+                            style={{
+                              backgroundColor: el.bgColor || 'transparent',
+                              borderColor: el.color || '#000000',
+                              borderWidth: el.shapeType === 'rectangle' ? '1px' : '0',
+                              borderRadius: el.shapeType === 'circle' ? '50%' : '0'
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
