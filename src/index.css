@@ -245,3 +245,93 @@ html.dark .glass {
   backdrop-filter: blur(20px) !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
 }
+
+/* ==========================================
+   🖨️ PERFECT SYSTEM PRINT ISOLATION
+   ========================================== */
+@media print {
+  /* 1. Force paper margins and settings */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* 2. Hide everything under body except active printing portals */
+  body > *:not(#label-studio-workspace):not(#add-gear-modal-root) {
+    display: none !important;
+  }
+
+  /* 3. Hide standard utility indicators & elements */
+  .sidebar,
+  .navbar,
+  footer,
+  aside,
+  nav,
+  .mobile-tab-bar,
+  #groups-floating-trigger,
+  #back-to-top,
+  #firestore-quota-alert-banner,
+  .print-hidden,
+  button {
+    display: none !important;
+  }
+
+  /* 4. If AddGearModal is open, isolate only the ticket tag container */
+  #add-gear-modal-root {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  #add-gear-modal-root * {
+    visibility: hidden !important;
+  }
+
+  /* Strip all height, padding, margins, borders and offsets from all parent divs in print layout */
+  #add-gear-modal-root div {
+    display: block !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+    background: transparent !important;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  #onboarded-tag-print-container,
+  #onboarded-tag-print-container * {
+    visibility: visible !important;
+  }
+
+  #onboarded-tag-print-container {
+    display: flex !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100mm !important;
+    height: 50mm !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 6mm !important;
+    border: 1px solid #e5e5e5 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    box-sizing: border-box !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-direction: row !important;
+  }
+}

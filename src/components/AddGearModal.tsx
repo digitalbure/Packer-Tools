@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { collection, query, getDocs, addDoc, doc, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -268,6 +269,16 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
       </html>
     `);
     doc.close();
+
+    // Trigger print from parent window to guarantee iframe focus & print
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (e) {
+        console.warn("Parent iframe print fallback triggered:", e);
+      }
+    }, 500);
 
     setTimeout(() => {
       document.body.removeChild(iframe);
@@ -781,8 +792,8 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     g.assetTag.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  return (
-    <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+  return createPortal(
+    <div id="add-gear-modal-root" className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1790,6 +1801,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
         </div>
 
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }

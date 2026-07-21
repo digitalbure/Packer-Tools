@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, Printer, Check, Search, Tag, QrCode, Settings2, Layout, Maximize2, 
@@ -46,9 +47,66 @@ export interface AveryTemplate {
   gapX: number;
   gapY: number;
   pageSize: 'letter' | 'a4';
+  isPlainPaper?: boolean;
 }
 
 export const AVERY_TEMPLATES: AveryTemplate[] = [
+  {
+    id: 'plainA4_8grid',
+    name: 'Plain A4 Paper - 8 Cut-out Cards (2x4 Grid, with Cut Lines)',
+    columns: 2,
+    rows: 4,
+    labelWidth: 90.0,
+    labelHeight: 60.0,
+    marginTop: 25.0,
+    marginLeft: 12.0,
+    gapX: 6.0,
+    gapY: 6.0,
+    pageSize: 'a4',
+    isPlainPaper: true
+  },
+  {
+    id: 'plainLetter_8grid',
+    name: 'Plain Letter Paper - 8 Cut-out Cards (2x4 Grid, with Cut Lines)',
+    columns: 2,
+    rows: 4,
+    labelWidth: 92.0,
+    labelHeight: 56.0,
+    marginTop: 24.0,
+    marginLeft: 13.0,
+    gapX: 6.0,
+    gapY: 6.0,
+    pageSize: 'letter',
+    isPlainPaper: true
+  },
+  {
+    id: 'plainA4_single',
+    name: 'Plain A4 Paper - 1 Centered Temporary Card (Large, No Paper Waste)',
+    columns: 1,
+    rows: 1,
+    labelWidth: 120.0,
+    labelHeight: 80.0,
+    marginTop: 100.0,
+    marginLeft: 45.0,
+    gapX: 0,
+    gapY: 0,
+    pageSize: 'a4',
+    isPlainPaper: true
+  },
+  {
+    id: 'plainLetter_single',
+    name: 'Plain Letter Paper - 1 Centered Temporary Card (Large, No Paper Waste)',
+    columns: 1,
+    rows: 1,
+    labelWidth: 120.0,
+    labelHeight: 80.0,
+    marginTop: 90.0,
+    marginLeft: 48.0,
+    gapX: 0,
+    gapY: 0,
+    pageSize: 'letter',
+    isPlainPaper: true
+  },
   {
     id: 'avery5160',
     name: 'Avery 5160 / 8160 (30 Labels - 2.625" x 1")',
@@ -1130,7 +1188,22 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
             .h-full { height: 100% !important; }
             .truncate { overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
             .border { border-style: solid !important; }
+            .border-2 { border-width: 2px !important; }
+            .border-dashed { border-style: dashed !important; }
             .border-neutral-100 { border-color: #f5f5f5 !important; }
+            .border-neutral-400 { border-color: #a3a3a3 !important; }
+            .border-neutral-500 { border-color: #737373 !important; }
+            .rounded { border-radius: 4px !important; }
+            .text-\[6px\] { font-size: 6px !important; }
+            .font-black { font-weight: 900 !important; }
+            .tracking-wider { letter-spacing: 0.05em !important; }
+            .top-1\.5 { top: 0.375rem !important; }
+            .left-1\.5 { left: 0.375rem !important; }
+            .px-1\.5 { padding-left: 0.375rem !important; padding-right: 0.375rem !important; }
+            .py-0\.5 { padding-top: 0.125rem !important; padding-bottom: 0.125rem !important; }
+            .z-10 { z-index: 10 !important; }
+            .bg-neutral-100 { background-color: #f5f5f5 !important; }
+            .text-neutral-500 { color: #737373 !important; }
             .p-0.5 { padding: 0.125rem !important; }
             p { margin: 0; padding: 0; }
           </style>
@@ -1152,6 +1225,16 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
     `);
     doc.close();
 
+    // Trigger print from parent window to guarantee iframe focus & print
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (e) {
+        console.warn("Parent iframe print fallback triggered:", e);
+      }
+    }, 500);
+
     // Remove the iframe after the print dialog is completed/closed
     setTimeout(() => {
       document.body.removeChild(iframe);
@@ -1160,7 +1243,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div 
       className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4 print:p-0 print:bg-white print:static print:inset-auto font-sans"
       id="label-studio-workspace"
@@ -1177,21 +1260,17 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
             background: white !important;
           }
           
-          /* Instantly hide all elements under body */
-          body * {
-            visibility: hidden !important;
+          /* Hide all other direct children of body to reclaim layout space completely */
+          body > *:not(#label-studio-workspace) {
+            display: none !important;
           }
           
           /* Unfold the modal background and framing panels completely so only the printable elements remain */
           #label-studio-workspace {
             display: block !important;
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            background: transparent !important;
-            backdrop-filter: none !important;
-            border: none !important;
-            box-shadow: none !important;
+            position: relative !important;
+            visibility: visible !important;
+            background: white !important;
             margin: 0 !important;
             padding: 0 !important;
             width: auto !important;
@@ -1207,9 +1286,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
           /* Prime isolated container for natural stream layout flows */
           #label-studio-workspace-print-root {
             display: block !important;
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
+            position: relative !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
@@ -1248,7 +1325,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                   Label Studio
                 </h2>
                 <span className="text-[9px] uppercase font-black tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded">
-                  v5.11.0 PRO
+                  v5.12.0 PRO
                 </span>
               </div>
               <p className="text-xs text-neutral-400">
@@ -2336,13 +2413,22 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                             return (
                               <div
                                 key={`label-${pageIdx}-${slotIdx}-${item.id}`}
-                                className="bg-white text-black border border-neutral-200 print:border-transparent relative overflow-hidden flex flex-col justify-stretch"
+                                className={`bg-white text-black relative overflow-hidden flex flex-col justify-stretch ${
+                                  template.isPlainPaper 
+                                    ? 'border-2 border-dashed border-neutral-400 print:border-2 print:border-dashed print:border-neutral-500' 
+                                    : 'border border-neutral-200 print:border-transparent'
+                                }`}
                                 style={{
                                   width: `${template.labelWidth}mm`,
                                   height: `${template.labelHeight}mm`,
                                   boxSizing: 'border-box'
                                 }}
                               >
+                                {template.isPlainPaper && (
+                                  <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-neutral-100 rounded text-[6px] font-black uppercase text-neutral-500 tracking-wider flex items-center gap-1 z-10 print:bg-neutral-100">
+                                    <span>✂️ CUT GUIDE</span>
+                                  </div>
+                                )}
                                 {/* Core Elements Rendering in Avery Loop */}
                                 {canvasElements.map((el) => {
                                   const resolvedText = el.type === 'text' ? parseDynamicVariables(el.content, item) : '';
@@ -3138,13 +3224,22 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                       return (
                         <div
                           key={`print-label-${pageIdx}-${slotIdx}-${item.id}`}
-                          className="bg-white text-black relative overflow-hidden flex flex-col justify-stretch"
+                          className={`bg-white text-black relative overflow-hidden flex flex-col justify-stretch ${
+                            template.isPlainPaper 
+                              ? 'border-2 border-dashed border-neutral-500' 
+                              : ''
+                          }`}
                           style={{
                             width: `${template.labelWidth}mm`,
                             height: `${template.labelHeight}mm`,
                             boxSizing: 'border-box'
                           }}
                         >
+                          {template.isPlainPaper && (
+                            <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-neutral-100 rounded text-[6px] font-black uppercase text-neutral-500 tracking-wider flex items-center gap-1 z-10">
+                              <span>✂️ CUT GUIDE</span>
+                            </div>
+                          )}
                           {showCropMarks && (
                             <div className="absolute inset-0 pointer-events-none select-none z-50 print:block">
                               <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-neutral-400 pointer-events-none" style={{ marginTop: '-0.5px', marginLeft: '-0.5px' }} />
@@ -3303,6 +3398,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

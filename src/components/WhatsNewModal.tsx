@@ -8,13 +8,39 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   const releases = [
     {
-      version: 'v5.11.0',
+      version: 'v5.12.0',
       tag: 'Latest',
-      tagBg: 'bg-orange-50 text-orange-700 border-orange-100',
+      tagBg: 'bg-primary/10 text-primary border-primary/20',
+      title: 'Plain Paper Presets, Temporary Barcode Cut Guides & Perfect Isolation Prints',
+      date: 'July 2026',
+      icon: QrCode,
+      color: 'text-primary',
+      updates: [
+        {
+          title: 'Plain Paper Presets & Templates',
+          desc: 'Introduced 4 new print templates designed for printing on standard non-adhesive papers (A4 & Letter size). Users can now select 8-card grid structures or single giant temporary labels to conserve paper.',
+          badge: 'Plain Paper Presets'
+        },
+        {
+          title: '✂️ Print Cut Guides',
+          desc: 'Plain paper templates automatically render dynamic dashed border cut guides and scissor-friendly indicators to make slicing out temporary labels quick and precise.',
+          badge: 'Label Cut Guides'
+        },
+        {
+          title: 'Perfect Print Isolation',
+          desc: 'Refactored CSS print rules to guarantee standard background and portal isolation, preventing multi-page overflows, double print triggers, and margin shifting.',
+          badge: 'Print Engine'
+        }
+      ]
+    },
+    {
+      version: 'v5.11.0',
+      tag: 'Previous',
+      tagBg: 'bg-emerald-50 text-emerald-700 border-emerald-100',
       title: 'Mobile Touch Target Standards & High-Density UX Optimization',
       date: 'July 2026',
       icon: Smartphone,
@@ -249,7 +275,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -265,24 +291,24 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className="relative bg-white border border-neutral-100 shadow-2xl rounded-[2.5rem] w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden z-10 font-sans"
+            className="relative bg-white border border-neutral-100 shadow-2xl rounded-2xl sm:rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden z-10 font-sans"
           >
             {/* Header */}
-            <div className="p-6 sm:p-8 border-b border-neutral-100 flex items-start justify-between">
-              <div className="space-y-1">
+            <div className="p-4 sm:p-6 border-b border-neutral-100 flex items-start justify-between gap-3">
+              <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="p-1.5 bg-primary/10 text-primary rounded-xl shrink-0">
                     <Sparkles size={16} className="animate-pulse" />
                   </span>
-                  <span className="text-[10px] uppercase font-black tracking-widest text-neutral-400">Changelog Hub</span>
+                  <span className="text-[10px] uppercase font-black tracking-widest text-neutral-400 truncate">Changelog Hub</span>
                 </div>
-                <h3 className="text-2xl font-black text-neutral-950 uppercase tracking-tight">
+                <h3 className="text-xl sm:text-2xl font-black text-neutral-950 uppercase tracking-tight">
                   What's New in Packer Tools
                 </h3>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-neutral-50 rounded-2xl text-neutral-400 hover:text-neutral-700 transition"
+                className="p-2 hover:bg-neutral-50 rounded-2xl text-neutral-400 hover:text-neutral-700 transition shrink-0"
                 title="Close Modal"
               >
                 <X size={20} className="stroke-[2.5]" />
@@ -290,10 +316,10 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
             </div>
 
             {/* Quick Filter Tabs */}
-            <div className="px-6 sm:px-8 py-3 bg-neutral-50 border-b border-neutral-100 flex gap-2 overflow-x-auto scrollbar-none">
+            <div className="px-4 sm:px-6 py-2.5 bg-neutral-50 border-b border-neutral-100 flex gap-2 overflow-x-auto scrollbar-none">
               <button
                 onClick={() => setActiveTab('all')}
-                className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border transition ${
+                className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border transition whitespace-nowrap ${
                   activeTab === 'all'
                     ? 'bg-neutral-950 border-neutral-950 text-white shadow-sm'
                     : 'bg-white border-neutral-200/60 text-neutral-500 hover:bg-neutral-100'
@@ -305,7 +331,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                 <button
                   key={r.version}
                   onClick={() => setActiveTab(r.version.replace('v', '') as any)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border transition whitespace-nowrap ${
+                  className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border transition whitespace-nowrap ${
                     activeTab === r.version.replace('v', '')
                       ? 'bg-neutral-950 border-neutral-950 text-white shadow-sm'
                       : 'bg-white border-neutral-200/60 text-neutral-500 hover:bg-neutral-100'
@@ -317,48 +343,48 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
             </div>
 
             {/* Content Body */}
-            <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8 min-h-0">
-              {filteredReleases.map((release, rIdx) => {
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 min-h-0">
+              {filteredReleases.map((release) => {
                 const IconComponent = release.icon;
                 return (
-                  <div key={release.version} className="space-y-4">
+                  <div key={release.version} className="space-y-3.5">
                     {/* Version Banner Title */}
-                    <div className="flex items-center justify-between gap-4 border-b border-neutral-100 pb-2">
-                      <div className="flex items-center gap-2.5">
-                        <span className={`p-2 rounded-2xl bg-neutral-50 ${release.color}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-neutral-100 pb-3">
+                      <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+                        <span className={`p-2 rounded-2xl bg-neutral-50 shrink-0 ${release.color}`}>
                           <IconComponent size={18} className="stroke-[2.5]" />
                         </span>
-                        <div>
-                          <span className="font-extrabold text-neutral-950 text-lg tracking-tight">
+                        <div className="min-w-0 flex-1">
+                          <span className="font-extrabold text-neutral-950 text-base sm:text-lg tracking-tight block break-words">
                             {release.version}: {release.title}
                           </span>
-                          <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">
+                          <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-0.5">
                             Released {release.date}
                           </p>
                         </div>
                       </div>
-                      <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-xl border ${release.tagBg}`}>
+                      <span className={`self-start sm:self-auto shrink-0 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-xl border whitespace-nowrap ${release.tagBg}`}>
                         {release.tag}
                       </span>
                     </div>
 
                     {/* Feature Cards Grid */}
-                    <div className="grid grid-cols-1 gap-3.5 pl-1">
+                    <div className="grid grid-cols-1 gap-3">
                       {release.updates.map((update, uIdx) => (
                         <div 
                           key={uIdx} 
-                          className="p-5 bg-neutral-50 border border-neutral-100 rounded-3xl space-y-2 group hover:bg-white hover:border-neutral-200/80 transition-all duration-200"
+                          className="p-3.5 sm:p-5 bg-neutral-50 border border-neutral-100 rounded-2xl sm:rounded-3xl space-y-1.5 group hover:bg-white hover:border-neutral-200/80 transition-all duration-200"
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <h4 className="font-extrabold text-neutral-900 text-sm flex items-center gap-2">
-                              <span className="text-primary">•</span>
-                              {update.title}
+                          <div className="flex items-start justify-between gap-2.5">
+                            <h4 className="font-extrabold text-neutral-900 text-xs sm:text-sm flex items-start gap-1.5 min-w-0 flex-1 leading-snug">
+                              <span className="text-primary shrink-0 mt-0.5">•</span>
+                              <span className="break-words">{update.title}</span>
                             </h4>
-                            <span className="text-[9px] font-black uppercase tracking-widest bg-white border border-neutral-200/50 px-2 py-0.5 rounded-md text-neutral-400 group-hover:text-neutral-500 transition-colors">
+                            <span className="shrink-0 text-[9px] font-black uppercase tracking-wider bg-white border border-neutral-200/60 px-2 py-0.5 rounded-md text-neutral-500 transition-colors whitespace-nowrap">
                               {update.badge}
                             </span>
                           </div>
-                          <p className="text-xs text-neutral-500 font-medium leading-relaxed">
+                          <p className="text-xs text-neutral-500 font-medium leading-relaxed pl-3.5 sm:pl-4">
                             {update.desc}
                           </p>
                         </div>
@@ -370,13 +396,13 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
             </div>
 
             {/* Footer Information */}
-            <div className="p-6 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between gap-4 text-xs font-semibold text-neutral-400">
-              <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase font-black">
-                <Terminal size={14} className="text-neutral-400" />
-                <span>PACKER ENGINE CORE STABLE</span>
+            <div className="p-4 sm:p-5 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between gap-4 text-xs font-semibold text-neutral-400">
+              <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase font-black min-w-0">
+                <Terminal size={14} className="text-neutral-400 shrink-0" />
+                <span className="truncate">PACKER ENGINE CORE STABLE</span>
               </div>
-              <span className="text-[10px] uppercase font-black tracking-wide">
-                Build v5.11.0
+              <span className="text-[10px] uppercase font-black tracking-wide shrink-0">
+                Build v5.12.0
               </span>
             </div>
           </motion.div>

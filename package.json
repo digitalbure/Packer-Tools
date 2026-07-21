@@ -2,7 +2,7 @@
   "name": "packer-tools",
   "private": true,
   "description": "Production operations and equipment packing platform for broadcast, film, AV and event teams.",
-  "version": "5.11.0",
+  "version": "5.12.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server/index.ts",
