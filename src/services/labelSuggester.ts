@@ -152,7 +152,107 @@ export const getLabelRecommendation = (
     };
   }
 
-  // 6. DEFAULT GENERAL ASSETS (CAMERAS, MONITORS, LIGHTS, TRIPODS, RIGS, OTHER)
+  // 6. CONSTRUCTION & HEAVY RIGGING (Drills, Safety Harnesses, Shackles, Rigging, Hoists, Heavy Tooling)
+  if (
+    nameLower.includes('drill') || nameLower.includes('harness') || nameLower.includes('shackle') ||
+    nameLower.includes('hoist') || nameLower.includes('rigging') || nameLower.includes('saw') ||
+    nameLower.includes('generator') || nameLower.includes('pneumatic') || nameLower.includes('hammer') ||
+    catLower.includes('rigging') || catLower.includes('construction') || catLower.includes('tool') ||
+    catLower.includes('heavy') || catLower.includes('harness')
+  ) {
+    return {
+      suggestedTemplateId: 'tpl_asset_tag',
+      recommendedPrinterType: 'Heavy-Duty Industrial Barcode Printer (e.g. TSC MX240P)',
+      recommendedMaterial: 'Premium Cast Aluminum Foil / Aggressive Synthetic Acrylic Plate',
+      justification: 'Construction gear is subjected to extreme outdoor weathering, heavy physical impact, abrasion, dust, and concrete exposure. Aluminum foil or high-thickness cast acrylic plates guarantee permanent attachment and legibility under active site conditions.',
+      labelDimensions: { width: 60, height: 30, unit: 'mm' },
+      recommendedAveryTemplateId: 'avery5160',
+      durabilityRating: 'Extreme Duty',
+      printSettings: {
+        darkness: 26,
+        speed: 3,
+        resolution: '300 dpi',
+        printMethod: 'Thermal Transfer'
+      }
+    };
+  }
+
+  // 7. AUTOMOTIVE & MECHANICAL PARTS (Wrenches, Lifts, Socket Sets, Diagnostic Meters)
+  if (
+    nameLower.includes('wrench') || nameLower.includes('socket') || nameLower.includes('meter') ||
+    nameLower.includes('lift') || nameLower.includes('compressor') || nameLower.includes('gauge') ||
+    nameLower.includes('diagnostic') ||
+    catLower.includes('automotive') || catLower.includes('mechanic') || catLower.includes('meter') ||
+    catLower.includes('tooling') || catLower.includes('engine')
+  ) {
+    return {
+      suggestedTemplateId: 'tpl_rack_mount_tag',
+      recommendedPrinterType: 'High-Performance Chemical-Shield Desktop Printer (e.g. Brady i3300)',
+      recommendedMaterial: 'Matte Silver Chemical-Resistant Polyester with High-Grade Resin ribbon',
+      justification: 'Workshop environments expose tools to grease, engine oil, hydraulic brake fluid, and strong degreasers. Silver polyester labels matched with super-resin ribbons offer superior chemical resistance to ensure zero ink smear or label degradation.',
+      labelDimensions: { width: 90, height: 12, unit: 'mm' },
+      recommendedAveryTemplateId: 'avery5162',
+      durabilityRating: 'High Durability',
+      printSettings: {
+        darkness: 22,
+        speed: 3,
+        resolution: '300 dpi',
+        printMethod: 'Thermal Transfer'
+      }
+    };
+  }
+
+  // 8. SPORTS & ATHLETIC TRAINING GEAR (Jerseys, Helmets, Protective Kits, Pads, Uniforms)
+  if (
+    nameLower.includes('jersey') || nameLower.includes('helmet') || nameLower.includes('pads') ||
+    nameLower.includes('glove') || nameLower.includes('uniform') || nameLower.includes('athletic') ||
+    nameLower.includes('ball') ||
+    catLower.includes('sports') || catLower.includes('athletic') || catLower.includes('jersey') ||
+    catLower.includes('clothing') || catLower.includes('kit')
+  ) {
+    return {
+      suggestedTemplateId: 'tpl_cable_wrap', // Wrap-around format works great for straps/rails or iron-on adhesive
+      recommendedPrinterType: 'Garment Specialty Thermal Printer (e.g. Avery Dennison SNAP)',
+      recommendedMaterial: 'Iron-On Ultra-Flex Nylon Fabric or Heat-Seal High-Tack Polyamide',
+      justification: 'Sports gear undergoes heavy washing cycles, severe stretching, sweat, and friction. High-tack heat-seal polyamide tags fuse permanently with textile fibers, ensuring the barcode remains fully readable without irritating players.',
+      labelDimensions: { width: 75, height: 15, unit: 'mm' },
+      recommendedAveryTemplateId: 'avery5161',
+      durabilityRating: 'High Durability',
+      printSettings: {
+        darkness: 21,
+        speed: 2,
+        resolution: '300 dpi',
+        printMethod: 'Thermal Transfer'
+      }
+    };
+  }
+
+  // 9. MEDICAL & SANITIZED CLINICAL EQUIPMENT (Ventilators, Defibrillators, Masks, PPE, Heart Monitors)
+  if (
+    nameLower.includes('ventilator') || nameLower.includes('ppe') || nameLower.includes('monitor') ||
+    nameLower.includes('defibrillator') || nameLower.includes('medical') || nameLower.includes('pump') ||
+    nameLower.includes('oximeter') ||
+    catLower.includes('medical') || catLower.includes('clinical') || catLower.includes('hospital') ||
+    catLower.includes('ppe') || catLower.includes('hygiene')
+  ) {
+    return {
+      suggestedTemplateId: 'tpl_battery_tag',
+      recommendedPrinterType: 'Antimicrobial Desktop Labeler (e.g. Brother TD-4420DN)',
+      recommendedMaterial: 'Medical-Grade Antimicrobial Polypropylene with Solvent-Proof Coating',
+      justification: 'Medical assets require sanitization with high-concentration isopropyl alcohol (70%+ IPA), chlorine bleach wipes, or autoclave cycles. Anti-microbial polypropylene handles regular chemical scrubdowns without lifting or yellowing.',
+      labelDimensions: { width: 45, height: 45, unit: 'mm' },
+      recommendedAveryTemplateId: 'averyL7160',
+      durabilityRating: 'Extreme Duty',
+      printSettings: {
+        darkness: 18,
+        speed: 4,
+        resolution: '300 dpi',
+        printMethod: 'Thermal Transfer'
+      }
+    };
+  }
+
+  // 10. DEFAULT GENERAL ASSETS (CAMERAS, MONITORS, LIGHTS, TRIPODS, RIGS, OTHER)
   return {
     suggestedTemplateId: 'tpl_asset_tag',
     recommendedPrinterType: 'Standard Desktop Thermal Transfer Printer (e.g. TSC TX210)',

@@ -208,31 +208,31 @@ export default function AddPhotoWidget({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[280] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[280] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]"
+        className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] my-auto min-w-0"
         id="standard-photo-picker-container"
       >
         {/* Header */}
-        <div className="p-6 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
-          <div>
-            <h3 className="text-xl font-black tracking-tight text-neutral-900 flex items-center gap-2">
-              <Camera className="text-primary animate-pulse" size={20} />
-              <span>Add Photo</span>
-              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border tracking-widest ${isProMode ? 'bg-primary/10 text-primary border-primary/20' : 'bg-neutral-100 text-neutral-400 border-neutral-200'}`}>
+        <div className="p-4 sm:p-6 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50 min-w-0">
+          <div className="min-w-0 flex-1 pr-2">
+            <h3 className="text-lg sm:text-xl font-black tracking-tight text-neutral-900 flex flex-wrap items-center gap-2">
+              <Camera className="text-primary animate-pulse shrink-0" size={20} />
+              <span className="truncate">Add Photo</span>
+              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border tracking-widest shrink-0 ${isProMode ? 'bg-primary/10 text-primary border-primary/20' : 'bg-neutral-100 text-neutral-400 border-neutral-200'}`}>
                 {isProMode ? 'Pro Version' : 'Lite Version'}
               </span>
             </h3>
-            <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider mt-1">
+            <p className="text-[10px] sm:text-xs font-bold text-neutral-400 uppercase tracking-wider mt-1 truncate">
               Select photo source for {targetName}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-neutral-100 rounded-xl transition text-neutral-400 hover:text-neutral-900"
+            className="p-2 hover:bg-neutral-100 rounded-xl transition text-neutral-400 hover:text-neutral-900 shrink-0"
             id="photo-picker-close-btn"
           >
             <X size={20} />
@@ -257,62 +257,62 @@ export default function AddPhotoWidget({
           onChange={handlePhotoUploadEvent}
         />
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4 sm:space-y-6 min-w-0">
           {/* Main Actions Row */}
-          <div className={`grid gap-4 ${allowClipboard ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <div className={`grid gap-2 sm:gap-4 ${allowClipboard ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <button
               type="button"
               onClick={() => document.getElementById('photo-picker-upload-input')?.click()}
-              className="flex flex-col items-center justify-center p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-2"
+              className="flex flex-col items-center justify-center p-3 sm:p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-1.5 sm:space-y-2 min-w-0"
               id="upload-photo-btn"
             >
-              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm">
-                <Upload size={18} />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm shrink-0">
+                <Upload size={16} className="sm:w-[18px] sm:h-[18px]" />
               </div>
-              <span className="text-xs font-black uppercase tracking-widest text-neutral-700">Upload Photo/file</span>
+              <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest text-neutral-700 leading-tight">Upload Photo/file</span>
             </button>
 
             <button
               type="button"
               onClick={() => document.getElementById('photo-picker-camera-input')?.click()}
-              className="flex flex-col items-center justify-center p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-2"
+              className="flex flex-col items-center justify-center p-3 sm:p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-1.5 sm:space-y-2 min-w-0"
               id="camera-photo-btn"
             >
-              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm">
-                <Camera size={18} />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm shrink-0">
+                <Camera size={16} className="sm:w-[18px] sm:h-[18px]" />
               </div>
-              <span className="text-xs font-black uppercase tracking-widest text-neutral-700">Take Photo (Camera)</span>
+              <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest text-neutral-700 leading-tight">Take Photo (Camera)</span>
             </button>
 
             {allowClipboard && (
               <button
                 type="button"
                 onClick={handleClipboardPaste}
-                className="flex flex-col items-center justify-center p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-2"
+                className="flex flex-col items-center justify-center p-3 sm:p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-1.5 sm:space-y-2 min-w-0"
                 id="clipboard-photo-btn"
               >
-                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm">
-                  <ClipboardCheck size={18} />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm shrink-0">
+                  <ClipboardCheck size={16} className="sm:w-[18px] sm:h-[18px]" />
                 </div>
-                <span className="text-xs font-black uppercase tracking-widest text-neutral-700">Paste Clipboard</span>
+                <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest text-neutral-700 leading-tight">Paste Clipboard</span>
               </button>
             )}
           </div>
 
           {/* Web URL Input (Pro only or permitted by custom setting) */}
           {allowUrlPaste ? (
-            <div className="bg-neutral-50 p-6 rounded-2xl border border-neutral-200/60 space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="bg-neutral-50 p-4 sm:p-6 rounded-2xl border border-neutral-200/60 space-y-3 min-w-0 overflow-hidden">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 min-w-0">
                 <span className="text-[10px] font-black uppercase tracking-widest text-primary">Add via Web URL / Direct Image Link</span>
                 <span className="text-[8px] font-bold text-neutral-400 uppercase">Bypasses local storage</span>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full min-w-0">
                 <input
                   type="url"
                   placeholder="Paste direct photo link (e.g. Unsplash, Imgur)..."
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
-                  className="flex-1 bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition placeholder-neutral-400 text-neutral-800"
+                  className="w-full sm:flex-1 min-w-0 max-w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition placeholder-neutral-400 text-neutral-800"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -324,7 +324,7 @@ export default function AddPhotoWidget({
                 <button
                   type="button"
                   onClick={handleAddWebUrl}
-                  className="bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition shrink-0"
+                  className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition shrink-0 shadow-sm active:scale-95 flex items-center justify-center"
                 >
                   Add Link
                 </button>
@@ -342,10 +342,10 @@ export default function AddPhotoWidget({
 
           {/* Search System / Database photos */}
           {allowSystemSearch && (
-            <div className="space-y-4 pt-2">
-              <div className="flex items-center justify-between">
+            <div className="space-y-4 pt-2 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
                 <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Select Existing Item Photos</span>
-                <div className="relative w-48">
+                <div className="relative w-full sm:w-48 min-w-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
                   <input
                     type="text"

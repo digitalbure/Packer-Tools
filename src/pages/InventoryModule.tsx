@@ -332,6 +332,29 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   }, [user?.viewDensity]);
 
   const [selectedInventoryItems, setSelectedInventoryItems] = useState<Set<string>>(new Set());
+
+  // Floating action bar scroll states
+  const [invBarShowLeftFade, setInvBarShowLeftFade] = useState(false);
+  const [invBarShowRightFade, setInvBarShowRightFade] = useState(true);
+  const invBarScrollRef = useRef<HTMLDivElement>(null);
+
+  const handleInvBarScroll = () => {
+    if (invBarScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = invBarScrollRef.current;
+      setInvBarShowLeftFade(scrollLeft > 5);
+      setInvBarShowRightFade(scrollLeft < scrollWidth - clientWidth - 5);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedInventoryItems.size > 0) {
+      const timer = setTimeout(() => {
+        handleInvBarScroll();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedInventoryItems.size]);
+
   const [isInventoryBatchAssignOpen, setIsInventoryBatchAssignOpen] = useState(false);
   const [inventoryBatchAssignTarget, setInventoryBatchAssignTarget] = useState<{
     orgId?: string;
@@ -2025,22 +2048,22 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                   className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-[#F27D26]"
                 />
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 min-w-0">
                 <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Load-In Date</span>
                 <input
                   type="date"
                   value={manifestLoadInDate}
                   onChange={(e) => setManifestLoadInDate(e.target.value)}
-                  className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-[#F27D26]"
+                  className="w-full max-w-full min-w-0 box-border block bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-[#F27D26] appearance-none"
                 />
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 min-w-0">
                 <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Load-Out Date</span>
                 <input
                   type="date"
                   value={manifestLoadOutDate}
                   onChange={(e) => setManifestLoadOutDate(e.target.value)}
-                  className="bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-[#F27D26]"
+                  className="w-full max-w-full min-w-0 box-border block bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-[#F27D26] appearance-none"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -3404,13 +3427,15 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                               {isSelectedInventoryEditable && (
                                 <button
                                   onClick={(e) => toggleInventoryItemSelection(item.id, e)}
-                                  className={`w-5 h-5 border rounded flex items-center justify-center transition-colors cursor-pointer mt-0.5 shrink-0 no-min-h aspect-square ${
+                                  className="min-w-[48px] min-h-[48px] -ml-2.5 -mt-2.5 flex items-center justify-center shrink-0 cursor-pointer touch-manipulation"
+                                >
+                                  <div className={`w-5 h-5 border rounded flex items-center justify-center transition-colors aspect-square ${
                                     selectedInventoryItems.has(item.id) 
                                       ? 'bg-black border-black text-white shadow' 
                                       : 'bg-white border-neutral-300'
-                                  }`}
-                                >
-                                  {selectedInventoryItems.has(item.id) && <Check size={12} strokeWidth={4} />}
+                                  }`}>
+                                    {selectedInventoryItems.has(item.id) && <Check size={12} strokeWidth={4} />}
+                                  </div>
                                 </button>
                               )}
                               <div className="space-y-1 min-w-0 flex-1">
@@ -3518,10 +3543,10 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                           toast.error("Failed to copy.", { id });
                                         }
                                       }}
-                                      className="p-1 px-1.5 text-emerald-600 hover:bg-emerald-50 rounded-xl border border-emerald-100 transition flex items-center justify-center cursor-pointer font-black uppercase text-[8px] tracking-wider gap-1"
+                                      className="min-h-[48px] px-3 text-emerald-600 hover:bg-emerald-50 bg-emerald-50/40 rounded-xl border border-emerald-200/60 transition flex items-center justify-center cursor-pointer font-black uppercase text-[10px] tracking-wider gap-1.5 active:scale-95 touch-manipulation"
                                       title="Copy to central Gear Library"
                                     >
-                                      <Layers size={10} />
+                                      <Layers size={14} />
                                       <span>Add</span>
                                     </button>
                                     <button
@@ -3529,25 +3554,25 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                         setSelectedInventoryItems(new Set([item.id]));
                                         setIsQRPrintModalOpen(true);
                                       }}
-                                      className="p-1 px-1.5 text-orange-600 hover:bg-orange-50 rounded-xl border border-orange-100 transition flex items-center justify-center cursor-pointer font-black uppercase text-[8px] tracking-wider gap-1"
+                                      className="min-h-[48px] px-3 text-orange-600 hover:bg-orange-50 bg-orange-50/40 rounded-xl border border-orange-200/60 transition flex items-center justify-center cursor-pointer font-black uppercase text-[10px] tracking-wider gap-1.5 active:scale-95 touch-manipulation"
                                       title="Print Label"
                                     >
-                                      <Printer size={10} />
+                                      <Printer size={14} />
                                       <span>Print</span>
                                     </button>
                                     <button
                                       onClick={() => openEditItemModal(item)}
-                                      className="p-1.5 text-neutral-700 hover:bg-neutral-100 border border-neutral-200 rounded-xl transition flex items-center justify-center cursor-pointer"
+                                      className="min-w-[48px] min-h-[48px] text-neutral-700 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl transition flex items-center justify-center cursor-pointer active:scale-95 touch-manipulation shrink-0"
                                       title="Edit Item"
                                     >
-                                      <Edit2 size={11} />
+                                      <Edit2 size={16} />
                                     </button>
                                     <button
                                       onClick={() => handleDeleteItem(item.id)}
-                                      className="p-1.5 text-red-500 hover:bg-red-50 border border-red-200 rounded-xl transition flex items-center justify-center cursor-pointer"
+                                      className="min-w-[48px] min-h-[48px] text-red-500 bg-red-50/50 hover:bg-red-50 border border-red-200 rounded-xl transition flex items-center justify-center cursor-pointer active:scale-95 touch-manipulation shrink-0"
                                       title="Delete Item"
                                     >
-                                      <Trash2 size={11} />
+                                      <Trash2 size={16} />
                                     </button>
                                   </>
                                 ) : (
@@ -3915,6 +3940,11 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       </div>
                     </div>
                   )}
+
+                  {/* Bottom spacer to prevent fixed floating action bar from obstructing final elements */}
+                  {selectedInventoryItems.size > 0 && (
+                    <div className="h-44 md:h-28 w-full block shrink-0 pointer-events-none" />
+                  )}
                 </>
               )}
 
@@ -3942,87 +3972,99 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       </button>
                     </div>
                     
-                    <div className="flex items-center gap-2 overflow-x-auto md:overflow-visible w-full md:w-auto scrollbar-hide pb-1 md:pb-0">
-                      <button 
-                        onClick={handleBulkCopyToGearLibrary}
-                        className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-700 transition shadow-lg whitespace-nowrap border border-white/5"
-                        title="Copy selected assets to your main Gear Library list"
-                      >
-                        <Layers className="w-4 h-4 text-emerald-400" />
-                        <span>To Gear Library</span>
-                      </button>
+                    <div className="relative flex-1 min-w-0 w-full overflow-hidden">
+                      {/* Left scroll fade gradient indicator */}
+                      <div className={`absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-neutral-900 to-transparent pointer-events-none z-10 transition-opacity duration-200 ${invBarShowLeftFade ? 'opacity-100' : 'opacity-0'}`} />
+                      
+                      {/* Right scroll fade gradient indicator */}
+                      <div className={`absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-neutral-900 to-transparent pointer-events-none z-10 transition-opacity duration-200 ${invBarShowRightFade ? 'opacity-100' : 'opacity-0'}`} />
 
-                      <button 
-                        onClick={() => setIsQRPrintModalOpen(true)}
-                        className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 transition shadow-lg whitespace-nowrap border border-white/5"
-                        title="Send selected items to Label Studio for customization and printing"
+                      <div 
+                        ref={invBarScrollRef}
+                        onScroll={handleInvBarScroll}
+                        className="flex items-center gap-2 overflow-x-auto w-full scrollbar-hide pb-1 md:pb-0 px-2"
                       >
-                        <Tag className="w-4 h-4 text-[#F27D26]" />
-                        <span>Print Labels</span>
-                      </button>
+                        <button 
+                          onClick={handleBulkCopyToGearLibrary}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-700 transition shadow-lg whitespace-nowrap border border-white/5"
+                          title="Copy selected assets to your main Gear Library list"
+                        >
+                          <Layers className="w-4 h-4 text-emerald-400" />
+                          <span>To Gear Library</span>
+                        </button>
 
-                      <button 
-                        onClick={() => {
-                          setPrintLayout('manifest');
-                          setPrintOnlySelected(true);
-                          setIsPrintView(true);
-                        }}
-                        className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#F27D26] hover:bg-[#F27D26]/90 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
-                        title="Format selected items into a single PDF Packing Manifest"
-                      >
-                        <Printer className="w-4 h-4 text-white" />
-                        <span>Format Manifest</span>
-                      </button>
+                        <button 
+                          onClick={() => setIsQRPrintModalOpen(true)}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 transition shadow-lg whitespace-nowrap border border-white/5"
+                          title="Send selected items to Label Studio for customization and printing"
+                        >
+                          <Tag className="w-4 h-4 text-[#F27D26]" />
+                          <span>Print Labels</span>
+                        </button>
 
-                      <button 
-                        onClick={() => setIsExportToAnotherOpen(true)}
-                        className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 transition shadow-lg whitespace-nowrap"
-                        title="Copy selected items to another custom list sheet"
-                      >
-                        <Upload className="w-4 h-4 text-emerald-200" />
-                        <span>Copy Sheets</span>
-                      </button>
+                        <button 
+                          onClick={() => {
+                            setPrintLayout('manifest');
+                            setPrintOnlySelected(true);
+                            setIsPrintView(true);
+                          }}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#F27D26] hover:bg-[#F27D26]/90 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
+                          title="Format selected items into a single PDF Packing Manifest"
+                        >
+                          <Printer className="w-4 h-4 text-white" />
+                          <span>Format Manifest</span>
+                        </button>
 
-                      <button 
-                        onClick={() => {
-                          setInventoryBatchAssignTarget({
-                            orgId: '',
-                            deptId: '',
-                            teamId: '',
-                            assignedTo: ''
-                          });
-                          setIsInventoryBatchAssignOpen(true);
-                        }}
-                        className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 transition shadow-lg whitespace-nowrap border border-white/5"
-                        title="Batch assign Organization, Department, and Team setting to selected items"
-                      >
-                        <ShieldAlert className="w-4 h-4 text-amber-400" />
-                        <span>Assign Batch</span>
-                      </button>
+                        <button 
+                          onClick={() => setIsExportToAnotherOpen(true)}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 transition shadow-lg whitespace-nowrap"
+                          title="Copy selected items to another custom list sheet"
+                        >
+                          <Upload className="w-4 h-4 text-emerald-200" />
+                          <span>Copy Sheets</span>
+                        </button>
 
-                      <button 
-                        onClick={() => setIsBulkSerializeModalOpen(true)}
-                        className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#0066cc] hover:bg-[#0055b3] text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
-                        title="Decompose and transition selected Batch assets to Individual serial tracked assets in bulk"
-                      >
-                        <Zap className="w-4 h-4 text-blue-200" />
-                        <span>Serialize UID</span>
-                      </button>
+                        <button 
+                          onClick={() => {
+                            setInventoryBatchAssignTarget({
+                              orgId: '',
+                              deptId: '',
+                              teamId: '',
+                              assignedTo: ''
+                            });
+                            setIsInventoryBatchAssignOpen(true);
+                          }}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 transition shadow-lg whitespace-nowrap border border-white/5"
+                          title="Batch assign Organization, Department, and Team setting to selected items"
+                        >
+                          <ShieldAlert className="w-4 h-4 text-amber-400" />
+                          <span>Assign Batch</span>
+                        </button>
 
-                      <button 
-                        onClick={() => setIsBulkDeleteConfirmOpen(true)}
-                        className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-200" />
-                        <span>Delete</span>
-                      </button>
+                        <button 
+                          onClick={() => setIsBulkSerializeModalOpen(true)}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#0066cc] hover:bg-[#0055b3] text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
+                          title="Decompose and transition selected Batch assets to Individual serial tracked assets in bulk"
+                        >
+                          <Zap className="w-4 h-4 text-blue-200" />
+                          <span>Serialize UID</span>
+                        </button>
 
-                      <button 
-                        onClick={() => setSelectedInventoryItems(new Set())}
-                        className="hidden md:block p-2 hover:bg-white/10 rounded-xl transition text-neutral-400 hover:text-white"
-                      >
-                        <X size={20} />
-                      </button>
+                        <button 
+                          onClick={() => setIsBulkDeleteConfirmOpen(true)}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-200" />
+                          <span>Delete</span>
+                        </button>
+
+                        <button 
+                          onClick={() => setSelectedInventoryItems(new Set())}
+                          className="hidden md:block p-2 hover:bg-white/10 rounded-xl transition text-neutral-400 hover:text-white"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 )}

@@ -927,6 +927,28 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   
+  // Floating action bar scroll states
+  const [gearBarShowLeftFade, setGearBarShowLeftFade] = useState(false);
+  const [gearBarShowRightFade, setGearBarShowRightFade] = useState(true);
+  const gearBarScrollRef = useRef<HTMLDivElement>(null);
+
+  const handleGearBarScroll = () => {
+    if (gearBarScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = gearBarScrollRef.current;
+      setGearBarShowLeftFade(scrollLeft > 5);
+      setGearBarShowRightFade(scrollLeft < scrollWidth - clientWidth - 5);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedItems.size > 0 || isMultiSelectMode) {
+      const timer = setTimeout(() => {
+        handleGearBarScroll();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedItems.size, isMultiSelectMode]);
+  
   // Batch Move to Rack & Change Status states
   const [racks, setRacks] = useState<any[]>([]);
   const [isMoveToRackModalOpen, setIsMoveToRackModalOpen] = useState(false);
@@ -4364,15 +4386,17 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     >
       <div 
         onClick={(e) => { e.stopPropagation(); toggleItemSelection(item.id, e); }}
-        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer shrink-0 aspect-square no-min-h ${
+        className="min-w-[48px] min-h-[48px] -ml-2.5 -my-2 flex items-center justify-center shrink-0 cursor-pointer touch-manipulation"
+      >
+        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
           selectedItems.has(item.id) 
             ? 'bg-[#0066cc] border-[#0066cc] text-white' 
             : isMultiSelectMode
               ? 'bg-white border-[#0066cc]/45 text-[#0066cc]'
               : 'bg-neutral-50 border-neutral-200'
-        }`}
-      >
-        <Check size={12} className={selectedItems.has(item.id) || isMultiSelectMode ? 'opacity-100' : 'opacity-0'} />
+        }`}>
+          <Check size={12} className={selectedItems.has(item.id) || isMultiSelectMode ? 'opacity-100' : 'opacity-0'} />
+        </div>
       </div>
       <div className="relative shrink-0">
         <LazyImage src={item.photoUrls?.[0]} className="w-16 h-16 rounded-xl object-cover border border-neutral-100 shrink-0" />
@@ -4416,19 +4440,26 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           <span className="flex items-center gap-1"><Package size={10}/> x{item.quantity || 1}</span>
         </div>
       </div>
-      <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+      <div className="flex flex-col gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
         <button 
           type="button" 
           onClick={() => {
             setSharingGearItem(item);
             setSharingGearType(item.isKit ? 'kit' : 'gear');
           }} 
-          className="p-2 bg-neutral-50 rounded-lg text-neutral-400 hover:text-primary hover:bg-neutral-100 transition"
+          className="min-w-[48px] min-h-[48px] bg-neutral-50 rounded-xl text-neutral-500 hover:text-primary hover:bg-neutral-100 active:bg-neutral-200 transition flex items-center justify-center touch-manipulation cursor-pointer"
           title="Share"
         >
-          <Share2 size={16} />
+          <Share2 size={18} />
         </button>
-        <button type="button" onClick={() => setEditingItem(item)} className="p-2 bg-neutral-50 rounded-lg text-neutral-400"><Edit2 size={16} /></button>
+        <button 
+          type="button" 
+          onClick={() => setEditingItem(item)} 
+          className="min-w-[48px] min-h-[48px] bg-neutral-50 rounded-xl text-neutral-500 hover:text-primary hover:bg-neutral-100 active:bg-neutral-200 transition flex items-center justify-center touch-manipulation cursor-pointer"
+          title="Edit"
+        >
+          <Edit2 size={18} />
+        </button>
       </div>
     </div>
   );
@@ -6020,7 +6051,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         </div>
       )}
 
-
+      {/* Bottom spacer to prevent fixed floating action bar from obstructing final elements */}
+      {(selectedItems.size > 0 || isMultiSelectMode) && (
+        <div className="h-44 md:h-28 w-full block shrink-0 pointer-events-none" />
+      )}
 
       {/* Bulk Import Modal */}
       <AnimatePresence>
@@ -7215,7 +7249,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                         </div>
                       )}
                       
-                      <div className="space-y-2">
+                      <div className="space-y-2 w-full min-w-0">
                         <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 font-bold">Last Maintenance Date</label>
                         <input
                           type="date"
@@ -7224,7 +7258,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                             setNewItem({ ...newItem, lastMaintenanceDate: e.target.value });
                             setIsDirty(true);
                           }}
-                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition text-xs font-semibold"
+                          className="w-full max-w-full min-w-0 box-border block bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 sm:px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition text-xs font-semibold appearance-none text-neutral-800"
                         />
                       </div>
 
@@ -7485,13 +7519,13 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
       {/* Edit Modal */}
       {editingItem && (
-        <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
           <motion.div 
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white w-full max-w-2xl rounded-t-[2.5rem] md:rounded-[3rem] shadow-2xl overflow-hidden"
+            className="bg-white w-full max-w-2xl rounded-[2rem] md:rounded-[3rem] shadow-2xl overflow-hidden my-auto min-w-0"
           >
-            <form onSubmit={handleUpdate} className="flex flex-col h-full max-h-[95vh] md:max-h-[90vh]">
+            <form onSubmit={handleUpdate} className="flex flex-col h-full max-h-[92vh] md:max-h-[90vh] min-w-0">
               <div className="p-6 md:p-8 border-b border-neutral-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                   <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter">Edit Gear</h2>
@@ -7996,35 +8030,35 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 w-full min-w-0">
                     <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Quantity Owned</label>
                     <input
                       type="number"
                       min="1"
                       value={editingItem.quantity || 1}
                       onChange={e => setEditingItem({ ...editingItem, quantity: parseInt(e.target.value) || 1 })}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
+                      className="w-full max-w-full min-w-0 box-border bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 sm:px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 w-full min-w-0">
                     <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 font-bold">Last Maintenance Date</label>
                     <input
                       type="date"
                       value={editingItem.lastMaintenanceDate || ''}
                       onChange={e => setEditingItem({ ...editingItem, lastMaintenanceDate: e.target.value })}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition text-xs font-semibold"
+                      className="w-full max-w-full min-w-0 box-border block bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 sm:px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition text-xs font-semibold appearance-none text-neutral-800"
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 w-full min-w-0">
                     <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 font-bold">Maintenance Interval (Days)</label>
                     <input
                       type="number"
                       min="0"
                       value={editingItem.maintenanceIntervalDays || ''}
                       onChange={e => setEditingItem({ ...editingItem, maintenanceIntervalDays: parseInt(e.target.value) || 0 })}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
+                      className="w-full max-w-full min-w-0 box-border bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 sm:px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
                       placeholder="e.g. 180"
                     />
                   </div>
@@ -8572,124 +8606,136 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
               </button>
             </div>
             
-            <div className="flex items-center gap-2 overflow-x-auto md:overflow-visible w-full md:w-auto scrollbar-hide pb-1 md:pb-0">
-              <button 
-                onClick={() => setIsPackingModalOpen(true)}
-                disabled={selectedItems.size === 0}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-700 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Pack selected assets"
-              >
-                <Luggage className="w-4 h-4" />
-                <span>Pack</span>
-              </button>
-
-              <button 
-                onClick={handleCreateKitFromSelection}
-                disabled={selectedItems.size === 0}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white text-neutral-900 px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-100 transition shadow-lg whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Combine selected into a bundle kit"
-              >
-                <Layers className="w-4 h-4" />
-                <span>Bundle</span>
-              </button>
-
-              <button 
-                onClick={() => setIsExportToInventoryOpen(true)}
-                disabled={selectedItems.size === 0}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Copy/Export selected assets to other lists"
-              >
-                <Upload size={14} className="text-emerald-200" />
-                <span>Move to List</span>
-              </button>
-
-              <button 
-                onClick={() => {
-                  setBatchOrgId('');
-                  setBatchDeptId('');
-                  setBatchTeamId('');
-                  setBatchAssignedTo('');
-                  setShouldUpdateOrg(true);
-                  setShouldUpdateDept(true);
-                  setShouldUpdateTeam(true);
-                  setShouldUpdateAssignee(true);
-                  setIsBatchAssignModalOpen(true);
-                }}
-                disabled={selectedItems.size === 0}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Bulk change organization, department or team assignment"
-              >
-                <Sliders size={14} className="text-amber-400 font-bold" />
-                <span>Assign Batch</span>
-              </button>
-
-              <button 
-                onClick={() => {
-                  setSelectedRackId('');
-                  setIsMoveToRackModalOpen(true);
-                }}
-                disabled={selectedItems.size === 0}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Deploy selected equipment to rack"
-              >
-                <Server size={14} className="text-blue-400 font-bold" />
-                <span>Move to Rack</span>
-              </button>
-
-              <button 
-                onClick={() => {
-                  setSelectedBatchStatus('available');
-                  setIsChangeStatusModalOpen(true);
-                }}
-                disabled={selectedItems.size === 0}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Change status of selected to Maintenance, etc."
-              >
-                <Sliders size={14} className="text-purple-400 font-bold" />
-                <span>Change Status</span>
-              </button>
-
-              <button 
-                onClick={() => setIsQRPrintModalOpen(true)}
-                disabled={selectedItems.size === 0}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap"
-                title="Launch Label Studio designer for selected gear items"
-              >
-                <QrCode size={14} className="text-blue-400 font-bold" />
-                <span>Label Studio</span>
-              </button>
-
-              <button 
-                onClick={handleBatchDelete}
-                disabled={selectedItems.size === 0}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-950/40 text-red-400 border border-red-900/40 px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-red-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition shadow-lg whitespace-nowrap border-white/5"
-                title="Batch delete selected assets permanently"
-              >
-                <Trash2 size={13} className="text-red-400 shrink-0" />
-                <span>Delete</span>
-              </button>
-
-              {selectedItems.size === 2 && (
-                <button 
-                  onClick={handleCheckCompatibility}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:brightness-110 transition shadow-lg whitespace-nowrap"
-                  title="Run compatibility diagnostic"
-                >
-                  <Zap className="w-4 h-4 fill-amber-300 stroke-amber-100" />
-                  <span>AI Compatibility</span>
-                </button>
-              )}
+            <div className="relative flex-1 min-w-0 w-full overflow-hidden">
+              {/* Left scroll fade gradient indicator */}
+              <div className={`absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-neutral-900 to-transparent pointer-events-none z-10 transition-opacity duration-200 ${gearBarShowLeftFade ? 'opacity-100' : 'opacity-0'}`} />
               
-              <button 
-                onClick={() => {
-                  setSelectedItems(new Set());
-                  setIsMultiSelectMode(false);
-                }}
-                className="hidden md:block p-2 hover:bg-white/10 rounded-xl transition text-neutral-400 hover:text-white"
-                title="Exit Selection Mode"
+              {/* Right scroll fade gradient indicator */}
+              <div className={`absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-neutral-900 to-transparent pointer-events-none z-10 transition-opacity duration-200 ${gearBarShowRightFade ? 'opacity-100' : 'opacity-0'}`} />
+
+              <div 
+                ref={gearBarScrollRef}
+                onScroll={handleGearBarScroll}
+                className="flex items-center gap-2 overflow-x-auto w-full scrollbar-hide pb-1 md:pb-0 px-2"
               >
-                <X size={20} />
-              </button>
+                <button 
+                  onClick={() => setIsPackingModalOpen(true)}
+                  disabled={selectedItems.size === 0}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-700 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Pack selected assets"
+                >
+                  <Luggage className="w-4 h-4" />
+                  <span>Pack</span>
+                </button>
+
+                <button 
+                  onClick={handleCreateKitFromSelection}
+                  disabled={selectedItems.size === 0}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white text-neutral-900 px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-100 transition shadow-lg whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Combine selected into a bundle kit"
+                >
+                  <Layers className="w-4 h-4" />
+                  <span>Bundle</span>
+                </button>
+
+                <button 
+                  onClick={() => setIsExportToInventoryOpen(true)}
+                  disabled={selectedItems.size === 0}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Copy/Export selected assets to other lists"
+                >
+                  <Upload size={14} className="text-emerald-200" />
+                  <span>Move to List</span>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setBatchOrgId('');
+                    setBatchDeptId('');
+                    setBatchTeamId('');
+                    setBatchAssignedTo('');
+                    setShouldUpdateOrg(true);
+                    setShouldUpdateDept(true);
+                    setShouldUpdateTeam(true);
+                    setShouldUpdateAssignee(true);
+                    setIsBatchAssignModalOpen(true);
+                  }}
+                  disabled={selectedItems.size === 0}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Bulk change organization, department or team assignment"
+                >
+                  <Sliders size={14} className="text-amber-400 font-bold" />
+                  <span>Assign Batch</span>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setSelectedRackId('');
+                    setIsMoveToRackModalOpen(true);
+                  }}
+                  disabled={selectedItems.size === 0}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Deploy selected equipment to rack"
+                >
+                  <Server size={14} className="text-blue-400 font-bold" />
+                  <span>Move to Rack</span>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setSelectedBatchStatus('available');
+                    setIsChangeStatusModalOpen(true);
+                  }}
+                  disabled={selectedItems.size === 0}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Change status of selected to Maintenance, etc."
+                >
+                  <Sliders size={14} className="text-purple-400 font-bold" />
+                  <span>Change Status</span>
+                </button>
+
+                <button 
+                  onClick={() => setIsQRPrintModalOpen(true)}
+                  disabled={selectedItems.size === 0}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap"
+                  title="Launch Label Studio designer for selected gear items"
+                >
+                  <QrCode size={14} className="text-blue-400 font-bold" />
+                  <span>Label Studio</span>
+                </button>
+
+                <button 
+                  onClick={handleBatchDelete}
+                  disabled={selectedItems.size === 0}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-950/40 text-red-400 border border-red-900/40 px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-red-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition shadow-lg whitespace-nowrap border-white/5"
+                  title="Batch delete selected assets permanently"
+                >
+                  <Trash2 size={13} className="text-red-400 shrink-0" />
+                  <span>Delete</span>
+                </button>
+
+                {selectedItems.size === 2 && (
+                  <button 
+                    onClick={handleCheckCompatibility}
+                    className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:brightness-110 transition shadow-lg whitespace-nowrap"
+                    title="Run compatibility diagnostic"
+                  >
+                    <Zap className="w-4 h-4 fill-amber-300 stroke-amber-100" />
+                    <span>AI Compatibility</span>
+                  </button>
+                )}
+                
+                <button 
+                  onClick={() => {
+                    setSelectedItems(new Set());
+                    setIsMultiSelectMode(false);
+                  }}
+                  className="hidden md:block p-2 hover:bg-white/10 rounded-xl transition text-neutral-400 hover:text-white"
+                  title="Exit Selection Mode"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
@@ -10006,18 +10052,18 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {/* Mode Selector Row */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 min-w-0">
                   <button
                     type="button"
                     onClick={() => {
                       document.getElementById('photo-picker-upload-input')?.click();
                     }}
-                    className="flex flex-col items-center justify-center p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-2"
+                    className="flex flex-col items-center justify-center p-3 sm:p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-1.5 sm:space-y-2 min-w-0"
                   >
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm">
-                      <Upload size={18} />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm shrink-0">
+                      <Upload size={16} className="sm:w-[18px] sm:h-[18px]" />
                     </div>
-                    <span className="text-xs font-black uppercase tracking-widest text-neutral-700">Upload Photo/file</span>
+                    <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest text-neutral-700 leading-tight">Upload Photo/file</span>
                   </button>
 
                   <button
@@ -10025,38 +10071,38 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     onClick={() => {
                       document.getElementById('photo-picker-camera-input')?.click();
                     }}
-                    className="flex flex-col items-center justify-center p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-2"
+                    className="flex flex-col items-center justify-center p-3 sm:p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-1.5 sm:space-y-2 min-w-0"
                   >
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm">
-                      <Camera size={18} />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm shrink-0">
+                      <Camera size={16} className="sm:w-[18px] sm:h-[18px]" />
                     </div>
-                    <span className="text-xs font-black uppercase tracking-widest text-neutral-700">Take Photo (Camera)</span>
+                    <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest text-neutral-700 leading-tight">Take Photo (Camera)</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleClipboardPasteForPicker}
-                    className="flex flex-col items-center justify-center p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-2"
+                    className="flex flex-col items-center justify-center p-3 sm:p-6 bg-neutral-50 border border-neutral-200 hover:border-primary hover:bg-primary/5 rounded-2xl transition group text-center space-y-1.5 sm:space-y-2 min-w-0"
                   >
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm">
-                      <ClipboardCheck size={18} />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white flex items-center justify-center border border-neutral-200 text-neutral-600 group-hover:bg-primary group-hover:text-white transition shadow-sm shrink-0">
+                      <ClipboardCheck size={16} className="sm:w-[18px] sm:h-[18px]" />
                     </div>
-                    <span className="text-xs font-black uppercase tracking-widest text-neutral-700">Paste Clipboard</span>
+                    <span className="text-[9px] sm:text-xs font-black uppercase tracking-wider sm:tracking-widest text-neutral-700 leading-tight">Paste Clipboard</span>
                   </button>
                 </div>
 
                 {/* Direct web URL / image link input */}
-                <div className="bg-neutral-50 p-6 rounded-2xl border border-neutral-200/60 space-y-3">
-                  <div className="flex items-center justify-between">
+                <div className="bg-neutral-50 p-4 sm:p-6 rounded-2xl border border-neutral-200/60 space-y-3 min-w-0 overflow-hidden">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 min-w-0">
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#0066cc]">Or Add via Web URL / Direct Image Link</span>
                     <span className="text-[8px] font-bold text-neutral-400 uppercase">Avoids local file storage</span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2 w-full min-w-0">
                     <input
                       type="url"
                       placeholder="Paste direct photo link (e.g. Unsplash, Imgur)..."
                       id="photo-picker-url-input"
-                      className="flex-1 bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition placeholder-neutral-400"
+                      className="w-full sm:flex-1 min-w-0 max-w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-primary transition placeholder-neutral-400"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -10082,7 +10128,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           toast.error("Please enter a valid image URL first.");
                         }
                       }}
-                      className="bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition shrink-0"
+                      className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition shrink-0 shadow-sm flex items-center justify-center active:scale-95"
                     >
                       Add Link
                     </button>
@@ -10090,10 +10136,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 </div>
 
                 {/* Database / System selection area */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                <div className="space-y-4 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
                     <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Select Existing Item Photos</span>
-                    <div className="relative w-48">
+                    <div className="relative w-full sm:w-48 min-w-0">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
                       <input
                         type="text"

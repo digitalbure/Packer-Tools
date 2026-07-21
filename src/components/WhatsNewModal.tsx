@@ -8,13 +8,39 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   const releases = [
     {
-      version: 'v5.10.0',
+      version: 'v5.11.0',
       tag: 'Latest',
       tagBg: 'bg-orange-50 text-orange-700 border-orange-100',
+      title: 'Mobile Touch Target Standards & High-Density UX Optimization',
+      date: 'July 2026',
+      icon: Smartphone,
+      color: 'text-orange-500',
+      updates: [
+        {
+          title: '48x48px Touch Target Standard',
+          desc: 'Upgraded all mobile navigation, action buttons, bulk selection checkboxes, and tab triggers to meet the minimum 48x48px touch target standard to eliminate accidental taps.',
+          badge: 'Mobile Touch Target'
+        },
+        {
+          title: 'High-Density Inventory Lists',
+          desc: 'Enhanced spatial layout and item row touch areas across Gear Library, Custom Inventory sheets, and Packing Manifests for smooth field operations on mobile displays.',
+          badge: 'List UX'
+        },
+        {
+          title: 'Field Operation Performance',
+          desc: 'Optimized touch-manipulation CSS rules and mobile modal layouts for date pickers and photo pickers across touch-enabled devices.',
+          badge: 'Performance'
+        }
+      ]
+    },
+    {
+      version: 'v5.10.0',
+      tag: 'Previous',
+      tagBg: 'bg-emerald-50 text-emerald-700 border-emerald-100',
       title: 'Haptics & Public Read-Only Sharing Links',
       date: 'July 2026',
       icon: Sparkles,
@@ -350,7 +376,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                 <span>PACKER ENGINE CORE STABLE</span>
               </div>
               <span className="text-[10px] uppercase font-black tracking-wide">
-                Build v5.10.0
+                Build v5.11.0
               </span>
             </div>
           </motion.div>

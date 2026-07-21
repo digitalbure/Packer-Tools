@@ -1049,7 +1049,113 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
     } catch (e) {
       console.warn("Could not push print telemetry to mock backend:", e);
     }
-    window.print();
+
+    // Bulletproof isolated iframe print approach
+    const printContent = document.getElementById('label-studio-workspace-print-root');
+    if (!printContent) {
+      window.print();
+      return;
+    }
+
+    // Create a temporary hidden iframe
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    iframe.style.left = '-9999px';
+    iframe.style.top = '-9999px';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) {
+      window.print();
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    // Determine target page size from settings
+    const targetPageSize = sheetMode 
+      ? (AVERY_TEMPLATES.find(t => t.id === selectedAveryTemplateId)?.pageSize === 'a4' ? '210mm 297mm' : '8.5in 11in') 
+      : `${canvasWidth}mm ${canvasHeight}mm`;
+
+    // Construct the HTML document inside the iframe
+    doc.open();
+    doc.write(`
+      <html>
+        <head>
+          <title>Print Labels</title>
+          <!-- Import Inter and JetBrains Mono for proper font rendering -->
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700;900&family=Space+Grotesk:wght@400;700;900&display=swap" rel="stylesheet">
+          <style>
+            /* Reset and core print settings */
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+              color: black !important;
+              font-family: 'Inter', sans-serif;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            * {
+              box-sizing: border-box !important;
+            }
+            @page {
+              margin: 0 !important;
+              size: ${targetPageSize};
+            }
+            .page-break-after-always {
+              page-break-after: always !important;
+              break-after: page !important;
+            }
+            
+            /* Utility helper styles inside the printed frame */
+            .bg-white { background-color: #ffffff !important; }
+            .text-black { color: #000000 !important; }
+            .relative { position: relative !important; }
+            .absolute { position: absolute !important; }
+            .overflow-hidden { overflow: hidden !important; }
+            .flex { display: flex !important; }
+            .flex-col { flex-direction: column !important; }
+            .justify-stretch { justify-content: stretch !important; }
+            .items-center { align-items: center !important; }
+            .justify-center { justify-content: center !important; }
+            .shrink-0 { flex-shrink: 0 !important; }
+            .leading-none { line-height: 1 !important; }
+            .uppercase { text-transform: uppercase !important; }
+            .w-full { width: 100% !important; }
+            .h-full { height: 100% !important; }
+            .truncate { overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+            .border { border-style: solid !important; }
+            .border-neutral-100 { border-color: #f5f5f5 !important; }
+            .p-0.5 { padding: 0.125rem !important; }
+            p { margin: 0; padding: 0; }
+          </style>
+        </head>
+        <body>
+          <div id="print-wrapper">
+            ${printContent.innerHTML}
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.focus();
+                window.print();
+              }, 400);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    // Remove the iframe after the print dialog is completed/closed
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 6000);
   };
 
   if (!isOpen) return null;
@@ -1071,31 +1177,17 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
             background: white !important;
           }
           
-          /* Instantly suppress the visual generation/rendering of the original full application UI */
-          body > *:not(#label-studio-workspace) {
-            display: none !important;
-          }
-          
-          #root {
-            display: block !important;
-            position: static !important;
-            height: auto !important;
-            min-height: 0 !important;
-            overflow: visible !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border: none !important;
-            box-shadow: none !important;
-          }
-          
-          #root > *:not(#label-studio-workspace) {
-            display: none !important;
+          /* Instantly hide all elements under body */
+          body * {
+            visibility: hidden !important;
           }
           
           /* Unfold the modal background and framing panels completely so only the printable elements remain */
           #label-studio-workspace {
             display: block !important;
-            position: static !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
             background: transparent !important;
             backdrop-filter: none !important;
             border: none !important;
@@ -1106,16 +1198,18 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
             height: auto !important;
             overflow: visible !important;
           }
-          
-          #label-studio-workspace > *:not(#label-studio-workspace-print-root) {
-            display: none !important;
+
+          /* Force label print container and all its subelements to be visible */
+          #label-studio-workspace-print-root, #label-studio-workspace-print-root * {
+            visibility: visible !important;
           }
           
           /* Prime isolated container for natural stream layout flows */
           #label-studio-workspace-print-root {
             display: block !important;
-            visibility: visible !important;
-            position: static !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
@@ -1154,7 +1248,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                   Label Studio
                 </h2>
                 <span className="text-[9px] uppercase font-black tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded">
-                  v5.10.0 PRO
+                  v5.11.0 PRO
                 </span>
               </div>
               <p className="text-xs text-neutral-400">

@@ -126,6 +126,154 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
   const [isManualPhotoPickerOpen, setIsManualPhotoPickerOpen] = useState(false);
   const [isAiPhotoPickerOpen, setIsAiPhotoPickerOpen] = useState(false);
 
+  // Execute standard isolated system printing for individual tag passport
+  const handlePrintIndividualTag = () => {
+    const printContent = document.getElementById('onboarded-tag-print-container');
+    if (!printContent) {
+      window.print();
+      return;
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    iframe.style.left = '-9999px';
+    iframe.style.top = '-9999px';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) {
+      window.print();
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    doc.open();
+    doc.write(`
+      <html>
+        <head>
+          <title>Print Label</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700;900&display=swap" rel="stylesheet">
+          <style>
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+              color: black !important;
+              font-family: 'Inter', sans-serif;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            @page {
+              margin: 0 !important;
+              size: 100mm 50mm;
+            }
+            .card-wrapper {
+              width: 100mm;
+              height: 50mm;
+              padding: 6mm;
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              justify-content: space-between;
+              border: 1px solid #e5e5e5;
+              border-radius: 8px;
+              background: #ffffff;
+              box-sizing: border-box;
+            }
+            .info-col {
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              gap: 2px;
+              flex: 1;
+              margin-right: 4mm;
+              overflow: hidden;
+            }
+            .sub-text {
+              font-size: 8px;
+              font-weight: 950;
+              text-transform: uppercase;
+              letter-spacing: 0.1em;
+              color: #ff4f3a;
+              margin-bottom: 2px;
+            }
+            .title-text {
+              font-size: 12px;
+              font-weight: 800;
+              text-transform: uppercase;
+              color: #111111;
+              margin: 0;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .id-text {
+              font-size: 8px;
+              color: #888888;
+              margin: 0;
+              margin-top: 2px;
+            }
+            .mono-bold {
+              font-family: 'JetBrains Mono', monospace;
+              font-weight: 700;
+              color: #444444;
+            }
+            .qr-wrapper {
+              padding: 4px;
+              border: 1px solid #f0f0f0;
+              border-radius: 8px;
+              background: #ffffff;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            }
+            .qr-wrapper p {
+              font-family: 'JetBrains Mono', monospace;
+              font-size: 7px;
+              font-weight: 700;
+              margin: 4px 0 0 0;
+              letter-spacing: 0.15em;
+              color: #888888;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card-wrapper">
+            <div class="info-col">
+              <span class="sub-text">QR Asset Tag Passport</span>
+              <h4 class="title-text">${form.name || ''}</h4>
+              <p class="id-text">Asset ID: <span class="mono-bold">${newlyCreatedTag}</span></p>
+            </div>
+            <div class="qr-wrapper">
+              <img src="${printContent.querySelector('canvas')?.toDataURL('image/png') || ''}" style="width: 80px; height: 80px;" />
+              <p>${newlyCreatedTag}</p>
+            </div>
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.focus();
+                window.print();
+              }, 400);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 6000);
+  };
+
   // Load user's gear list for Option C (Existing Gear selection)
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -1540,7 +1688,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
               </div>
 
               {/* Visual Ticket Tag with QR Code */}
-              <div className="border border-neutral-150 rounded-[2rem] p-6 bg-gradient-to-tr from-stone-50 via-white to-stone-50/50 flex flex-col md:flex-row items-center justify-between gap-6 shadow-md border-neutral-100">
+              <div id="onboarded-tag-print-container" className="border border-neutral-150 rounded-[2rem] p-6 bg-gradient-to-tr from-stone-50 via-white to-stone-50/50 flex flex-col md:flex-row items-center justify-between gap-6 shadow-md border-neutral-100">
                 <div className="space-y-2 text-center md:text-left">
                   <div className="flex items-center justify-center md:justify-start gap-1.5">
                     <QrCode size={16} className="text-primary animate-pulse" />
@@ -1549,9 +1697,9 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                   <h4 className="font-extrabold text-sm text-neutral-900 uppercase leading-none truncate max-w-xs">{form.name}</h4>
                   <p className="text-[9px] text-neutral-400 mt-0.5">Asset ID: <span className="font-mono font-bold select-all text-neutral-700">{newlyCreatedTag}</span></p>
 
-                  <div className="pt-2 flex flex-wrap gap-2 justify-center md:justify-start">
+                  <div className="pt-2 flex flex-wrap gap-2 justify-center md:justify-start print-hidden">
                     <button
-                      onClick={() => window.print()}
+                      onClick={handlePrintIndividualTag}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 text-neutral-700 hover:bg-neutral-800 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition"
                     >
                       <Printer size={10} />

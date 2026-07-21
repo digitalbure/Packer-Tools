@@ -3642,14 +3642,14 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                     e.stopPropagation();
                                     toggleSelectItem(item.id);
                                   }}
-                                  className={`w-5.5 h-5.5 md:w-8 md:h-8 rounded-lg md:rounded-xl border flex items-center justify-center transition-all shrink-0 aspect-square self-center ${
+                                  className={`min-w-[48px] min-h-[48px] md:min-w-0 md:min-h-0 md:w-8 md:h-8 rounded-xl border flex items-center justify-center transition-all shrink-0 aspect-square self-center cursor-pointer touch-manipulation ${
                                     selectedItems.has(item.id) 
                                       ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-600/25' 
                                       : 'border-indigo-200 bg-indigo-50/10 hover:bg-indigo-100/50 hover:border-indigo-400'
                                   }`}
                                   title="Bulk Selection Checkbox (Indigo)"
                                 >
-                                  {selectedItems.has(item.id) && <CheckCircle2 size={11} strokeWidth={3.5} />}
+                                  {selectedItems.has(item.id) && <CheckCircle2 size={16} strokeWidth={3.5} className="md:w-3.5 md:h-3.5" />}
                                 </button>
                               )}
                               {viewMode === 'list' && isOwner && !isGroupingEnabled && statusFilter === 'all' && (
@@ -3664,7 +3664,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                 e.stopPropagation();
                                 toggleItemStatus(item);
                               }}
-                              className={`flex-shrink-0 w-7.5 h-7.5 md:w-10 md:h-10 rounded-lg md:rounded-2xl flex items-center justify-center transition-all shrink-0 aspect-square self-center border ${
+                              className={`flex-shrink-0 min-w-[48px] min-h-[48px] md:min-w-0 md:min-h-0 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex items-center justify-center transition-all shrink-0 aspect-square self-center border cursor-pointer touch-manipulation ${
                                 item.status === 'packed' 
                                   ? 'bg-orange-500 border-orange-500 text-white shadow-md shadow-orange-500/10 hover:bg-orange-600' 
                                   : item.status === 'returned'
@@ -3905,17 +3905,17 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
                             {/* Mobile action buttons toolbar inside content column to avoid horizontal overflow */}
                             {isOwner && viewMode === 'list' && (
-                              <div className="flex md:hidden flex-wrap items-center gap-1.5 mt-2.5 pt-2 border-t border-neutral-100 w-full" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex md:hidden flex-wrap items-center gap-2 mt-2.5 pt-2 border-t border-neutral-100 w-full" onClick={(e) => e.stopPropagation()}>
                                 {(!item.photoUrls || item.photoUrls.length === 0) && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       startEditingItem(item);
                                     }}
-                                    className="p-1 px-2.5 bg-amber-50 rounded-lg text-amber-500 hover:bg-amber-100/50 hover:text-amber-600 transition flex items-center gap-1 text-[9px] font-black uppercase tracking-wider shrink-0"
+                                    className="min-h-[48px] px-3.5 bg-amber-50 rounded-xl text-amber-600 hover:bg-amber-100 transition flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shrink-0 cursor-pointer touch-manipulation active:scale-95"
                                     title="Add missing photo"
                                   >
-                                    <Camera size={12} />
+                                    <Camera size={14} />
                                     <span>Photo</span>
                                   </button>
                                 )}
@@ -3925,10 +3925,10 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                       e.stopPropagation();
                                       startEditingItem(item);
                                     }}
-                                    className="p-1 px-2.5 bg-neutral-100 rounded-lg text-primary/60 hover:bg-neutral-200 hover:text-primary transition flex items-center gap-1 text-[9px] font-black uppercase tracking-wider shrink-0"
+                                    className="min-h-[48px] px-3.5 bg-neutral-100 rounded-xl text-primary/80 hover:bg-neutral-200 transition flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shrink-0 cursor-pointer touch-manipulation active:scale-95"
                                     title="AI Identify Item"
                                   >
-                                    <Zap size={12} className="fill-primary/10" />
+                                    <Zap size={14} className="fill-primary/20" />
                                     <span>AI Scan</span>
                                   </button>
                                 )}
@@ -3938,10 +3938,10 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                     setReminderItem(item);
                                     setShowReminderModal(true);
                                   }}
-                                  className="p-1 px-2.5 bg-neutral-100 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-primary transition flex items-center gap-1 text-[9px] font-black uppercase tracking-wider shrink-0"
+                                  className="min-h-[48px] px-3.5 bg-neutral-100 rounded-xl text-neutral-600 hover:bg-neutral-200 hover:text-primary transition flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shrink-0 cursor-pointer touch-manipulation active:scale-95"
                                   title="Set Return/Item Reminder"
                                 >
-                                  <Bell size={12} />
+                                  <Bell size={14} />
                                   <span>Remind</span>
                                 </button>
                                 {isPro && (
@@ -3950,9 +3950,9 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                       e.stopPropagation();
                                       startEditingItem(item);
                                     }}
-                                    className="p-1 px-2.5 bg-neutral-100 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-primary transition flex items-center gap-1 text-[9px] font-black uppercase tracking-wider shrink-0"
+                                    className="min-h-[48px] px-3.5 bg-neutral-100 rounded-xl text-neutral-600 hover:bg-neutral-200 hover:text-primary transition flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider shrink-0 cursor-pointer touch-manipulation active:scale-95"
                                   >
-                                    <Edit2 size={12} />
+                                    <Edit2 size={14} />
                                     <span>Edit</span>
                                   </button>
                                 )}
@@ -3961,9 +3961,9 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                     e.stopPropagation();
                                     handleDeleteItem(item.id);
                                   }}
-                                  className="p-1 px-2.5 bg-red-50 rounded-lg text-red-500 hover:bg-red-100 hover:text-red-600 transition flex items-center gap-1 text-[9px] font-black uppercase tracking-wider ml-auto shrink-0"
+                                  className="min-h-[48px] px-3.5 bg-red-50 rounded-xl text-red-600 hover:bg-red-100 transition flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider ml-auto shrink-0 cursor-pointer touch-manipulation active:scale-95"
                                 >
-                                  <Trash2 size={12} />
+                                  <Trash2 size={14} />
                                   <span>Delete</span>
                                 </button>
                               </div>

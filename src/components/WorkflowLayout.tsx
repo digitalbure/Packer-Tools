@@ -369,85 +369,85 @@ export default function WorkflowLayout({
       </main>
 
       {/* 4. Bottom Centered Professional resolve ribbon dock */}
-      <footer className="fixed bottom-4 left-0 right-0 z-40 px-6 flex justify-center pointer-events-none select-none">
-        <div className="pointer-events-auto bg-[#141416]/95 backdrop-blur-md border border-[#2e2e36] shadow-[0_12px_40px_rgba(0,0,0,0.8)] rounded-xl py-1 px-1.5 flex items-center gap-1">
+      <footer className="fixed bottom-4 left-0 right-0 z-40 px-4 md:px-6 flex justify-center pointer-events-none select-none">
+        <div className="pointer-events-auto bg-[#141416]/95 backdrop-blur-md border border-[#2e2e36] shadow-[0_12px_40px_rgba(0,0,0,0.8)] rounded-2xl py-1.5 px-2 flex items-center gap-1 overflow-x-auto max-w-[min(calc(100%-1.5rem),52rem)] scrollbar-hide">
           {/* Inventory Tab */}
           <button
             onClick={() => handleTabClick('inventory')}
-            className={`px-4 py-1.5 rounded-lg flex flex-col items-center gap-0.5 min-w-[80px] transition-all cursor-pointer relative ${
+            className={`px-3 md:px-4 py-1.5 rounded-lg flex flex-col items-center gap-0.5 min-w-[70px] md:min-w-[80px] shrink-0 transition-all cursor-pointer relative ${
               activeTab === 'inventory'
                 ? 'bg-[#1b1b20] text-white border border-[#3e3e46]'
                 : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
             <Layers size={14} className={activeTab === 'inventory' ? 'text-amber-500' : ''} />
-            <span className="text-[8px] font-black tracking-widest uppercase font-mono">MEDIA & INVENTORY</span>
+            <span className="text-[8px] font-black tracking-widest uppercase font-mono whitespace-nowrap">MEDIA & INVENTORY</span>
             {activeTab === 'inventory' && (
               <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-[3px] bg-amber-500 rounded-full shadow-[0_0_8px_#f59e0b]" />
             )}
           </button>
-
+ 
           {/* Projects & Lists Tab */}
           <button
             onClick={() => handleTabClick('projects')}
-            className={`px-4 py-1.5 rounded-lg flex flex-col items-center gap-0.5 min-w-[80px] transition-all cursor-pointer relative ${
+            className={`px-3 md:px-4 py-1.5 rounded-lg flex flex-col items-center gap-0.5 min-w-[70px] md:min-w-[80px] shrink-0 transition-all cursor-pointer relative ${
               activeTab === 'projects'
                 ? 'bg-[#1b1b20] text-white border border-[#3e3e46]'
                 : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
             <FolderKanban size={14} className={activeTab === 'projects' ? 'text-amber-500' : ''} />
-            <span className="text-[8px] font-black tracking-widest uppercase font-mono">PROJECTS & LISTS</span>
+            <span className="text-[8px] font-black tracking-widest uppercase font-mono whitespace-nowrap">PROJECTS & LISTS</span>
             {activeTab === 'projects' && (
               <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-[3px] bg-amber-500 rounded-full shadow-[0_0_8px_#f59e0b]" />
             )}
           </button>
-
+ 
           {/* Checkout & Kiosk Tab */}
           <button
             onClick={() => handleTabClick('checkout')}
-            className={`px-4 py-1.5 rounded-lg flex flex-col items-center gap-0.5 min-w-[80px] transition-all cursor-pointer relative ${
+            className={`px-3 md:px-4 py-1.5 rounded-lg flex flex-col items-center gap-0.5 min-w-[70px] md:min-w-[80px] shrink-0 transition-all cursor-pointer relative ${
               activeTab === 'checkout'
                 ? 'bg-[#1b1b20] text-white border border-[#3e3e46]'
                 : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
             <QrCode size={14} className={activeTab === 'checkout' ? 'text-amber-500' : ''} />
-            <span className="text-[8px] font-black tracking-widest uppercase font-mono">CHECKOUT / KIOSK</span>
+            <span className="text-[8px] font-black tracking-widest uppercase font-mono whitespace-nowrap">CHECKOUT / KIOSK</span>
             {activeTab === 'checkout' && (
               <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-[3px] bg-amber-500 rounded-full shadow-[0_0_8px_#f59e0b]" />
             )}
           </button>
-
-          <div className="h-6 w-[1px] bg-[#2d2d34] mx-1" />
-
+ 
+          <div className="h-6 w-[1px] bg-[#2d2d34] mx-1 shrink-0" />
+ 
           {/* Utilities & Admin settings Tab */}
           <button
             onClick={() => handleTabClick('utilities')}
-            className={`px-4 py-1.5 rounded-lg flex flex-col items-center gap-0.5 min-w-[80px] transition-all cursor-pointer relative ${
+            className={`px-3 md:px-4 py-1.5 rounded-lg flex flex-col items-center gap-0.5 min-w-[70px] md:min-w-[80px] shrink-0 transition-all cursor-pointer relative ${
               activeTab === 'utilities'
                 ? 'bg-[#1b1b20] text-white border border-[#3e3e46]'
                 : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
             <Settings size={14} className={activeTab === 'utilities' ? 'text-amber-500' : ''} />
-            <span className="text-[8px] font-black tracking-widest uppercase font-mono">UTILITIES & SYSTEM</span>
+            <span className="text-[8px] font-black tracking-widest uppercase font-mono whitespace-nowrap">UTILITIES & SYSTEM</span>
             {activeTab === 'utilities' && (
               <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-[3px] bg-amber-500 rounded-full shadow-[0_0_8px_#f59e0b]" />
             )}
           </button>
-
+ 
           {/* Admin Panel Tab */}
           <button
             onClick={() => handleTabClick('adminPanel')}
-            className={`px-4 py-1.5 rounded-lg flex flex-col items-center gap-0.5 min-w-[80px] transition-all cursor-pointer relative ${
+            className={`px-3 md:px-4 py-1.5 rounded-lg flex flex-col items-center gap-0.5 min-w-[70px] md:min-w-[80px] shrink-0 transition-all cursor-pointer relative ${
               activeTab === 'adminPanel'
                 ? 'bg-[#1b1b20] text-white border border-[#3e3e46]'
                 : 'text-neutral-500 hover:text-neutral-300'
             }`}
           >
             <ShieldCheck size={14} className={activeTab === 'adminPanel' ? 'text-amber-500' : ''} />
-            <span className="text-[8px] font-black tracking-widest uppercase font-mono">ADMIN PANEL</span>
+            <span className="text-[8px] font-black tracking-widest uppercase font-mono whitespace-nowrap">ADMIN PANEL</span>
             {activeTab === 'adminPanel' && (
               <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-[3px] bg-amber-500 rounded-full shadow-[0_0_8px_#f59e0b]" />
             )}

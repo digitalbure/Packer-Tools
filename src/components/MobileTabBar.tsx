@@ -406,23 +406,26 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="fixed bottom-24 left-4 right-4 z-40 md:hidden bg-white/95 backdrop-blur-2xl rounded-[2.5rem] border border-neutral-100 p-6 shadow-2xl space-y-4"
+              className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-45 md:hidden bg-white/95 backdrop-blur-2xl rounded-[2.5rem] border border-neutral-100 p-6 shadow-2xl space-y-4"
             >
-              <div className="flex items-center justify-between pb-2 border-b border-neutral-100">
-                <h3 className="text-sm font-black uppercase tracking-wider text-neutral-800">Quick Create Menu</h3>
+              <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+                <div className="flex flex-col text-left">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-neutral-800">Quick Create</h3>
+                  <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider mt-0.5">Select managing workflow</p>
+                </div>
                 <button
                   onClick={() => setIsMenuOpen(false)}
-                  className="p-1.5 rounded-full bg-neutral-50 text-neutral-500 hover:text-neutral-800 transition"
+                  className="p-1.5 rounded-full bg-neutral-100 text-neutral-500 hover:text-neutral-800 transition"
                 >
-                  <X size={16} />
+                  <X size={14} />
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 gap-2">
-                {/* Brand New Load Direct Item button */}
+              <div className="flex flex-col gap-3">
+                {/* Brand New Load Direct Item button - Hero Banner */}
                 <motion.div
                   variants={menuItemVariants}
-                  whileHover={{ scale: 1.01, x: 2 }}
+                  whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
                 >
                   <button
@@ -430,97 +433,100 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
                       setIsMenuOpen(false);
                       setIsLoadDirectModalOpen(true);
                     }}
-                    className="flex items-center gap-4 p-3.5 rounded-2xl bg-gradient-to-r from-neutral-900 to-neutral-800 text-white hover:opacity-95 transition border border-neutral-800 w-full text-left"
+                    className="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 text-white hover:opacity-95 transition border border-neutral-800 w-full text-left shadow-lg shadow-neutral-900/10"
                   >
                     <div className="w-10 h-10 bg-white/10 text-rose-300 rounded-xl flex items-center justify-center shrink-0">
                       <ListPlus size={20} />
                     </div>
                     <div className="text-left font-sans">
-                      <p className="text-xs font-bold">Load Direct Item</p>
-                      <p className="text-[10px] text-neutral-300 font-medium leading-none mt-0.5">Load directly to new or existing list / custom sheet</p>
+                      <p className="text-xs font-black uppercase tracking-wider">Load Direct Item</p>
+                      <p className="text-[10px] text-neutral-300 font-semibold leading-none mt-1">Directly add onto a travel or sheet checklist</p>
                     </div>
                   </button>
                 </motion.div>
 
-                <motion.div
-                  variants={menuItemVariants}
-                  whileHover={{ scale: 1.01, x: 2 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Link
-                    to="/library?addGear=true"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-4 p-3.5 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition border border-neutral-100/50 w-full"
+                {/* Grid layout for standard items */}
+                <div className="grid grid-cols-2 gap-3">
+                  <motion.div
+                    variants={menuItemVariants}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
-                      <Package size={20} />
-                    </div>
-                    <div className="text-left font-sans">
-                      <p className="text-xs font-black text-neutral-800">Add Central Item</p>
-                      <p className="text-[10px] text-neutral-400 font-semibold leading-none mt-0.5">Register new {customTerms?.gearLabelSingular || 'gear'} item</p>
-                    </div>
-                  </Link>
-                </motion.div>
+                    <Link
+                      to="/library?addGear=true"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex flex-col items-start gap-2.5 p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition border border-neutral-100/50 h-full w-full"
+                    >
+                      <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                        <Package size={18} />
+                      </div>
+                      <div className="text-left font-sans">
+                        <p className="text-xs font-black text-neutral-800 leading-tight">Add Item</p>
+                        <p className="text-[9px] text-neutral-400 font-semibold leading-tight mt-1">Register central {customTerms?.gearLabelSingular || 'gear'}</p>
+                      </div>
+                    </Link>
+                  </motion.div>
 
-                <motion.div
-                  variants={menuItemVariants}
-                  whileHover={{ scale: 1.01, x: 2 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Link
-                    to="/dashboard?addList=true"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-4 p-3.5 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition border border-neutral-100/50 w-full"
+                  <motion.div
+                    variants={menuItemVariants}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
-                      <ListChecks size={20} />
-                    </div>
-                    <div className="text-left font-sans">
-                      <p className="text-xs font-black text-neutral-800">Create Packing List</p>
-                      <p className="text-[10px] text-neutral-400 font-semibold leading-none mt-0.5">Setup travel checklist or dispatch log</p>
-                    </div>
-                  </Link>
-                </motion.div>
+                    <Link
+                      to="/dashboard?addList=true"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex flex-col items-start gap-2.5 p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition border border-neutral-100/50 h-full w-full"
+                    >
+                      <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
+                        <ListChecks size={18} />
+                      </div>
+                      <div className="text-left font-sans">
+                        <p className="text-xs font-black text-neutral-800 leading-tight">Create List</p>
+                        <p className="text-[9px] text-neutral-400 font-semibold leading-tight mt-1">Setup travel sheet or dispatch log</p>
+                      </div>
+                    </Link>
+                  </motion.div>
 
-                <motion.div
-                  variants={menuItemVariants}
-                  whileHover={{ scale: 1.01, x: 2 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Link
-                    to="/inventory?addSheet=true"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-4 p-3.5 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition border border-neutral-100/50 w-full"
+                  <motion.div
+                    variants={menuItemVariants}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
-                      <FileText size={20} />
-                    </div>
-                    <div className="text-left font-sans">
-                      <p className="text-xs font-black text-neutral-800">Create Custom Sheet</p>
-                      <p className="text-[10px] text-neutral-400 font-semibold leading-none mt-0.5">Create custom location inventory sheet</p>
-                    </div>
-                  </Link>
-                </motion.div>
+                    <Link
+                      to="/inventory?addSheet=true"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex flex-col items-start gap-2.5 p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition border border-neutral-100/50 h-full w-full"
+                    >
+                      <div className="w-9 h-9 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
+                        <FileText size={18} />
+                      </div>
+                      <div className="text-left font-sans">
+                        <p className="text-xs font-black text-neutral-800 leading-tight">Create Sheet</p>
+                        <p className="text-[9px] text-neutral-400 font-semibold leading-tight mt-1">Create local warehouse audit sheet</p>
+                      </div>
+                    </Link>
+                  </motion.div>
 
-                <motion.div
-                  variants={menuItemVariants}
-                  whileHover={{ scale: 1.01, x: 2 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Link
-                    to="/kiosk"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-4 p-3.5 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition border border-neutral-100/50 w-full"
+                  <motion.div
+                    variants={menuItemVariants}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <div className="w-10 h-10 bg-sky-50 text-sky-600 rounded-xl flex items-center justify-center shrink-0">
-                      <QrCode size={20} />
-                    </div>
-                    <div className="text-left font-sans">
-                      <p className="text-xs font-black text-neutral-800">Scan QR Code / Kiosk</p>
-                      <p className="text-[10px] text-neutral-400 font-semibold leading-none mt-0.5">Open self-checkout scan terminal</p>
-                    </div>
-                  </Link>
-                </motion.div>
+                    <Link
+                      to="/kiosk"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex flex-col items-start gap-2.5 p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition border border-neutral-100/50 h-full w-full"
+                    >
+                      <div className="w-9 h-9 bg-sky-50 text-sky-600 rounded-xl flex items-center justify-center shrink-0">
+                        <QrCode size={18} />
+                      </div>
+                      <div className="text-left font-sans">
+                        <p className="text-xs font-black text-neutral-800 leading-tight">Scan / Kiosk</p>
+                        <p className="text-[9px] text-neutral-400 font-semibold leading-tight mt-1">Open self-checkout scan kiosk</p>
+                      </div>
+                    </Link>
+                  </motion.div>
+                </div>
               </div>
             </motion.div>
           </>
@@ -844,7 +850,7 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
                   <button
                     key="add-action-button"
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="flex flex-col items-center justify-center flex-1 h-10 relative select-none cursor-pointer focus:outline-none"
+                    className="flex flex-col items-center justify-center flex-1 h-12 min-h-[48px] min-w-[48px] relative select-none cursor-pointer focus:outline-none touch-manipulation"
                   >
                     <div className="transition-all duration-300">
                       {tab.icon}
@@ -859,7 +865,7 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
                 <Link
                   key={tab.to}
                   to={tab.to || '#'}
-                  className="flex flex-col items-center justify-center flex-1 h-12 relative select-none"
+                  className="flex flex-col items-center justify-center flex-1 h-12 min-h-[48px] min-w-[48px] relative select-none touch-manipulation"
                 >
                   <div 
                     className={`transition-all duration-300 ${

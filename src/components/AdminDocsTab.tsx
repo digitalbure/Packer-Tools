@@ -26,22 +26,22 @@ export default function AdminDocsTab() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400">Platform Build</p>
-          <p className="text-2xl font-black text-neutral-950">v5.10.0</p>
+          <p className="text-2xl font-black text-neutral-950">v5.11.0</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[8px] font-mono font-bold">Stable Core</span>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400 font-mono">AI Scraper Engine</p>
-          <p className="text-2xl font-black text-neutral-950">v5.10.0</p>
+          <p className="text-2xl font-black text-neutral-950">v5.11.0</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[8px] font-mono font-bold">Gemini Live</span>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400">Embed Widget SDK</p>
-          <p className="text-2xl font-black text-neutral-950">v5.10.0</p>
+          <p className="text-2xl font-black text-neutral-950">v5.11.0</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[8px] font-mono font-bold">CORS Whitelisted</span>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400 font-mono">DB Schema Spec</p>
-          <p className="text-2xl font-black text-neutral-950">v5.10.0</p>
+          <p className="text-2xl font-black text-neutral-950">v5.11.0</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[8px] font-mono font-bold">Encrypted Keys</span>
         </div>
       </div>
