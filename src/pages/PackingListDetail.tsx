@@ -2826,7 +2826,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         <div className="flex-1 bg-neutral-900 overflow-y-auto py-8 px-4 no-print flex justify-center">
           <div
             id="print-area"
-            className="w-full max-w-4xl bg-white text-neutral-900 p-10 shadow-2xl rounded-2xl border border-neutral-200 font-sans print:shadow-none print:border-none"
+            className="w-full max-w-4xl bg-white text-neutral-900 p-3 sm:p-6 md:p-10 shadow-2xl rounded-2xl border border-neutral-200 font-sans print:shadow-none print:border-none"
           >
             <div className="space-y-6 text-print-black">
               <div 
@@ -3545,7 +3545,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
             >
               {isGroupingEnabled && (
                 <div
-                  className="flex items-center gap-2.5 sm:gap-3 w-full text-left group outline-none focus-visible:ring-2 focus-visible:ring-primary/20 rounded-xl px-2 py-1"
+                  className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 w-full text-left group outline-none focus-visible:ring-2 focus-visible:ring-primary/20 rounded-xl px-1 py-1"
                 >
                   <div 
                     onClick={() => toggleGroup(groupName)}
@@ -3562,7 +3562,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       {groupItems.length}
                     </span>
                   </h2>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -3572,23 +3572,25 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                         setSelectedItems(groupItemIds);
                         setShowCreateKitModal(true);
                       }}
-                      className="p-2 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 rounded-xl transition flex items-center gap-1"
+                      className="p-1.5 sm:p-2 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 rounded-xl transition flex items-center gap-1"
+                      title="Convert to Kit"
                     >
                       <Box size={14} />
-                      <span>Convert to Kit</span>
+                      <span className="hidden sm:inline">Convert to Kit</span>
                     </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleBulkGroup(groupName);
                       }}
-                      className="p-2 text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition flex items-center gap-1"
+                      className="p-1.5 sm:p-2 text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition flex items-center gap-1"
+                      title="Add Selected Here"
                     >
                       <Plus size={14} />
-                      <span>Add Selected Here</span>
+                      <span className="hidden sm:inline">Add Selected Here</span>
                     </button>
                   </div>
-                  <div className="flex-1 h-px bg-neutral-100"></div>
+                  <div className="hidden sm:block flex-1 h-px bg-neutral-100"></div>
                 </div>
               )}
               
@@ -3623,8 +3625,8 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                           onClick={() => {
                             setViewingItem(item);
                           }}
-                          className={`group bg-white rounded-2xl md:rounded-3xl border transition-all duration-300 flex cursor-pointer ${
-                            viewMode === 'list' ? 'p-4 md:p-6 items-center gap-3 md:gap-6' : 
+                          className={`group bg-white rounded-xl md:rounded-3xl border transition-all duration-300 flex cursor-pointer ${
+                            viewMode === 'list' ? 'p-2.5 sm:p-4 md:p-6 items-center gap-2 sm:gap-3 md:gap-6' : 
                             'flex-col p-4 gap-4'
                           } ${
                             item.status === 'packed' ? 'border-primary/20 bg-primary/5 opacity-80' : 'border-neutral-100 hover:shadow-lg'
@@ -3632,22 +3634,22 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             viewMode === 'list' && isOwner && !isGroupingEnabled && statusFilter === 'all' ? 'cursor-grab active:cursor-grabbing' : ''
                           }`}
                         >
-                          <div className={`flex items-center shrink-0 gap-1.5 md:gap-3 ${viewMode === 'list' ? 'self-center' : 'w-full order-1 justify-between mb-2 border-b border-neutral-100 pb-2'}`}>
-                            <div className="flex items-center gap-1.5 md:gap-2">
+                          <div className={`flex items-center shrink-0 gap-1 md:gap-3 ${viewMode === 'list' ? 'self-center' : 'w-full order-1 justify-between mb-2 border-b border-neutral-100 pb-2'}`}>
+                            <div className="flex items-center gap-1 md:gap-2">
                               {isOwner && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     toggleSelectItem(item.id);
                                   }}
-                                  className={`w-6 h-6 md:w-8 md:h-8 rounded-lg md:rounded-xl border-2 flex items-center justify-center transition-all shrink-0 aspect-square self-center ${
+                                  className={`w-5.5 h-5.5 md:w-8 md:h-8 rounded-lg md:rounded-xl border flex items-center justify-center transition-all shrink-0 aspect-square self-center ${
                                     selectedItems.has(item.id) 
                                       ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-600/25' 
                                       : 'border-indigo-200 bg-indigo-50/10 hover:bg-indigo-100/50 hover:border-indigo-400'
                                   }`}
                                   title="Bulk Selection Checkbox (Indigo)"
                                 >
-                                  {selectedItems.has(item.id) && <CheckCircle2 size={13} strokeWidth={3.5} />}
+                                  {selectedItems.has(item.id) && <CheckCircle2 size={11} strokeWidth={3.5} />}
                                 </button>
                               )}
                               {viewMode === 'list' && isOwner && !isGroupingEnabled && statusFilter === 'all' && (
@@ -3662,7 +3664,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                 e.stopPropagation();
                                 toggleItemStatus(item);
                               }}
-                              className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex items-center justify-center transition-all shrink-0 aspect-square self-center border-2 ${
+                              className={`flex-shrink-0 w-7.5 h-7.5 md:w-10 md:h-10 rounded-lg md:rounded-2xl flex items-center justify-center transition-all shrink-0 aspect-square self-center border ${
                                 item.status === 'packed' 
                                   ? 'bg-orange-500 border-orange-500 text-white shadow-md shadow-orange-500/10 hover:bg-orange-600' 
                                   : item.status === 'returned'
@@ -3672,26 +3674,26 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                               title={`Logistics Status: ${item.status || 'pending'}`}
                             >
                               {item.status === 'packed' && (
-                                <div className="w-5 h-5 md:w-6 md:h-6 rounded-lg bg-white text-orange-500 flex items-center justify-center animate-in zoom-in-50 duration-250">
-                                  <svg className="w-3.5 h-3.5 stroke-[4] stroke-orange-500" fill="none" viewBox="0 0 24 24">
+                                <div className="w-4.5 h-4.5 md:w-6 md:h-6 rounded bg-white text-orange-500 flex items-center justify-center animate-in zoom-in-50 duration-250">
+                                  <svg className="w-3 h-3 stroke-[4] stroke-orange-500" fill="none" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                   </svg>
                                 </div>
                               )}
-                              {item.status === 'returned' && <RotateCcw size={15} className="md:size-5" />}
+                              {item.status === 'returned' && <RotateCcw size={13} className="md:size-5" />}
                               {item.status === 'pending' && (
-                                <div className="w-5 h-5 md:w-6 md:h-6 rounded-lg border-2 border-amber-300 group-hover:border-amber-500/50 transition-all bg-white" />
+                                <div className="w-4.5 h-4.5 md:w-6 md:h-6 rounded border border-amber-300 group-hover:border-amber-500/50 transition-all bg-white" />
                               )}
                             </button>
 
-                            {/* Info Button for Checkbox Support (i) */}
+                            {/* Info Button for Checkbox Support (i) - Hidden on extra-small mobile screens to save horizontal space */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedInfoItem(item);
                                 setShowCheckboxInfoModal(true);
                               }}
-                              className="w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center bg-neutral-100 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600 transition shrink-0 self-center border border-neutral-200/50"
+                              className="hidden sm:flex w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center bg-neutral-100 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600 transition shrink-0 self-center border border-neutral-200/50"
                               title="Help: Checkbox Functions"
                             >
                               <Info size={11} className="md:size-3.5" />
@@ -3699,7 +3701,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                           </div>
 
                           <div className={`bg-neutral-100 rounded-xl md:rounded-2xl overflow-hidden flex-shrink-0 border border-neutral-200 relative group/photo ${
-                            viewMode === 'list' ? 'w-14 h-14 md:w-20 md:h-20' : 
+                            viewMode === 'list' ? 'w-11 h-11 sm:w-14 md:w-20 sm:h-14 md:h-20 h-11' : 
                             viewMode === 'grid' ? 'w-full aspect-square' :
                             'w-full aspect-video'
                           }`}>
