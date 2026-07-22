@@ -341,6 +341,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   // STATE MANAGEMENT
   // -------------------------------------------------------------
   const [activeTab, setActiveTab] = useState<'designs' | 'templates' | 'print' | 'nfc' | 'rfid' | 'batch' | 'devices' | 'tag_inventory' | 'history' | 'settings'>('templates');
+  const [mobilePanel, setMobilePanel] = useState<'canvas' | 'tools' | 'inspector'>('canvas');
 
   useEffect(() => {
     if (isOpen && initialTab) {
@@ -1245,7 +1246,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
 
   return createPortal(
     <div 
-      className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-4 print:p-0 print:bg-white print:static print:inset-auto font-sans"
+      className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-[150] flex items-center justify-center p-1 sm:p-4 print:p-0 print:bg-white print:static print:inset-auto font-sans"
       id="label-studio-workspace"
     >
       {/* Perfect Print Isolation styles */}
@@ -1309,67 +1310,115 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
         }
       `}} />
 
-      <div className="bg-[#121214] text-neutral-100 w-full max-w-7xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh] border border-neutral-800 print:hidden">
+      <div className="bg-[#121214] text-neutral-100 w-full max-w-7xl rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[98vh] sm:max-h-[95vh] border border-neutral-800 print:hidden">
         
         {/* =========================================================
             HEADER & ACTIONS PANEL
             ========================================================= */}
-        <div className="p-5 bg-[#1a1a1e] border-b border-neutral-800 flex flex-col md:flex-row items-center justify-between gap-4 print:hidden select-none">
-          <div className="flex items-center gap-3">
-            <div className="bg-[#0066cc] p-2.5 rounded-xl text-white">
-              <QrCode size={22} className="animate-pulse" />
+        <div className="p-3 sm:p-5 bg-[#1a1a1e] border-b border-neutral-800 flex flex-row items-center justify-between gap-2 sm:gap-4 print:hidden select-none shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="bg-[#0066cc] p-2 sm:p-2.5 rounded-xl text-white shrink-0">
+              <QrCode size={18} className="animate-pulse sm:w-[22px] sm:h-[22px]" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-black tracking-tight uppercase font-sans">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h2 className="text-sm sm:text-lg font-black tracking-tight uppercase font-sans truncate">
                   Label Studio
                 </h2>
-                <span className="text-[9px] uppercase font-black tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded">
-                  v5.12.0 PRO
+                <span className="text-[8px] sm:text-[9px] uppercase font-black tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 sm:px-2 py-0.5 rounded shrink-0">
+                  v5.12.0
                 </span>
               </div>
-              <p className="text-xs text-neutral-400">
+              <p className="text-xs text-neutral-400 hidden sm:block truncate">
                 Professional Visual Editor & Adhesive Logistics Management for Packer.Tools
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 justify-end">
             <div className="flex bg-neutral-800 p-0.5 rounded-lg border border-neutral-700 text-xs">
               <button 
                 onClick={() => setSheetMode(false)}
-                className={`px-3 py-1.5 rounded-md font-bold transition flex items-center gap-1.5 ${!sheetMode ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-md font-bold transition flex items-center gap-1 text-[11px] sm:text-xs ${!sheetMode ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
               >
-                <Tv size={13} />
-                <span>Continuous Roll</span>
+                <Tv size={12} className="sm:w-[13px] sm:h-[13px]" />
+                <span><span className="hidden sm:inline">Continuous </span>Roll</span>
               </button>
               <button 
                 onClick={() => setSheetMode(true)}
-                className={`px-3 py-1.5 rounded-md font-bold transition flex items-center gap-1.5 ${sheetMode ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-md font-bold transition flex items-center gap-1 text-[11px] sm:text-xs ${sheetMode ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
               >
-                <Layout size={13} />
-                <span>Avery Sheets</span>
+                <Layout size={12} className="sm:w-[13px] sm:h-[13px]" />
+                <span><span className="hidden sm:inline">Avery </span>Sheets</span>
               </button>
             </div>
 
             <button
               onClick={handleSystemPrint}
               disabled={selectedIds.size === 0}
-              className="flex items-center gap-1.5 px-5 py-2.5 bg-[#0066cc] text-white rounded-xl text-xs font-black uppercase hover:bg-opacity-95 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-[#0066cc]/20"
+              className="flex items-center gap-1 sm:gap-1.5 px-3 sm:px-5 py-1.5 sm:py-2.5 bg-[#0066cc] text-white rounded-xl text-[11px] sm:text-xs font-black uppercase hover:bg-opacity-95 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-[#0066cc]/20 shrink-0"
               type="button"
             >
-              <Printer size={15} />
-              <span>Print {selectedIds.size > 0 ? `(${selectedIds.size})` : ''} Labels</span>
+              <Printer size={14} className="sm:w-[15px] sm:h-[15px]" />
+              <span className="hidden sm:inline">Print {selectedIds.size > 0 ? `(${selectedIds.size})` : ''} Labels</span>
+              <span className="sm:hidden">Print ({selectedIds.size})</span>
             </button>
             
             <button 
               onClick={onClose} 
-              className="p-2 hover:bg-neutral-800 rounded-xl transition text-neutral-400 hover:text-white cursor-pointer"
+              className="p-1.5 sm:p-2 hover:bg-neutral-800 rounded-xl transition text-neutral-400 hover:text-white cursor-pointer shrink-0"
               type="button"
             >
-              <X size={20} />
+              <X size={18} className="sm:w-[20px] sm:h-[20px]" />
             </button>
           </div>
+        </div>
+
+        {/* =========================================================
+            MOBILE VIEW SWITCHER (Visible on < lg screens)
+            ========================================================= */}
+        <div className="lg:hidden flex bg-[#131316] border-b border-neutral-800 p-1.5 gap-1 shrink-0 select-none">
+          <button
+            type="button"
+            onClick={() => setMobilePanel('canvas')}
+            className={`flex-1 py-2 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition ${
+              mobilePanel === 'canvas'
+                ? 'bg-[#0066cc] text-white shadow-md'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <QrCode size={13} />
+            <span>Canvas</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMobilePanel('tools')}
+            className={`flex-1 py-2 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition ${
+              mobilePanel === 'tools'
+                ? 'bg-[#ff4f3a] text-white shadow-md'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <Paintbrush size={13} />
+            <span>Studio Tools</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMobilePanel('inspector')}
+            className={`flex-1 py-2 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition relative ${
+              mobilePanel === 'inspector'
+                ? 'bg-neutral-700 text-white shadow-md'
+                : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
+            }`}
+          >
+            <SlidersHorizontal size={13} />
+            <span>Inspector</span>
+            {selectedElementId && (
+              <span className="w-2 h-2 rounded-full bg-[#0066cc] animate-pulse" />
+            )}
+          </button>
         </div>
 
         {/* =========================================================
@@ -1378,132 +1427,169 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
         <div className="flex-1 overflow-hidden flex flex-col lg:flex-row print:block">
           
           {/* 1. LEFT PANEL: TOOLBOX (Width: 320px) */}
-          <div className="w-full lg:w-80 border-r border-neutral-800 flex shrink-0 bg-[#16161a] overflow-hidden print:hidden select-none">
-            {/* LEFT VERTICAL ICON RAIL */}
-            <div className="w-[58px] bg-[#101012] border-r border-neutral-800 flex flex-col items-center py-3.5 space-y-2.5 shrink-0 overflow-y-auto no-scrollbar">
-              <button
-                type="button"
-                onClick={() => setActiveTab('designs')}
-                className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
-                  activeTab === 'designs' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
-                }`}
-                title="Canvas Designs"
-              >
-                <Paintbrush size={14} />
-                <span className="text-[7px] font-black uppercase tracking-tighter">Design</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('templates')}
-                className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
-                  activeTab === 'templates' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
-                }`}
-                title="Presets"
-              >
-                <Layout size={14} />
-                <span className="text-[7px] font-black uppercase tracking-tighter">Presets</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('print')}
-                className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
-                  activeTab === 'print' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
-                }`}
-                title="Avery & Printers"
-              >
-                <Printer size={14} />
-                <span className="text-[7px] font-black uppercase tracking-tighter">Print</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('nfc')}
-                className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
-                  activeTab === 'nfc' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
-                }`}
-                title="NFC Tag Manager"
-              >
-                <Smartphone size={14} />
-                <span className="text-[7px] font-black uppercase tracking-tighter">NFC</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('rfid')}
-                className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
-                  activeTab === 'rfid' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
-                }`}
-                title="RFID Tag Manager"
-              >
-                <Cpu size={14} />
-                <span className="text-[7px] font-black uppercase tracking-tighter">RFID</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('batch')}
-                className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
-                  activeTab === 'batch' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
-                }`}
-                title="Batch Operations"
-              >
-                <Layers size={14} />
-                <span className="text-[7px] font-black uppercase tracking-tighter">Batch</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('devices')}
-                className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
-                  activeTab === 'devices' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
-                }`}
-                title="Device Manager"
-              >
-                <Tv size={14} />
-                <span className="text-[7px] font-black uppercase tracking-tighter">Device</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('tag_inventory')}
-                className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
-                  activeTab === 'tag_inventory' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
-                }`}
-                title="Blank Stock Inventory"
-              >
-                <Grid size={14} />
-                <span className="text-[7px] font-black uppercase tracking-tighter">Stock</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('history')}
-                className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
-                  activeTab === 'history' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-[#ff4f3a]/20 hover:text-white'
-                }`}
-                title="Audit Trail"
-              >
-                <HistoryIcon size={14} />
-                <span className="text-[7px] font-black uppercase tracking-tighter">Logs</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('settings')}
-                className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
-                  activeTab === 'settings' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-[#ff4f3a]/20 hover:text-white'
-                }`}
-                title="Advanced Settings"
-              >
-                <Settings2 size={14} />
-                <span className="text-[7px] font-black uppercase tracking-tighter">Specs</span>
-              </button>
+          <div className={`w-full lg:w-80 border-r border-neutral-800 flex-col lg:flex shrink-0 bg-[#16161a] overflow-hidden print:hidden select-none ${
+            mobilePanel === 'tools' ? 'flex flex-1' : 'hidden'
+          }`}>
+            {/* HORIZONTAL TAB BAR FOR MOBILE */}
+            <div className="lg:hidden flex bg-[#101012] border-b border-neutral-800 p-2 gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+              {[
+                { id: 'designs', icon: Paintbrush, label: 'Design' },
+                { id: 'templates', icon: Layout, label: 'Presets' },
+                { id: 'print', icon: Printer, label: 'Print' },
+                { id: 'nfc', icon: Smartphone, label: 'NFC' },
+                { id: 'rfid', icon: Cpu, label: 'RFID' },
+                { id: 'batch', icon: Layers, label: 'Batch' },
+                { id: 'devices', icon: Tv, label: 'Device' },
+                { id: 'tag_inventory', icon: Grid, label: 'Stock' },
+                { id: 'history', icon: HistoryIcon, label: 'Logs' },
+                { id: 'settings', icon: Settings2, label: 'Specs' }
+              ].map((tab) => {
+                const IconComp = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 shrink-0 transition text-xs font-bold ${
+                      isActive
+                        ? 'bg-[#ff4f3a] text-white shadow-sm'
+                        : 'bg-neutral-800/60 text-neutral-400 hover:text-white hover:bg-neutral-800'
+                    }`}
+                  >
+                    <IconComp size={13} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* DETAILS CONTAINER */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-5">
+            <div className="flex-1 flex overflow-hidden">
+              {/* DESKTOP VERTICAL ICON RAIL */}
+              <div className="hidden lg:flex w-[58px] bg-[#101012] border-r border-neutral-800 flex-col items-center py-3.5 space-y-2.5 shrink-0 overflow-y-auto no-scrollbar">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('designs')}
+                  className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
+                    activeTab === 'designs' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
+                  }`}
+                  title="Canvas Designs"
+                >
+                  <Paintbrush size={14} />
+                  <span className="text-[7px] font-black uppercase tracking-tighter">Design</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('templates')}
+                  className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
+                    activeTab === 'templates' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
+                  }`}
+                  title="Presets"
+                >
+                  <Layout size={14} />
+                  <span className="text-[7px] font-black uppercase tracking-tighter">Presets</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('print')}
+                  className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
+                    activeTab === 'print' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
+                  }`}
+                  title="Avery & Printers"
+                >
+                  <Printer size={14} />
+                  <span className="text-[7px] font-black uppercase tracking-tighter">Print</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('nfc')}
+                  className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
+                    activeTab === 'nfc' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
+                  }`}
+                  title="NFC Tag Manager"
+                >
+                  <Smartphone size={14} />
+                  <span className="text-[7px] font-black uppercase tracking-tighter">NFC</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('rfid')}
+                  className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
+                    activeTab === 'rfid' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
+                  }`}
+                  title="RFID Tag Manager"
+                >
+                  <Cpu size={14} />
+                  <span className="text-[7px] font-black uppercase tracking-tighter">RFID</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('batch')}
+                  className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
+                    activeTab === 'batch' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
+                  }`}
+                  title="Batch Operations"
+                >
+                  <Layers size={14} />
+                  <span className="text-[7px] font-black uppercase tracking-tighter">Batch</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('devices')}
+                  className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
+                    activeTab === 'devices' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
+                  }`}
+                  title="Device Manager"
+                >
+                  <Tv size={14} />
+                  <span className="text-[7px] font-black uppercase tracking-tighter">Device</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('tag_inventory')}
+                  className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
+                    activeTab === 'tag_inventory' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-neutral-800/50 hover:text-white'
+                  }`}
+                  title="Blank Stock Inventory"
+                >
+                  <Grid size={14} />
+                  <span className="text-[7px] font-black uppercase tracking-tighter">Stock</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('history')}
+                  className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
+                    activeTab === 'history' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-[#ff4f3a]/20 hover:text-white'
+                  }`}
+                  title="Audit Trail"
+                >
+                  <HistoryIcon size={14} />
+                  <span className="text-[7px] font-black uppercase tracking-tighter">Logs</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('settings')}
+                  className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center transition gap-0.5 ${
+                    activeTab === 'settings' ? 'bg-[#ff4f3a]/15 text-[#ff4f3a] border border-[#ff4f3a]/30' : 'text-neutral-400 hover:bg-[#ff4f3a]/20 hover:text-white'
+                  }`}
+                  title="Advanced Settings"
+                >
+                  <Settings2 size={14} />
+                  <span className="text-[7px] font-black uppercase tracking-tighter">Specs</span>
+                </button>
+              </div>
+
+              {/* DETAILS CONTAINER */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-5">
               
               {/* TAB CONTENT: DESIGNS (ELEMENTS & DYNAMIC FIELDS) */}
               {activeTab === 'designs' && (
@@ -2126,18 +2212,33 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
 
             </div>
           </div>
+        </div>
 
           {/* =========================================================
               2. CENTER PANEL: LIVE DESIGN CANVAS (Width: Dynamic / Flexible)
               ========================================================= */}
-          <div className="flex-1 bg-[#1a1a1e] flex flex-col overflow-hidden relative" id="design-editor-center-panel">
+          <div className={`flex-1 bg-[#1a1a1e] flex-col overflow-hidden relative ${
+            mobilePanel === 'canvas' ? 'flex' : 'hidden lg:flex'
+          }`} id="design-editor-center-panel">
             
             {/* Visual Editor Action Toolbar */}
-            <div className="p-3 bg-[#131316] border-b border-neutral-800 flex items-center justify-between text-neutral-400 text-xs select-none shrink-0 print:hidden">
-              <div className="flex items-center gap-3">
-                <span className="font-black text-[10px] text-neutral-500 uppercase tracking-widest">Workspace tools</span>
+            <div className="p-2 sm:p-3 bg-[#131316] border-b border-neutral-800 flex items-center justify-between text-neutral-400 text-xs select-none shrink-0 print:hidden overflow-x-auto no-scrollbar gap-2">
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                <span className="font-black text-[9px] sm:text-[10px] text-neutral-500 uppercase tracking-widest hidden sm:inline">Workspace tools</span>
                 
-                <div className="h-4 w-px bg-neutral-800" />
+                <div className="h-4 w-px bg-neutral-800 hidden sm:block" />
+
+                {/* Mobile Element Quick Inspector Indicator */}
+                {selectedElementId && (
+                  <button
+                    type="button"
+                    onClick={() => setMobilePanel('inspector')}
+                    className="lg:hidden flex items-center gap-1 px-2 py-1 bg-[#0066cc]/20 border border-[#0066cc]/40 text-[#0066cc] rounded-lg text-[10px] font-bold"
+                  >
+                    <span>Selected</span>
+                    <SlidersHorizontal size={11} />
+                  </button>
+                )}
                 
                 {/* Undo / Redo */}
                 <button
@@ -2737,7 +2838,9 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
           {/* =========================================================
               4. RIGHT PANEL: PROPERTIES INSPECTOR (Width: 320px)
               ========================================================= */}
-          <div className="w-full lg:w-80 border-l border-neutral-800 flex flex-col shrink-0 bg-[#16161a] overflow-hidden print:hidden select-none">
+          <div className={`w-full lg:w-80 border-l border-neutral-800 flex-col lg:flex shrink-0 bg-[#16161a] overflow-hidden print:hidden select-none ${
+            mobilePanel === 'inspector' ? 'flex flex-1' : 'hidden'
+          }`}>
             <div className="p-4 bg-[#111114] border-b border-neutral-800 flex items-center gap-2 text-neutral-400">
               <SlidersHorizontal size={14} className="text-[#0066cc]" />
               <span className="text-[11px] font-black uppercase tracking-wider">Properties Inspector</span>
