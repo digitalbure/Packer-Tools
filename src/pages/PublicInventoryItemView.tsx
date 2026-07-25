@@ -58,6 +58,38 @@ export default function PublicInventoryItemView() {
     return () => unsubscribe();
   }, [inventoryId, itemId]);
 
+  useEffect(() => {
+    if (item) {
+      document.title = `${item.brand ? item.brand + ' ' : ''}${item.name} | Public Asset Passport - Packer Tools`;
+      
+      const itemAny = item as any;
+      const itemImg = (item.photoUrls && item.photoUrls.length > 0 && item.photoUrls[0])
+        || itemAny.photoUrl
+        || itemAny.imageUrl
+        || itemAny.image
+        || (itemAny.photos && itemAny.photos.length > 0 && itemAny.photos[0])
+        || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600';
+
+      const updateOrCreateMetaTag = (selector: string, attrName: string, attrVal: string, contentVal: string) => {
+        let element = document.querySelector(selector);
+        if (!element) {
+          element = document.createElement('meta');
+          element.setAttribute(attrName, attrVal);
+          document.head.appendChild(element);
+        }
+        element.setAttribute('content', contentVal);
+      };
+
+      updateOrCreateMetaTag('meta[property="og:title"]', 'property', 'og:title', `${item.brand ? item.brand + ' ' : ''}${item.name} | Public Asset Passport`);
+      updateOrCreateMetaTag('meta[property="og:description"]', 'property', 'og:description', item.description || `View equipment specifications and status for ${item.name}`);
+      updateOrCreateMetaTag('meta[property="og:image"]', 'property', 'og:image', itemImg);
+      updateOrCreateMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', `${item.brand ? item.brand + ' ' : ''}${item.name} | Public Asset Passport`);
+      updateOrCreateMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', item.description || `View equipment specifications and status for ${item.name}`);
+      updateOrCreateMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', itemImg);
+      updateOrCreateMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
+    }
+  }, [item]);
+
   // Handle report submission
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,11 +158,13 @@ export default function PublicInventoryItemView() {
     );
   }
 
-  // Choose display background image or fallback gradient
-  const hasPhoto = item.photoUrls && item.photoUrls.length > 0;
-  const displayImage = hasPhoto 
-    ? item.photoUrls![0] 
-    : "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=600";
+  // Choose display background image or fallback
+  const itemAny = item as any;
+  const displayImage = (item.photoUrls && item.photoUrls.length > 0 && item.photoUrls[0])
+    || itemAny?.photoUrl
+    || itemAny?.imageUrl
+    || itemAny?.image
+    || "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600";
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white selection:bg-[#0066cc]">

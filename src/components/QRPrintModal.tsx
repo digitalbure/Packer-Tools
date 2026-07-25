@@ -906,19 +906,21 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   // Resolve QR code content URL
   const getQrUrlValue = (element: CanvasElement, item: PrintableItem) => {
     const origin = window.location.origin;
+    const ownerQuery = item.ownerId ? `&owner=${item.ownerId}` : '';
+    const ownerQueryFirst = item.ownerId ? `?owner=${item.ownerId}` : '';
     switch (element.qrDest) {
       case 'bio':
-        return `${origin}/gear/${item.id}?passport=true`;
+        return `${origin}/#/gear/${item.id}?passport=true${ownerQuery}`;
       case 'asset':
-        return `${origin}/library?search=${item.assetTag || item.id}`;
+        return `${origin}/#/library?search=${item.assetTag || item.id}`;
       case 'booking':
-        return `${origin}/marketplace?checkout=${item.id}`;
+        return `${origin}/#/gear/${item.id}?book=true${ownerQuery}`;
       case 'maintenance':
-        return `${origin}/gear/${item.id}?tab=maintenance`;
+        return `${origin}/#/gear/${item.id}?tab=maintenance${ownerQuery}`;
       case 'custom':
         return element.content.startsWith('http') ? element.content : `https://${element.content}`;
       default:
-        return `${origin}/gear/${item.id}`;
+        return `${origin}/#/gear/${item.id}${ownerQueryFirst}`;
     }
   };
 
@@ -1409,7 +1411,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                   Label Studio
                 </h2>
                 <span className="text-[8px] sm:text-[9px] uppercase font-black tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 sm:px-2 py-0.5 rounded shrink-0">
-                  v5.14.0
+                  v5.15.0
                 </span>
               </div>
               <p className="text-xs text-neutral-400 hidden sm:block truncate">

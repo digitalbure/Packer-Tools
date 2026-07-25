@@ -167,6 +167,39 @@ export default function PackingListBioView() {
     fetchData();
   }, [id, token]);
 
+  useEffect(() => {
+    if (list) {
+      document.title = `${list.name} | Shared Packing List - Packer Tools`;
+      
+      const listAny = list as any;
+      const firstItemWithImg = items.find(i => {
+        const iAny = i as any;
+        return (i.photoUrls && i.photoUrls.length > 0 && i.photoUrls[0]) || iAny.photoUrl || iAny.imageUrl || iAny.image;
+      });
+      const firstItemAny = firstItemWithImg as any;
+      const itemImgUrl = firstItemAny ? (firstItemAny.photoUrls?.[0] || firstItemAny.photoUrl || firstItemAny.imageUrl || firstItemAny.image) : null;
+      const listImage = listAny.coverImage || listAny.image || itemImgUrl || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600';
+
+      const updateOrCreateMetaTag = (selector: string, attrName: string, attrVal: string, contentVal: string) => {
+        let element = document.querySelector(selector);
+        if (!element) {
+          element = document.createElement('meta');
+          element.setAttribute(attrName, attrVal);
+          document.head.appendChild(element);
+        }
+        element.setAttribute('content', contentVal);
+      };
+
+      updateOrCreateMetaTag('meta[property="og:title"]', 'property', 'og:title', `${list.name} | Shared Packing List`);
+      updateOrCreateMetaTag('meta[property="og:description"]', 'property', 'og:description', list.description || `View and verify equipment packing list for ${list.name}`);
+      updateOrCreateMetaTag('meta[property="og:image"]', 'property', 'og:image', listImage);
+      updateOrCreateMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', `${list.name} | Shared Packing List`);
+      updateOrCreateMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', list.description || `View and verify equipment packing list for ${list.name}`);
+      updateOrCreateMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', listImage);
+      updateOrCreateMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
+    }
+  }, [list, items]);
+
   const toggleItemCheck = (itemId: string) => {
     const newRules = new Set(checkedItemIds);
     if (newRules.has(itemId)) {

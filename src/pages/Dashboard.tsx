@@ -1560,7 +1560,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                   <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                     {recentLists.map((list) => (
                       <Link
-                        key={list.id}
+                        key={`rec-sec1-${list.id}`}
                         to={`/list/${list.id}`}
                         className="group block bg-white p-4 rounded-2xl border border-neutral-100 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden text-left"
                       >
@@ -1701,7 +1701,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                       const isOverdue = new Date(reminder.dueDate) < new Date();
                       return (
                         <div 
-                          key={reminder.id} 
+                          key={`rem-sec1-${reminder.id}`} 
                           className={`p-6 rounded-3xl border transition-all flex flex-col justify-between gap-4 text-left ${
                             isOverdue ? 'bg-red-50 border-red-100' : 'bg-white border-neutral-100 shadow-sm'
                           }`}
@@ -2152,7 +2152,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                   {recentLists.map((list) => (
                     <Link
-                      key={list.id}
+                      key={`rec-sec2-${list.id}`}
                       to={`/list/${list.id}`}
                       className="group block bg-white p-4 rounded-2xl border border-neutral-100 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden"
                     >
@@ -2293,7 +2293,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                     const isOverdue = new Date(reminder.dueDate) < new Date();
                     return (
                       <div 
-                        key={reminder.id} 
+                        key={`rem-sec2-${reminder.id}`} 
                         className={`p-6 rounded-3xl border transition-all flex flex-col justify-between gap-4 ${
                           isOverdue ? 'bg-red-50 border-red-100' : 'bg-white border-neutral-100 shadow-sm'
                         }`}

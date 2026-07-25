@@ -321,7 +321,7 @@ export default function CompatibilityWidget({ project, user, items: passedItems 
                           <div className="grid gap-2 max-h-[300px] overflow-y-auto pr-2">
                              {items.map(item => (
                                <button
-                                 key={item.id}
+                                 key={`sel-a-${item.id}`}
                                  onClick={() => setItemA(item)}
                                  className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${itemA?.id === item.id ? 'bg-primary border-primary text-white shadow-lg' : 'bg-white border-neutral-100 hover:border-neutral-300'}`}
                                >
@@ -338,7 +338,7 @@ export default function CompatibilityWidget({ project, user, items: passedItems 
                           <div className="grid gap-2 max-h-[300px] overflow-y-auto pr-2">
                              {items.map(item => (
                                <button
-                                 key={item.id}
+                                 key={`sel-b-${item.id}`}
                                  onClick={() => setItemB(item)}
                                  className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${itemB?.id === item.id ? 'bg-primary border-primary text-white shadow-lg' : 'bg-white border-neutral-100 hover:border-neutral-300'}`}
                                >

@@ -249,7 +249,7 @@ service cloud.firestore {
 
     // 1. User Profiles & Subcollections
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if (isOwner(userId) && isValidUser(incoming()) && incoming().plan == 'free' && (!('role' in incoming()) || incoming().role == 'user')) || isSuperAdmin();
       allow update: if (isOwner(userId) && (
         isAdmin() || (
@@ -264,18 +264,18 @@ service cloud.firestore {
 
       // Nested Gear Library
       match /gearLibrary/{itemId} {
-        allow read: if isSignedIn();
+        allow read: if true;
         allow create: if isOwner(userId) && isValidGearItem(incoming());
         allow update: if isOwner(userId) && isValidGearItem(incoming());
         allow delete: if isOwner(userId);
 
         match /versions/{versionId} {
-          allow read: if isSignedIn();
+          allow read: if true;
           allow write: if isOwner(userId);
         }
 
         match /incidents/{incidentId} {
-          allow read: if isSignedIn();
+          allow read: if true;
           allow write: if isOwner(userId);
         }
       }
@@ -289,7 +289,7 @@ service cloud.firestore {
 
       // Booking Conditions
       match /bookingConditions/{conditionId} {
-        allow read: if isSignedIn();
+        allow read: if true;
         allow create, update: if isOwner(userId) && isValidBookingCondition(incoming());
         allow delete: if isOwner(userId);
       }
@@ -303,7 +303,7 @@ service cloud.firestore {
 
     // 2. Collection Group Rules
     match /{path=**}/gearLibrary/{itemId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isSignedIn() && (
         isOwner(resource.data.ownerId) || isOwner(request.resource.data.ownerId)
       );
@@ -324,13 +324,13 @@ service cloud.firestore {
 
     // 4. Packing Lists & Subcollections (Items, Versions, RentalAgreements)
     match /packingLists/{listId} {
-      allow read: if (resource != null && resource.data.marketplaceEnabled == true) || (isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isCollaborator(listId) || isAdmin()));
+      allow read: if (resource != null && (resource.data.marketplaceEnabled == true || resource.data.publicSharingEnabled == true)) || (isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isCollaborator(listId) || isAdmin()));
       allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidPackingList(incoming());
       allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isCollaborator(listId)) && isOwner(incoming().ownerId) && isValidPackingList(incoming());
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
 
       match /items/{itemId} {
-        allow read: if (get(/databases/$(database)/documents/packingLists/$(listId)).data.marketplaceEnabled == true) || (isSignedIn() && (isOwner(get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId) || isCollaborator(listId) || isAdmin()));
+        allow read: if (get(/databases/$(database)/documents/packingLists/$(listId)).data.marketplaceEnabled == true || get(/databases/$(database)/documents/packingLists/$(listId)).data.publicSharingEnabled == true) || (isSignedIn() && (isOwner(get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId) || isCollaborator(listId) || isAdmin()));
         allow write: if isSignedIn() && (isOwner(get(/databases/$(database)/documents/packingLists/$(listId)).data.ownerId) || isCollaborator(listId) || isAdmin());
       }
 
@@ -564,7 +564,7 @@ service cloud.firestore {
     // 27. Marketplace Bookings / Rentals
     match /gearBookings/{bookingId} {
       allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || resource.data.clientEmail == request.auth.token.email || isAdmin());
-      allow create: if isSignedIn() && isValidGearBooking(incoming());
+      allow create: if isValidGearBooking(incoming());
       allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }

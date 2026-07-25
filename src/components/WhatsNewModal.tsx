@@ -8,7 +8,7 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,9 +24,35 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.14.0',
+      version: 'v5.15.0',
       tag: 'Latest',
       tagBg: 'bg-primary/10 text-primary border-primary/20',
+      title: 'Public Share Links Resolution, Non-Auth Public Asset Access & Security Rules Hardening',
+      date: 'July 2026',
+      icon: Sparkles,
+      color: 'text-primary',
+      updates: [
+        {
+          title: 'Unauthenticated Item & Public Bio Access',
+          desc: 'Shared gear items, public digital passports, and public packing lists can now be accessed directly without requiring user authentication.',
+          badge: 'Public Sharing'
+        },
+        {
+          title: 'Collection Group Firestore Fallback',
+          desc: 'Shared item resolution automatically queries collectionGroup when owner ID params are omitted in direct links or QR scans.',
+          badge: 'Smart Lookup'
+        },
+        {
+          title: 'Firestore Security Rules Hardening',
+          desc: 'Updated security rules to allow read permissions for public gear items, booking conditions, and shared packing lists while maintaining full mutation protections.',
+          badge: 'Security'
+        }
+      ]
+    },
+    {
+      version: 'v5.14.0',
+      tag: 'Stable',
+      tagBg: 'bg-neutral-100 text-neutral-600 border-neutral-200',
       title: 'Native Mobile UX Redesign, iOS Sheet Drag Handles & Tactile Haptic Feedback',
       date: 'July 2026',
       icon: Smartphone,
@@ -474,7 +500,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[10px] uppercase font-black tracking-wide hidden sm:inline text-neutral-400">
-                  Build v5.14.0
+                  Build v5.15.0
                 </span>
                 <button
                   type="button"

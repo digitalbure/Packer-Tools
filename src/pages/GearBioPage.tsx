@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, collection, query, getDocs, addDoc, writeBatch, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, collection, query, getDocs, addDoc, writeBatch, getDoc, collectionGroup, where, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { GearItem, UserProfile, GearIncident } from '../types';
 import { toast } from 'sonner';
@@ -86,33 +86,33 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
 
   useEffect(() => {
     if (item) {
-      document.title = `${item.brand || ''} ${item.name} | Packer Tools Digital Passport Representative`;
+      document.title = `${item.brand ? item.brand + ' ' : ''}${item.name} | Packer Tools Digital Passport`;
       
-      const ogImgUrl = item.photoUrls?.[0] || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400';
+      const itemAny = item as any;
+      const itemImg = (item.photoUrls && item.photoUrls.length > 0 && item.photoUrls[0])
+        || itemAny.photoUrl
+        || itemAny.imageUrl
+        || itemAny.image
+        || (itemAny.photos && itemAny.photos.length > 0 && itemAny.photos[0])
+        || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600';
       
-      let ogImageMeta = document.querySelector('meta[property="og:image"]');
-      if (!ogImageMeta) {
-        ogImageMeta = document.createElement('meta');
-        ogImageMeta.setAttribute('property', 'og:image');
-        document.head.appendChild(ogImageMeta);
-      }
-      ogImageMeta.setAttribute('content', ogImgUrl);
+      const updateOrCreateMetaTag = (selector: string, attrName: string, attrVal: string, contentVal: string) => {
+        let element = document.querySelector(selector);
+        if (!element) {
+          element = document.createElement('meta');
+          element.setAttribute(attrName, attrVal);
+          document.head.appendChild(element);
+        }
+        element.setAttribute('content', contentVal);
+      };
 
-      let ogTitleMeta = document.querySelector('meta[property="og:title"]');
-      if (!ogTitleMeta) {
-        ogTitleMeta = document.createElement('meta');
-        ogTitleMeta.setAttribute('property', 'og:title');
-        document.head.appendChild(ogTitleMeta);
-      }
-      ogTitleMeta.setAttribute('content', `${item.brand || ''} ${item.name} Passport`);
-
-      let ogDescMeta = document.querySelector('meta[property="og:description"]');
-      if (!ogDescMeta) {
-        ogDescMeta = document.createElement('meta');
-        ogDescMeta.setAttribute('property', 'og:description');
-        document.head.appendChild(ogDescMeta);
-      }
-      ogDescMeta.setAttribute('content', item.description || `Certified product asset reference ID: ${item.assetTag}`);
+      updateOrCreateMetaTag('meta[property="og:title"]', 'property', 'og:title', `${item.brand ? item.brand + ' ' : ''}${item.name} Passport`);
+      updateOrCreateMetaTag('meta[property="og:description"]', 'property', 'og:description', item.description || `Certified product asset reference ID: ${item.assetTag || item.id}`);
+      updateOrCreateMetaTag('meta[property="og:image"]', 'property', 'og:image', itemImg);
+      updateOrCreateMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', `${item.brand ? item.brand + ' ' : ''}${item.name} Passport`);
+      updateOrCreateMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', item.description || `Certified product asset reference ID: ${item.assetTag || item.id}`);
+      updateOrCreateMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', itemImg);
+      updateOrCreateMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', 'summary_large_image');
     }
   }, [item]);
 
@@ -152,55 +152,119 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
   }, [queryOwnerId, user?.uid]);
 
   useEffect(() => {
-    const targetOwnerId = queryOwnerId || user?.uid;
-    if (!id || !targetOwnerId) {
+    if (!id) {
       setLoading(false);
       return;
     }
 
+    let unsubItem: (() => void) | null = null;
+    let unsubIncidents: (() => void) | null = null;
+    let unsubOwner: (() => void) | null = null;
+    let isMounted = true;
+
     setLoading(true);
-    const itemRef = doc(db, 'users', targetOwnerId, 'gearLibrary', id);
-    const unsubscribeItem = onSnapshot(itemRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const itemData = { id: docSnap.id, ...docSnap.data() } as GearItem;
-        setItem(itemData);
-        setEditForm(itemData);
+
+    const initLoad = async () => {
+      let candidateOwnerId = queryOwnerId || (user ? user.uid : null);
+      let foundData: GearItem | null = null;
+      let finalOwnerId: string | null = candidateOwnerId;
+
+      // Tier 1: Direct document lookup if candidate ownerId is available
+      if (candidateOwnerId) {
+        try {
+          const itemRef = doc(db, 'users', candidateOwnerId, 'gearLibrary', id);
+          const docSnap = await getDoc(itemRef);
+          if (docSnap.exists()) {
+            foundData = { id: docSnap.id, ...docSnap.data() } as GearItem;
+          }
+        } catch (err) {
+          console.warn("Direct gear doc lookup failed:", err);
+        }
+      }
+
+      // Tier 2: Collection group fallback if direct lookup failed or candidateOwnerId was null
+      if (!foundData) {
+        try {
+          const cgQuery = query(collectionGroup(db, 'gearLibrary'), where('id', '==', id), limit(1));
+          const cgSnap = await getDocs(cgQuery);
+          if (!cgSnap.empty) {
+            const docSnap = cgSnap.docs[0];
+            foundData = { id: docSnap.id, ...docSnap.data() } as GearItem;
+            finalOwnerId = foundData.ownerId || docSnap.ref.parent?.parent?.id || null;
+          } else {
+            // Check by assetTag
+            const tagQuery = query(collectionGroup(db, 'gearLibrary'), where('assetTag', '==', id), limit(1));
+            const tagSnap = await getDocs(tagQuery);
+            if (!tagSnap.empty) {
+              const docSnap = tagSnap.docs[0];
+              foundData = { id: docSnap.id, ...docSnap.data() } as GearItem;
+              finalOwnerId = foundData.ownerId || docSnap.ref.parent?.parent?.id || null;
+            }
+          }
+        } catch (cgErr) {
+          console.warn("Collection group gear lookup failed:", cgErr);
+        }
+      }
+
+      if (!isMounted) return;
+
+      if (foundData && finalOwnerId) {
+        setItem(foundData);
+        setEditForm(foundData);
+
+        // Listen for live updates on gear item
+        const itemRef = doc(db, 'users', finalOwnerId, 'gearLibrary', foundData.id);
+        unsubItem = onSnapshot(itemRef, (docSnap) => {
+          if (docSnap.exists() && isMounted) {
+            const updated = { id: docSnap.id, ...docSnap.data() } as GearItem;
+            setItem(updated);
+          }
+        }, (err) => console.warn("Live gear update error:", err));
+
+        // Fetch Incidents
+        const incidentsRef = collection(db, 'users', finalOwnerId, 'gearLibrary', foundData.id, 'incidents');
+        unsubIncidents = onSnapshot(incidentsRef, (snapshot) => {
+          if (!isMounted) return;
+          const fetchedIncidents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as GearIncident[];
+          setIncidents(fetchedIncidents.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')));
+        }, (err) => console.warn("GearBioPage: Error catching incidents:", err));
+
+        // Fetch Owner PROFILE
+        const ownerRef = doc(db, 'users', finalOwnerId);
+        unsubOwner = onSnapshot(ownerRef, (ownerSnap) => {
+          if (ownerSnap.exists() && isMounted) {
+            setOwnerProfile(ownerSnap.data());
+          }
+        }, (err) => console.warn("GearBioPage: Error catching owner profile:", err));
+
+        // Fetch Owner Booking Conditions
+        const qConditions = query(collection(db, 'users', finalOwnerId, 'bookingConditions'));
+        getDocs(qConditions).then(snapshot => {
+          if (!snapshot.empty && isMounted) {
+            const condList = snapshot.docs.map(doc => doc.data().name as string);
+            setBookingConditions(condList);
+          }
+        }).catch(e => console.warn("Error getting public conditions template:", e));
+
       } else {
         toast.error("Gear item not found or has been deleted.");
         if (user) {
           navigate('/library');
         }
       }
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching gear item:", error);
-      toast.error("Failed to load gear details.");
-      setLoading(false);
-    });
 
-    // Fetch Incidents
-    const incidentsRef = collection(db, 'users', targetOwnerId, 'gearLibrary', id, 'incidents');
-    const unsubscribeIncidents = onSnapshot(incidentsRef, (snapshot) => {
-      const fetchedIncidents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as GearIncident[];
-      setIncidents(fetchedIncidents.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
-    }, (error) => {
-      console.warn("GearBioPage: Error catching incidents:", error);
-    });
-
-    // Fetch Owner PROFILE
-    const ownerRef = doc(db, 'users', targetOwnerId);
-    const unsubscribeOwner = onSnapshot(ownerRef, (ownerSnap) => {
-      if (ownerSnap.exists()) {
-        setOwnerProfile(ownerSnap.data());
+      if (isMounted) {
+        setLoading(false);
       }
-    }, (error) => {
-      console.warn("GearBioPage: Error catching owner profile:", error);
-    });
+    };
+
+    initLoad();
 
     return () => {
-      unsubscribeItem();
-      unsubscribeIncidents();
-      unsubscribeOwner();
+      isMounted = false;
+      if (unsubItem) unsubItem();
+      if (unsubIncidents) unsubIncidents();
+      if (unsubOwner) unsubOwner();
     };
   }, [id, user, queryOwnerId, navigate]);
 
@@ -1146,7 +1210,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                     const urls = e.target.value.split('\n').map(u => u.trim()).filter(u => u !== '');
                     setEditForm({ ...editForm, photoUrls: urls });
                   }}
-                  placeholder="https://images.unsplash.com/photo-1542291026-7eec264c27ff&#10;https://images.unsplash.com/photo-1511707171634-5f897ff02aa9"
+                  placeholder="https://images.unsplash.com/photo-1516035069371-29a1b244cc32&#10;https://images.unsplash.com/photo-1511707171634-5f897ff02aa9"
                   className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary font-mono transition"
                 />
                 <p className="text-[9px] text-neutral-400 mt-0.5">

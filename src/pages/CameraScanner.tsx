@@ -139,7 +139,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
           if (gear.photoUrls && gear.photoUrls[0]) {
             setCapturedImage(gear.photoUrls[0]);
           } else {
-            setCapturedImage('https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=300');
+            setCapturedImage('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=300');
           }
           
           setIdentifiedItem({
@@ -172,7 +172,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
         if (gear.photoUrls && gear.photoUrls[0]) {
           setCapturedImage(gear.photoUrls[0]);
         } else {
-          setCapturedImage('https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=300');
+          setCapturedImage('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=300');
         }
         
         setIdentifiedItem({
@@ -196,7 +196,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
     setAssetTag(decodedText);
     setLibraryMatch(null);
     setAddToLibrary(true);
-    setCapturedImage('https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=300');
+    setCapturedImage('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=300');
     
     setIdentifiedItem({
       name: decodedText.length < 50 ? decodedText : "QR Encoded Item",
@@ -626,7 +626,7 @@ export default function CameraScanner({ user, adminSettings }: { user: UserProfi
                           setCapturedImage(gear.photoUrls[0]);
                         } else {
                           // No photo, but pre-populate fields
-                          setCapturedImage('https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=300');
+                          setCapturedImage('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=300');
                         }
                         toast.success(`Loaded "${gear.name}" from your Gear database!`);
                         triggerHaptic('success');
