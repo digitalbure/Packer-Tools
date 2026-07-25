@@ -47,6 +47,7 @@ import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import PackerLogo from '../components/PackerLogo';
 import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
+import { hapticHeavy, hapticScanSuccess, hapticError } from '../utils/haptics';
 
 interface KioskModeProps {
   user: UserProfile | null;
@@ -298,18 +299,12 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
 
   const playScanChime = (type: 'success' | 'double' | 'error' = 'success') => {
     // Standard haptic vibration on QR/barcode scanning events
-    if (typeof window !== 'undefined' && window.navigator && typeof window.navigator.vibrate === 'function') {
-      try {
-        if (type === 'success') {
-          window.navigator.vibrate(30); // short single pulse for single scan success
-        } else if (type === 'double') {
-          window.navigator.vibrate([20, 30, 20]); // quick double tap for multi-scanning or list add
-        } else if (type === 'error') {
-          window.navigator.vibrate([100, 50, 100]); // heavy dual pulse for scan/action errors
-        }
-      } catch (hapticErr) {
-        console.warn("Haptic block in KioskMode:", hapticErr);
-      }
+    if (type === 'success') {
+      hapticHeavy();
+    } else if (type === 'double') {
+      hapticScanSuccess();
+    } else if (type === 'error') {
+      hapticError();
     }
 
     try {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { hapticLight } from '../utils/haptics';
 import { Link, useLocation } from 'react-router-dom';
 import { useIndustry } from '../context/IndustryContext';
 import { 
@@ -279,9 +280,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
   const projectStarters = allowedModules.filter(item => selectedStarters.includes(item.to));
 
   const handleMobileClose = () => {
-    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-      try { navigator.vibrate(10); } catch (e) {}
-    }
+    hapticLight();
     setIsMobileOpen(false);
   };
 
@@ -370,14 +369,14 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
             </div>
 
             <nav className="space-y-1">
-              {adminNavItems.map((item) => {
+              {adminNavItems.map((item, idx) => {
                 const currentPath = location.pathname + location.search;
                 const isActive = currentPath === item.to || (item.to === '/admin?tab=settings' && currentPath.includes('tab=settings'));
                 const hasSubItems = 'subItems' in item && (item as any).subItems?.length > 0;
                 const isSubOpen = openSubItems.includes(item.to) || (isActive && hasSubItems);
 
                 return (
-                  <div key={item.to} className="space-y-1">
+                  <div key={`admin-item-${item.to}-${idx}`} className="space-y-1">
                     <div className="flex items-center gap-1">
                       <Link
                         to={item.to}
@@ -440,12 +439,12 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                           exit={{ height: 0, opacity: 0 }}
                           className="pl-9 space-y-1 overflow-hidden"
                         >
-                          {(item as any).subItems.map((sub: any) => {
+                          {(item as any).subItems.map((sub: any, subIdx: number) => {
                             const isSubActive = currentPath === sub.to || (sub.to === '/admin?tab=settings&sub=branding' && currentPath === '/admin?tab=settings');
                             const isBugItem = (sub as any).isBugFinder;
                             return (
                               <Link
-                                key={sub.to}
+                                key={`admin-sub-${sub.to}-${subIdx}`}
                                 to={sub.to}
                                 onClick={() => setIsMobileOpen(false)}
                                 className={`flex items-center justify-between px-3 py-2 text-[11px] font-bold transition-colors rounded-lg ${
@@ -876,7 +875,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
 
             {/* Main Nav */}
             <nav className="space-y-1">
-              {navItems.map((item) => {
+              {navItems.map((item, idx) => {
                 const isActive = location.pathname === item.to;
                 const hasSubItems = 'subItems' in item && (item as any).subItems?.length > 0;
                 const isSubOpen = openSubItems.includes(item.to);
@@ -886,7 +885,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                 const isKioskDisabled = isKioskModeItem && !isKioskQualified;
 
                 return (
-                  <div key={item.to} className="space-y-1">
+                  <div key={`main-item-${item.to}-${idx}`} className="space-y-1">
                     <div className="flex items-center gap-1">
                       <Link
                         to={isKioskDisabled ? '#' : item.to}
@@ -946,9 +945,9 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                           exit={{ height: 0, opacity: 0 }}
                           className="pl-9 space-y-1 overflow-hidden"
                         >
-                          {(item as any).subItems.map((sub: any) => (
+                          {(item as any).subItems.map((sub: any, subIdx: number) => (
                             <Link
-                              key={sub.to}
+                              key={`main-sub-${item.to}-${sub.to}-${subIdx}`}
                               to={sub.to}
                               onClick={() => setIsMobileOpen(false)}
                               className={`flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold transition-colors rounded-lg ${

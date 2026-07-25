@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Sparkles, Cpu, Layers, Zap, CheckCircle2, CloudOff, Database, Smartphone, QrCode, Terminal, HelpCircle } from 'lucide-react';
 
@@ -9,6 +9,18 @@ interface WhatsNewModalProps {
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
   const [activeTab, setActiveTab] = useState<'all' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   const releases = [
     {
@@ -332,14 +344,14 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4">
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-3 sm:p-4 overflow-y-auto">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-neutral-950/40 backdrop-blur-md"
+            className="fixed inset-0 bg-neutral-950/50 backdrop-blur-md cursor-pointer"
           />
 
           {/* Modal Card */}
@@ -348,10 +360,10 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            className="relative bg-white border border-neutral-100 shadow-2xl rounded-2xl sm:rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden z-10 font-sans"
+            className="relative bg-white border border-neutral-100 shadow-2xl rounded-2xl sm:rounded-[2.5rem] w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden z-10 font-sans my-auto shrink-0"
           >
             {/* Header */}
-            <div className="p-4 sm:p-6 border-b border-neutral-100 flex items-start justify-between gap-3">
+            <div className="p-4 sm:p-6 border-b border-neutral-100 flex items-center justify-between gap-3 bg-white sticky top-0 z-20 shrink-0">
               <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="p-1.5 bg-primary/10 text-primary rounded-xl shrink-0">
@@ -359,14 +371,16 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                   </span>
                   <span className="text-[10px] uppercase font-black tracking-widest text-neutral-400 truncate">Changelog Hub</span>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black text-neutral-950 uppercase tracking-tight">
+                <h3 className="text-lg sm:text-2xl font-black text-neutral-950 uppercase tracking-tight">
                   What's New in Packer Tools
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={onClose}
-                className="p-2 hover:bg-neutral-50 rounded-2xl text-neutral-400 hover:text-neutral-700 transition shrink-0"
-                title="Close Modal"
+                className="p-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 hover:text-black rounded-full transition shrink-0 active:scale-90 flex items-center justify-center cursor-pointer shadow-xs"
+                title="Close Changelog"
+                aria-label="Close Changelog"
               >
                 <X size={20} className="stroke-[2.5]" />
               </button>
@@ -453,14 +467,23 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
             </div>
 
             {/* Footer Information */}
-            <div className="p-4 sm:p-5 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between gap-4 text-xs font-semibold text-neutral-400">
+            <div className="p-4 sm:p-5 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between gap-4 text-xs font-semibold text-neutral-400 shrink-0">
               <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase font-black min-w-0">
                 <Terminal size={14} className="text-neutral-400 shrink-0" />
                 <span className="truncate">PACKER ENGINE CORE STABLE</span>
               </div>
-              <span className="text-[10px] uppercase font-black tracking-wide shrink-0">
-                Build v5.14.0
-              </span>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-[10px] uppercase font-black tracking-wide hidden sm:inline text-neutral-400">
+                  Build v5.14.0
+                </span>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-5 py-2.5 bg-neutral-950 hover:bg-black text-white text-xs font-black uppercase tracking-wider rounded-xl transition shadow-md hover:shadow-lg active:scale-95 cursor-pointer shrink-0"
+                >
+                  Got It
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>

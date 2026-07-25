@@ -7,6 +7,7 @@ import { UserProfile, AdminSettings } from '../types';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import { useAuth } from '../providers/AuthProvider';
 import WhatsNewModal from './WhatsNewModal';
+import { hapticLight } from '../utils/haptics';
 
 export default function Navbar({ 
   user, 
@@ -178,7 +179,7 @@ export default function Navbar({
             <>
               <button
                 onClick={() => {
-                  if ('vibrate' in navigator) try { navigator.vibrate(10); } catch (e) {}
+                  hapticLight();
                   setIsWhatsNewOpen(true);
                 }}
                 className="w-11 h-11 text-primary hover:bg-neutral-100/80 active:bg-neutral-200/80 rounded-xl transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 touch-manipulation"
@@ -188,7 +189,7 @@ export default function Navbar({
               </button>
               <button 
                 onClick={() => {
-                  if ('vibrate' in navigator) try { navigator.vibrate(10); } catch (e) {}
+                  hapticLight();
                   window.dispatchEvent(new CustomEvent('open-command-palette'));
                 }}
                 className="w-11 h-11 text-primary hover:bg-neutral-100/80 active:bg-neutral-200/80 rounded-xl transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 touch-manipulation"
@@ -201,7 +202,7 @@ export default function Navbar({
 
           <button 
             onClick={() => {
-              if ('vibrate' in navigator) try { navigator.vibrate(12); } catch (e) {}
+              hapticLight();
               if (user) {
                 onMenuClick?.();
               } else {

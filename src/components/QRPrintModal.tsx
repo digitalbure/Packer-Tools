@@ -17,6 +17,7 @@ import { doc, updateDoc, collection, addDoc, getDocs, query, where, writeBatch }
 import { db } from '../firebase';
 import { toast } from 'sonner';
 import { getLabelRecommendation } from '../services/labelSuggester';
+import { hapticResizeTick, hapticMedium, hapticLight } from '../utils/haptics';
 
 interface PrintableItem {
   id: string;
@@ -352,14 +353,20 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   // Column drag resize handlers
   const handleStartResizeLeft = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
+    hapticMedium();
     setIsResizingLeft(true);
     const startX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const initialWidth = leftPanelWidth;
+    let lastW = initialWidth;
 
     const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
       const curX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
       const deltaX = curX - startX;
       const newW = Math.max(220, Math.min(520, initialWidth + deltaX));
+      if (Math.abs(newW - lastW) >= 15) {
+        hapticResizeTick();
+        lastW = newW;
+      }
       setLeftPanelWidth(newW);
     };
 
@@ -379,14 +386,20 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
 
   const handleStartResizeRight = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
+    hapticMedium();
     setIsResizingRight(true);
     const startX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const initialWidth = rightPanelWidth;
+    let lastW = initialWidth;
 
     const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
       const curX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
       const deltaX = startX - curX;
       const newW = Math.max(220, Math.min(520, initialWidth + deltaX));
+      if (Math.abs(newW - lastW) >= 15) {
+        hapticResizeTick();
+        lastW = newW;
+      }
       setRightPanelWidth(newW);
     };
 
@@ -607,6 +620,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   // -------------------------------------------------------------
   const handleElementMouseDown = (e: React.MouseEvent | React.TouchEvent, elementId: string) => {
     e.stopPropagation();
+    hapticMedium();
 
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;

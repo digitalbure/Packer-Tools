@@ -974,7 +974,7 @@ export interface AdminSettings {
   landingPage?: LandingPageContent;
   landers?: Lander[];
   activeLanderId?: string;
-  activeLandingPageType?: 'main' | 'marketplace';
+  activeLandingPageType?: 'main' | 'marketplace' | 'modern';
   rootVisibility?: 'public' | 'auth_only';
   billingEnabled: boolean;
   marketplaceVisibility?: 'signed-in' | 'public';

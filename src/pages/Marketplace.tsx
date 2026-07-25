@@ -1,15 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { hapticLight } from '../utils/haptics';
 
 const triggerHaptic = () => {
-  if (typeof window !== 'undefined' && window.navigator && typeof window.navigator.vibrate === 'function') {
-    try {
-      window.navigator.vibrate(12);
-    } catch (e) {
-      // safe backup fallback
-    }
-  }
+  hapticLight();
 };
 import { UserProfile, AdminSettings } from '../types';
 import { useAuth } from '../providers/AuthProvider';

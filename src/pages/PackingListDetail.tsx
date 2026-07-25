@@ -24,20 +24,15 @@ import { logActivity } from '../services/activityLog';
 import { isSuperAdmin } from '../lib/authHelpers';
 import { useAuth } from '../providers/AuthProvider';
 import { SwipeableImageGallery } from '../components/SwipeableImageGallery';
+import { hapticScanSuccess, hapticError, hapticSuccess, hapticLongPress } from '../utils/haptics';
 
 const triggerHaptic = (type: 'success' | 'scan' | 'error' = 'success') => {
-  if (typeof window !== 'undefined' && window.navigator && typeof window.navigator.vibrate === 'function') {
-    try {
-      if (type === 'scan') {
-        window.navigator.vibrate([20, 40, 20]); // double pulse for QR success
-      } else if (type === 'error') {
-        window.navigator.vibrate([100, 50, 100]); // heavy dual pulse
-      } else {
-        window.navigator.vibrate(15); // short single pulse for generic success
-      }
-    } catch (e) {
-      // safe backup fallback
-    }
+  if (type === 'scan') {
+    hapticScanSuccess();
+  } else if (type === 'error') {
+    hapticError();
+  } else {
+    hapticSuccess();
   }
 };
 
@@ -254,6 +249,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     let pressTimer: any = null;
     const start = () => {
       pressTimer = setTimeout(() => {
+        hapticLongPress();
         onLongPress();
       }, 500);
     };

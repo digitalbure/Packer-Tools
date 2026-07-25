@@ -63,14 +63,10 @@ import { format } from 'date-fns';
 import { compressImage } from '../lib/imageUtils';
 import NfcScannerModal from '../components/NfcScannerModal';
 
+import { hapticLight, hapticLongPress } from '../utils/haptics';
+
 const triggerHaptic = () => {
-  if (typeof window !== 'undefined' && window.navigator && typeof window.navigator.vibrate === 'function') {
-    try {
-      window.navigator.vibrate(12);
-    } catch (e) {
-      // safe backup fallback
-    }
-  }
+  hapticLight();
 };
 import { Camera, Sparkles, Wand2, Lightbulb, Check, Layers, Luggage, Box, Briefcase, QrCode, Loader2, RefreshCw, Server, HelpCircle, ClipboardCheck } from 'lucide-react';
 import QRPrintModal from '../components/QRPrintModal';
@@ -868,6 +864,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     let pressTimer: any = null;
     const start = () => {
       pressTimer = setTimeout(() => {
+        hapticLongPress();
         onLongPress();
       }, 500); // 500ms long press duration is perfect
     };

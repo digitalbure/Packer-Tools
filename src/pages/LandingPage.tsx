@@ -6,6 +6,7 @@ import { signInWithGoogle } from '../firebase';
 import PackerLogo from '../components/PackerLogo';
 import { motion, AnimatePresence } from 'motion/react';
 import Marketplace from './Marketplace';
+import ModernLandingPage from '../components/ModernLandingPage';
 
 const iconMap: { [key: string]: React.ReactNode } = {
   Camera: <Camera size={24} />,
@@ -335,7 +336,9 @@ export default function LandingPage({
   
   // Use new structure if available, otherwise fallback to old one
   const lp = activeLander?.content || adminSettings?.landingPage;
-  const isMarketplaceActive = landingView === 'marketplace';
+  // Check active landing page type configuration from Admin Settings
+  const isMarketplaceActive = landingView === 'marketplace' || (landingView !== 'main' && landingView !== 'modern' && adminSettings?.activeLandingPageType === 'marketplace');
+  const isClassicActive = landingView === 'main' || (landingView !== 'modern' && adminSettings?.activeLandingPageType === 'main');
 
   if (isMarketplaceActive) {
     return (
@@ -344,6 +347,16 @@ export default function LandingPage({
           <Marketplace user={user} adminSettings={adminSettings} />
         </div>
       </div>
+    );
+  }
+
+  if (!isClassicActive) {
+    return (
+      <ModernLandingPage 
+        user={user} 
+        adminSettings={adminSettings} 
+        onExploreMarketplace={() => setLandingView('marketplace')} 
+      />
     );
   }
 

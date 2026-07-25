@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { triggerHaptic as hapticTrigger } from '../utils/haptics';
 import { Link, useLocation } from 'react-router-dom';
 import { useIndustry } from '../context/IndustryContext';
 import { 
@@ -84,13 +85,7 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
   }, []);
 
   const triggerHaptic = (pattern: number | number[] = 12) => {
-    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-      try {
-        navigator.vibrate(pattern);
-      } catch (e) {
-        // Safe fail
-      }
-    }
+    hapticTrigger(pattern);
   };
 
   // Fetch packing lists & custom inventories for the direct load dropdowns
@@ -732,8 +727,8 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
                           className="w-full px-4 py-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-black bg-neutral-50 text-neutral-800"
                         >
                           <option value="">-- Choose List --</option>
-                          {userPackingLists.map(l => (
-                            <option key={l.id} value={l.id}>{l.name}</option>
+                          {userPackingLists.map((l, lIdx) => (
+                            <option key={`opt-pl-${l.id || lIdx}-${lIdx}`} value={l.id}>{l.name}</option>
                           ))}
                         </select>
                       ) : (
@@ -743,8 +738,8 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
                           className="w-full px-4 py-3 rounded-xl border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-black bg-neutral-50 text-neutral-800"
                         >
                           <option value="">-- Choose Custom Sheet --</option>
-                          {userInventories.map(inv => (
-                            <option key={inv.id} value={inv.id}>{inv.name}</option>
+                          {userInventories.map((inv, invIdx) => (
+                            <option key={`opt-inv-${inv.id || invIdx}-${invIdx}`} value={inv.id}>{inv.name}</option>
                           ))}
                         </select>
                       )}
@@ -802,8 +797,8 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
                             className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-xs focus:outline-none focus:ring-2 focus:ring-black bg-neutral-50 text-neutral-800"
                           >
                             <option value="">-- Select Custom Sheet --</option>
-                            {userInventories.map(inv => (
-                              <option key={inv.id} value={inv.id}>{inv.name}</option>
+                            {userInventories.map((inv, invIdx) => (
+                              <option key={`opt-other-inv-${inv.id || invIdx}-${invIdx}`} value={inv.id}>{inv.name}</option>
                             ))}
                           </select>
                         ) : (
@@ -813,8 +808,8 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
                             className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-xs focus:outline-none focus:ring-2 focus:ring-black bg-neutral-50 text-neutral-800"
                           >
                             <option value="">-- Select Packing List --</option>
-                            {userPackingLists.map(l => (
-                              <option key={l.id} value={l.id}>{l.name}</option>
+                            {userPackingLists.map((l, lIdx) => (
+                              <option key={`opt-other-pl-${l.id || lIdx}-${lIdx}`} value={l.id}>{l.name}</option>
                             ))}
                           </select>
                         )}
@@ -883,7 +878,7 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
 
               return (
                 <Link
-                  key={tab.to}
+                  key={`tab-${tab.to || idx}-${idx}`}
                   to={tab.to || '#'}
                   onClick={() => triggerHaptic(10)}
                   className="flex flex-col items-center justify-center flex-1 h-12 min-h-[48px] min-w-[48px] relative select-none touch-manipulation active:scale-95 transition-transform"

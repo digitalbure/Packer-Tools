@@ -7770,33 +7770,67 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             </div>
             
             <div className="space-y-4">
-              <label className="text-xs font-black uppercase tracking-widest text-neutral-400 block">1. Selected Landing Interface</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="text-xs font-black uppercase tracking-widest text-neutral-400 block">1. Selected Landing Interface Strategy</label>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                {/* Modern Enterprise Landing Page v2 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettings({ ...settings, activeLandingPageType: 'modern' });
+                    toast.success("Default root page set to Modern Enterprise Landing Page v2");
+                  }}
+                  className={`p-6 rounded-2xl border text-left transition duration-150 flex items-start gap-4 relative overflow-hidden ${
+                    (settings.activeLandingPageType === 'modern' || !settings.activeLandingPageType)
+                      ? 'border-neutral-900 bg-neutral-900 text-white shadow-xl ring-2 ring-[#ff4f3a]'
+                      : 'border-neutral-150 bg-neutral-50/40 hover:bg-neutral-50 text-neutral-800 hover:border-neutral-200'
+                  }`}
+                >
+                  <div className="absolute top-2 right-2 px-2 py-0.5 bg-[#ff4f3a] text-white text-[9px] font-mono font-black uppercase tracking-wider rounded">
+                    RECOMMENDED
+                  </div>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    (settings.activeLandingPageType === 'modern' || !settings.activeLandingPageType) ? 'bg-[#ff4f3a] text-white' : 'bg-neutral-100 text-[#ff4f3a]'
+                  }`}>
+                    <Sparkles size={18} />
+                  </div>
+                  <div className="space-y-1 pt-1">
+                    <div className="text-xs font-black uppercase tracking-wider">Modern Enterprise v2</div>
+                    <div className={`text-[10px] uppercase font-bold leading-relaxed ${
+                      (settings.activeLandingPageType === 'modern' || !settings.activeLandingPageType) ? 'text-white/70' : 'text-neutral-400'
+                    }`}>
+                      Interactive 2D case blueprint engine, Gemini AI shutter scan, multi-industry matrix & cargo weight calculator.
+                    </div>
+                  </div>
+                </button>
+
+                {/* Main Classic Landing Page */}
                 <button
                   type="button"
                   onClick={() => {
                     setSettings({ ...settings, activeLandingPageType: 'main' });
-                    toast.success("Default root page set to Main Landing Page style");
+                    toast.success("Default root page set to Classic Core Landing Page style");
                   }}
                   className={`p-6 rounded-2xl border text-left transition duration-150 flex items-start gap-4 ${
-                    settings.activeLandingPageType !== 'marketplace'
+                    settings.activeLandingPageType === 'main'
                       ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg'
                       : 'border-neutral-150 bg-neutral-50/40 hover:bg-neutral-50 text-neutral-800 hover:border-neutral-200'
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    settings.activeLandingPageType !== 'marketplace' ? 'bg-white/10 text-white' : 'bg-neutral-100 text-[#ff4f3a]'
+                    settings.activeLandingPageType === 'main' ? 'bg-white/10 text-white' : 'bg-neutral-100 text-neutral-800'
                   }`}>
                     <Layout size={18} />
                   </div>
                   <div className="space-y-1">
-                    <div className="text-xs font-black uppercase tracking-wider">Main Landing Page</div>
-                    <div className={`text-[10px] uppercase font-bold leading-relaxed ${settings.activeLandingPageType !== 'marketplace' ? 'text-white/60' : 'text-neutral-400'}`}>
-                      Professional visual gear tracking, scenarios, features ticker, and client portal access points.
+                    <div className="text-xs font-black uppercase tracking-wider">Classic Core Landing</div>
+                    <div className={`text-[10px] uppercase font-bold leading-relaxed ${settings.activeLandingPageType === 'main' ? 'text-white/60' : 'text-neutral-400'}`}>
+                      Standard visual gear tracking, scenarios, features ticker, and client portal access points.
                     </div>
                   </div>
                 </button>
 
+                {/* Marketplace Listing Hub */}
                 <button
                   type="button"
                   onClick={() => {
@@ -7821,6 +7855,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     </div>
                   </div>
                 </button>
+
               </div>
             </div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { hapticScanSuccess } from '../utils/haptics';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, 
@@ -224,9 +225,7 @@ export default function NfcScannerModal({
   };
 
   const triggerHaptic = () => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate([100, 50, 100]);
-    }
+    hapticScanSuccess();
   };
 
   const handleSimulatePresetTap = (tagId: string) => {

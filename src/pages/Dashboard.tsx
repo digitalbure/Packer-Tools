@@ -826,7 +826,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
             )}
           </div>
           <p className="text-neutral-500 text-sm leading-relaxed max-w-2xl">
-            {customTerms.description} Dynamic custom settings for **{customTerms.gearLabelPlural}** &amp; **{customTerms.listLabelPlural}** enabled.
+            {customTerms.description} Dynamic custom settings for {customTerms.gearLabelPlural} &amp; {customTerms.listLabelPlural} enabled.
           </p>
         </div>
         <div className="flex flex-wrap gap-3 shrink-0">

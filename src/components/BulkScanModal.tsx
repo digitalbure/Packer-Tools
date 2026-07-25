@@ -10,19 +10,15 @@ import { Html5Qrcode } from 'html5-qrcode';
 import confetti from 'canvas-confetti';
 import { compressImage } from '../lib/imageUtils';
 
+import { hapticScanSuccess, hapticError, hapticSuccess } from '../utils/haptics';
+
 const triggerHaptic = (type: 'success' | 'scan' | 'error' = 'success') => {
-  if (typeof window !== 'undefined' && window.navigator && typeof window.navigator.vibrate === 'function') {
-    try {
-      if (type === 'scan') {
-        window.navigator.vibrate([20, 40, 20]); // double pulse for QR success
-      } else if (type === 'error') {
-        window.navigator.vibrate([100, 50, 100]); // heavy dual pulse
-      } else {
-        window.navigator.vibrate(15); // short single pulse for generic success
-      }
-    } catch (e) {
-      // safe backup fallback
-    }
+  if (type === 'scan') {
+    hapticScanSuccess();
+  } else if (type === 'error') {
+    hapticError();
+  } else {
+    hapticSuccess();
   }
 };
 
