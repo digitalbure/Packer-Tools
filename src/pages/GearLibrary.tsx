@@ -7752,18 +7752,31 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     )}
                   </div>
 
-                  {/* Lens-Specific Smart Taxonomy Specifications Panel */}
-                  {(editingItem.primaryCategory === 'Lens' || editingItem.category === 'Lens') && (
-                    <div className="space-y-4 col-span-full border border-neutral-200/50 p-5 rounded-[2rem] bg-neutral-50/50 animate-in fade-in duration-200">
-                      <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
-                        <span className="text-sm font-black text-neutral-800">📸 Lens Taxonomy Specifications</span>
-                        <span className="px-2 py-0.5 bg-neutral-200 text-neutral-600 rounded-full text-[8px] font-black uppercase tracking-wider">
-                          Smart Fields
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-neutral-400">
-                        Capture precise attributes to power advanced sorting, filtering, and cross-mount inspections.
-                      </p>
+                  {/* Lens-Specific Smart Taxonomy Specifications Panel (Only if item is a lens) */}
+                  {(() => {
+                    const catStr = (editingItem.primaryCategory || editingItem.category || '').toLowerCase();
+                    const nameStr = (editingItem.name || '').toLowerCase();
+                    const tagsStr = (editingItem.tags?.join(' ') || '').toLowerCase();
+                    
+                    const isLens = 
+                      Boolean(editingItem.lensType || editingItem.lensMount || editingItem.focalLength) ||
+                      catStr.includes('lens') || catStr.includes('optics') || catStr.includes('prime') || catStr.includes('zoom') ||
+                      tagsStr.includes('lens') || tagsStr.includes('optics') ||
+                      /\b(lens|lenses|optics|prime|zoom|anamorphic|cine prime|cine zoom)\b/.test(nameStr);
+
+                    if (!isLens) return null;
+
+                    return (
+                      <div className="space-y-4 col-span-full border border-neutral-200/50 p-5 rounded-[2rem] bg-neutral-50/50 animate-in fade-in duration-200">
+                        <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
+                          <span className="text-sm font-black text-neutral-800">📸 Lens Taxonomy Specifications</span>
+                          <span className="px-2 py-0.5 bg-neutral-200 text-neutral-600 rounded-full text-[8px] font-black uppercase tracking-wider">
+                            Smart Fields
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-neutral-400">
+                          Capture precise attributes to power advanced sorting, filtering, and cross-mount inspections.
+                        </p>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
@@ -7859,7 +7872,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                         </div>
                       </div>
                     </div>
-                  )}
+                  );
+                })()}
 
                   {/* Equipment Registry Details (Serial, Model, release year, model numbers) */}
                   <div className="border border-neutral-200/65 rounded-[2rem] p-5 bg-neutral-50/50 space-y-4 col-span-full border-t border-b py-5 my-2">

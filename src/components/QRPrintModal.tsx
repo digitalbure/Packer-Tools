@@ -343,6 +343,67 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   const [activeTab, setActiveTab] = useState<'designs' | 'templates' | 'print' | 'nfc' | 'rfid' | 'batch' | 'devices' | 'tag_inventory' | 'history' | 'settings'>('templates');
   const [mobilePanel, setMobilePanel] = useState<'canvas' | 'tools' | 'inspector'>('canvas');
 
+  // Column resizing state (Drag to resize columns)
+  const [leftPanelWidth, setLeftPanelWidth] = useState<number>(320); // px
+  const [rightPanelWidth, setRightPanelWidth] = useState<number>(320); // px
+  const [isResizingLeft, setIsResizingLeft] = useState<boolean>(false);
+  const [isResizingRight, setIsResizingRight] = useState<boolean>(false);
+
+  // Column drag resize handlers
+  const handleStartResizeLeft = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    setIsResizingLeft(true);
+    const startX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const initialWidth = leftPanelWidth;
+
+    const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
+      const curX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const deltaX = curX - startX;
+      const newW = Math.max(220, Math.min(520, initialWidth + deltaX));
+      setLeftPanelWidth(newW);
+    };
+
+    const handleUp = () => {
+      setIsResizingLeft(false);
+      window.removeEventListener('mousemove', handleMove as any);
+      window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchmove', handleMove as any);
+      window.removeEventListener('touchend', handleUp);
+    };
+
+    window.addEventListener('mousemove', handleMove as any);
+    window.addEventListener('mouseup', handleUp);
+    window.addEventListener('touchmove', handleMove as any, { passive: false });
+    window.addEventListener('touchend', handleUp);
+  };
+
+  const handleStartResizeRight = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    setIsResizingRight(true);
+    const startX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const initialWidth = rightPanelWidth;
+
+    const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
+      const curX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const deltaX = startX - curX;
+      const newW = Math.max(220, Math.min(520, initialWidth + deltaX));
+      setRightPanelWidth(newW);
+    };
+
+    const handleUp = () => {
+      setIsResizingRight(false);
+      window.removeEventListener('mousemove', handleMove as any);
+      window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchmove', handleMove as any);
+      window.removeEventListener('touchend', handleUp);
+    };
+
+    window.addEventListener('mousemove', handleMove as any);
+    window.addEventListener('mouseup', handleUp);
+    window.addEventListener('touchmove', handleMove as any, { passive: false });
+    window.addEventListener('touchend', handleUp);
+  };
+
   useEffect(() => {
     if (isOpen && initialTab) {
       setActiveTab(initialTab);
@@ -542,14 +603,16 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   };
 
   // -------------------------------------------------------------
-  // DYNAMIC DRAG-TO-MOVE & KEYBOARD NAVIGATION HANDLERS
+  // DYNAMIC DRAG-TO-MOVE & KEYBOARD NAVIGATION HANDLERS (MOUSE & TOUCH)
   // -------------------------------------------------------------
-  const handleElementMouseDown = (e: React.MouseEvent, elementId: string) => {
-    e.preventDefault();
+  const handleElementMouseDown = (e: React.MouseEvent | React.TouchEvent, elementId: string) => {
     e.stopPropagation();
 
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
     let nextIds = [elementId];
-    if (e.shiftKey) {
+    if ('shiftKey' in e && e.shiftKey) {
       if (selectedElementIds.includes(elementId)) {
         nextIds = selectedElementIds.filter(id => id !== elementId);
       } else {
@@ -559,8 +622,8 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
     setSelectedElementIds(nextIds);
     setSelectedElementId(nextIds.length > 0 ? nextIds[nextIds.length - 1] : null);
 
-    const startX = e.clientX;
-    const startY = e.clientY;
+    const startX = clientX;
+    const startY = clientY;
 
     const el = canvasElements.find(item => item.id === elementId);
     if (!el) return;
@@ -575,9 +638,11 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
     const canvasPxWidth = rect.width || 1;
     const canvasPxHeight = rect.height || 1;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const deltaY = moveEvent.clientY - startY;
+    const handlePointerMove = (moveEvent: MouseEvent | TouchEvent) => {
+      const curX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const curY = 'touches' in moveEvent ? moveEvent.touches[0].clientY : moveEvent.clientY;
+      const deltaX = curX - startX;
+      const deltaY = curY - startY;
 
       if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
         if (!hasMoved) {
@@ -616,13 +681,17 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
       }));
     };
 
-    const handleMouseUp = () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+    const handlePointerUp = () => {
+      window.removeEventListener('mousemove', handlePointerMove as any);
+      window.removeEventListener('mouseup', handlePointerUp);
+      window.removeEventListener('touchmove', handlePointerMove as any);
+      window.removeEventListener('touchend', handlePointerUp);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mousemove', handlePointerMove as any);
+    window.addEventListener('mouseup', handlePointerUp);
+    window.addEventListener('touchmove', handlePointerMove as any, { passive: false });
+    window.addEventListener('touchend', handlePointerUp);
   };
 
   useEffect(() => {
@@ -1326,7 +1395,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                   Label Studio
                 </h2>
                 <span className="text-[8px] sm:text-[9px] uppercase font-black tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 sm:px-2 py-0.5 rounded shrink-0">
-                  v5.12.0
+                  v5.13.0
                 </span>
               </div>
               <p className="text-xs text-neutral-400 hidden sm:block truncate">
@@ -1426,10 +1495,13 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
             ========================================================= */}
         <div className="flex-1 overflow-hidden flex flex-col lg:flex-row print:block">
           
-          {/* 1. LEFT PANEL: TOOLBOX (Width: 320px) */}
-          <div className={`w-full lg:w-80 border-r border-neutral-800 flex-col lg:flex shrink-0 bg-[#16161a] overflow-hidden print:hidden select-none ${
-            mobilePanel === 'tools' ? 'flex flex-1' : 'hidden'
-          }`}>
+          {/* 1. LEFT PANEL: TOOLBOX (Width: Resizable on desktop) */}
+          <div 
+            className={`w-full border-r border-neutral-800 flex-col lg:flex shrink-0 bg-[#16161a] overflow-hidden print:hidden select-none ${
+              mobilePanel === 'tools' ? 'flex flex-1' : 'hidden'
+            }`}
+            style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${leftPanelWidth}px` : undefined }}
+          >
             {/* HORIZONTAL TAB BAR FOR MOBILE */}
             <div className="lg:hidden flex bg-[#101012] border-b border-neutral-800 p-2 gap-1.5 overflow-x-auto no-scrollbar shrink-0">
               {[
@@ -2046,11 +2118,11 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
 
                     {/* Printable list items */}
                     <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
-                      {printableItemsList.map((item) => {
+                      {printableItemsList.map((item, idx) => {
                         const isSelected = selectedIds.has(item.id);
                         return (
                           <div
-                            key={item.id}
+                            key={`${item.id}-${idx}`}
                             onClick={() => toggleSelectId(item.id)}
                             className={`p-2 rounded-xl border transition duration-150 cursor-pointer flex items-center justify-between ${
                               isSelected 
@@ -2213,6 +2285,21 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
             </div>
           </div>
         </div>
+
+          {/* =========================================================
+              DRAG RESIZE HANDLE: LEFT COLUMN
+              ========================================================= */}
+          <div
+            onMouseDown={handleStartResizeLeft}
+            onTouchStart={handleStartResizeLeft}
+            onDoubleClick={() => setLeftPanelWidth(320)}
+            title="Drag to resize column width (Double-click to reset)"
+            className={`hidden lg:flex w-2.5 bg-[#101014] hover:bg-[#0066cc] border-x border-neutral-800/80 cursor-col-resize shrink-0 transition-colors items-center justify-center group z-20 select-none ${
+              isResizingLeft ? 'bg-[#0066cc]' : ''
+            }`}
+          >
+            <div className="w-0.5 h-10 bg-neutral-600 group-hover:bg-white rounded-full transition-colors" />
+          </div>
 
           {/* =========================================================
               2. CENTER PANEL: LIVE DESIGN CANVAS (Width: Dynamic / Flexible)
@@ -2731,6 +2818,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                           <div
                             key={el.id}
                             onMouseDown={(e) => handleElementMouseDown(e, el.id)}
+                            onTouchStart={(e) => handleElementMouseDown(e, el.id)}
                             className={`absolute flex flex-col justify-center cursor-move select-none transition-shadow ${
                               isSelected ? 'ring-1 ring-[#0066cc] bg-[#0066cc]/5 border border-[#0066cc]' : 'hover:bg-neutral-100/50'
                             }`}
@@ -2808,11 +2896,11 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                 <span className="text-[10px] text-neutral-500">Pick any asset to map dynamic variables in real-time</span>
               </div>
               <div className="flex-1 overflow-x-auto flex items-center gap-2.5 pb-1">
-                {items.slice(0, 8).map((item) => {
+                {items.slice(0, 8).map((item, idx) => {
                   const isCurrent = previewItemId === item.id;
                   return (
                     <button
-                      key={item.id}
+                      key={`${item.id}-${idx}`}
                       onClick={() => setPreviewItemId(item.id)}
                       className={`px-4 py-2.5 rounded-xl border text-left transition duration-150 shrink-0 flex items-center gap-3 ${
                         isCurrent 
@@ -2836,11 +2924,29 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
           </div>
 
           {/* =========================================================
-              4. RIGHT PANEL: PROPERTIES INSPECTOR (Width: 320px)
+              DRAG RESIZE HANDLE: RIGHT COLUMN
               ========================================================= */}
-          <div className={`w-full lg:w-80 border-l border-neutral-800 flex-col lg:flex shrink-0 bg-[#16161a] overflow-hidden print:hidden select-none ${
-            mobilePanel === 'inspector' ? 'flex flex-1' : 'hidden'
-          }`}>
+          <div
+            onMouseDown={handleStartResizeRight}
+            onTouchStart={handleStartResizeRight}
+            onDoubleClick={() => setRightPanelWidth(320)}
+            title="Drag to resize column width (Double-click to reset)"
+            className={`hidden lg:flex w-2.5 bg-[#101014] hover:bg-[#0066cc] border-x border-neutral-800/80 cursor-col-resize shrink-0 transition-colors items-center justify-center group z-20 select-none ${
+              isResizingRight ? 'bg-[#0066cc]' : ''
+            }`}
+          >
+            <div className="w-0.5 h-10 bg-neutral-600 group-hover:bg-white rounded-full transition-colors" />
+          </div>
+
+          {/* =========================================================
+              4. RIGHT PANEL: PROPERTIES INSPECTOR (Width: Resizable on desktop)
+              ========================================================= */}
+          <div 
+            className={`w-full border-l border-neutral-800 flex-col lg:flex shrink-0 bg-[#16161a] overflow-hidden print:hidden select-none ${
+              mobilePanel === 'inspector' ? 'flex flex-1' : 'hidden'
+            }`}
+            style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${rightPanelWidth}px` : undefined }}
+          >
             <div className="p-4 bg-[#111114] border-b border-neutral-800 flex items-center gap-2 text-neutral-400">
               <SlidersHorizontal size={14} className="text-[#0066cc]" />
               <span className="text-[11px] font-black uppercase tracking-wider">Properties Inspector</span>

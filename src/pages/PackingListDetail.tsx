@@ -5208,128 +5208,144 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       </div>
                     </div>
 
-                    {/* Smart Lens Taxonomy Section */}
-                    <div className="bg-white p-5 rounded-2xl border border-neutral-200 mt-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-black uppercase tracking-widest text-[#10b981] flex items-center gap-1">
-                          <span>🔍 Smart Lens Taxonomy Specs</span>
-                        </label>
-                      </div>
-                      <p className="text-[9px] text-neutral-400 leading-normal">
-                        Configure professional optics properties to translate accurately to active marketplace lists and smart searches.
-                      </p>
+                    {/* Smart Lens Taxonomy Section (Only if item is a lens) */}
+                    {(() => {
+                      const nameStr = (editName || editingItem?.name || '').toLowerCase();
+                      const catStr = (editLabel || editingItem?.aiLabel || editingItem?.category || '').toLowerCase();
+                      const tagsStr = (editTags || editingItem?.tags?.join(' ') || '').toLowerCase();
+                      
+                      const isLens = 
+                        Boolean(editLensType || editLensMount || editFocalLength || editMaxAperture || editFormatCoverage || editFocusType || editingItem?.lensType || editingItem?.lensMount || editingItem?.focalLength) ||
+                        catStr.includes('lens') || catStr.includes('optics') || catStr.includes('prime') || catStr.includes('zoom') ||
+                        tagsStr.includes('lens') || tagsStr.includes('optics') ||
+                        /\b(lens|lenses|optics|prime|zoom|anamorphic|cine prime|cine zoom)\b/.test(nameStr);
 
-                      <div className="grid grid-cols-2 gap-3 text-xs">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-neutral-400">Lens Type</label>
-                          <select
-                            value={editLensType}
-                            onChange={(e) => {
-                              setEditLensType(e.target.value);
-                              setIsDirty(true);
-                            }}
-                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-800"
-                          >
-                            <option value="">Select Type...</option>
-                            <option value="Prime">Prime</option>
-                            <option value="Zoom">Zoom</option>
-                            <option value="Anamorphic">Anamorphic Prime</option>
-                            <option value="Anamorphic Zoom">Anamorphic Zoom</option>
-                            <option value="Macro">Macro</option>
-                            <option value="Cine Prime">Cine Prime</option>
-                            <option value="Cine Zoom">Cine Zoom</option>
-                          </select>
-                        </div>
+                      if (!isLens) return null;
 
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-neutral-400">Lens Mount</label>
-                          <select
-                            value={editLensMount}
-                            onChange={(e) => {
-                              setEditLensMount(e.target.value);
-                              setIsDirty(true);
-                            }}
-                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-800"
-                          >
-                            <option value="">Select Mount...</option>
-                            <option value="PL">Arri PL Mount</option>
-                            <option value="EF">Canon EF Mount</option>
-                            <option value="RF">Canon RF Mount</option>
-                            <option value="E-Mount">Sony E Mount</option>
-                            <option value="L-Mount">L-Mount (Leica/Panasonic/Sigma)</option>
-                            <option value="F-Mount">Nikon F Mount</option>
-                            <option value="Z-Mount">Nikon Z Mount</option>
-                            <option value="X-Mount">Fujifilm X Mount</option>
-                            <option value="MFT">Micro Four Thirds (MFT)</option>
-                            <option value="M-Mount">Leica M Mount</option>
-                          </select>
-                        </div>
+                      return (
+                        <div className="bg-white p-5 rounded-2xl border border-neutral-200 mt-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-black uppercase tracking-widest text-[#10b981] flex items-center gap-1">
+                              <span>🔍 Smart Lens Taxonomy Specs</span>
+                            </label>
+                          </div>
+                          <p className="text-[9px] text-neutral-400 leading-normal">
+                            Configure professional optics properties to translate accurately to active marketplace lists and smart searches.
+                          </p>
 
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-neutral-400">Focal Length</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. 50mm, 24-70mm"
-                            value={editFocalLength}
-                            onChange={(e) => {
-                              setEditFocalLength(e.target.value);
-                              setIsDirty(true);
-                            }}
-                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-900 font-semibold"
-                          />
-                        </div>
+                          <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-neutral-400">Lens Type</label>
+                              <select
+                                value={editLensType}
+                                onChange={(e) => {
+                                  setEditLensType(e.target.value);
+                                  setIsDirty(true);
+                                }}
+                                className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-800"
+                              >
+                                <option value="">Select Type...</option>
+                                <option value="Prime">Prime</option>
+                                <option value="Zoom">Zoom</option>
+                                <option value="Anamorphic">Anamorphic Prime</option>
+                                <option value="Anamorphic Zoom">Anamorphic Zoom</option>
+                                <option value="Macro">Macro</option>
+                                <option value="Cine Prime">Cine Prime</option>
+                                <option value="Cine Zoom">Cine Zoom</option>
+                              </select>
+                            </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-neutral-400">Max Aperture</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. T1.5, f/2.8"
-                            value={editMaxAperture}
-                            onChange={(e) => {
-                              setEditMaxAperture(e.target.value);
-                              setIsDirty(true);
-                            }}
-                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-900 font-semibold"
-                          />
-                        </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-neutral-400">Lens Mount</label>
+                              <select
+                                value={editLensMount}
+                                onChange={(e) => {
+                                  setEditLensMount(e.target.value);
+                                  setIsDirty(true);
+                                }}
+                                className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-800"
+                              >
+                                <option value="">Select Mount...</option>
+                                <option value="PL">Arri PL Mount</option>
+                                <option value="EF">Canon EF Mount</option>
+                                <option value="RF">Canon RF Mount</option>
+                                <option value="E-Mount">Sony E Mount</option>
+                                <option value="L-Mount">L-Mount (Leica/Panasonic/Sigma)</option>
+                                <option value="F-Mount">Nikon F Mount</option>
+                                <option value="Z-Mount">Nikon Z Mount</option>
+                                <option value="X-Mount">Fujifilm X Mount</option>
+                                <option value="MFT">Micro Four Thirds (MFT)</option>
+                                <option value="M-Mount">Leica M Mount</option>
+                              </select>
+                            </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-neutral-400">Format Coverage</label>
-                          <select
-                            value={editFormatCoverage}
-                            onChange={(e) => {
-                              setEditFormatCoverage(e.target.value);
-                              setIsDirty(true);
-                            }}
-                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-800"
-                          >
-                            <option value="">Select Coverage...</option>
-                            <option value="Full Frame">Full Frame (35mm)</option>
-                            <option value="Super 35">Super 35 (APS-C)</option>
-                            <option value="Large Format">Large Format / VistaVision</option>
-                            <option value="Medium Format">Medium Format</option>
-                            <option value="Micro Four Thirds">Micro Four Thirds (M4/3)</option>
-                          </select>
-                        </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-neutral-400">Focal Length</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. 50mm, 24-70mm"
+                                value={editFocalLength}
+                                onChange={(e) => {
+                                  setEditFocalLength(e.target.value);
+                                  setIsDirty(true);
+                                }}
+                                className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-900 font-semibold"
+                              />
+                            </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-neutral-400">Focus Type</label>
-                          <select
-                            value={editFocusType}
-                            onChange={(e) => {
-                              setEditFocusType(e.target.value);
-                              setIsDirty(true);
-                            }}
-                            className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-800"
-                          >
-                            <option value="">Select Focus...</option>
-                            <option value="Manual Only">Manual Focus (MF)</option>
-                            <option value="Autofocus">Autofocus (AF)</option>
-                            <option value="Cine Focus">Cine Follow-Focus Geared</option>
-                          </select>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-neutral-400">Max Aperture</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. T1.5, f/2.8"
+                                value={editMaxAperture}
+                                onChange={(e) => {
+                                  setEditMaxAperture(e.target.value);
+                                  setIsDirty(true);
+                                }}
+                                className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-900 font-semibold"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-neutral-400">Format Coverage</label>
+                              <select
+                                value={editFormatCoverage}
+                                onChange={(e) => {
+                                  setEditFormatCoverage(e.target.value);
+                                  setIsDirty(true);
+                                }}
+                                className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-800"
+                              >
+                                <option value="">Select Coverage...</option>
+                                <option value="Full Frame">Full Frame (35mm)</option>
+                                <option value="Super 35">Super 35 (APS-C)</option>
+                                <option value="Large Format">Large Format / VistaVision</option>
+                                <option value="Medium Format">Medium Format</option>
+                                <option value="Micro Four Thirds">Micro Four Thirds (M4/3)</option>
+                              </select>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-neutral-400">Focus Type</label>
+                              <select
+                                value={editFocusType}
+                                onChange={(e) => {
+                                  setEditFocusType(e.target.value);
+                                  setIsDirty(true);
+                                }}
+                                className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg outline-none text-xs text-neutral-800"
+                              >
+                                <option value="">Select Focus...</option>
+                                <option value="Manual Only">Manual Focus (MF)</option>
+                                <option value="Autofocus">Autofocus (AF)</option>
+                                <option value="Cine Focus">Cine Follow-Focus Geared</option>
+                              </select>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
 
                     {/* Ancillaries & Optional Add-ons section */}
                     <div className="bg-neutral-50 p-5 rounded-2xl border border-neutral-200 mt-4 space-y-3">

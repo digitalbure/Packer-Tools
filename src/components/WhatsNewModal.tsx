@@ -8,13 +8,44 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   const releases = [
     {
-      version: 'v5.12.0',
+      version: 'v5.13.0',
       tag: 'Latest',
       tagBg: 'bg-primary/10 text-primary border-primary/20',
+      title: 'Onboarded Kit Scenario Coaching, Extended Travel Cases & 2D Spatial Blueprints',
+      date: 'July 2026',
+      icon: Sparkles,
+      color: 'text-primary',
+      updates: [
+        {
+          title: 'Onboarded Kit Scenario Coaching',
+          desc: 'Dukey AI Assistant now analyzes your actual onboarded equipment items to explain customized operational scenarios (Film production, AV rack builds, Outdoor expeditions, Field clinics).',
+          badge: 'Dukey AI'
+        },
+        {
+          title: 'Extended Travel Cases & Backpacks',
+          desc: 'Expanded Travel Case spec sheet extractor supporting hard cases, camera backpacks (Peak Design, Lowepro), ready-built 19" rack enclosures (Gator, SKB), and soft padded bags.',
+          badge: 'Travel Cases'
+        },
+        {
+          title: '2D Spatial Case Blueprints',
+          desc: 'Interactive 2D spatial arrangement visualizer for modeling gear fit inside case interior dimensions before physical loading.',
+          badge: '2D Blueprint'
+        },
+        {
+          title: 'Resilient 429 Heuristic Fallbacks',
+          desc: 'Quota-resilient heuristic engines across all AI endpoints serving intelligent offline responses with developer console warning notices.',
+          badge: 'AI Core'
+        }
+      ]
+    },
+    {
+      version: 'v5.12.0',
+      tag: 'Previous',
+      tagBg: 'bg-neutral-100 text-neutral-700 border-neutral-200',
       title: 'Plain Paper Presets, Temporary Barcode Cut Guides & Perfect Isolation Prints',
       date: 'July 2026',
       icon: QrCode,
@@ -402,7 +433,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                 <span className="truncate">PACKER ENGINE CORE STABLE</span>
               </div>
               <span className="text-[10px] uppercase font-black tracking-wide shrink-0">
-                Build v5.12.0
+                Build v5.13.0
               </span>
             </div>
           </motion.div>

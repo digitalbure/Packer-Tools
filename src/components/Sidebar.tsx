@@ -49,8 +49,10 @@ import {
   Smartphone,
   Bug,
   MapPin,
-  Printer
+  Printer,
+  Sliders
 } from 'lucide-react';
+import { getButtonStyleClasses, DEFAULT_QUICK_ACCESS_ITEMS } from '../lib/leftPanelUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile, AdminSettings, FeatureKey } from '../types';
 import { isFeatureEnabled } from '../lib/featureUtils';
@@ -774,91 +776,94 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
             {/* Quick Actions & Navigation Button Grid */}
             <div className="space-y-2">
               {!isCollapsed && (
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400 px-3">Quick Actions</h3>
+                <div className="flex items-center justify-between px-3">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">Quick Actions</h3>
+                  <Link
+                    to="/profile?tab=preferences"
+                    onClick={() => setIsMobileOpen(false)}
+                    className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition flex items-center gap-1 border border-indigo-200/50"
+                    title="Organize Left Panel & Quick Access Buttons"
+                  >
+                    <Sliders size={10} />
+                    <span>Edit</span>
+                  </Link>
+                </div>
               )}
               <div className="flex flex-col gap-2">
-                <Link
-                  to="/dashboard?tab=lists"
-                  onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center justify-center gap-3 bg-indigo-600 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}
-                  title={isCollapsed ? 'Lists' : ''}
-                >
-                  <ListChecks size={18} className="group-hover:scale-110 transition-transform shrink-0" />
-                  {!isCollapsed && <span className="text-sm">Lists</span>}
-                </Link>
+                {(() => {
+                  const leftPanelCustomization = user?.layoutPreferences?.leftPanelCustomization;
+                  const itemConfigs = leftPanelCustomization?.itemConfigs || {};
+                  const quickAccessIds = leftPanelCustomization?.quickAccessItemIds;
 
-                <Link
-                  to="/library?addGear=true"
-                  onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center justify-center gap-3 bg-neutral-900 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}
-                  title={isCollapsed ? 'Add Gear' : ''}
-                >
-                  <Plus size={18} className="group-hover:scale-110 transition-transform shrink-0" />
-                  {!isCollapsed && <span className="text-sm">Add Gear</span>}
-                </Link>
-                
-                <Link
-                  to="/dashboard?create=true"
-                  onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center justify-center gap-3 bg-primary text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}
-                  title={isCollapsed ? 'New List' : ''}
-                >
-                  <Plus size={18} className="group-hover:scale-110 transition-transform shrink-0" />
-                  {!isCollapsed && <span className="text-sm">New List</span>}
-                </Link>
+                  const masterQuickMap: { [key: string]: { label: string; to: string; icon: React.ReactNode; defaultColor: string; defaultFilled: boolean } } = {
+                    quick_lists: { label: 'Lists', to: '/dashboard?tab=lists', icon: <ListChecks size={18} />, defaultColor: 'indigo', defaultFilled: true },
+                    quick_add_gear: { label: 'Add Gear', to: '/library?addGear=true', icon: <Plus size={18} />, defaultColor: 'dark', defaultFilled: true },
+                    quick_new_list: { label: 'New List', to: '/dashboard?create=true', icon: <Plus size={18} />, defaultColor: 'orange', defaultFilled: true },
+                    quick_dashboard: { label: 'Dashboard', to: '/dashboard', icon: <LayoutDashboard size={18} />, defaultColor: 'slate', defaultFilled: false },
+                    quick_organizer: { label: 'Organizer', to: '/organizer', icon: <Layers size={18} />, defaultColor: 'slate', defaultFilled: false },
+                    quick_scan: { label: 'Scan to Pack', to: '/scan/new', icon: <QrCode size={18} />, defaultColor: 'dark', defaultFilled: true },
+                    quick_label_studio: { label: 'Label Studio', to: '#label-studio', icon: <Printer size={18} />, defaultColor: 'emerald', defaultFilled: true },
+                    nav_library: { label: 'Gear Library', to: '/library', icon: <Box size={18} />, defaultColor: 'violet', defaultFilled: false },
+                    nav_inventory: { label: 'Inventories', to: '/inventory', icon: <Layers size={18} />, defaultColor: 'cyan', defaultFilled: false },
+                    nav_organization: { label: 'Organization', to: '/organization', icon: <Building2 size={18} />, defaultColor: 'rose', defaultFilled: false },
+                    nav_logistics: { label: 'Logistics', to: '/logistics', icon: <Truck size={18} />, defaultColor: 'amber', defaultFilled: false },
+                    nav_systems: { label: 'Systems Builder', to: '/systems-builder', icon: <Wrench size={18} />, defaultColor: 'teal', defaultFilled: false },
+                    nav_marketplace: { label: 'Marketplace', to: '/marketplace', icon: <Users size={18} />, defaultColor: 'sky', defaultFilled: false },
+                  };
 
-                {/* Dashboard placed just above Scan to Pack */}
-                <Link
-                  to="/dashboard"
-                  onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center justify-center gap-3 px-3 py-3 rounded-xl font-bold transition-all group ${
-                    location.pathname === '/dashboard' 
-                      ? 'bg-accent text-white shadow-lg shadow-accent/20' 
-                      : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900'
-                  } ${isCollapsed ? 'justify-center' : ''}`}
-                  title={isCollapsed ? 'Dashboard' : ''}
-                >
-                  <LayoutDashboard size={18} className="group-hover:scale-110 transition-transform shrink-0" />
-                  {!isCollapsed && <span className="text-sm">Dashboard</span>}
-                </Link>
+                  let activeQuickKeys: string[];
+                  if (quickAccessIds && quickAccessIds.length > 0) {
+                    activeQuickKeys = quickAccessIds;
+                  } else {
+                    activeQuickKeys = ['quick_lists', 'quick_add_gear', 'quick_new_list', 'quick_dashboard', 'quick_organizer', 'quick_scan', 'quick_label_studio'];
+                  }
 
-                {/* Organizer main panel button */}
-                <Link
-                  to="/organizer"
-                  onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center justify-center gap-3 px-3 py-3 rounded-xl font-bold transition-all group ${
-                    location.pathname === '/organizer' 
-                      ? 'bg-accent text-white shadow-lg shadow-accent/20' 
-                      : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900'
-                  } ${isCollapsed ? 'justify-center' : ''}`}
-                  title={isCollapsed ? 'Organizer' : ''}
-                >
-                  <Layers size={18} className="group-hover:scale-110 transition-transform shrink-0" />
-                  {!isCollapsed && <span className="text-sm">Organizer</span>}
-                </Link>
+                  return activeQuickKeys.map((key) => {
+                    const master = masterQuickMap[key];
+                    if (!master) return null;
 
-                <Link
-                  to="/scan/new"
-                  onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center justify-center gap-3 bg-neutral-900 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group`}
-                  title={isCollapsed ? 'Scan to Pack' : ''}
-                >
-                  <QrCode size={18} className="group-hover:scale-110 transition-transform shrink-0" />
-                  {!isCollapsed && <span className="text-sm">Scan to Pack</span>}
-                </Link>
+                    const config = itemConfigs[key] || {};
+                    if (config.hidden) return null;
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.dispatchEvent(new CustomEvent('open-label-studio'));
-                    setIsMobileOpen(false);
-                  }}
-                  className="flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition group w-full"
-                  title={isCollapsed ? 'Label Studio' : ''}
-                >
-                  <Printer size={18} className="group-hover:scale-110 transition-transform shrink-0" />
-                  {!isCollapsed && <span className="text-sm">Label Studio</span>}
-                </button>
+                    const isFilled = config.isFilled !== undefined ? config.isFilled : master.defaultFilled;
+                    const color = config.color || master.defaultColor;
+                    const label = config.label || master.label;
+                    const isActive = location.pathname === master.to || (master.to.includes('tab=lists') && location.pathname === '/dashboard' && location.search.includes('tab=lists'));
+
+                    const buttonStyle = getButtonStyleClasses(color, isFilled, isActive);
+
+                    if (master.to === '#label-studio') {
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('open-label-studio'));
+                            setIsMobileOpen(false);
+                          }}
+                          className={`flex items-center justify-center gap-3 px-3 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5 transition group w-full ${buttonStyle}`}
+                          title={isCollapsed ? label : ''}
+                        >
+                          <span className="shrink-0 group-hover:scale-110 transition-transform">{master.icon}</span>
+                          {!isCollapsed && <span className="text-sm truncate">{label}</span>}
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <Link
+                        key={key}
+                        to={master.to}
+                        onClick={() => setIsMobileOpen(false)}
+                        className={`flex items-center justify-center gap-3 px-3 py-3 rounded-xl font-bold shadow-sm hover:shadow-md hover:-translate-y-0.5 transition group ${buttonStyle} ${isCollapsed ? 'justify-center' : ''}`}
+                        title={isCollapsed ? label : ''}
+                      >
+                        <span className="shrink-0 group-hover:scale-110 transition-transform">{master.icon}</span>
+                        {!isCollapsed && <span className="text-sm truncate">{label}</span>}
+                      </Link>
+                    );
+                  });
+                })()}
               </div>
             </div>
 
@@ -1170,7 +1175,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v5.12.0' : 'Version 5.12.0'}
+            {isCollapsed ? 'v5.13.0' : 'Version 5.13.0'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">

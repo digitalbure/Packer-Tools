@@ -1,6 +1,44 @@
 # 📘 Packer Tools Knowledge Base
 
-Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including the latest asset organization, bulk allocation, and audit workflows.
+Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including the latest asset organization, bulk allocation, audit workflows, and AI scenario coaching.
+
+---
+
+## 🧳 0. Travel Cases, Backpacks & 2D Spatial Blueprints (v5.13.0)
+
+Packer Tools supports extracting and modeling specs for diverse travel case types:
+- **Hard Cases** (Pelican, Nanuk, SKB)
+- **Camera & Gear Backpacks** (Peak Design, Lowepro, Shimoda)
+- **Ready-Built Rack Enclosures** (Gator 19", SKB Shock Racks)
+- **Soft Padded Bags & Duffels**
+
+### 📐 URL Spec Extraction & Container Deployment:
+1. Navigate to the **[Travel Case Module](#/travel-cases)**.
+2. Paste any manufacturer or store product URL (or select from featured presets like Peak Design Everyday Backpack, Lowepro Protactic, Gator 19" Rack, Pelican 1510).
+3. Click **"Extract Specs & Build 2D Blueprint"**.
+4. The system parses interior dimensions (Length, Width, Height in inches/cm), volume (Liters), and dry weight.
+5. Click **"Deploy as Active Container"** to register it directly into your user containers.
+
+### 🎨 2D Spatial Blueprint Visualizer:
+- Click **"Interactive 2D Blueprint Visualizer"** on any case card.
+- View real-time 2D spatial arrangement of your gear placed inside the container's interior bounding box.
+- Model multi-layer arrangements (Camera body, lenses, drone, wireless receivers, rack units) before physical packing!
+
+---
+
+## 🤖 0.1. Dukey AI Onboarded Kit Scenario Coaching (v5.13.0)
+
+Dukey AI is now fully aware of your user account's onboarded equipment kit!
+
+### 🎯 How Dukey Uses Your Onboarded Kit:
+1. Open **Dukey Assistant** via the **Dukey AI** floating button or the sidebar navigation link.
+2. Dukey automatically indexes your onboarded gear items, active case containers, packing lists, and custom inventories.
+3. Ask Dukey scenario questions such as:
+   - *"How do I prep my kit for a 3-day documentary film shoot?"*
+   - *"Explain how to pack my camera gear into my Peak Design backpack."*
+   - *"How do I set up a staging scenario for a concert tour?"*
+   - *"Run an audit check on my onboarded items before dispatch."*
+4. Dukey generates structured, 2-4 bullet point action plans referencing your exact onboarded gear names, models, and categories, paired with hyper-reactive in-app links to Packer Tools features!
 
 ---
 

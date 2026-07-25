@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.10.0`
+## Current Application Version: `v5.13.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,30 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v5.13.0 (Onboarded Kit Scenario Coaching, Extended Travel Cases & 2D Spatial Blueprints)
+*Released on: July 24, 2026*
+- **Onboarded Kit Scenario Coaching**: Dukey AI Assistant now reads the user's actual onboarded equipment kit and explains specific operational scenarios (Film shoot, AV rack build, Outdoor expedition, Field clinic, Drone survey) using Packer Tools features.
+- **Extended Travel Cases, Backpacks & Racks**: Expanded the Travel Case spec extractor and category filters to process camera backpacks (Peak Design, Lowepro), 19" rack enclosures (Gator, SKB), hard cases (Pelican, Nanuk), and soft bags.
+- **2D Spatial Case Blueprints**: Interactive 2D spatial arrangement visualizer for modeling gear layout fit inside case interior dimensions before physical packing.
+- **Quota-Resilient AI Fallbacks (429 handling)**: Graceful heuristic fallbacks across server AI routes (`/api/dukey-chat`, `/api/extract-case-specs`, `/api/scenario-brief`) to handle Gemini quota limit responses seamlessly without crashing.
+
+---
+
+### 🚀 Stable Release: v5.12.0 (Plain Paper Presets, Temporary Barcode Cut Guides & Perfect Isolation Prints)
+*Released on: July 22, 2026*
+- **Plain Paper Presets & Templates**: Introduced 4 new print templates designed for standard non-adhesive papers (A4 & Letter size), including 8-card grid structures and single giant temporary labels.
+- **Print Cut Guides**: Plain paper templates automatically render dynamic dashed border cut guides and scissor indicators for easy trimming.
+- **Perfect Print Isolation**: Refactored CSS print rules to guarantee standard background and portal isolation, preventing multi-page overflows and margin shifting.
+
+---
+
+### 🚀 Stable Release: v5.11.0 (Mobile Touch Target Standards & High-Density UX Optimization)
+*Released on: July 20, 2026*
+- **48x48px Touch Target Standard**: Optimized interactive UI elements across mobile viewports for fluid touch operation.
+- **High-Density UX Layouts**: Enhanced list views, filters, and drawer panels for high-density equipment list browsing.
 
 ---
 

@@ -242,7 +242,11 @@ ${extractedMeta.specsTableText ? `\n- Extracted Web Specifications Tables:\n${ex
 
     res.json(JSON.parse(response.text));
   } catch (error: any) {
-    console.error("Gemini Analysis Error (falling back to heuristics):", error);
+    if (isQuotaError(error)) {
+      console.warn("[Analyzer] Gemini quota limit reached (429), serving rich offline heuristics.");
+    } else {
+      console.warn("[Analyzer] Gemini Analysis notice (using heuristics fallback):", error?.message || error);
+    }
     
     let brand = extractedMeta.brand || "Standard";
     let model = extractedMeta.model || "Generic Model";
@@ -294,6 +298,237 @@ ${extractedMeta.specsTableText ? `\n- Extracted Web Specifications Tables:\n${ex
       aiWarning: isQuotaError(error) 
         ? "AI Quota Limit Exceeded (429). Operating in beautiful local offline heuristic mode."
         : "AI Heuristic standby loaded successfully."
+    });
+  }
+});
+
+router.post("/api/extract-case-url", authenticateUser, async (req, res) => {
+  const { url, caseName } = req.body;
+  let webpageTextContent = "";
+  let extractedMeta: any = {};
+
+  try {
+    if (url && url.startsWith("http")) {
+      try {
+        const fetchRes = await axios.get(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Cache-Control": "no-cache"
+          },
+          timeout: 7000
+        });
+        const html = fetchRes.data;
+        if (typeof html === "string") {
+          extractedMeta = extractMetadataFromHtml(html);
+          let cleanText = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+          cleanText = cleanText.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
+          cleanText = cleanText.replace(/<[^>]+>/g, " ");
+          cleanText = cleanText.replace(/\s+/g, " ");
+          webpageTextContent = cleanText.slice(0, 12000);
+
+          const structuredDump = `
+[STRUCTURED CASE PAGE METADATA]:
+- Title: ${extractedMeta.title || "None"}
+- Description: ${extractedMeta.description || "None"}
+- Photo: ${extractedMeta.photoUrl || "None"}
+- Brand: ${extractedMeta.brand || "None"}
+- Model: ${extractedMeta.model || "None"}
+${extractedMeta.specsTableText ? `- Specs Tables:\n${extractedMeta.specsTableText.slice(0, 3000)}` : ""}
+`;
+          webpageTextContent = structuredDump + "\n" + webpageTextContent;
+        }
+      } catch (err: any) {
+        console.warn("Scraper notice for case URL:", err.message);
+      }
+    }
+
+    const prompt = `You are a specialized Protective Equipment & Travel Case Specs Extractor.
+Extract precise case details from the following URL/Product info: URL: ${url || ""} ${caseName ? `Case Name: ${caseName}` : ""}.
+${webpageTextContent ? `Webpage Content:\n${webpageTextContent}\n` : ""}
+
+Task:
+Analyze the page or case specs and extract:
+1. Brand (e.g., Pelican, Nanuk, SKB, Apache, Peak Design, Anvil, Rimowa, Custom)
+2. Model name/number (e.g., 1510, 1535 Air, 1650, 935, 960, 3800, 4800, iSeries 2011-7)
+3. Interior Dimensions: length, width, height, unit ('cm' or 'in')
+4. Exterior Dimensions: length, width, height, unit ('cm' or 'in')
+5. Lid depth & Base depth (if available, in same unit, otherwise 0)
+6. Weight and weight unit ('kg' or 'lb')
+7. Form Factor: 'Carry-On' | 'Large Wheeled' | 'Medium Utility' | 'Trunk' | 'Backpack' | 'Rack Case' | 'Custom'
+8. Foam Type: 'TrekPak' | 'Pick N Pluck' | 'Padded Dividers' | 'Custom Laser Cut' | 'Empty'
+9. Features: hasWheels (boolean), hasTsaLock (boolean), isCarryOnCompliant (boolean)
+10. Description summary and photo URL (if available)
+
+If dimensions are given in inches, provide accurate converted numbers or stick with 'in'. If in cm/mm, convert mm to cm.
+Carry-on compliance rule: Standard airline carry-on size is typically <= 55x35x23 cm (or 22x14x9 inches). Mark true if interior/exterior meets this threshold or is marketed as Carry-On (e.g. Pelican 1510, 1535 Air, Nanuk 935).
+
+Return strictly JSON conforming to the response schema.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            brand: { type: Type.STRING },
+            model: { type: Type.STRING },
+            interiorDimensions: {
+              type: Type.OBJECT,
+              properties: {
+                length: { type: Type.NUMBER },
+                width: { type: Type.NUMBER },
+                height: { type: Type.NUMBER },
+                unit: { type: Type.STRING }
+              },
+              required: ["length", "width", "height", "unit"]
+            },
+            exteriorDimensions: {
+              type: Type.OBJECT,
+              properties: {
+                length: { type: Type.NUMBER },
+                width: { type: Type.NUMBER },
+                height: { type: Type.NUMBER },
+                unit: { type: Type.STRING }
+              },
+              required: ["length", "width", "height", "unit"]
+            },
+            lidDepth: { type: Type.NUMBER },
+            baseDepth: { type: Type.NUMBER },
+            weight: { type: Type.NUMBER },
+            weightUnit: { type: Type.STRING },
+            formFactor: { type: Type.STRING },
+            foamType: { type: Type.STRING },
+            hasWheels: { type: Type.BOOLEAN },
+            hasTsaLock: { type: Type.BOOLEAN },
+            isCarryOnCompliant: { type: Type.BOOLEAN },
+            description: { type: Type.STRING },
+            photoUrl: { type: Type.STRING }
+          },
+          required: ["brand", "model", "interiorDimensions", "exteriorDimensions", "weight", "weightUnit", "formFactor", "foamType"]
+        }
+      }
+    });
+
+    const result = JSON.parse(response.text || "{}");
+    return res.json({
+      status: "success",
+      source: "Gemini 3.5 Flash Live Scraper & Case Grounding",
+      data: result
+    });
+
+  } catch (error: any) {
+    if (isQuotaError(error)) {
+      console.warn("[CaseExtractor] AI Case URL Extractor notice: Quota limit reached (429). Utilizing rich fallback heuristics.");
+    } else {
+      console.warn("[CaseExtractor] AI Case URL Extractor notice (using fallback heuristics):", error?.message || error);
+    }
+    
+    // Fallback heuristic engine with catalog of popular cases
+    const urlLower = (String(url || "") + " " + String(caseName || "")).toLowerCase();
+    let brand = "Pelican";
+    let model = "1510 Carry-On Case";
+    let intL = 50.2, intW = 27.9, intH = 19.3, unit = "cm";
+    let extL = 55.9, extW = 35.1, extH = 22.9;
+    let weight = 6.2, weightUnit = "kg";
+    let formFactor = "Carry-On";
+    let foamType = "Padded Dividers";
+    let hasWheels = true;
+    let hasTsaLock = false;
+    let isCarryOnCompliant = true;
+    let desc = "Protective hard case with retractable handle and quiet rolling wheels.";
+    let photoUrl = extractedMeta.photoUrl || "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80";
+
+    if (urlLower.includes("1535") || urlLower.includes("air 1535") || urlLower.includes("pelican air")) {
+      brand = "Pelican"; model = "1535 Air Carry-On Case";
+      intL = 51.8; intW = 28.4; intH = 18.3; unit = "cm";
+      extL = 55.8; extW = 35.5; extH = 22.8;
+      weight = 3.9; weightUnit = "kg";
+      formFactor = "Carry-On"; foamType = "TrekPak";
+      hasWheels = true; isCarryOnCompliant = true;
+      desc = "Ultra-lightweight HPX2 resin carry-on hard case with press and pull latches.";
+    } else if (urlLower.includes("1650")) {
+      brand = "Pelican"; model = "1650 Protector Case";
+      intL = 72.5; intW = 44.5; intH = 27.1; unit = "cm";
+      extL = 80.8; extW = 52.1; extH = 31.8;
+      weight = 12.7; weightUnit = "kg";
+      formFactor = "Large Wheeled"; foamType = "Padded Dividers";
+      hasWheels = true; isCarryOnCompliant = false;
+      desc = "Heavy-duty large wheeled equipment transport case with automatic pressure equalization valve.";
+    } else if (urlLower.includes("1615") || urlLower.includes("air 1615")) {
+      brand = "Pelican"; model = "1615 Air Check-In Case";
+      intL = 75.2; intW = 39.4; intH = 23.8; unit = "cm";
+      extL = 82.8; extW = 46.7; extH = 28.0;
+      weight = 6.4; weightUnit = "kg";
+      formFactor = "Large Wheeled"; foamType = "TrekPak";
+      hasWheels = true; isCarryOnCompliant = false;
+      desc = "Max-size airline check-in compliant lightweight Air case with wheels.";
+    } else if (urlLower.includes("935") || urlLower.includes("nanuk 935")) {
+      brand = "Nanuk"; model = "935 Wheeled Carry-On Case";
+      intL = 52.1; intW = 28.7; intH = 19.1; unit = "cm";
+      extL = 55.9; extW = 35.6; extH = 22.9;
+      weight = 5.2; weightUnit = "kg";
+      formFactor = "Carry-On"; foamType = "Padded Dividers";
+      hasWheels = true; isCarryOnCompliant = true;
+      desc = "Nanuk PowerClaw latching system with polyurethane wheels and 2-stage retractable handle.";
+    } else if (urlLower.includes("960") || urlLower.includes("nanuk 960")) {
+      brand = "Nanuk"; model = "960 Deep Trunk Case";
+      intL = 55.9; intW = 43.2; intH = 32.8; unit = "cm";
+      extL = 64.0; extW = 50.8; extH = 36.8;
+      weight = 8.7; weightUnit = "kg";
+      formFactor = "Trunk"; foamType = "Pick N Pluck";
+      hasWheels = true; isCarryOnCompliant = false;
+      desc = "Deep protective trunk case for bulky cinematic camera packages or lighting fixtures.";
+    } else if (urlLower.includes("apache") || urlLower.includes("3800") || urlLower.includes("4800") || urlLower.includes("5800")) {
+      brand = "Apache"; model = urlLower.includes("4800") ? "4800 Weatherproof Case" : "3800 Weatherproof Case";
+      intL = 45.4; intW = 32.7; intH = 17.5; unit = "cm";
+      extL = 48.8; extW = 38.6; extH = 20.1;
+      weight = 4.3; weightUnit = "kg";
+      formFactor = "Medium Utility"; foamType = "Pick N Pluck";
+      hasWheels = false; isCarryOnCompliant = true;
+      desc = "Weatherproof IP65 rated utility case with customizable pick-and-pluck foam insert.";
+    } else if (urlLower.includes("skb") || urlLower.includes("iseries") || urlLower.includes("2011")) {
+      brand = "SKB"; model = "iSeries 2011-7 Carry-On";
+      intL = 51.8; intW = 28.9; intH = 19.1; unit = "cm";
+      extL = 56.1; extW = 35.5; extH = 22.8;
+      weight = 5.1; weightUnit = "kg";
+      formFactor = "Carry-On"; foamType = "Think Tank Designed Dividers";
+      hasWheels = true; isCarryOnCompliant = true;
+      desc = "SKB iSeries injection molded waterproof case with Think Tank photo divider set.";
+    } else if (urlLower.includes("rimowa") || urlLower.includes("peak design") || urlLower.includes("backpack")) {
+      brand = "Peak Design"; model = "Travel Backpack 45L";
+      intL = 53.0; intW = 33.0; intH = 23.0; unit = "cm";
+      extL = 56.0; extW = 34.0; extH = 24.0;
+      weight = 2.05; weightUnit = "kg";
+      formFactor = "Backpack"; foamType = "Empty";
+      hasWheels = false; isCarryOnCompliant = true;
+      desc = "Expandable carry-on travel backpack optimized for camera gear cubes and tech pouches.";
+    }
+
+    return res.json({
+      status: "success",
+      source: "Offline Case Catalog Heuristics",
+      data: {
+        brand,
+        model,
+        interiorDimensions: { length: intL, width: intW, height: intH, unit },
+        exteriorDimensions: { length: extL, width: extW, height: extH, unit },
+        lidDepth: Math.round(intH * 0.25 * 10) / 10,
+        baseDepth: Math.round(intH * 0.75 * 10) / 10,
+        weight,
+        weightUnit,
+        formFactor,
+        foamType,
+        hasWheels,
+        hasTsaLock,
+        isCarryOnCompliant,
+        description: desc,
+        photoUrl
+      }
     });
   }
 });
@@ -357,7 +592,11 @@ router.post("/api/map-inventory", authenticateUser, async (req, res) => {
 
     res.json(JSON.parse(response.text));
   } catch (error: any) {
-    console.error("Gemini Inventory Mapping Error (falling back to heuristics):", error);
+    if (isQuotaError(error)) {
+      console.warn("[InventoryMapping] Quota limit reached (429), using offline mapping heuristics.");
+    } else {
+      console.warn("[InventoryMapping] Notice (using heuristics fallback):", error?.message || error);
+    }
     
     const mapping: any = {
       name: null,
@@ -471,7 +710,11 @@ router.post("/api/register-serial-model", authenticateUser, async (req, res) => 
 
     res.json(JSON.parse(response.text));
   } catch (error: any) {
-    console.error("Gemini Serial/Model Registration Error (falling back to heuristics):", error);
+    if (isQuotaError(error)) {
+      console.warn("[SerialRegistration] Quota limit reached (429), using offline registration heuristics.");
+    } else {
+      console.warn("[SerialRegistration] Notice (using heuristics fallback):", error?.message || error);
+    }
     
     let model = "";
     let modelNumber = "";
@@ -548,16 +791,26 @@ router.post("/api/dukey-chat", authenticateUser, async (req, res) => {
       }
     }
 
-    const sysInstruction = `You are "Dukey", the definitive, ultra-precise AI Knowledge Base Companion and Gear Strategist for the "Packer Tools" platform (Stable Version v5.10.0).
+    const onboardedGearSummary = Array.isArray(gear) && gear.length > 0
+      ? gear.map((g: any, idx: number) => `${idx + 1}. ${g.name || 'Item'} (${g.brand || ''} ${g.model || ''}) [Qty: ${g.quantity || 1}, Cat: ${g.primaryCategory || 'General'}]`).slice(0, 25).join('\n')
+      : 'No onboarded gear items recorded yet.';
+
+    const sysInstruction = `You are "Dukey", the definitive, ultra-precise AI Knowledge Base Companion and Gear Strategist for the "Packer Tools" platform (Stable Version v5.13.0).
 
 MANDATORY RULES:
-1. EXTREMELY BRIEF & STRAIGHTFORWARD: Speak in simple, clear, and highly straightforward language. Keep responses limited to 1 or 2 sentences max. Do NOT write long paragraphs under any circumstances. Cut out all polite filler, conversational introductions/greetings, preambles, and detailed retrospectives. Get straight to the answer immediately.
-2. PAGES & SECTION AWARENESS: You are fully aware of where the user is right now in the web application.
-   - User is currently on the active page: "${activeSection || 'General Area'}" (Path: "${activePath || '#/dashboard'}").
-   - Synthesize advice to be contextually relevant to this active section. Mention or refer to their active page/section in a straightforward manner if relevant.
-3. IN-APP NAVIGATION LINKS: When the user asks where to find features, how to access spreadsheets, directories, settings, print qr codes, etc., you MUST explicitly guide them with a markdown-styled hyper-reactive anchor pointing to the specific HashRouter path in Packer Tools. Always use these exact links:
+1. EXPLICIT & ACTIONABLE RESPONSES: Speak in clear, professional, direct language. When the user asks about operational scenarios, feature walkthroughs, packing strategies, or how to use Packer Tools features for their equipment, provide a structured, high-value breakdown (2-4 clear bullet points) referencing their specific onboarded items where applicable. For quick general questions, stay brief (1-2 sentences). Cut out all polite filler, conversational preambles, and unnecessary retrospectives.
+2. ONBOARDED KIT & SCENARIO AWARENESS: You have full visibility into the user's onboarded equipment kit!
+   - USER'S ONBOARDED GEAR KIT (${gear?.length || 0} total items):
+${onboardedGearSummary}
+   - Active Case Containers: ${containers?.length || 0}, Packing Lists: ${packingLists?.length || 0}, Custom Inventories: ${customInventories?.length || 0}.
+   - When asked how to build scenarios or pack for a specific gig/mission (e.g. film shoot, drone survey, concert tour, field clinic, construction audit), analyze their actual onboarded items above and map them directly into Packer Tools features!
+3. PAGES & SECTION AWARENESS: User is currently on: "${activeSection || 'General Area'}" (Path: "${activePath || '#/dashboard'}"). Synthesize advice relevant to their current section.
+4. IN-APP NAVIGATION LINKS: Always guide users with exact markdown-styled links:
+   - Travel Case & Spec Extractor (Backpacks, Racks, Hard Cases): [Travel Case Spec Sheet Extractor](#/travel-cases)
+   - Scenario Builder & Staging Manifests: [Staging Scenarios](#/scenario-builder)
    - Gear Library Central repository: [Gear Library](#/library)
    - Custom Inventory Sheets & Audits: [Inventory Sheets](#/inventory)
+   - Label & Barcode Studio (Avery & Plain Paper): [Label & Barcode Studio](#/labels)
    - Gear Check-In/Check-Out terminal kiosk: [Kiosk Mode](#/kiosk)
    - Home Dashboard Nerve Center: [Dashboard Nerve Center](#/dashboard)
    - Rental Listings Control: [My Active Listings](#/listings)
@@ -566,25 +819,16 @@ MANDATORY RULES:
    - Global App Settings & Bug Finder: [Systems Settings](#/admin?tab=settings)
    - User profile & public storefronts: [User Profile](#/profile)
 
-GROUND-TRUTH WORKSPACE CONFIGURATION:
-- User Profile: ${JSON.stringify(userProfile || {})}
-- Detected Habit Category: "${detectedCategory}" (${categoryExplanation})
-- Gear Assets: ${gear?.length || 0} active, Packing Lists: ${packingLists?.length || 0} active, Case Containers: ${containers?.length || 0} active, Custom Inventories: ${customInventories?.length || 0} sheets.
-
-OFFICIAL PLATFORM KNOWLEDGE BASE & POLICY MANUAL:
-- BRAND SHOPFRONTS & CUSTOM PROFILES (v4.10.0): Users can launch customized public hiring store profiles on the independent web route "#/shop/:uid". Operators configure logos, store bios, websites, cover images, and social connections within their Profile page settings.
-- DYNAMIC REGIONAL CURRENCY REGISTRY (v4.10.0): Admins select default currencies (USD, FJD, AUD, NZD, GBP, CAD, or EUR) via the Admin Panel under Regional configurations.
-- ENTERPRISE LOCKS & SUBSCRIPTION PAYWALLS (v4.3.0): Free scale users are barred from list deployments inside the marketplace, immediately prompting the Upgrade Modal to sync payment streams.
-- GLOBAL LIGHT/DARK VISUAL OVERRIDES (v4.2.0): Accessible via the User Profile/Settings tabs. Persists themes locally (LocalStorage) and overrides white/neutral defaults.
-- DEVELOPER API & EMBED PORTAL (v4.10.0): Located in the 'Developer API & Embeds' tab. Developers capture live private API keys ('pk_live_packer_...') to fetch records or copy responsive iFrame snippet codes to integrate checkouts directly into third-party sites using "https://packer.tools".
-- GEAR LIBRARY: Central repository supporting weight metrics, maintenance interval triggers, and nested kits.
-- PHYSICAL AVERY LABEL SHEET MODE (v5.8.0): Standard printing sheets supported in label printers (Avery 5160, 5161, 5162, 5163, L7160, etc.) with custom "Start Slot" starting selectors to avoid sticker wastage and visual guides toggle.
-- STORAGE QUOTA EXHAUSTION SAFEGUARDS (v5.8.0): Monkey-patches global browser storage APIs inside 'src/main.tsx' to detect private-mode storage capacity limits and auto-clear legacy caches.
-- OFFLINE INDEXEDDB FAILOVERS (v5.5.0): Uses service worker cache connections to store inventories and profiles client-side for resilient remote operations.
-- CROSS-LIST BULK COPYING (v5.7.0): Supports copying gear lists completely into custom inventories or packing lists with safe Firestore chunked batch status transitions.
-- PUBLIC SHARING LINKS & COMPANY BRANDING EXPORTS (v5.9.0): Users can securely share individual assets or lists via read-only hash-secured public links that don't require user login. Companies can upload custom PNG/JPEG logos and corporate colors to theme generated PDF cargo manifests automatically.
-- MOBILE HAPTIC FEEDBACK & TACTILE NOTIFICATIONS (v5.10.0): Integrates tactile, browser-native haptic vibrations (window.navigator.vibrate) on touch devices for critical scan, list-addition, and manual actions.
-- SYSTEM SETTINGS & BUG REPORTS FINDER: Admins locate Bug reports under System settings in the super admin tab.`;
+OFFICIAL PLATFORM KNOWLEDGE BASE & SCENARIO FEATURES (v5.13.0):
+- TRAVEL CASE & SPEC EXTRACTOR (v5.13.0): Paste any manufacturer or store URL (Pelican, Nanuk, SKB, Peak Design camera backpacks, Lowepro bags, Gator 19" rack cases) or enter custom dimensions. Auto-extracts interior volume, dimensions, and weight, then deploys directly as an active Container with interactive 2D Blueprint visualizer.
+- 2D BLUEPRINT / CASE SPATIAL VISUALIZER (v5.13.0): Test and model 2D spatial arrangement of gear placement inside case interior dimensions before physical packing.
+- STAGING SCENARIOS (#/scenario-builder): Generate automated packing manifests based on custom briefs and match against onboarded gear.
+- WORKSPACE CALIBRATION PRESETS (#/dashboard): Switch between Packing, Inventory, Tagging & Barcode, or Max layout presets.
+- BULK ASSIGNMENT & DECOMPOSE MODE (#/library): Decompose bulk inventory lines into serialized items (trackingMode: 'individual').
+- AUDIT MODE & MAINTENANCE ALERTS (#/inventory): Highlight overdue maintenance schedules or low stock items before dispatch.
+- LABEL & BARCODE STUDIO (#/labels): Print physical label sheets (Avery 5160, 5161, or Plain Paper 8-card cut guides) with QR barcodes for swift Kiosk signouts.
+- KIOSK MODE & DIGITAL SIGNATURES (#/kiosk): Field check-in/out terminal capturing digital signatures and custodial transfers.
+- PUBLIC ASSET PASSPORT & RECOVERY PORTAL (#/gear/:id): Public asset details page with urgent safe-recovery return form if item is marked missing.`;
 
     const chatHistory = Array.isArray(history) ? history.map((item: any) => ({
       role: item.role === 'user' ? 'user' : 'model',
@@ -603,12 +847,32 @@ OFFICIAL PLATFORM KNOWLEDGE BASE & POLICY MANUAL:
     const reply = response.text?.trim() || "No response generated.";
     res.json({ text: reply });
   } catch (error: any) {
-    console.error("Dukey chat failed, falling back to heuristics:", error);
+    if (isQuotaError(error)) {
+      console.warn("[Dukey] Chat quota limit reached (429), using intelligent offline assistant.");
+    } else {
+      console.warn("[Dukey] Notice (using heuristics fallback):", error?.message || error);
+    }
     let reply = "Hello! I am Dukey. It seems we are having trouble connecting to high-speed AI cores at the moment.";
     const cleanMsg = (message || "").toLowerCase();
     
-    if (cleanMsg.includes("hi") || cleanMsg.includes("hello") || cleanMsg.includes("bula")) {
-      reply = `Bula Vinaka! I'm Dukey. How can I assist you with your equipment logistics today? View your [Gear Library Central Repository](#/library) to get started.`;
+    if (cleanMsg.includes("scenario") || cleanMsg.includes("prep") || cleanMsg.includes("pack") || cleanMsg.includes("feature") || cleanMsg.includes("kit") || cleanMsg.includes("use") || cleanMsg.includes("how")) {
+      const topGearNames = Array.isArray(gear) && gear.length > 0 
+        ? gear.slice(0, 4).map((g: any) => g.name || g.model).join(', ')
+        : null;
+        
+      reply = topGearNames 
+        ? `Based on your onboarded kit (${gear.length} assets including ${topGearNames}), here is how to leverage Packer Tools scenarios:
+- **[Staging Scenarios](#/scenario-builder)**: Generate automated manifests for briefs & auto-match against your onboarded ${gear.length} assets.
+- **[Travel Case Spec Sheet Extractor](#/travel-cases)**: Paste spec URLs for backpacks (Peak Design, Lowepro), ready-built rack cases (Gator 19"), or Pelican/Nanuk cases to extract interior volumes & view 2D Blueprints.
+- **[Inventory Sheets](#/inventory)**: Run Audit Mode on your items to flag overdue maintenance or low stock before loading.
+- **[Kiosk Mode](#/kiosk)**: Use digital signature signoffs for field dispatch custody tracking.`
+        : `To run scenario planning in Packer Tools:
+- **[Staging Scenarios](#/scenario-builder)**: Generate automated packing lists tailored to your operational briefs.
+- **[Travel Case Spec Sheet Extractor](#/travel-cases)**: Extract case/backpack/rack specs and deploy 2D spatial visualizers.
+- **[Gear Library](#/library)**: Onboard your gear items to auto-match equipment during scenario generation.
+- **[Kiosk Mode](#/kiosk)**: Manage field check-ins/outs with signature verification.`;
+    } else if (cleanMsg.includes("hi") || cleanMsg.includes("hello") || cleanMsg.includes("bula")) {
+      reply = `Bula Vinaka! I'm Dukey. How can I assist you with your equipment logistics today? View your [Gear Library Central Repository](#/library) or run [Staging Scenarios](#/scenario-builder) to get started.`;
     } else if (cleanMsg.includes("rent") || cleanMsg.includes("marketplace")) {
       reply = `You can browse and list equipment on our peer-to-peer directory. Access the [Equipment Hire Marketplace](#/marketplace) to find gear available near you.`;
     } else if (cleanMsg.includes("kiosk") || cleanMsg.includes("scan") || cleanMsg.includes("checkout")) {
@@ -657,7 +921,11 @@ router.post("/api/check-compatibility", authenticateUser, async (req, res) => {
 
     res.json(JSON.parse(response.text));
   } catch (error: any) {
-    console.error("Gemini Compatibility Error (falling back to category logic):", error);
+    if (isQuotaError(error)) {
+      console.warn("[Compatibility] Quota limit reached (429), using offline category logic.");
+    } else {
+      console.warn("[Compatibility] Notice (using category logic fallback):", error?.message || error);
+    }
     
     const safeItems = Array.isArray(items) ? items : [];
     const itemNames = safeItems.map((i: any) => i.name || "Item").join(" & ");
@@ -752,7 +1020,11 @@ router.post("/api/compare-items", authenticateUser, async (req, res) => {
 
     res.json(JSON.parse(response.text));
   } catch (error: any) {
-    console.error("Gemini Comparison Error (falling back to offline comparison):", error);
+    if (isQuotaError(error)) {
+      console.warn("[Comparison] Quota limit reached (429), using offline comparison.");
+    } else {
+      console.warn("[Comparison] Notice (using offline comparison fallback):", error?.message || error);
+    }
     const nameA = itemA?.name || "Product A";
     const nameB = itemB?.name || "Product B";
     
@@ -807,7 +1079,11 @@ ${childItems.map((item: any) => `  * ${item.name || item} (Brand: ${item.brand |
 
     res.json({ description: response.text?.trim() || "" });
   } catch (error: any) {
-    console.error("Gemini Generate Description Error (falling back to text layout):", error);
+    if (isQuotaError(error)) {
+      console.warn("[Description] Quota limit reached (429), using structured summary layout.");
+    } else {
+      console.warn("[Description] Notice (using text layout fallback):", error?.message || error);
+    }
     const nameVal = name || "Product Item";
     const brandVal = brand ? `${brand} ` : "";
     const modelVal = model ? `(${model}) ` : "";
@@ -863,7 +1139,11 @@ router.post("/api/estimate-weight", authenticateUser, async (req, res) => {
 
     res.json(JSON.parse(response.text || "{}"));
   } catch (error: any) {
-    console.error("Gemini Estimate Weight Error (falling back to offline weight heuristics):", error);
+    if (isQuotaError(error)) {
+      console.warn("[WeightEstimate] Quota limit reached (429), using offline weight heuristics.");
+    } else {
+      console.warn("[WeightEstimate] Notice (using weight heuristics fallback):", error?.message || error);
+    }
     const nameLower = (String(name || "") + " " + String(model || "") + " " + String(brand || "")).toLowerCase();
     
     let weight = 0.5;
@@ -955,7 +1235,11 @@ router.post("/api/generate-scenario-list", authenticateUser, async (req, res) =>
 
     res.json(JSON.parse(response.text || "{}"));
   } catch (error: any) {
-    console.error("Scenario Generator AI Error (using heuristic fallback):", error);
+    if (isQuotaError(error)) {
+      console.warn("[Scenario] Quota limit reached (429), using heuristic fallback.");
+    } else {
+      console.warn("[Scenario] Notice (using heuristic fallback):", error?.message || error);
+    }
     const briefLower = (brief || "").toLowerCase();
     const recommendedItems: any[] = [];
     const safeGear = Array.isArray(gear) ? gear : [];
@@ -1177,7 +1461,11 @@ router.post("/api/generate-travel-itinerary", authenticateUser, async (req, res)
 
     res.json(JSON.parse(response.text || "{}"));
   } catch (error: any) {
-    console.error("Travel AI Itinerary Agent Error (using heuristic fallback):", error);
+    if (isQuotaError(error)) {
+      console.warn("[TravelItinerary] Quota limit reached (429), using heuristic fallback.");
+    } else {
+      console.warn("[TravelItinerary] Notice (using heuristic fallback):", error?.message || error);
+    }
     const dest = destination || "Nadi, Fiji";
     const climateDesc = climate || "Warm & Tropical";
     
@@ -1580,7 +1868,11 @@ router.post("/api/ai/gig-assistant", authenticateUser, async (req: any, res) => 
       data: parsed
     });
   } catch (error: any) {
-    console.error("Gig Assistant API error:", error);
+    if (isQuotaError(error)) {
+      console.warn("[GigAssistant] Quota limit reached (429), using fallback assessment.");
+    } else {
+      console.warn("[GigAssistant] Notice (using fallback assessment):", error?.message || error);
+    }
     // Return high-quality, smart fallback mock data in case of failure so the app never crashes
     return res.status(200).json({
       status: "success",

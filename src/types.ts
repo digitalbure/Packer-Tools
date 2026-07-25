@@ -86,6 +86,33 @@ export interface Plan {
   dodoCheckoutUrlAnnual?: string;
 }
 
+export interface LeftPanelItemConfig {
+  id: string;
+  label: string;
+  to?: string;
+  inQuickAccess?: boolean;
+  isFilled?: boolean;
+  color?: string;
+  order?: number;
+  hidden?: boolean;
+}
+
+export interface LeftPanelCustomization {
+  isEditModeActive?: boolean;
+  quickAccessItemIds?: string[];
+  navItemIdsOrder?: string[];
+  itemConfigs?: {
+    [idOrTo: string]: {
+      label?: string;
+      inQuickAccess?: boolean;
+      isFilled?: boolean;
+      color?: string;
+      order?: number;
+      hidden?: boolean;
+    };
+  };
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -150,6 +177,7 @@ export interface UserProfile {
     enableSystemPulseTelemetry?: boolean;
     visibleQuickActions?: string[]; // e.g. ['packing_list', 'inventory', 'rack', 'system_build', 'listing']
     sidebarCollapsedInitially?: boolean;
+    leftPanelCustomization?: LeftPanelCustomization;
   };
   subscriptionStatus?: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid';
   trialStartDate?: string;
@@ -416,6 +444,7 @@ export interface Container {
   type: 'toolbox' | 'suitcase' | 'pelican' | 'nanuk' | 'shelf' | 'locker' | 'custom' | 'bag' | 'case';
   model?: string;
   description?: string;
+  location?: string;
   photoUrls?: string[];
   qrCode?: string;
   packingListId?: string;
@@ -453,7 +482,8 @@ export interface ContainerSection {
 
 export interface CaseModel {
   id: string;
-  brand: 'Pelican' | 'Nanuk' | 'Other';
+  ownerId?: string;
+  brand: string;
   model: string;
   interiorDimensions: {
     length: number;
@@ -461,15 +491,28 @@ export interface CaseModel {
     height: number;
     unit: 'cm' | 'in';
   };
-  exteriorDimensions: {
+  exteriorDimensions?: {
     length: number;
     width: number;
     height: number;
     unit: 'cm' | 'in';
   };
+  lidDepth?: number;
+  baseDepth?: number;
   weight: number;
   weightUnit: 'kg' | 'lb';
   url?: string;
+  description?: string;
+  photoUrl?: string;
+  formFactor?: string;
+  foamType?: string;
+  hasWheels?: boolean;
+  hasTsaLock?: boolean;
+  isCarryOnCompliant?: boolean;
+  color?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface OrganizerSession {

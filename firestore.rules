@@ -235,6 +235,13 @@ service cloud.firestore {
              data.entityIds is list;
     }
 
+    function isValidCase(data) {
+      return data.keys().hasAll(['ownerId', 'brand', 'model']) &&
+             data.ownerId is string &&
+             data.brand is string && data.brand.size() > 0 &&
+             data.model is string && data.model.size() > 0;
+    }
+
 
     // ===============================================================
     // Rules Configuration (Secured Paths)
@@ -601,6 +608,14 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn();
       allow delete: if isAdmin();
+    }
+
+    // 34. Custom Travel Cases
+    match /cases/{caseId} {
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidCase(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidCase(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
   }
 }

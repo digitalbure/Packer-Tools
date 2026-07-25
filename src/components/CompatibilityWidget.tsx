@@ -192,8 +192,8 @@ export default function CompatibilityWidget({ project, user, items: passedItems 
                             <div>
                                <p className="text-xs font-bold">{issue.description}</p>
                                <div className="flex flex-wrap gap-2 mt-2">
-                                 {issue.affectedItems.map(item => (
-                                   <span key={item} className="text-[8px] font-black bg-black/10 px-2 py-0.5 rounded-full uppercase truncate max-w-[150px]">{item}</span>
+                                 {issue.affectedItems.map((item, itemIdx) => (
+                                   <span key={`${item}-${itemIdx}`} className="text-[8px] font-black bg-black/10 px-2 py-0.5 rounded-full uppercase truncate max-w-[150px]">{item}</span>
                                  ))}
                                </div>
                             </div>

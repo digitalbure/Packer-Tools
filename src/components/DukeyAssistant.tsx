@@ -212,12 +212,16 @@ I understand equipment tracking, cable bundles, Pelican setups, and visual asset
           message: rawText,
           history: chatHistory.slice(-10),
           gear: (gearItems || []).slice(0, 50).map((g: any) => ({
+            id: g.id || '',
             name: g.name || '',
             brand: g.brand || '',
             model: g.model || '',
             primaryCategory: g.primaryCategory || '',
             quantity: typeof g.quantity === 'number' ? g.quantity : 1,
-            status: g.status || ''
+            status: g.status || '',
+            condition: g.condition || '',
+            serialNumber: g.serialNumber || '',
+            location: g.location || ''
           })),
           packingLists: (packingLists || []).slice(0, 10).map((l: any) => ({
             title: l.title || '',
@@ -284,10 +288,10 @@ I understand equipment tracking, cable bundles, Pelican setups, and visual asset
   // Pre-compiled contextual prompt recommendations
   const getSuggestedPrompts = () => {
     const prompts = [
-      "How do I print adhesive wraps?",
-      "How many lenses do we have?",
-      "Optimize my Pelican weight list",
-      "Explain XLR Cable wrap-around colors"
+      "Explain scenarios for my onboarded kit",
+      "How do I prep travel cases & backpacks?",
+      "How do I run Audit Mode on my gear?",
+      "How do I print adhesive wraps & QR labels?"
     ];
     return prompts;
   };
