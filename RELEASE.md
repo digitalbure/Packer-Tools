@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.13.0`
+## Current Application Version: `v5.14.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v5.14.0 (Native Mobile UX Redesign, iOS Sheet Drag Handles & Tactile Haptic Feedback)
+*Released on: July 25, 2026*
+- **Native Mobile Navigation Bar**: Redesigned mobile bottom tab bar with spring active tab indicators (`motion/react`), dark mode glassmorphism backdrops, and expanded touch target spacing.
+- **iOS Drag-Handle Action Sheets**: Upgraded Quick Create and direct workflow menus with native iOS pull handle indicators (`w-12 h-1.5 rounded-full bg-neutral-300`) and smooth gesture dismissals.
+- **Tactile Touch Feedback**: Integrated browser-native haptics (`navigator.vibrate`) across all primary bottom bar buttons, top search toggles, drawer buttons, and action items for physical touch confirmation.
 
 ---
 

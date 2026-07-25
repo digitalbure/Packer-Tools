@@ -83,6 +83,16 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
     };
   }, []);
 
+  const triggerHaptic = (pattern: number | number[] = 12) => {
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(pattern);
+      } catch (e) {
+        // Safe fail
+      }
+    }
+  };
+
   // Fetch packing lists & custom inventories for the direct load dropdowns
   useEffect(() => {
     if (!isLoadDirectModalOpen || !user?.uid) return;
@@ -406,16 +416,22 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-45 md:hidden bg-white/95 backdrop-blur-2xl rounded-[2.5rem] border border-neutral-100 p-6 shadow-2xl space-y-4"
+              className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-45 md:hidden bg-white/95 dark:bg-neutral-900/95 backdrop-blur-2xl rounded-t-[2.5rem] border-t border-x border-neutral-200/80 dark:border-neutral-800 p-6 shadow-2xl space-y-4 pb-safe"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+              {/* Native iOS Pull Handle */}
+              <div className="w-12 h-1.5 rounded-full bg-neutral-300 dark:bg-neutral-700 mx-auto -mt-2 mb-2 shrink-0 cursor-grab active:cursor-grabbing" />
+
+              <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
                 <div className="flex flex-col text-left">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-neutral-800">Quick Create</h3>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-neutral-800 dark:text-neutral-100">Quick Create</h3>
                   <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider mt-0.5">Select managing workflow</p>
                 </div>
                 <button
-                  onClick={() => setIsMenuOpen(false)}
-                  className="p-1.5 rounded-full bg-neutral-100 text-neutral-500 hover:text-neutral-800 transition"
+                  onClick={() => {
+                    triggerHaptic(10);
+                    setIsMenuOpen(false);
+                  }}
+                  className="p-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-800 transition touch-manipulation active:scale-95 min-h-[36px] min-w-[36px] flex items-center justify-center"
                 >
                   <X size={14} />
                 </button>
@@ -430,10 +446,11 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
                 >
                   <button
                     onClick={() => {
+                      triggerHaptic([15, 30, 15]);
                       setIsMenuOpen(false);
                       setIsLoadDirectModalOpen(true);
                     }}
-                    className="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 text-white hover:opacity-95 transition border border-neutral-800 w-full text-left shadow-lg shadow-neutral-900/10"
+                    className="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 text-white hover:opacity-95 transition border border-neutral-800 w-full text-left shadow-lg shadow-neutral-900/10 active:scale-[0.98] touch-manipulation"
                   >
                     <div className="w-10 h-10 bg-white/10 text-rose-300 rounded-xl flex items-center justify-center shrink-0">
                       <ListPlus size={20} />
@@ -840,8 +857,8 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
       </AnimatePresence>
 
       {!isKeyboardOpen && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden px-4 pb-4 pt-1 bg-gradient-to-t from-neutral-50/90 via-neutral-50/80 to-transparent pointer-events-none">
-          <div className="w-full max-w-md mx-auto pointer-events-auto bg-white/95 backdrop-blur-xl rounded-[2rem] border border-neutral-100 shadow-2xl flex items-center justify-between py-2.5 px-3">
+        <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden px-3 pb-3 pt-1 bg-gradient-to-t from-neutral-50/95 via-neutral-50/80 to-transparent pointer-events-none">
+          <div className="w-full max-w-md mx-auto pointer-events-auto bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl rounded-[2.2rem] border border-neutral-200/80 dark:border-neutral-800 shadow-2xl flex items-center justify-between py-2 px-3">
             {tabs.map((tab, idx) => {
               const isCenterTab = idx === 2; // Add button
               
@@ -849,8 +866,11 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
                 return (
                   <button
                     key="add-action-button"
-                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="flex flex-col items-center justify-center flex-1 h-12 min-h-[48px] min-w-[48px] relative select-none cursor-pointer focus:outline-none touch-manipulation"
+                    onClick={() => {
+                      triggerHaptic([12, 20]);
+                      setIsMenuOpen(!isMenuOpen);
+                    }}
+                    className="flex flex-col items-center justify-center flex-1 h-12 min-h-[48px] min-w-[48px] relative select-none cursor-pointer focus:outline-none touch-manipulation active:scale-90 transition-transform"
                   >
                     <div className="transition-all duration-300">
                       {tab.icon}
@@ -865,13 +885,14 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
                 <Link
                   key={tab.to}
                   to={tab.to || '#'}
-                  className="flex flex-col items-center justify-center flex-1 h-12 min-h-[48px] min-w-[48px] relative select-none touch-manipulation"
+                  onClick={() => triggerHaptic(10)}
+                  className="flex flex-col items-center justify-center flex-1 h-12 min-h-[48px] min-w-[48px] relative select-none touch-manipulation active:scale-95 transition-transform"
                 >
                   <div 
                     className={`transition-all duration-300 ${
                       isActive 
-                        ? 'text-black scale-110' 
-                        : 'text-neutral-400 hover:text-neutral-600'
+                        ? 'text-black dark:text-white scale-110' 
+                        : 'text-neutral-400 hover:text-neutral-600 dark:text-neutral-500'
                     }`}
                   >
                     {tab.icon}
@@ -879,14 +900,18 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
 
                   <span 
                     className={`text-[9px] font-black uppercase tracking-wider mt-1 transition-colors duration-250 truncate max-w-[70px] ${
-                      isActive ? 'text-black font-extrabold' : 'text-neutral-400'
+                      isActive ? 'text-black dark:text-white font-extrabold' : 'text-neutral-400 dark:text-neutral-500'
                     }`}
                   >
                     {tab.label}
                   </span>
 
                   {isActive && (
-                    <span className="absolute bottom-0 w-1.5 h-1.5 rounded-full bg-black" />
+                    <motion.span 
+                      layoutId="activeTabDot"
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      className="absolute bottom-0.5 w-1.5 h-1.5 rounded-full bg-black dark:bg-white" 
+                    />
                   )}
                 </Link>
               );

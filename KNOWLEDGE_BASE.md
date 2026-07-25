@@ -1,10 +1,20 @@
 # 📘 Packer Tools Knowledge Base
 
-Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including the latest asset organization, bulk allocation, audit workflows, and AI scenario coaching.
+Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including the latest asset organization, bulk allocation, audit workflows, AI scenario coaching, and native mobile UX.
 
 ---
 
-## 🧳 0. Travel Cases, Backpacks & 2D Spatial Blueprints (v5.13.0)
+## 📱 0. Native Mobile UX & Tactile Haptics (v5.14.0)
+
+Packer Tools includes native mobile UX patterns for field camera operators, riggers, and warehouse technicians:
+- **Floating Bottom Navigation**: Persistent bottom tab bar with glassmorphic dark-mode backdrop filters and animated active tab dots (`motion/react`).
+- **iOS Drag-Handle Action Sheets**: Bottom sheets featuring standard iOS drag bars (`w-12 h-1.5 rounded-full`) for Quick Create and direct loading workflows.
+- **Physical Touch Target Standards**: Minimum 44-48px touch bounding targets across search triggers, menu icons, and action buttons.
+- **System-Wide Tactile Vibrations**: Haptic vibration confirmations (`navigator.vibrate`) on tab taps, action sheet opens, and quick scans.
+
+---
+
+## 🧳 0.1. Travel Cases, Backpacks & 2D Spatial Blueprints (v5.13.0)
 
 Packer Tools supports extracting and modeling specs for diverse travel case types:
 - **Hard Cases** (Pelican, Nanuk, SKB)

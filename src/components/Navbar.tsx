@@ -177,15 +177,21 @@ export default function Navbar({
           {user && (
             <>
               <button
-                onClick={() => setIsWhatsNewOpen(true)}
-                className="p-2 text-primary hover:bg-neutral-100 rounded-lg transition cursor-pointer flex items-center justify-center shrink-0"
+                onClick={() => {
+                  if ('vibrate' in navigator) try { navigator.vibrate(10); } catch (e) {}
+                  setIsWhatsNewOpen(true);
+                }}
+                className="w-11 h-11 text-primary hover:bg-neutral-100/80 active:bg-neutral-200/80 rounded-xl transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 touch-manipulation"
                 title="What's New"
               >
                 <Info size={22} className="text-primary animate-pulse" />
               </button>
               <button 
-                onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
-                className="p-2 text-primary hover:bg-neutral-100 rounded-lg transition cursor-pointer flex items-center justify-center shrink-0"
+                onClick={() => {
+                  if ('vibrate' in navigator) try { navigator.vibrate(10); } catch (e) {}
+                  window.dispatchEvent(new CustomEvent('open-command-palette'));
+                }}
+                className="w-11 h-11 text-primary hover:bg-neutral-100/80 active:bg-neutral-200/80 rounded-xl transition cursor-pointer flex items-center justify-center shrink-0 active:scale-95 touch-manipulation"
                 title="Open Search Console"
               >
                 <Search size={22} className="text-neutral-500 hover:text-neutral-900" />
@@ -194,8 +200,15 @@ export default function Navbar({
           )}
 
           <button 
-            onClick={user ? onMenuClick : toggleMenu}
-            className="p-2 text-primary hover:bg-primary/5 rounded-lg transition flex items-center justify-center shrink-0"
+            onClick={() => {
+              if ('vibrate' in navigator) try { navigator.vibrate(12); } catch (e) {}
+              if (user) {
+                onMenuClick?.();
+              } else {
+                toggleMenu();
+              }
+            }}
+            className="w-11 h-11 text-primary hover:bg-primary/5 active:bg-primary/10 rounded-xl transition flex items-center justify-center shrink-0 active:scale-95 touch-manipulation"
           >
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>

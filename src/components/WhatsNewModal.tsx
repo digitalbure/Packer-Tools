@@ -8,13 +8,39 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   const releases = [
     {
-      version: 'v5.13.0',
+      version: 'v5.14.0',
       tag: 'Latest',
       tagBg: 'bg-primary/10 text-primary border-primary/20',
+      title: 'Native Mobile UX Redesign, iOS Sheet Drag Handles & Tactile Haptic Feedback',
+      date: 'July 2026',
+      icon: Smartphone,
+      color: 'text-primary',
+      updates: [
+        {
+          title: 'Native Mobile Navigation Bar',
+          desc: 'Redesigned mobile navigation bar with active tab spring indicators, dark mode backdrop blurs, and enlarged touch targets.',
+          badge: 'Mobile UX'
+        },
+        {
+          title: 'iOS Pull Handle Bottom Sheets',
+          desc: 'Quick Create and direct workflow menus now featuring native iOS-style pull handle indicators and smooth gesture dismissals.',
+          badge: 'Native Feel'
+        },
+        {
+          title: 'System-Wide Tactile Haptics',
+          desc: 'Integrated tactile vibration feedback across navigation tabs, search buttons, drawer toggles, and action sheets for physical touch confirmation.',
+          badge: 'Haptics'
+        }
+      ]
+    },
+    {
+      version: 'v5.13.0',
+      tag: 'Previous',
+      tagBg: 'bg-neutral-100 text-neutral-700 border-neutral-200',
       title: 'Onboarded Kit Scenario Coaching, Extended Travel Cases & 2D Spatial Blueprints',
       date: 'July 2026',
       icon: Sparkles,
@@ -433,7 +459,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                 <span className="truncate">PACKER ENGINE CORE STABLE</span>
               </div>
               <span className="text-[10px] uppercase font-black tracking-wide shrink-0">
-                Build v5.13.0
+                Build v5.14.0
               </span>
             </div>
           </motion.div>

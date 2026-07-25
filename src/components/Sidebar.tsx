@@ -278,6 +278,13 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
 
   const projectStarters = allowedModules.filter(item => selectedStarters.includes(item.to));
 
+  const handleMobileClose = () => {
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try { navigator.vibrate(10); } catch (e) {}
+    }
+    setIsMobileOpen(false);
+  };
+
   const currentPlan = (adminSettings?.plans || []).find(p => p.id === user.plan);
   const maxLists = currentPlan?.maxPackingLists || 3;
 
@@ -1175,7 +1182,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
         {/* Release Version Stamp */}
         <div className="pt-3 flex flex-col items-center justify-center border-t border-neutral-100/50">
           <span className={`font-mono font-black text-neutral-400 tracking-wider ${isCollapsed ? 'text-[8px]' : 'text-[10px]'} uppercase`}>
-            {isCollapsed ? 'v5.13.0' : 'Version 5.13.0'}
+            {isCollapsed ? 'v5.14.0' : 'Version 5.14.0'}
           </span>
           {!isCollapsed && (
             <span className="text-[8px] font-black text-green-600 uppercase tracking-widest mt-1 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">
