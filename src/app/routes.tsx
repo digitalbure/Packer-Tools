@@ -12,17 +12,30 @@ const lazyWithRetry = (importFn: () => Promise<any>) => {
     try {
       return await importFn();
     } catch (err) {
-      console.warn("Dynamic import failed, attempting a retry...", err);
-      // Try importing again after 1.5 seconds
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.warn("Dynamic import failed, attempting recovery...", err);
+      // Wait 800ms before retrying
+      await new Promise(resolve => setTimeout(resolve, 800));
       try {
         return await importFn();
       } catch (retryErr) {
-        console.error("Dynamic import retry failed, reloading page to clean up cache...", retryErr);
-        // Ensure we reload the page once to clear any service worker cache or stale scripts
-        const reloaded = sessionStorage.getItem('packer_page_reloaded_on_import_error');
-        if (!reloaded) {
-          sessionStorage.setItem('packer_page_reloaded_on_import_error', 'true');
+        console.error("Dynamic import retry failed. Triggering page reload to fetch fresh module graph...", retryErr);
+        const lastReloadStr = sessionStorage.getItem('packer_last_import_reload_time');
+        const lastReloadTime = lastReloadStr ? parseInt(lastReloadStr, 10) : 0;
+        const now = Date.now();
+        
+        // If we haven't auto-reloaded within the last 15 seconds, clear stale SWs and reload
+        if (!lastReloadTime || (now - lastReloadTime) > 15000) {
+          sessionStorage.setItem('packer_last_import_reload_time', now.toString());
+          if ('serviceWorker' in navigator) {
+            try {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              for (const r of registrations) {
+                await r.unregister();
+              }
+            } catch (swErr) {
+              console.warn('Failed unregistering service worker:', swErr);
+            }
+          }
           window.location.reload();
         }
         throw retryErr;

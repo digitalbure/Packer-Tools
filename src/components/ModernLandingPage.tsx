@@ -220,7 +220,7 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
                 className="px-5 py-2.5 bg-[#ff4f3a] hover:bg-[#ff3b22] text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-[#ff4f3a]/25 flex items-center gap-2 cursor-pointer"
               >
                 <Zap size={14} />
-                <span>Launch Free Account</span>
+                <span>Start Free Trial — 14 Days →</span>
               </button>
             )}
           </div>
@@ -240,7 +240,7 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
               className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ff4f3a]/20 via-amber-500/20 to-blue-500/20 border border-[#ff4f3a]/30 rounded-full text-xs font-mono text-neutral-200 shadow-xl"
             >
               <Sparkles size={14} className="text-[#ff4f3a] animate-pulse" />
-              <span className="font-bold text-white">Packer Tools 5.15</span>
+              <span className="font-bold text-white">Packer Tools v5.18.6</span>
               <span className="text-neutral-400">|</span>
               <span className="text-amber-300 font-bold">Multi-Industry Field Asset & Logistics Engine</span>
             </motion.div>
@@ -251,10 +251,10 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
               transition={{ duration: 0.5, delay: 0.1 }}
               className="text-4xl sm:text-6xl md:text-7xl font-black tracking-tight leading-[1.05] text-white"
             >
-              Mission-Critical <br />
+              Did they sign for it? <br />
               <span className="bg-gradient-to-r from-[#ff4f3a] via-amber-400 to-rose-400 bg-clip-text text-transparent">
-                Equipment Logistics
-              </span> & Asset OS
+                Every item. Every crew. Accountable.
+              </span>
             </motion.h1>
 
             <motion.p 
@@ -278,8 +278,7 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
                 className="w-full sm:w-auto px-8 py-4 bg-[#ff4f3a] hover:bg-[#ff3b22] text-white rounded-2xl font-black uppercase text-xs tracking-widest transition shadow-2xl shadow-[#ff4f3a]/40 hover:scale-[1.02] flex items-center justify-center gap-3 cursor-pointer"
               >
                 <Zap size={18} />
-                <span>Get Started Free with Google</span>
-                <ArrowRight size={18} />
+                <span>Start Free Trial — 14 Days →</span>
               </button>
 
               <a
@@ -288,7 +287,7 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
                 className="w-full sm:w-auto px-8 py-4 bg-white/10 hover:bg-white/15 text-white rounded-2xl font-black uppercase text-xs tracking-widest transition border border-white/15 flex items-center justify-center gap-2"
               >
                 <Layers size={18} className="text-[#ff4f3a]" />
-                <span>Explore Interactive Demo</span>
+                <span>Book a Demo</span>
               </a>
             </motion.div>
 
@@ -936,7 +935,7 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
               onClick={handleStartAuth}
               className="w-full py-3 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-black uppercase tracking-wider transition border border-white/10 cursor-pointer"
             >
-              Get Started Free
+              Start Free Trial — 14 Days →
             </button>
           </div>
 
@@ -964,7 +963,7 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
               onClick={handleStartAuth}
               className="w-full py-3.5 bg-[#ff4f3a] hover:bg-[#ff3b22] text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-[#ff4f3a]/40 cursor-pointer"
             >
-              Start 14-Day Pro Trial
+              Start Free Trial — 14 Days →
             </button>
           </div>
 
@@ -987,7 +986,7 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
               onClick={handleStartAuth}
               className="w-full py-3 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-black uppercase tracking-wider transition border border-white/10 cursor-pointer"
             >
-              Contact Fleet Sales
+              Book a Demo
             </button>
           </div>
 
@@ -1053,6 +1052,7 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
           <div className="flex items-center gap-3">
             <PackerLogo size={28} />
             <span className="font-mono font-bold text-neutral-400">Packer Tools © {new Date().getFullYear()}</span>
+            <span className="text-neutral-600 font-mono text-[11px]">&bull; Built by Digital Bure · Fiji · For crews worldwide</span>
           </div>
 
           <div className="flex items-center gap-6 font-mono text-[11px]">

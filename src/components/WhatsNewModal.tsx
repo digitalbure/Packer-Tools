@@ -8,7 +8,7 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.18.6' | '5.18.5' | '5.18.4' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,9 +24,92 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.18.3',
+      version: 'v5.18.6',
       tag: 'Latest',
       tagBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-300',
+      title: 'Dynamic Module Import Recovery, Cache Invalidation & CTA/Footer Alignment',
+      date: 'July 2026',
+      icon: Sparkles,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      updates: [
+        {
+          title: 'Dynamic Module Import Auto-Recovery',
+          desc: 'Implemented exponential backoff retry and automatic Service Worker cache invalidation on chunk load failures in route imports to eliminate white-screen crashes during server updates.',
+          badge: 'Core Stability'
+        },
+        {
+          title: 'Enhanced Error Boundary Recovery',
+          desc: 'Added smart import error detection and a dedicated "Reload & Clear Cache" action to ErrorBoundary that forcefully purges stale PWA service workers and refreshes the browser module graph.',
+          badge: 'UX Safeguard'
+        },
+        {
+          title: 'Standardized Free Trial & Demo CTAs',
+          desc: 'Unified call-to-actions across landing pages, pricing grids, paywalls, and profile gates to "Start Free Trial — 14 Days →" and "Book a Demo".',
+          badge: 'CTA Alignment'
+        },
+        {
+          title: 'Context-Aware Footer Bylines',
+          desc: 'Implemented split footer bylines for formal/public contexts ("Built by Digital Bure · Fiji · For crews worldwide") and in-app views ("Made in 🇫🇯 with 💙 | App by Digital Bure").',
+          badge: 'Footer Update'
+        }
+      ]
+    },
+    {
+      version: 'v5.18.5',
+      tag: 'Stable',
+      tagBg: 'bg-neutral-500/10 text-neutral-600 border-neutral-500/20 dark:bg-neutral-500/20 dark:text-neutral-300',
+      title: 'Marketing Copy Alignment, CTA Standardization & Split Footer Byline',
+      date: 'July 2026',
+      icon: Sparkles,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      updates: [
+        {
+          title: 'Standardized Call-to-Actions',
+          desc: 'Unified all free trial and demo CTAs across landing pages, pricing grids, paywalls, and profile gates to "Start Free Trial — 14 Days →" and "Book a Demo".',
+          badge: 'Copy Alignment'
+        },
+        {
+          title: 'Context-Aware Footer Bylines',
+          desc: 'Implemented split footer bylines for formal/public contexts ("Built by Digital Bure · Fiji · For crews worldwide") and in-app/casual views ("Made in 🇫🇯 with 💙 | App by Digital Bure").',
+          badge: 'Footer Update'
+        },
+        {
+          title: 'MCP Marketing Kit & Positioning Synchronization',
+          desc: 'Updated get_marketing_messaging_kit and packer://marketing-playbook MCP tools with tagline "Production Logistics OS for Professional Crews" and canonical positioning "signed, bidirectional manifest".',
+          badge: 'MCP Update'
+        }
+      ]
+    },
+    {
+      version: 'v5.18.4',
+      tag: 'Stable',
+      tagBg: 'bg-neutral-500/10 text-neutral-600 border-neutral-500/20 dark:bg-neutral-500/20 dark:text-neutral-300',
+      title: 'MCP Security Hardening, Multi-Tenant Isolation & Claude OAuth 2.0 Integration',
+      date: 'July 2026',
+      icon: Sparkles,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      updates: [
+        {
+          title: 'Claude Custom Connector OAuth 2.0',
+          desc: 'Implemented full OAuth 2.0 authorization code & token endpoints with discovery metadata at /.well-known/oauth-authorization-server for seamless integration with Claude AI.',
+          badge: 'OAuth 2.0 Auth'
+        },
+        {
+          title: 'Fail-Closed Parameter Validation',
+          desc: 'Eliminated unauthenticated fallback defaults across MCP gear and inventory write tools. Strict explicit user UID validation is now enforced.',
+          badge: 'Security Patch'
+        },
+        {
+          title: 'Elevated Admin Tool Authorization',
+          desc: 'Secured cross-tenant administrative discovery and telemetry tools (list_organizations, lookup_user, update_user_plan) with adminApiKey access checks.',
+          badge: 'Multi-Tenant Security'
+        }
+      ]
+    },
+    {
+      version: 'v5.18.3',
+      tag: 'Stable',
+      tagBg: 'bg-neutral-500/10 text-neutral-600 border-neutral-500/20 dark:bg-neutral-500/20 dark:text-neutral-300',
       title: 'Production Cloud Run Custom Domain MCP Connector (https://packer.tools/api/mcp/sse)',
       date: 'July 2026',
       icon: Sparkles,
@@ -661,7 +744,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[10px] uppercase font-black tracking-wide hidden sm:inline text-neutral-400">
-                  Build v5.18.3
+                  Build v5.18.6
                 </span>
                 <button
                   type="button"

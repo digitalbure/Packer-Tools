@@ -328,13 +328,13 @@ function getMcpToolsList() {
       },
       {
         name: "get_release_notes",
-        description: "Admin Capabilities Tool: Query current platform release version (v5.18.3) and full release changelog history.",
+        description: "Admin Capabilities Tool: Query current platform release version (v5.18.6) and full release changelog history.",
         inputSchema: {
           type: "object",
           properties: {
             version: {
               type: "string",
-              description: "Optional version string to filter changelog notes for (e.g., 'v5.18.3', 'v5.18.2')."
+              description: "Optional version string to filter changelog notes for (e.g., 'v5.18.6', 'v5.18.5')."
             }
           }
         }
@@ -692,7 +692,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
       case "get_app_capabilities": {
         const capabilities = {
           name: "Packer Tools",
-          version: "v5.18.3",
+          version: "v5.18.6",
           description: "Multi-industry Asset & Inventory Management and Gear Logistics platform.",
           industries: [
             "General Logistics & Operations",
@@ -739,7 +739,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
         try {
           content = fs.readFileSync(filePath, "utf-8");
         } catch {
-          content = "# Release Notes\n\nCurrent Version: v5.18.3";
+          content = "# Release Notes\n\nCurrent Version: v5.18.4";
         }
 
         if (filterVersion) {
@@ -793,11 +793,13 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
         const targetIndustry = (args.industry as string | undefined)?.toLowerCase();
         const kit = {
           brand: "Packer Tools",
-          version: "v5.18.3",
-          tagline: "High-Performance Asset & Inventory Management and Gear Logistics Platform",
+          version: "v5.18.6",
+          canonicalPositioning: "signed, bidirectional manifest",
+          tagline: "Production Logistics OS for Professional Crews",
           valuePropositions: [
+            "Signed, Bidirectional Manifests: Verifiable digital signatures and physical scan handoffs for every check-in, check-out, and site transfer.",
             "Multi-Industry Adaptability: Instantly adjusts terminology, icons, and workflows whether you manage camera trucks, construction rigs, athletic rosters, or auto repair bays.",
-            "Visual 2D Foam CAD Organizer Designer (v5.18.3): Design custom case inserts with magnetic snap alignment, shape grouping (Ctrl+G), box-select marquee, and high-res vector SVG/PNG CAD exports.",
+            "Visual 2D Foam CAD Organizer Designer: Design custom case inserts with magnetic snap alignment, shape grouping (Ctrl+G), box-select marquee, and high-res vector SVG/PNG CAD exports.",
             "Standalone Kiosk Mode: Fast touchscreen check-in/out with digital signatures and instant barcode verification.",
             "Systems Builder: Drag-and-drop visual connection maps for complex equipment setups and cable topologies.",
             "Offline PWA & Audit Trail: Works in remote field locations with zero data loss and automated maintenance interval calculations."
@@ -806,37 +808,37 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
             film: {
               audience: "1st/2nd Camera Assistants, DITs, Rental Houses, Sound Engineers",
               painPoint: "Leaving high-value lenses, wireless video transmitters, or specialized cables on location.",
-              hook: "Never leave a $10k prime lens behind on set again.",
+              hook: "The lens didn't come back. Neither did a signature — until now.",
               keyFeatures: ["Visual Foam Organizer Designer", "Nested Kit Inclusions (Add-Ons)", "Kiosk Digital Signatures"]
             },
             construction: {
               audience: "Site Supervisors, Rigging Leads, Equipment Managers, Safety Officers",
               painPoint: "Lost heavy power tools, expired harness safety inspections, and site transfer confusion.",
-              hook: "OSHA-ready safety audits & real-time tool tracking across all job sites.",
+              hook: "A lost $5k laser level is expensive. A missing inspection signature on a rigging harness is fatal.",
               keyFeatures: ["Maintenance Interval Audits", "QR Code Label Studio", "Bulk Site Allocation"]
             },
             automotive: {
               audience: "Shop Owners, Fleet Mechanics, Service Managers",
               painPoint: "Unaccounted diagnostic meters, pneumatic lifts, and expensive specialty wrenches.",
-              hook: "Zero missing tools in the shop. Streamlined tech sign-outs in seconds.",
+              hook: "Every socket set and diagnostic meter accounted for with digital mechanic handoff signatures.",
               keyFeatures: ["Tool Box Organizer", "Audit Mode", "Usage History"]
             },
             sports: {
               audience: "Athletic Directors, Equipment Managers, Team Trainers",
               painPoint: "Misplaced player jerseys, protective gear kits, and travel luggage mix-ups.",
-              hook: "Flawless game-day gear logistics from home locker room to road trips.",
+              hook: "No more missing championship gear — signed gear manifests for every away game.",
               keyFeatures: ["Roster Assignment", "Packing Checklists", "Kiosk Check-Out"]
             },
             medical: {
               audience: "EMS Field Techs, Mobile Clinic Supervisors, Disaster Response Teams",
               painPoint: "Unverified field medical kits, missing sterilization logs, and expired supplies.",
-              hook: "Mission-critical field medical kit compliance and real-time inventory verification.",
+              hook: "Life-saving diagnostic equipment tracked with bi-directional, verifiable chain-of-custody signatures.",
               keyFeatures: ["Passports & Public Share Links", "Maintenance Interval Logs", "Barcode Scanning"]
             },
             logistics: {
               audience: "Warehouse Managers, Cargo Handlers, Operations Directors",
               painPoint: "Inaccurate spreadsheet inventory, slow check-outs, and multi-tenant department chaos.",
-              hook: "Automated warehouse logistics with bulk allocation & write-batch cloud scale.",
+              hook: "Zero lost freight ambiguity with real-time digital signature manifests.",
               keyFeatures: ["Multi-Tenant Workspaces", "Bulk Spreadsheet Import & Decompose", "System Telemetry Grids"]
             }
           },
@@ -925,7 +927,7 @@ function getMcpResourcesList() {
         uri: "packer://release-notes",
         name: "Release History & Changelog (RELEASE.md)",
         mimeType: "text/markdown",
-        description: "Official release notes, current build version (v5.18.3), and feature changelog history."
+        description: "Official release notes, current build version (v5.18.4), and feature changelog history."
       },
       {
         uri: "packer://knowledge-base",
@@ -953,7 +955,7 @@ async function readMcpResource(uri: string) {
   if (uri === "packer://app-capabilities") {
     const capabilities = {
       name: "Packer Tools",
-      version: "v5.18.3",
+      version: "v5.18.4",
       description: "Multi-industry Asset & Inventory Management and Gear Logistics platform.",
       industries: [
         "General Logistics & Operations",
@@ -990,12 +992,14 @@ async function readMcpResource(uri: string) {
   if (uri === "packer://marketing-playbook") {
     const playbook = {
       brand: "Packer Tools",
-      version: "v5.18.3",
-      tagline: "High-Performance Asset & Inventory Management and Gear Logistics Platform",
+      version: "v5.18.6",
+      canonicalPositioning: "signed, bidirectional manifest",
+      tagline: "Production Logistics OS for Professional Crews",
       mission: "To eliminate lost equipment, gear chaos, and spreadsheet downtime across high-consequence industries.",
       valuePropositions: [
+        "Signed, Bidirectional Manifests: Verifiable digital signatures and physical scan handoffs for every check-in, check-out, and site transfer.",
         "Multi-Industry Adaptability: Instantly adjusts terminology, icons, and workflows whether you manage camera trucks, construction rigs, athletic rosters, or auto repair bays.",
-        "Visual 2D Foam CAD Organizer Designer (v5.18.3): Design custom case inserts with magnetic snap alignment, shape grouping (Ctrl+G), box-select marquee, and high-res vector SVG/PNG CAD exports.",
+        "Visual 2D Foam CAD Organizer Designer: Design custom case inserts with magnetic snap alignment, shape grouping (Ctrl+G), box-select marquee, and high-res vector SVG/PNG CAD exports.",
         "Standalone Kiosk Mode: Fast touchscreen check-in/out with digital signatures and instant barcode verification.",
         "Systems Builder: Drag-and-drop visual connection maps for complex equipment setups and cable topologies.",
         "Offline PWA & Audit Trail: Works in remote field locations with zero data loss and automated maintenance interval calculations."
@@ -1044,7 +1048,7 @@ async function readMcpResource(uri: string) {
     try {
       content = fs.readFileSync(filePath, "utf-8");
     } catch {
-      content = "# Release Notes\n\nCurrent Version: v5.18.3";
+      content = "# Release Notes\n\nCurrent Version: v5.18.6";
     }
     return {
       contents: [{ uri, mimeType: "text/markdown", text: content }]
@@ -1169,7 +1173,7 @@ function createMcpServer(): Server {
   const mcpServer = new Server(
     {
       name: "packer-tools-mcp",
-      version: "5.18.3",
+      version: "5.18.6",
     },
     {
       capabilities: {
@@ -1273,7 +1277,7 @@ router.post(["/api/mcp", "/api/mcp/sse"], async (req, res) => {
         result: {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {}, resources: {} },
-          serverInfo: { name: "packer-tools-mcp", version: "5.18.3" }
+          serverInfo: { name: "packer-tools-mcp", version: "5.18.6" }
         },
         id
       });

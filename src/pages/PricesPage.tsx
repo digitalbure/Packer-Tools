@@ -292,7 +292,7 @@ export default function PricesPage({ user, onUpdateUser, adminSettings }: Prices
                         : 'bg-neutral-150 hover:bg-neutral-200 text-neutral-800 border border-neutral-300/40'
                     }`}
                   >
-                    {plan.id === 'free' ? 'Activate Standard Starter' : 'Unlock Pro Workspace with Paddle'}
+                    {plan.id === 'enterprise' ? 'Book a Demo' : 'Start Free Trial — 14 Days →'}
                   </button>
                 </div>
               </motion.div>

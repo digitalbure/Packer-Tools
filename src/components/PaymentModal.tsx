@@ -611,7 +611,7 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                           <span>Activating your {selectedPlan.trialDays}-day trial...</span>
                         </>
                       ) : (
-                        <span>Activate {selectedPlan.trialDays}-Day Free Trial</span>
+                        <span>Start Free Trial — 14 Days →</span>
                       )}
                     </button>
                   </div>

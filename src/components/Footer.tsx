@@ -198,7 +198,7 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
               </li>
               <li>
                 <span className="text-[10px] text-neutral-450 font-mono tracking-tighter block pt-1">
-                  Version v5.18.3 ({versionSuffix})
+                  Version v5.18.6 ({versionSuffix})
                 </span>
               </li>
             </ul>
@@ -221,7 +221,15 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
           <Link to="/prices" className="hover:text-neutral-600 transition font-black text-neutral-800">Plan Prices & Tiers</Link>
         </div>
         <div className="flex items-center gap-1">
-          <span>{currentComm ? `Community: ${currentComm.name}` : 'Global Site'} | App by <a href="https://digitalbure.com" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-600 transition underline decoration-neutral-300">Digital Bure</a></span>
+          <span>
+            {(() => {
+              const currentPath = (window.location.pathname + window.location.hash).toLowerCase();
+              const isFormalContext = currentPath.includes('/prices') || currentPath.includes('/pg/') || currentPath.includes('/landing') || currentPath === '/' || currentPath === '#/';
+              return isFormalContext 
+                ? 'Built by Digital Bure · Fiji · For crews worldwide' 
+                : 'Made in 🇫🇯 with 💙 | App by Digital Bure';
+            })()}
+          </span>
         </div>
       </div>
     </footer>

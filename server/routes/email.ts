@@ -373,7 +373,7 @@ router.post("/api/send-email", authenticateUser, async (req, res) => {
           </div>
         </div>
         <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af;">
-          Packer Tools by <a href="https://digitalbure.com" style="color: ${actionColor}; font-weight: bold; text-decoration: none;">Digital Bure 🇫🇯</a>
+          Made in 🇫🇯 with 💙 | App by <a href="https://digitalbure.com" style="color: ${actionColor}; font-weight: bold; text-decoration: none;">Digital Bure</a>
         </div>
       </div>
     </body>

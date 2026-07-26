@@ -5068,7 +5068,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                       )}
                     </h2>
                     <p className="text-[10px] text-neutral-400 font-extrabold uppercase tracking-widest mt-0.5">
-                      Fiji Logistics & Dispatch System Hub by Digital Bure 🇫🇯
+                      Made in 🇫🇯 with 💙 | App by Digital Bure
                     </p>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.18.3`
+## Current Application Version: `v5.18.6`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,33 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Production Patch Update: v5.18.6 (Dynamic Module Import Recovery, Cache Invalidation & Marketing/CTA Alignment)
+*Released on: July 26, 2026*
+- **Dynamic Import Auto-Recovery**: Enforced exponential backoff and automatic Service Worker cache invalidation/unregistration on chunk load failures in `src/app/routes.tsx` to eliminate white-screen errors during background deployment rollouts.
+- **Enhanced Crash Boundary**: Added smart import error detection and a dedicated `"Reload & Clear Cache"` recovery action to `ErrorBoundary.tsx` that forcefully purges stale PWA service workers and refreshes the browser module graph.
+- **Standardized CTA Copy**: Unified call-to-actions across landing pages, pricing tables, paywalls, and profile gates to `"Start Free Trial — 14 Days →"` (primary) and `"Book a Demo"` (secondary).
+- **Context-Aware Footer Bylines**: Implemented split footer bylines for formal/public contexts (`"Built by Digital Bure · Fiji · For crews worldwide"`) and in-app views (`"Made in 🇫🇯 with 💙 | App by Digital Bure"`).
+- **MCP Protocol & Tools Sync**: Synchronized MCP server info, capabilities, and marketing kit resources (`packer://marketing-playbook`) to version `v5.18.6`.
+
+---
+
+### 🚀 Production Patch Update: v5.18.5 (Marketing Copy Alignment, CTA Standardization & Split Footer Byline)
+*Released on: July 26, 2026*
+- **Standardized CTA Copy**: Standardized all primary free trial and demo call-to-actions across landing pages, pricing grids, paywalls, and profile gates to `"Start Free Trial — 14 Days →"` (primary) and `"Book a Demo"` (secondary).
+- **Context-Aware Split Footers**: Implemented context-specific footer bylines across public/formal pages (`"Built by Digital Bure · Fiji · For crews worldwide"`) and in-app/casual views (`"Made in 🇫🇯 with 💙 | App by Digital Bure"`).
+- **MCP Marketing Kit & Positioning Alignment**: Updated `get_marketing_messaging_kit` and `packer://marketing-playbook` MCP tools to version `v5.18.5`, updated tagline to `"Production Logistics OS for Professional Crews"`, added `canonicalPositioning: "signed, bidirectional manifest"`, and aligned industry hooks to lead with signed manifest accountability.
+- **Hero & Headline Copy Alignment**: Standardized top-of-funnel attention hooks to `"Did they sign for it?"` and consideration spots to `"Every item. Every crew. Accountable."`.
+
+---
+
+### 🚀 Production Patch Update: v5.18.4 (MCP Multi-Tenant Security, Unauthenticated Fail-Closed Protection & Claude OAuth 2.0)
+*Released on: July 26, 2026*
+- **Claude OAuth 2.0 Connector Handshake**: Implemented complete OAuth 2.0 authorization code and token endpoints (`/oauth/authorize`, `/oauth/token`) and discovery metadata at `/.well-known/oauth-authorization-server` for Claude AI custom connector integration.
+- **Fail-Closed Unauthenticated Safety**: Removed unauthenticated fallback defaults (such as `'demo-super-admin'`) across all gear library and inventory write endpoints (`add_gear_item`, `list_gear`, `list_inventory_sheets`). Explicit `uid` user validation is now strictly enforced.
+- **Elevated Admin API Authorization**: Gated cross-tenant organizational discovery, profile lookup, and system telemetry tools (`list_organizations`, `lookup_user`, `update_user_plan`, `get_system_telemetry`) behind strict `adminApiKey` authentication checks.
 
 ---
 

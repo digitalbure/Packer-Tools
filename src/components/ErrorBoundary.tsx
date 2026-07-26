@@ -26,14 +26,38 @@ export default class ErrorBoundary extends Component<Props, State> {
     this.setState({ errorInfo });
   }
 
+  private handleHardReload = () => {
+    try {
+      sessionStorage.removeItem('packer_last_import_reload_time');
+      sessionStorage.removeItem('packer_page_reloaded_on_import_error');
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const registration of registrations) {
+            registration.unregister();
+          }
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('Error clearing cache on hard reload:', e);
+    }
+    window.location.reload();
+  };
+
   public render() {
     if (this.state.hasError) {
+      const isImportError = this.state.error?.toString().includes('Failed to fetch dynamically imported module') ||
+                            this.state.error?.toString().includes('Importing a module script failed');
+
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-900 text-neutral-200 p-6 sans-serif">
           <div className="w-full max-w-2xl bg-neutral-800 border border-neutral-700 rounded-xl p-6 shadow-xl">
-            <h1 className="text-2xl font-bold text-red-400 mb-2">Application Render Crash</h1>
+            <h1 className="text-2xl font-bold text-red-400 mb-2">
+              {isImportError ? 'New Update / Connection Reset' : 'Application Render Crash'}
+            </h1>
             <p className="text-neutral-400 mb-4">
-              Packer Tools encountered an unexpected error on this view. Below are the diagnostic details.
+              {isImportError
+                ? 'Packer Tools detected a build update or brief network disconnection while loading this view. Click below to refresh your session.'
+                : 'Packer Tools encountered an unexpected error on this view. Below are the diagnostic details.'}
             </p>
             <div className="bg-neutral-950 p-4 rounded-lg overflow-x-auto text-xs font-mono text-red-300 max-h-96 border border-neutral-800">
               <strong className="text-white block mb-1">Error:</strong>
@@ -45,18 +69,18 @@ export default class ErrorBoundary extends Component<Props, State> {
                 </>
               )}
             </div>
-            <div className="mt-6 flex gap-4">
+            <div className="mt-6 flex flex-wrap gap-3">
               <button
                 id="eb-reload-btn"
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 active:bg-neutral-850 text-white rounded-lg transition text-sm font-medium cursor-pointer"
+                onClick={this.handleHardReload}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg transition text-sm font-bold cursor-pointer shadow-lg shadow-emerald-950"
               >
-                Reload App
+                Reload & Clear Cache
               </button>
               <button
                 id="eb-reset-btn"
                 onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition text-sm font-medium cursor-pointer"
+                className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg transition text-sm font-medium cursor-pointer"
               >
                 Try Component Reset
               </button>

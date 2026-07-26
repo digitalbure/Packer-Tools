@@ -26,22 +26,22 @@ export default function AdminDocsTab() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400">Platform Build</p>
-          <p className="text-2xl font-black text-neutral-950">v5.18.3</p>
+          <p className="text-2xl font-black text-neutral-950">v5.18.6</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[8px] font-mono font-bold">Stable Core</span>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400 font-mono">AI Scraper Engine</p>
-          <p className="text-2xl font-black text-neutral-950">v5.18.3</p>
+          <p className="text-2xl font-black text-neutral-950">v5.18.6</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[8px] font-mono font-bold">Gemini Live</span>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400">Embed Widget SDK</p>
-          <p className="text-2xl font-black text-neutral-950">v5.18.3</p>
+          <p className="text-2xl font-black text-neutral-950">v5.18.6</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[8px] font-mono font-bold">CORS Whitelisted</span>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400 font-mono">DB Schema Spec</p>
-          <p className="text-2xl font-black text-neutral-950">v5.18.3</p>
+          <p className="text-2xl font-black text-neutral-950">v5.18.6</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[8px] font-mono font-bold">Encrypted Keys</span>
         </div>
       </div>
@@ -245,7 +245,7 @@ export default function AdminDocsTab() {
                 <div className="p-3.5 bg-neutral-950/70 rounded-xl border border-purple-500/30 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-mono font-bold text-purple-300 text-[11px]">get_release_notes</span>
-                    <span className="text-[8px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-500/30">v5.18.3 Changelog</span>
+                    <span className="text-[8px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-500/30">v5.18.6 Changelog</span>
                   </div>
                   <p className="text-[11px] text-neutral-400 leading-tight">Retrieves official release notes (`RELEASE.md`), version history, and feature additions.</p>
                 </div>
