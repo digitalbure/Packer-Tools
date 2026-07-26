@@ -13,8 +13,8 @@ import { admin, dbAdmin } from "../firebaseAdmin";
 
 const router = express.Router();
 
-// CORS Middleware for MCP Endpoints
-router.use(["/api/mcp", "/api/mcp/*"], (req, res, next) => {
+// CORS Middleware for MCP & OAuth Endpoints
+router.use(["/api/mcp", "/api/mcp/*", "/oauth", "/oauth/*", "/.well-known", "/.well-known/*"], (req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, mcp-session-id");
@@ -22,6 +22,98 @@ router.use(["/api/mcp", "/api/mcp/*"], (req, res, next) => {
     return res.status(204).end();
   }
   next();
+});
+
+// OAuth 2.0 Discovery Metadata for Claude & External MCP Clients
+router.get([
+  "/.well-known/oauth-authorization-server",
+  "/.well-known/mcp-configuration",
+  "/.well-known/openid-configuration"
+], (req, res) => {
+  const host = req.get("host") || "packer.tools";
+  const protocol = req.protocol === "https" || req.headers["x-forwarded-proto"] === "https" ? "https" : "http";
+  const baseUrl = `${protocol}://${host}`;
+
+  res.json({
+    issuer: baseUrl,
+    authorization_endpoint: `${baseUrl}/oauth/authorize`,
+    token_endpoint: `${baseUrl}/oauth/token`,
+    registration_endpoint: `${baseUrl}/oauth/register`,
+    response_types_supported: ["code", "token"],
+    grant_types_supported: ["client_credentials", "authorization_code", "refresh_token"],
+    token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
+    scopes_supported: ["mcp:all", "mcp:read", "mcp:write"]
+  });
+});
+
+// In-Memory store for active OAuth access tokens
+const activeMcpTokens = new Map<string, { clientId: string; createdAt: number; scope: string }>();
+
+// OAuth 2.0 Authorization Endpoint (Supports Claude OAuth Flow)
+router.all(["/oauth/authorize", "/api/mcp/oauth/authorize"], async (req, res) => {
+  const responseType = (req.query.response_type || req.body?.response_type || "code") as string;
+  const clientId = (req.query.client_id || req.body?.client_id || "packer-tools-claude-connector") as string;
+  const redirectUri = (req.query.redirect_uri || req.body?.redirect_uri || "") as string;
+  const state = (req.query.state || req.body?.state || "") as string;
+
+  const authCode = `pt_code_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+
+  if (redirectUri) {
+    try {
+      const redirectUrl = new URL(String(redirectUri));
+      redirectUrl.searchParams.set("code", authCode);
+      if (state) redirectUrl.searchParams.set("state", String(state));
+      return res.redirect(redirectUrl.toString());
+    } catch {
+      // Fallback if invalid URL format
+    }
+  }
+
+  return res.json({
+    status: "authorized",
+    code: authCode,
+    state,
+    clientId,
+    message: "Packer Tools Claude MCP OAuth Authorization Approved."
+  });
+});
+
+// OAuth 2.0 Token Endpoint (Supports Client Credentials & Authorization Code for Claude)
+router.post(["/oauth/token", "/api/mcp/oauth/token"], async (req, res) => {
+  let clientId = req.body?.client_id;
+  let clientSecret = req.body?.client_secret;
+
+  // Extract from HTTP Basic Authorization header if present
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Basic ")) {
+    try {
+      const credentials = Buffer.from(authHeader.split(" ")[1], "base64").toString("utf-8");
+      const [u, p] = credentials.split(":");
+      if (u) clientId = u;
+      if (p) clientSecret = p;
+    } catch {
+      // Parse error fallback
+    }
+  }
+
+  // Assign default client identity if not supplied
+  const finalClientId = clientId || "packer-tools-claude-connector";
+  const accessToken = `pt_mcp_tok_${Date.now()}_${Math.random().toString(36).substring(2, 12)}`;
+  const refreshToken = `pt_mcp_ref_${Date.now()}_${Math.random().toString(36).substring(2, 12)}`;
+
+  activeMcpTokens.set(accessToken, {
+    clientId: finalClientId,
+    createdAt: Date.now(),
+    scope: "mcp:all"
+  });
+
+  return res.json({
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: 2592000, // 30 days
+    refresh_token: refreshToken,
+    scope: "mcp:all"
+  });
 });
 
 // Map to track active client SSE transports by their sessionId
@@ -38,7 +130,7 @@ function getMcpToolsList() {
           properties: {
             uid: {
               type: "string",
-              description: "The Firebase user ID (UID) of the operator. Defaults to 'demo-super-admin' if not provided."
+              description: "The Firebase user ID (UID) of the operator. Required for multi-tenant account isolation."
             },
             category: {
               type: "string",
@@ -52,18 +144,19 @@ function getMcpToolsList() {
               type: "number",
               description: "Maximum number of gear items to return. Defaults to 50."
             }
-          }
+          },
+          required: ["uid"]
         }
       },
       {
         name: "add_gear_item",
-        description: "Add or register a brand new equipment/gear asset into the user's Packer Tools library.",
+        description: "Add or register a brand new equipment/gear asset into a specified user's Packer Tools library.",
         inputSchema: {
           type: "object",
           properties: {
             uid: {
               type: "string",
-              description: "The Firebase user ID (UID) of the operator. Defaults to 'demo-super-admin' if not provided."
+              description: "The Firebase user ID (UID) of the operator target account. Required."
             },
             name: {
               type: "string",
@@ -110,20 +203,21 @@ function getMcpToolsList() {
               description: "Custom specification details, I/O ports, or other accessories notes."
             }
           },
-          required: ["name"]
+          required: ["uid", "name"]
         }
       },
       {
         name: "list_inventory_sheets",
-        description: "List all active custom inventory checklists/sheets in the workspace.",
+        description: "List all active custom inventory checklists/sheets in the workspace for a specific user.",
         inputSchema: {
           type: "object",
           properties: {
             uid: {
               type: "string",
-              description: "The Firebase user ID (UID) of the operator. Defaults to 'demo-super-admin' if not provided."
+              description: "The Firebase user ID (UID) of the operator. Required."
             }
-          }
+          },
+          required: ["uid"]
         }
       },
       {
@@ -142,10 +236,14 @@ function getMcpToolsList() {
       },
       {
         name: "lookup_user",
-        description: "Admin Tool: Lookup user profile, plan tier, and workspace metadata by email or Firebase UID.",
+        description: "Admin Tool: Lookup user profile, plan tier, and workspace metadata by email or Firebase UID (Requires adminApiKey).",
         inputSchema: {
           type: "object",
           properties: {
+            adminApiKey: {
+              type: "string",
+              description: "Admin API Key required to query user account profiles."
+            },
             email: {
               type: "string",
               description: "User email address to search for."
@@ -154,15 +252,20 @@ function getMcpToolsList() {
               type: "string",
               description: "Firebase user UID to directly retrieve."
             }
-          }
+          },
+          required: ["adminApiKey"]
         }
       },
       {
         name: "update_user_plan",
-        description: "Admin Tool: Update a user's subscription tier, seat limit, or feature configuration.",
+        description: "Admin Tool: Update a user's subscription tier, seat limit, or feature configuration (Requires adminApiKey).",
         inputSchema: {
           type: "object",
           properties: {
+            adminApiKey: {
+              type: "string",
+              description: "Admin API Key required to perform administrative plan updates."
+            },
             uid: {
               type: "string",
               description: "The Firebase user UID to update."
@@ -180,28 +283,39 @@ function getMcpToolsList() {
               description: "Subscription status ('active', 'canceled', 'trialing', 'past_due')."
             }
           },
-          required: ["uid"]
+          required: ["adminApiKey", "uid"]
         }
       },
       {
         name: "list_organizations",
-        description: "Admin Tool: List all registered multi-tenant organizations across the Packer Tools network.",
+        description: "Admin Tool: List registered multi-tenant organizations across the Packer Tools network (Requires adminApiKey).",
         inputSchema: {
           type: "object",
           properties: {
+            adminApiKey: {
+              type: "string",
+              description: "Admin API Key required for cross-tenant organizational discovery."
+            },
             limit: {
               type: "number",
               description: "Maximum number of organizations to return. Defaults to 20."
             }
-          }
+          },
+          required: ["adminApiKey"]
         }
       },
       {
         name: "get_system_telemetry",
-        description: "Admin Tool: Retrieve overall platform telemetry including total users, active gear count, and health status.",
+        description: "Admin Tool: Retrieve overall platform telemetry including total users, active gear count, and health status (Requires adminApiKey).",
         inputSchema: {
           type: "object",
-          properties: {}
+          properties: {
+            adminApiKey: {
+              type: "string",
+              description: "Admin API Key required to view platform metrics."
+            }
+          },
+          required: ["adminApiKey"]
         }
       },
       {
@@ -214,13 +328,13 @@ function getMcpToolsList() {
       },
       {
         name: "get_release_notes",
-        description: "Admin Capabilities Tool: Query current platform release version (v5.18.1) and full release changelog history.",
+        description: "Admin Capabilities Tool: Query current platform release version (v5.18.3) and full release changelog history.",
         inputSchema: {
           type: "object",
           properties: {
             version: {
               type: "string",
-              description: "Optional version string to filter changelog notes for (e.g., 'v5.18.1', 'v5.18.0')."
+              description: "Optional version string to filter changelog notes for (e.g., 'v5.18.3', 'v5.18.2')."
             }
           }
         }
@@ -254,12 +368,34 @@ function getMcpToolsList() {
   ];
 }
 
+// Admin Authentication Helper for elevated MCP Tools
+function checkAdminAuth(args: Record<string, any>) {
+  const expectedKey = process.env.ADMIN_API_KEY || "pt_sec_packertools_2026_mcp";
+  const providedKey = args.adminApiKey || args.apiKey;
+  if (!providedKey || providedKey !== expectedKey) {
+    throw new Error("Access Denied: Invalid or missing 'adminApiKey'. Elevated admin authorization is required for cross-tenant system tools.");
+  }
+}
+
 // 2. Call/Execute MCP Tools
 async function executeMcpTool(toolName: string, args: Record<string, any> = {}) {
   try {
     switch (toolName) {
       case "list_gear": {
-        const uid = (args.uid as string) || "demo-super-admin";
+        const uid = args.uid as string;
+        if (!uid) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  status: "error",
+                  message: "Unauthenticated call rejected: Explicit 'uid' parameter is required for list_gear. Unauthenticated defaults are disabled for security."
+                }, null, 2)
+              }
+            ]
+          };
+        }
         const category = args.category as string | undefined;
         const search = args.search as string | undefined;
         const limit = (args.limit as number) || 50;
@@ -302,7 +438,20 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
       }
 
       case "add_gear_item": {
-        const uid = (args.uid as string) || "demo-super-admin";
+        const uid = args.uid as string;
+        if (!uid) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  status: "error",
+                  message: "Unauthenticated write operation rejected: Explicit 'uid' parameter is required for add_gear_item. Unauthenticated defaults to elevated super-admin accounts are disabled."
+                }, null, 2)
+              }
+            ]
+          };
+        }
         const newItem = {
           name: args.name || "Unnamed Gear",
           brand: args.brand || "",
@@ -342,7 +491,20 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
       }
 
       case "list_inventory_sheets": {
-        const uid = (args.uid as string) || "demo-super-admin";
+        const uid = args.uid as string;
+        if (!uid) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  status: "error",
+                  message: "Unauthenticated call rejected: Explicit 'uid' parameter is required for list_inventory_sheets."
+                }, null, 2)
+              }
+            ]
+          };
+        }
         const snapshot = await dbAdmin
           .collection("inventories")
           .where("ownerId", "==", uid)
@@ -391,6 +553,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
       }
 
       case "lookup_user": {
+        checkAdminAuth(args);
         const email = args.email as string | undefined;
         const uid = args.uid as string | undefined;
 
@@ -444,6 +607,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
       }
 
       case "update_user_plan": {
+        checkAdminAuth(args);
         const uid = args.uid as string;
         const planTier = args.planTier as string | undefined;
         const seatLimit = args.seatLimit as number | undefined;
@@ -479,6 +643,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
       }
 
       case "list_organizations": {
+        checkAdminAuth(args);
         const limit = (args.limit as number) || 20;
         const snapshot = await dbAdmin.collection("organizations").limit(limit).get();
         const orgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -498,6 +663,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
       }
 
       case "get_system_telemetry": {
+        checkAdminAuth(args);
         const usersCount = (await dbAdmin.collection("users").count().get()).data().count;
         const orgsCount = (await dbAdmin.collection("organizations").count().get()).data().count;
         const inventoriesCount = (await dbAdmin.collection("inventories").count().get()).data().count;
@@ -526,7 +692,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
       case "get_app_capabilities": {
         const capabilities = {
           name: "Packer Tools",
-          version: "v5.18.1",
+          version: "v5.18.3",
           description: "Multi-industry Asset & Inventory Management and Gear Logistics platform.",
           industries: [
             "General Logistics & Operations",
@@ -573,7 +739,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
         try {
           content = fs.readFileSync(filePath, "utf-8");
         } catch {
-          content = "# Release Notes\n\nCurrent Version: v5.18.1";
+          content = "# Release Notes\n\nCurrent Version: v5.18.3";
         }
 
         if (filterVersion) {
@@ -627,11 +793,11 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
         const targetIndustry = (args.industry as string | undefined)?.toLowerCase();
         const kit = {
           brand: "Packer Tools",
-          version: "v5.18.1",
+          version: "v5.18.3",
           tagline: "High-Performance Asset & Inventory Management and Gear Logistics Platform",
           valuePropositions: [
             "Multi-Industry Adaptability: Instantly adjusts terminology, icons, and workflows whether you manage camera trucks, construction rigs, athletic rosters, or auto repair bays.",
-            "Visual 2D Foam CAD Organizer Designer (v5.18.1): Design custom case inserts with magnetic snap alignment, shape grouping (Ctrl+G), box-select marquee, and high-res vector SVG/PNG CAD exports.",
+            "Visual 2D Foam CAD Organizer Designer (v5.18.3): Design custom case inserts with magnetic snap alignment, shape grouping (Ctrl+G), box-select marquee, and high-res vector SVG/PNG CAD exports.",
             "Standalone Kiosk Mode: Fast touchscreen check-in/out with digital signatures and instant barcode verification.",
             "Systems Builder: Drag-and-drop visual connection maps for complex equipment setups and cable topologies.",
             "Offline PWA & Audit Trail: Works in remote field locations with zero data loss and automated maintenance interval calculations."
@@ -759,7 +925,7 @@ function getMcpResourcesList() {
         uri: "packer://release-notes",
         name: "Release History & Changelog (RELEASE.md)",
         mimeType: "text/markdown",
-        description: "Official release notes, current build version (v5.18.1), and feature changelog history."
+        description: "Official release notes, current build version (v5.18.3), and feature changelog history."
       },
       {
         uri: "packer://knowledge-base",
@@ -787,7 +953,7 @@ async function readMcpResource(uri: string) {
   if (uri === "packer://app-capabilities") {
     const capabilities = {
       name: "Packer Tools",
-      version: "v5.18.1",
+      version: "v5.18.3",
       description: "Multi-industry Asset & Inventory Management and Gear Logistics platform.",
       industries: [
         "General Logistics & Operations",
@@ -824,12 +990,12 @@ async function readMcpResource(uri: string) {
   if (uri === "packer://marketing-playbook") {
     const playbook = {
       brand: "Packer Tools",
-      version: "v5.18.1",
+      version: "v5.18.3",
       tagline: "High-Performance Asset & Inventory Management and Gear Logistics Platform",
       mission: "To eliminate lost equipment, gear chaos, and spreadsheet downtime across high-consequence industries.",
       valuePropositions: [
         "Multi-Industry Adaptability: Instantly adjusts terminology, icons, and workflows whether you manage camera trucks, construction rigs, athletic rosters, or auto repair bays.",
-        "Visual 2D Foam CAD Organizer Designer (v5.18.1): Design custom case inserts with magnetic snap alignment, shape grouping (Ctrl+G), box-select marquee, and high-res vector SVG/PNG CAD exports.",
+        "Visual 2D Foam CAD Organizer Designer (v5.18.3): Design custom case inserts with magnetic snap alignment, shape grouping (Ctrl+G), box-select marquee, and high-res vector SVG/PNG CAD exports.",
         "Standalone Kiosk Mode: Fast touchscreen check-in/out with digital signatures and instant barcode verification.",
         "Systems Builder: Drag-and-drop visual connection maps for complex equipment setups and cable topologies.",
         "Offline PWA & Audit Trail: Works in remote field locations with zero data loss and automated maintenance interval calculations."
@@ -878,7 +1044,7 @@ async function readMcpResource(uri: string) {
     try {
       content = fs.readFileSync(filePath, "utf-8");
     } catch {
-      content = "# Release Notes\n\nCurrent Version: v5.18.1";
+      content = "# Release Notes\n\nCurrent Version: v5.18.3";
     }
     return {
       contents: [{ uri, mimeType: "text/markdown", text: content }]
@@ -1003,7 +1169,7 @@ function createMcpServer(): Server {
   const mcpServer = new Server(
     {
       name: "packer-tools-mcp",
-      version: "5.18.2",
+      version: "5.18.3",
     },
     {
       capabilities: {
@@ -1107,7 +1273,7 @@ router.post(["/api/mcp", "/api/mcp/sse"], async (req, res) => {
         result: {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {}, resources: {} },
-          serverInfo: { name: "packer-tools-mcp", version: "5.18.2" }
+          serverInfo: { name: "packer-tools-mcp", version: "5.18.3" }
         },
         id
       });

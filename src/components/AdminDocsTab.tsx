@@ -26,22 +26,22 @@ export default function AdminDocsTab() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400">Platform Build</p>
-          <p className="text-2xl font-black text-neutral-950">v5.18.1</p>
+          <p className="text-2xl font-black text-neutral-950">v5.18.3</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[8px] font-mono font-bold">Stable Core</span>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400 font-mono">AI Scraper Engine</p>
-          <p className="text-2xl font-black text-neutral-950">v5.18.1</p>
+          <p className="text-2xl font-black text-neutral-950">v5.18.3</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[8px] font-mono font-bold">Gemini Live</span>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400">Embed Widget SDK</p>
-          <p className="text-2xl font-black text-neutral-950">v5.18.1</p>
+          <p className="text-2xl font-black text-neutral-950">v5.18.3</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[8px] font-mono font-bold">CORS Whitelisted</span>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400 font-mono">DB Schema Spec</p>
-          <p className="text-2xl font-black text-neutral-950">v5.18.1</p>
+          <p className="text-2xl font-black text-neutral-950">v5.18.3</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[8px] font-mono font-bold">Encrypted Keys</span>
         </div>
       </div>
@@ -148,19 +148,72 @@ export default function AdminDocsTab() {
 
             <div className="grid sm:grid-cols-2 gap-4 text-xs font-mono">
               <div className="p-4 bg-neutral-950/80 rounded-2xl border border-neutral-800 space-y-2">
-                <span className="text-[9px] text-purple-400 font-bold uppercase tracking-wider block">SSE Transport Endpoint</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-purple-400 font-bold uppercase tracking-wider block">Production SSE Transport Endpoint</span>
+                  <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider">packer.tools</span>
+                </div>
                 <p className="text-neutral-200 text-[11px] font-bold select-all bg-neutral-900 px-3 py-2 rounded-xl border border-neutral-800">
-                  {window.location.origin}/api/mcp/sse
+                  https://packer.tools/api/mcp/sse
                 </p>
-                <p className="text-[10px] text-neutral-400 font-sans">Full-duplex Server-Sent Events connection stream for Claude Code & Cursor.</p>
+                <p className="text-[10px] text-neutral-400 font-sans">Public Cloud Run Server-Sent Events stream for Claude Code CLI, Claude Desktop & Cursor.</p>
               </div>
 
               <div className="p-4 bg-neutral-950/80 rounded-2xl border border-neutral-800 space-y-2">
                 <span className="text-[9px] text-purple-400 font-bold uppercase tracking-wider block">Claude Code CLI Add Command</span>
                 <p className="text-purple-300 text-[11px] font-bold select-all bg-neutral-900 px-3 py-2 rounded-xl border border-neutral-800">
-                  claude mcp add packer-tools -- {window.location.origin}/api/mcp/sse
+                  claude mcp add packer-tools -- https://packer.tools/api/mcp/sse
                 </p>
-                <p className="text-[10px] text-neutral-400 font-sans">Run inside your terminal to instantly pair Claude Code CLI with Packer Tools.</p>
+                <p className="text-[10px] text-neutral-400 font-sans">Run inside your terminal to instantly pair Claude Code CLI with Packer Tools on Cloud Run.</p>
+              </div>
+            </div>
+
+            {/* Claude.ai Custom Connector OAuth Settings Guide */}
+            <div className="p-5 bg-gradient-to-br from-purple-950/50 to-neutral-950 rounded-2xl border border-purple-500/30 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-black text-white uppercase tracking-wide flex items-center gap-2">
+                    <span>Claude Custom Connector Auth Settings</span>
+                    <span className="px-2 py-0.5 text-[8px] bg-emerald-500/20 text-emerald-300 font-mono font-bold rounded-full border border-emerald-500/30">OAuth 2.0 Ready</span>
+                  </h4>
+                  <p className="text-xs text-neutral-300 font-sans mt-0.5">
+                    When adding Packer Tools to Claude via the <strong>Add custom connector</strong> dialog (under Advanced Settings), fill in the fields below:
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-3 text-xs font-mono">
+                <div className="p-3 bg-neutral-900/90 rounded-xl border border-neutral-800 space-y-1">
+                  <span className="text-[9px] text-purple-300 uppercase font-black tracking-wider block">Connector Name</span>
+                  <p className="text-white font-bold text-[11px] select-all bg-black/50 px-2.5 py-1.5 rounded border border-neutral-800">
+                    Packer Tools
+                  </p>
+                </div>
+
+                <div className="p-3 bg-neutral-900/90 rounded-xl border border-neutral-800 space-y-1">
+                  <span className="text-[9px] text-purple-300 uppercase font-black tracking-wider block">URL Endpoint</span>
+                  <p className="text-emerald-400 font-bold text-[11px] select-all bg-black/50 px-2.5 py-1.5 rounded border border-neutral-800">
+                    https://packer.tools/api/mcp/sse
+                  </p>
+                </div>
+
+                <div className="p-3 bg-neutral-900/90 rounded-xl border border-purple-500/30 space-y-1">
+                  <span className="text-[9px] text-amber-300 uppercase font-black tracking-wider block">OAuth Client ID (Advanced Settings)</span>
+                  <p className="text-amber-200 font-bold text-[11px] select-all bg-black/50 px-2.5 py-1.5 rounded border border-neutral-800">
+                    packer-tools-claude-connector
+                  </p>
+                </div>
+
+                <div className="p-3 bg-neutral-900/90 rounded-xl border border-purple-500/30 space-y-1">
+                  <span className="text-[9px] text-amber-300 uppercase font-black tracking-wider block">OAuth Client Secret (Advanced Settings)</span>
+                  <p className="text-amber-200 font-bold text-[11px] select-all bg-black/50 px-2.5 py-1.5 rounded border border-neutral-800">
+                    pt_sec_packertools_2026_mcp
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-neutral-900/60 rounded-xl border border-neutral-800/80 text-[11px] font-sans text-neutral-300 space-y-1">
+                <p><strong>Option 1 (Authenticated OAuth):</strong> Enter the Client ID and Client Secret above into Claude's Advanced Settings. Claude will perform an OAuth 2.0 handshake with <code>/oauth/token</code> and secure all MCP tool calls using a Bearer token.</p>
+                <p><strong>Option 2 (Unauthenticated Public Mode):</strong> Leave OAuth Client ID and OAuth Client Secret completely blank in Claude's Advanced Settings. The MCP connector will function in open public mode.</p>
               </div>
             </div>
 
@@ -170,7 +223,7 @@ export default function AdminDocsTab() {
 {JSON.stringify({
   "mcpServers": {
     "packer-tools": {
-      "url": `${window.location.origin}/api/mcp/sse`
+      "url": "https://packer.tools/api/mcp/sse"
     }
   }
 }, null, 2)}
@@ -192,7 +245,7 @@ export default function AdminDocsTab() {
                 <div className="p-3.5 bg-neutral-950/70 rounded-xl border border-purple-500/30 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-mono font-bold text-purple-300 text-[11px]">get_release_notes</span>
-                    <span className="text-[8px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-500/30">v5.18.1 Changelog</span>
+                    <span className="text-[8px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-500/30">v5.18.3 Changelog</span>
                   </div>
                   <p className="text-[11px] text-neutral-400 leading-tight">Retrieves official release notes (`RELEASE.md`), version history, and feature additions.</p>
                 </div>

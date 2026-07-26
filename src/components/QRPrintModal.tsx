@@ -1411,7 +1411,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                   Label Studio
                 </h2>
                 <span className="text-[8px] sm:text-[9px] uppercase font-black tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 sm:px-2 py-0.5 rounded shrink-0">
-                  v5.18.1
+                  v5.18.3
                 </span>
               </div>
               <p className="text-xs text-neutral-400 hidden sm:block truncate">

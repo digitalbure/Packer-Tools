@@ -4,20 +4,20 @@ Welcome to the **Packer Tools** Knowledge Base! This document provides detailed,
 
 ---
 
-## 🤖 0.00. Model Context Protocol (MCP) Server & Claude Marketing Agent Connector (v5.18.2)
+## 🤖 0.00. Model Context Protocol (MCP) Server & Claude Marketing Agent Connector (v5.18.3)
 
 Packer Tools includes a native **Model Context Protocol (MCP) Server** running directly on the backend (`/api/mcp` and `/api/mcp/sse`), enabling Claude Code, Claude Desktop, Claude Marketing Agents, and Cursor to pair seamlessly with your Packer Tools workspace:
 
 ### 1. Connecting Claude Code CLI or Cursor
 Add Packer Tools directly in your terminal or Claude Desktop config using the active Server-Sent Events (SSE) transport endpoint:
 ```bash
-claude mcp add packer-tools -- https://<your-domain>/api/mcp/sse
+claude mcp add packer-tools -- https://packer.tools/api/mcp/sse
 ```
 
 ### 2. Available Admin & Marketing Capabilities Tools
 - `get_app_capabilities`: Syncs Claude on complete platform specifications, active modules, layout presets, tech stack, and architectural rules.
 - `get_marketing_messaging_kit`: Provides the **Claude Marketing Agent** with target audience personas, pain points, value propositions, feature hooks, social media post templates, and hashtags across 6 key industries (Film, Construction, Automotive, Sports, Medical, Logistics).
-- `get_release_notes`: Fetches current version notes (`v5.18.2`) and full changelog history directly from `RELEASE.md`.
+- `get_release_notes`: Fetches current version notes (`v5.18.3`) and full changelog history directly from `RELEASE.md`.
 - `get_knowledge_base_guide`: Allows Claude to search step-by-step module documentation directly from `KNOWLEDGE_BASE.md`.
 - `lookup_user` & `update_user_plan`: Admin tools to inspect user profiles, plan tiers, seat limits, and subscription statuses.
 - `get_system_telemetry`: Provides real-time metrics including total user count, active organizations, custom inventory sheets, and system operational health.

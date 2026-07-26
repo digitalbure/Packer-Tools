@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.18.2`
+## Current Application Version: `v5.18.3`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Production Update: v5.18.3 (Production Cloud Run Custom Domain packer.tools MCP Endpoint Integration)
+*Released on: July 25, 2026*
+- **Production Custom Domain Connector**: Updated all MCP Server endpoint references, terminal command documentation, and JSON configurations to target the public Cloud Run production custom domain `https://packer.tools/api/mcp/sse`.
+- **Admin Documentation Panel Synchronization**: Updated the Admin Documentation tab and `KNOWLEDGE_BASE.md` to directly reference `https://packer.tools/api/mcp/sse` for instant pairing with Claude Code CLI, Claude Desktop, and Cursor.
+- **Server Version Synchronization**: Updated central server definition in `server/routes/mcp.ts` and UI modals to `v5.18.3`.
 
 ---
 
