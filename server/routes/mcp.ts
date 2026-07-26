@@ -13,27 +13,23 @@ import { admin, dbAdmin } from "../firebaseAdmin";
 
 const router = express.Router();
 
-// Define a central Model Context Protocol Server
-const mcpServer = new Server(
-  {
-    name: "packer-tools-mcp",
-    version: "1.0.0",
-  },
-  {
-    capabilities: {
-      tools: {},
-      resources: {},
-    },
+// CORS Middleware for MCP Endpoints
+router.use(["/api/mcp", "/api/mcp/*"], (req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, mcp-session-id");
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
   }
-);
+  next();
+});
 
 // Map to track active client SSE transports by their sessionId
 const activeTransports = new Map<string, SSEServerTransport>();
 
 // 1. List MCP Tools available on the server
-mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools: [
+function getMcpToolsList() {
+  return [
       {
         name: "list_gear",
         description: "List and search all gear/assets stored in the Packer Tools library for a given user.",
@@ -255,15 +251,11 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
           }
         }
       }
-    ]
-  };
-});
+  ];
+}
 
 // 2. Call/Execute MCP Tools
-mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const toolName = request.params.name;
-  const args = request.params.arguments || {};
-
+async function executeMcpTool(toolName: string, args: Record<string, any> = {}) {
   try {
     switch (toolName) {
       case "list_gear": {
@@ -746,12 +738,11 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
       ]
     };
   }
-});
+}
 
 // 3. List MCP Resources
-mcpServer.setRequestHandler(ListResourcesRequestSchema, async () => {
-  return {
-    resources: [
+function getMcpResourcesList() {
+  return [
       {
         uri: "packer://app-capabilities",
         name: "Packer Tools Platform Specifications & Capabilities",
@@ -788,14 +779,11 @@ mcpServer.setRequestHandler(ListResourcesRequestSchema, async () => {
         mimeType: "text/markdown",
         description: "A summary dashboard of the gear library metrics, maintenance states, and health overview."
       }
-    ]
-  };
-});
+  ];
+}
 
 // 4. Read MCP Resources
-mcpServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-  const uri = request.params.uri;
-
+async function readMcpResource(uri: string) {
   if (uri === "packer://app-capabilities") {
     const capabilities = {
       name: "Packer Tools",
@@ -1008,34 +996,158 @@ ${Object.entries(statusCounts)
   }
 
   throw new Error(`Resource uri not found: ${uri}`);
-});
+}
 
-// 5. Mount SSE Endpoints
-router.get("/api/mcp/sse", async (req, res) => {
+// 5. MCP Server Factory Instance Per Connection Session
+function createMcpServer(): Server {
+  const mcpServer = new Server(
+    {
+      name: "packer-tools-mcp",
+      version: "5.18.2",
+    },
+    {
+      capabilities: {
+        tools: {},
+        resources: {},
+      },
+    }
+  );
+
+  mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
+    return { tools: getMcpToolsList() };
+  });
+
+  mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
+    return await executeMcpTool(request.params.name, request.params.arguments || {});
+  });
+
+  mcpServer.setRequestHandler(ListResourcesRequestSchema, async () => {
+    return { resources: getMcpResourcesList() };
+  });
+
+  mcpServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    return await readMcpResource(request.params.uri);
+  });
+
+  return mcpServer;
+}
+
+// 6. Mount SSE Endpoints
+router.get(["/api/mcp/sse", "/api/mcp", "/api/mcp/"], async (req, res) => {
   console.info("[MCP Router] Initializing new client SSE connection stream...");
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+
   const transport = new SSEServerTransport("/api/mcp/messages", res);
   const sessionId = transport.sessionId;
-  
+
   activeTransports.set(sessionId, transport);
   console.info(`[MCP Router] Registered active session sessionID: ${sessionId}`);
 
+  // Heartbeat ping interval every 15 seconds to keep proxies (Cloud Run / Nginx) alive
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(": ping\n\n");
+    } catch {
+      clearInterval(heartbeat);
+    }
+  }, 15000);
+
   req.on("close", () => {
     console.info(`[MCP Router] Client closed stream. Discarding sessionId: ${sessionId}`);
+    clearInterval(heartbeat);
     activeTransports.delete(sessionId);
   });
 
-  await mcpServer.connect(transport);
+  const sessionServer = createMcpServer();
+  await sessionServer.connect(transport);
 });
 
-router.post("/api/mcp/messages", async (req, res) => {
+// 7. Mount POST Message Endpoint for Active SSE Sessions
+router.post(["/api/mcp/messages", "/api/mcp/messages/"], async (req, res) => {
   const sessionId = req.query.sessionId as string;
   const transport = activeTransports.get(sessionId);
 
   if (transport) {
-    await transport.handlePostMessage(req, res);
+    // Pass req.body as 3rd parameter because express.json() already parsed the stream
+    await transport.handlePostMessage(req, res, req.body);
   } else {
     console.warn(`[MCP Router] Failed to route message. SessionId not active or stale: ${sessionId}`);
     res.status(404).json({ error: "Session not found or connection terminated." });
+  }
+});
+
+// 8. Direct HTTP JSON-RPC Endpoint (Stateless Fallback / Non-SSE clients)
+router.post(["/api/mcp", "/api/mcp/sse"], async (req, res) => {
+  if (req.query.sessionId) {
+    const sessionId = req.query.sessionId as string;
+    const transport = activeTransports.get(sessionId);
+    if (transport) {
+      return await transport.handlePostMessage(req, res, req.body);
+    }
+    return res.status(404).json({ error: "Session not found or connection terminated." });
+  }
+
+  const { jsonrpc, method, params, id } = req.body || {};
+  if (jsonrpc !== "2.0") {
+    return res.status(400).json({
+      jsonrpc: "2.0",
+      error: { code: -32600, message: "Invalid Request: Expected jsonrpc 2.0" },
+      id: id || null
+    });
+  }
+
+  try {
+    if (method === "initialize") {
+      return res.json({
+        jsonrpc: "2.0",
+        result: {
+          protocolVersion: "2024-11-05",
+          capabilities: { tools: {}, resources: {} },
+          serverInfo: { name: "packer-tools-mcp", version: "5.18.2" }
+        },
+        id
+      });
+    }
+
+    if (method === "ping") {
+      return res.json({ jsonrpc: "2.0", result: {}, id });
+    }
+
+    if (method === "tools/list") {
+      const tools = getMcpToolsList();
+      return res.json({ jsonrpc: "2.0", result: { tools }, id });
+    }
+
+    if (method === "tools/call") {
+      const toolResult = await executeMcpTool(params?.name, params?.arguments);
+      return res.json({ jsonrpc: "2.0", result: toolResult, id });
+    }
+
+    if (method === "resources/list") {
+      const resources = getMcpResourcesList();
+      return res.json({ jsonrpc: "2.0", result: { resources }, id });
+    }
+
+    if (method === "resources/read") {
+      const resourceResult = await readMcpResource(params?.uri);
+      return res.json({ jsonrpc: "2.0", result: resourceResult, id });
+    }
+
+    return res.status(404).json({
+      jsonrpc: "2.0",
+      error: { code: -32601, message: `Method not found: ${method}` },
+      id
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      jsonrpc: "2.0",
+      error: { code: -32603, message: err.message || "Internal error" },
+      id
+    });
   }
 });
 

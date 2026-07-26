@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.18.1`
+## Current Application Version: `v5.18.2`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,15 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Minor Update: v5.18.2 (MCP Server SSE Heartbeats, CORS & Dual-Transport Resilience)
+*Released on: July 25, 2026*
+- **CORS & Proxy Header Authorization**: Applied wildcard CORS headers (`Access-Control-Allow-Origin: *`, `Access-Control-Allow-Headers`) across all `/api/mcp` endpoints to enable cross-origin connections from Claude Web, Claude Desktop, and Cursor connectors.
+- **SSE Stream Keep-Alive Heartbeats**: Implemented 15-second heartbeat ping comments (`: ping\n\n`) on the `/api/mcp/sse` transport to prevent Cloud Run, Nginx, and web proxy idle timeouts.
+- **Session Isolation & Express Body Parsing**: Configured isolated MCP Server instances per client session and passed pre-parsed Express JSON payloads into `SSEServerTransport.handlePostMessage`.
+- **Stateless HTTP JSON-RPC Fallback**: Added direct JSON-RPC HTTP POST handling (`initialize`, `ping`, `tools/list`, `tools/call`, `resources/list`, `resources/read`) on `/api/mcp` and `/api/mcp/sse` for clients using standard REST-based RPC requests.
 
 ---
 

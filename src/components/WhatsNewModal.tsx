@@ -8,7 +8,7 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,9 +24,35 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.18.1',
+      version: 'v5.18.2',
       tag: 'Latest',
       tagBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-300',
+      title: 'MCP SSE Keep-Alive Heartbeats, CORS Headers & Stateless HTTP Fallback',
+      date: 'July 2026',
+      icon: Sparkles,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      updates: [
+        {
+          title: 'Cross-Origin CORS Header Enablement',
+          desc: 'Enabled full wildcard CORS headers and options preflight handling across all /api/mcp endpoints for external AI connectors.',
+          badge: 'CORS Security'
+        },
+        {
+          title: 'SSE Stream Keep-Alive Ping Engine',
+          desc: 'Added 15-second SSE heartbeat pings to prevent proxy and Cloud Run network timeouts during active AI agent sessions.',
+          badge: 'Reliability'
+        },
+        {
+          title: 'Stateless HTTP JSON-RPC Endpoint',
+          desc: 'Added direct REST-style POST RPC handling on /api/mcp and /api/mcp/sse for non-SSE MCP clients.',
+          badge: 'MCP Protocol'
+        }
+      ]
+    },
+    {
+      version: 'v5.18.1',
+      tag: 'Stable',
+      tagBg: 'bg-purple-500/10 text-purple-600 border-purple-500/20 dark:bg-purple-500/20 dark:text-purple-300',
       title: 'React Duplicate Key Resolution & Lockfile Synchronization',
       date: 'July 2026',
       icon: Sparkles,
@@ -609,7 +635,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[10px] uppercase font-black tracking-wide hidden sm:inline text-neutral-400">
-                  Build v5.18.1
+                  Build v5.18.2
                 </span>
                 <button
                   type="button"
