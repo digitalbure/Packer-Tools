@@ -178,7 +178,7 @@ export default function PackingListBioView() {
       });
       const firstItemAny = firstItemWithImg as any;
       const itemImgUrl = firstItemAny ? (firstItemAny.photoUrls?.[0] || firstItemAny.photoUrl || firstItemAny.imageUrl || firstItemAny.image) : null;
-      const listImage = listAny.coverImage || listAny.image || itemImgUrl || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600';
+      const listImage = listAny.coverImage || listAny.image || itemImgUrl || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=600';
 
       const updateOrCreateMetaTag = (selector: string, attrName: string, attrVal: string, contentVal: string) => {
         let element = document.querySelector(selector);

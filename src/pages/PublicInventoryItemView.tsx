@@ -68,7 +68,7 @@ export default function PublicInventoryItemView() {
         || itemAny.imageUrl
         || itemAny.image
         || (itemAny.photos && itemAny.photos.length > 0 && itemAny.photos[0])
-        || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600';
+        || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=600';
 
       const updateOrCreateMetaTag = (selector: string, attrName: string, attrVal: string, contentVal: string) => {
         let element = document.querySelector(selector);
@@ -164,7 +164,7 @@ export default function PublicInventoryItemView() {
     || itemAny?.photoUrl
     || itemAny?.imageUrl
     || itemAny?.image
-    || "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600";
+    || "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=600";
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white selection:bg-[#0066cc]">

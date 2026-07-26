@@ -502,3 +502,98 @@ export async function extractCaseDimensions(url: string): Promise<ExtractedCaseD
     };
   }
 }
+
+export async function generateOrganizerLayout(params: {
+  containerType: string;
+  containerDimensions?: any;
+  items?: Array<{ id: string; name: string; category?: string; brand?: string; model?: string }>;
+  priority?: 'density' | 'protection' | 'workflow';
+}): Promise<{
+  containerTitle: string;
+  layoutNotes: string;
+  shapes: Array<{
+    id?: string;
+    label: string;
+    type: 'rectangle' | 'square' | 'circle' | 'divider-v' | 'divider-h' | 'foam-cutout';
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color: string;
+    assignedGearIds?: string[];
+    reasoning?: string;
+  }>;
+}> {
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const res = await fetch("/api/gemini/organizer-layout", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(params)
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP error ${res.status}`);
+    }
+
+    const json = await res.json();
+    if (json.status === "success" && json.data) {
+      return json.data;
+    }
+    throw new Error(json.message || "Failed to generate layout");
+  } catch (error) {
+    console.error("Failed to generate organizer layout via API:", error);
+    // Offline / Fallback heuristic layout
+    const fallbackShapes: any[] = [];
+    const colors = ['#ff4f3a', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b'];
+    const items = params.items || [];
+
+    if (items.length > 0) {
+      const cols = Math.min(3, Math.ceil(Math.sqrt(items.length)));
+      const rows = Math.ceil(items.length / cols);
+      const colWidth = Math.floor(90 / cols);
+      const rowHeight = Math.floor(90 / rows);
+
+      items.forEach((item, idx) => {
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        const cat = (item.category || '').toLowerCase();
+        let color = colors[idx % colors.length];
+        if (cat.includes('camera') || cat.includes('body')) color = '#ff4f3a';
+        else if (cat.includes('lens') || cat.includes('optic')) color = '#3b82f6';
+        else if (cat.includes('power') || cat.includes('battery')) color = '#10b981';
+
+        fallbackShapes.push({
+          id: `shape_${Date.now()}_${idx}`,
+          label: item.name || `Section ${idx + 1}`,
+          type: cat.includes('lens') ? 'circle' : 'rectangle',
+          x: Math.min(90, 5 + col * colWidth),
+          y: Math.min(90, 5 + row * rowHeight),
+          width: Math.max(12, colWidth - 4),
+          height: Math.max(12, rowHeight - 4),
+          color,
+          assignedGearIds: [item.id],
+          reasoning: "Offline TrekPak layout distribution"
+        });
+      });
+    } else {
+      fallbackShapes.push(
+        { id: `shape_1`, label: 'Main Camera Body Bay', type: 'rectangle', x: 5, y: 5, width: 45, height: 50, color: '#ff4f3a', assignedGearIds: [] },
+        { id: `shape_2`, label: 'Telephoto Lens Well', type: 'circle', x: 55, y: 5, width: 40, height: 25, color: '#3b82f6', assignedGearIds: [] },
+        { id: `shape_3`, label: 'Prime Lens Well', type: 'circle', x: 55, y: 35, width: 40, height: 20, color: '#3b82f6', assignedGearIds: [] },
+        { id: `shape_4`, label: 'Battery & Charger Vault', type: 'rectangle', x: 5, y: 60, width: 45, height: 35, color: '#10b981', assignedGearIds: [] },
+        { id: `shape_5`, label: 'Cable & Accessories Pouch', type: 'rectangle', x: 55, y: 60, width: 40, height: 35, color: '#8b5cf6', assignedGearIds: [] }
+      );
+    }
+
+    return {
+      containerTitle: `${params.containerType} Layout`,
+      layoutNotes: "Generated structured 2D packing layout.",
+      shapes: fallbackShapes
+    };
+  }
+}
+

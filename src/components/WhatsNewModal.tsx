@@ -8,7 +8,7 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,9 +24,61 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.15.0',
+      version: 'v5.17.0',
       tag: 'Latest',
       tagBg: 'bg-primary/10 text-primary border-primary/20',
+      title: 'Multi-Select Group & Ungroup Shapes Engine in Organizer Designer',
+      date: 'July 2026',
+      icon: Sparkles,
+      color: 'text-primary',
+      updates: [
+        {
+          title: 'Multi-Select & Group/Ungroup Shapes Engine',
+          desc: 'Select multiple shapes with Shift/Ctrl/Cmd click and group them with Ctrl+G or ungroup with Ctrl+Shift+G.',
+          badge: 'Canvas CAD'
+        },
+        {
+          title: 'Interactive Group Bounding Overlay',
+          desc: 'Renders dynamic purple dashed bounding overlays with Lock Group and Ungroup quick-action controls.',
+          badge: 'UI Controls'
+        },
+        {
+          title: 'Synchronized Group Drag & Scaling',
+          desc: 'Move or resize entire grouped shape collections simultaneously with automatic relative coordinate scaling.',
+          badge: 'Interactivity'
+        }
+      ]
+    },
+    {
+      version: 'v5.16.0',
+      tag: 'Stable',
+      tagBg: 'bg-neutral-100 text-neutral-600 border-neutral-200',
+      title: 'Organizer Designer SVG/PNG CAD Export & Magnetic Snap Alignment Engine',
+      date: 'July 2026',
+      icon: Layers,
+      color: 'text-primary',
+      updates: [
+        {
+          title: 'Vector & High-Res PNG CAD Export',
+          desc: 'Export foam layout sketches instantly to vector SVG or 1600x1067 high-resolution PNG image files.',
+          badge: 'CAD Export'
+        },
+        {
+          title: 'Magnetic Snap Alignment Engine',
+          desc: 'Smart magnetic edge-to-edge, center-axis, and container boundary snapping with active cyan guide lines.',
+          badge: 'Alignment'
+        },
+        {
+          title: 'Magnetic Controls & Persistence',
+          desc: 'Enable/disable magnetic snapping via toolbar toggle and save settings into Firestore container sketches.',
+          badge: 'Persistence'
+        }
+      ]
+    },
+    {
+      version: 'v5.15.0',
+      tag: 'Stable',
+      tagBg: 'bg-neutral-100 text-neutral-600 border-neutral-200',
       title: 'Public Share Links Resolution, Non-Auth Public Asset Access & Security Rules Hardening',
       date: 'July 2026',
       icon: Sparkles,
@@ -500,7 +552,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[10px] uppercase font-black tracking-wide hidden sm:inline text-neutral-400">
-                  Build v5.15.0
+                  Build v5.17.0
                 </span>
                 <button
                   type="button"

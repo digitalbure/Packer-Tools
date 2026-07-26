@@ -39,7 +39,7 @@ const STOCK_GEAR_SAMPLES = [
   {
     name: "Sony FX3 Cinema Camera",
     category: "Camera",
-    img: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=400&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
+    img: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
     desc: "Compact cinema line full-frame camera with phenomenal high ISO performance and cinematic color science."
   },
   {

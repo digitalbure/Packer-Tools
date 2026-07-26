@@ -795,7 +795,7 @@ router.post("/api/dukey-chat", authenticateUser, async (req, res) => {
       ? gear.map((g: any, idx: number) => `${idx + 1}. ${g.name || 'Item'} (${g.brand || ''} ${g.model || ''}) [Qty: ${g.quantity || 1}, Cat: ${g.primaryCategory || 'General'}]`).slice(0, 25).join('\n')
       : 'No onboarded gear items recorded yet.';
 
-    const sysInstruction = `You are "Dukey", the definitive, ultra-precise AI Knowledge Base Companion and Gear Strategist for the "Packer Tools" platform (Stable Version v5.14.0).
+    const sysInstruction = `You are "Dukey", the definitive, ultra-precise AI Knowledge Base Companion and Gear Strategist for the "Packer Tools" platform (Stable Version v5.15.0).
 
 MANDATORY RULES:
 1. EXPLICIT & ACTIONABLE RESPONSES: Speak in clear, professional, direct language. When the user asks about operational scenarios, feature walkthroughs, packing strategies, or how to use Packer Tools features for their equipment, provide a structured, high-value breakdown (2-4 clear bullet points) referencing their specific onboarded items where applicable. For quick general questions, stay brief (1-2 sentences). Cut out all polite filler, conversational preambles, and unnecessary retrospectives.
@@ -819,10 +819,11 @@ ${onboardedGearSummary}
    - Global App Settings & Bug Finder: [Systems Settings](#/admin?tab=settings)
    - User profile & public storefronts: [User Profile](#/profile)
 
-OFFICIAL PLATFORM KNOWLEDGE BASE & SCENARIO FEATURES (v5.14.0):
+OFFICIAL PLATFORM KNOWLEDGE BASE & SCENARIO FEATURES (v5.15.0):
+- PUBLIC SHARE LINKS & UNAUTHENTICATED ASSET RESOLUTION (v5.15.0): Direct unauthenticated public access for shared gear items, digital asset passports, and packing lists with automatic collectionGroup fallback and hardened Firestore security rules.
 - NATIVE MOBILE UX & TACTILE HAPTICS (v5.14.0): Enhanced mobile navigation bar with active tab spring indicators, native iOS pull handle bottom sheets, enlarged touch targets, and browser tactile haptics.
-- TRAVEL CASE & SPEC EXTRACTOR (v5.14.0): Paste any manufacturer or store URL (Pelican, Nanuk, SKB, Peak Design camera backpacks, Lowepro bags, Gator 19" rack cases) or enter custom dimensions. Auto-extracts interior volume, dimensions, and weight, then deploys directly as an active Container with interactive 2D Blueprint visualizer.
-- 2D BLUEPRINT / CASE SPATIAL VISUALIZER (v5.14.0): Test and model 2D spatial arrangement of gear placement inside case interior dimensions before physical packing.
+- TRAVEL CASE & SPEC EXTRACTOR (v5.13.0): Paste any manufacturer or store URL (Pelican, Nanuk, SKB, Peak Design camera backpacks, Lowepro bags, Gator 19" rack cases) or enter custom dimensions. Auto-extracts interior volume, dimensions, and weight, then deploys directly as an active Container with interactive 2D Blueprint visualizer.
+- 2D BLUEPRINT / CASE SPATIAL VISUALIZER (v5.13.0): Test and model 2D spatial arrangement of gear placement inside case interior dimensions before physical packing.
 - STAGING SCENARIOS (#/scenario-builder): Generate automated packing manifests based on custom briefs and match against onboarded gear.
 - WORKSPACE CALIBRATION PRESETS (#/dashboard): Switch between Packing, Inventory, Tagging & Barcode, or Max layout presets.
 - BULK ASSIGNMENT & DECOMPOSE MODE (#/library): Decompose bulk inventory lines into serialized items (trackingMode: 'individual').
@@ -1902,6 +1903,125 @@ router.post("/api/ai/gig-assistant", authenticateUser, async (req: any, res) => 
           { title: "Power Management", advice: "Fully charge all remote battery packs 24 hours prior to departure.", icon: "Battery" },
           { title: "Weather Preparedness", advice: "Check meteorology updates and pack ziplocs/drybags for equipment protection.", icon: "CloudRain" }
         ]
+      }
+    });
+  }
+});
+
+// POST /api/gemini/organizer-layout - Generate smart 2D Sketchup-style layout for cases/drawers
+router.post("/api/gemini/organizer-layout", async (req, res) => {
+  const { containerType = "Pelican Case", containerDimensions, items = [], priority = "protection" } = req.body;
+
+  try {
+    const itemListStr = items.map((it: any, idx: number) => 
+      `${idx + 1}. ID: "${it.id}", Name: "${it.name}", Category: "${it.category || 'General'}", Brand/Model: "${it.brand || ''} ${it.model || ''}"`
+    ).join("\n");
+
+    const prompt = `You are a master equipment packing engineer and foam layout designer for high-end gear cases (Pelican, Nanuk, TrekPak, Studio Drawers).
+Generate an optimal 2D layout sketch for a ${containerType}${containerDimensions ? ` (Dimensions: ${JSON.stringify(containerDimensions)})` : ''}.
+Optimization Priority: ${priority} (e.g. protection = leave padding buffers around fragile optics/cameras; density = fit maximum items tightly; workflow = group by usage order).
+
+Items to pack into this container:
+${itemListStr || "1. Main Camera Body\n2. Primary Lens\n3. Battery Pack\n4. Audio Receiver\n5. Cable Pouch"}
+
+Layout Canvas Dimensions: 0 to 100 on X-axis (left to right), 0 to 100 on Y-axis (top to bottom).
+Ensure shapes do not overlap completely, leave reasonable margin (2-5% gap) for foam padding walls.
+Assign an appropriate color hex code to each section (e.g., #ff4f3a for camera/main, #10b981 for batteries/power, #3b82f6 for lenses/optics, #f59e0b for audio/wireless, #8b5cf6 for cables/accessories, #64748b for general compartments).
+
+Return a JSON object containing a "shapes" array of section cutout shapes.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            containerTitle: { type: Type.STRING },
+            layoutNotes: { type: Type.STRING },
+            shapes: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  label: { type: Type.STRING },
+                  type: { type: Type.STRING, description: "rectangle, square, circle, foam-cutout, divider-v, divider-h" },
+                  x: { type: Type.NUMBER, description: "0 to 95 percent" },
+                  y: { type: Type.NUMBER, description: "0 to 95 percent" },
+                  width: { type: Type.NUMBER, description: "5 to 90 percent" },
+                  height: { type: Type.NUMBER, description: "5 to 90 percent" },
+                  color: { type: Type.STRING },
+                  assignedGearIds: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  reasoning: { type: Type.STRING }
+                },
+                required: ["label", "type", "x", "y", "width", "height", "color"]
+              }
+            }
+          },
+          required: ["containerTitle", "layoutNotes", "shapes"]
+        }
+      }
+    });
+
+    const parsed = JSON.parse(response.text.trim());
+    return res.json({
+      status: "success",
+      data: parsed
+    });
+  } catch (error: any) {
+    console.warn("[OrganizerLayout] Notice (using algorithmic fallback layout):", error?.message || error);
+
+    // Fallback smart geometric packing algorithm
+    const fallbackShapes: any[] = [];
+    const colors = ['#ff4f3a', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b'];
+
+    if (items.length > 0) {
+      const cols = Math.min(3, Math.ceil(Math.sqrt(items.length)));
+      const rows = Math.ceil(items.length / cols);
+      const colWidth = Math.floor(90 / cols);
+      const rowHeight = Math.floor(90 / rows);
+
+      items.forEach((item: any, idx: number) => {
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        const cat = (item.category || '').toLowerCase();
+        let color = colors[idx % colors.length];
+        if (cat.includes('camera') || cat.includes('body')) color = '#ff4f3a';
+        else if (cat.includes('lens') || cat.includes('optic')) color = '#3b82f6';
+        else if (cat.includes('power') || cat.includes('battery')) color = '#10b981';
+
+        fallbackShapes.push({
+          id: `shape_${Date.now()}_${idx}`,
+          label: item.name || `Section ${idx + 1}`,
+          type: cat.includes('lens') ? 'circle' : 'rectangle',
+          x: Math.min(90, 5 + col * colWidth),
+          y: Math.min(90, 5 + row * rowHeight),
+          width: Math.max(12, colWidth - 4),
+          height: Math.max(12, rowHeight - 4),
+          color,
+          assignedGearIds: [item.id],
+          reasoning: "Algorithmic foam layout grid distribution"
+        });
+      });
+    } else {
+      // Standard Pelican TrekPak starter layout
+      fallbackShapes.push(
+        { id: `shape_1`, label: 'Main Camera Body Bay', type: 'rectangle', x: 5, y: 5, width: 45, height: 50, color: '#ff4f3a', assignedGearIds: [] },
+        { id: `shape_2`, label: 'Telephoto Lens Well', type: 'circle', x: 55, y: 5, width: 40, height: 25, color: '#3b82f6', assignedGearIds: [] },
+        { id: `shape_3`, label: 'Prime Lens Well', type: 'circle', x: 55, y: 35, width: 40, height: 20, color: '#3b82f6', assignedGearIds: [] },
+        { id: `shape_4`, label: 'Battery & Charger Vault', type: 'rectangle', x: 5, y: 60, width: 45, height: 35, color: '#10b981', assignedGearIds: [] },
+        { id: `shape_5`, label: 'Cable & Filter Pouch', type: 'rectangle', x: 55, y: 60, width: 40, height: 35, color: '#8b5cf6', assignedGearIds: [] }
+      );
+    }
+
+    return res.json({
+      status: "success",
+      isFallback: true,
+      data: {
+        containerTitle: `${containerType} Algorithmic Blueprint`,
+        layoutNotes: "Calculated structured TrekPak grid layout.",
+        shapes: fallbackShapes
       }
     });
   }

@@ -24,8 +24,8 @@ function escapeHtml(str: string): string {
 }
 
 function injectOgTags(html: string, title: string, description: string, imageUrl: string, url: string): string {
-  const entertainmentPlaceholder = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=600";
-  const finalImage = imageUrl || entertainmentPlaceholder;
+  const gearPlaceholder = "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=600";
+  const finalImage = imageUrl || gearPlaceholder;
 
   const escapedTitle = escapeHtml(title);
   const escapedDesc = escapeHtml(description);
@@ -56,7 +56,7 @@ function injectOgTags(html: string, title: string, description: string, imageUrl
 }
 
 // Intercept gear path
-router.get("/gear/:id", async (req, res, next) => {
+const handleGearShare = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const { id } = req.params;
   const ownerId = req.query.owner as string;
 
@@ -82,6 +82,13 @@ router.get("/gear/:id", async (req, res, next) => {
         const querySnap = await gearQuery.get();
         if (!querySnap.empty) {
           itemData = querySnap.docs[0].data();
+        } else {
+          // Try assetTag
+          const tagQuery = dbAdmin.collectionGroup('gearLibrary').where('assetTag', '==', id);
+          const tagSnap = await tagQuery.get();
+          if (!tagSnap.empty) {
+            itemData = tagSnap.docs[0].data();
+          }
         }
       } catch (cgErr) {
         console.warn("Collection group query failed or index missing:", cgErr);
@@ -92,9 +99,12 @@ router.get("/gear/:id", async (req, res, next) => {
       const brandStr = itemData.brand ? `${itemData.brand} ` : "";
       title = `${brandStr}${itemData.name || "Untitled Gear Item"}`;
       description = itemData.description || `Certified product asset: ${itemData.assetTag || id}. Certified under Packer Tools.`;
-      if (itemData.photoUrls && itemData.photoUrls.length > 0) {
-        imageUrl = itemData.photoUrls[0];
-      }
+      imageUrl = (itemData.photoUrls && itemData.photoUrls.length > 0 && itemData.photoUrls[0])
+        || itemData.photoUrl
+        || itemData.imageUrl
+        || itemData.image
+        || (itemData.photos && itemData.photos.length > 0 && itemData.photos[0])
+        || "";
     }
   } catch (err) {
     console.warn("Error fetching gear for OG tags:", err);
@@ -113,7 +123,12 @@ router.get("/gear/:id", async (req, res, next) => {
   }
 
   next();
-});
+};
+
+router.get("/gear/:id", handleGearShare);
+router.get("/g/:id", handleGearShare);
+router.get("/item/:id", handleGearShare);
+router.get("/i/:id", handleGearShare);
 
 // Intercept packing list paths
 const handleListShare = async (req: express.Request, res: express.Response, next: express.NextFunction) => {

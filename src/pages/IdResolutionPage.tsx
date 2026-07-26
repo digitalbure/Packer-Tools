@@ -101,7 +101,7 @@ export default function IdResolutionPage() {
             status: 'available',
             description: 'Professional high-speed cinematography package.',
             nfcTag: token,
-            photoUrls: ['https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400']
+            photoUrls: ['https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400']
           };
           foundOwnerId = user?.uid || 'simulated_owner';
         }

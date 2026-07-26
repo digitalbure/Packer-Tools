@@ -139,10 +139,10 @@ export default function MarketplaceView() {
         setItems(itemsData.sort((a, b) => (a.order || 0) - (b.order || 0)));
 
         const firstItemImage = itemsData.find(item => item.photoUrls && item.photoUrls.length > 0)?.photoUrls?.[0] || '';
-        const ogImageUrl = listData.image || firstItemImage || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400';
+        const ogImageUrl = listData.image || firstItemImage || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400';
         
         // Initialize active media Url
-        setActiveMediaUrl(listData.image || firstItemImage || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400');
+        setActiveMediaUrl(listData.image || firstItemImage || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400');
 
         // Update social OG & Twitter tags dynamically
         const updateOrCreateMetaTag = (selector: string, attrName: string, attrVal: string, contentVal: string) => {
@@ -434,7 +434,7 @@ export default function MarketplaceView() {
   ].filter((url, i, self) => url && self.indexOf(url) === i);
 
   if (galleryList.length === 0) {
-    galleryList.push('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600');
+    galleryList.push('https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=600');
   }
 
   // Check if active media is YouTube/Vimeo embed versus physical image
@@ -517,7 +517,7 @@ export default function MarketplaceView() {
                     referrerPolicy="no-referrer"
                     onError={() => {
                       // fallback to original listing image or default unsplash
-                      setActiveMediaUrl('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600');
+                      setActiveMediaUrl('https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=600');
                     }}
                   />
                 )}

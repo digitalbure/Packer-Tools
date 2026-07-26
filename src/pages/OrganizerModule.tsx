@@ -8,6 +8,7 @@ import { compressImage } from '../lib/imageUtils';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { suggestPackingPlan } from '../services/geminiService';
+import OrganizerDesignerWidget from '../components/OrganizerDesignerWidget';
 import {
   DndContext,
   closestCenter,
@@ -190,10 +191,10 @@ const NestedOrganizerNode = ({
           {/* Items in this sub-organizer */}
           <div className="space-y-1.5">
             <p className="text-[8px] font-black uppercase text-neutral-400 tracking-widest">Organizer Contents</p>
-            {child.items.map(itemId => {
+            {child.items.map((itemId, idx) => {
               const item = gear.find(g => g.id === itemId);
               return (
-                <div key={itemId} className="flex items-center justify-between p-2 bg-white rounded-xl border border-neutral-100 shadow-sm text-xs font-semibold">
+                <div key={`${itemId}-${idx}`} className="flex items-center justify-between p-2 bg-white rounded-xl border border-neutral-100 shadow-sm text-xs font-semibold">
                   <span className="text-neutral-700 truncate">{item?.name || 'Unknown Item'}</span>
                   <button
                     onClick={() => onRemoveItem(child.id, itemId)}
@@ -242,14 +243,16 @@ const DroppableOrganizer = ({
   gear, 
   onDelete, 
   onEdit,
-  onFocusOrganizer
+  onFocusOrganizer,
+  onOpenDesigner
 }: { 
   container: Container, 
   containers: Container[],
   gear: GearItem[], 
   onDelete: (id: string) => void,
   onEdit: (container: Container) => void,
-  onFocusOrganizer: (id: string) => void
+  onFocusOrganizer: (id: string) => void,
+  onOpenDesigner?: (container: Container) => void
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `container-${container.id}`,
@@ -284,6 +287,15 @@ const DroppableOrganizer = ({
 
       {/* Action buttons overlay on card */}
       <div className="absolute top-6 right-6 flex gap-2 z-10" onClick={e => e.stopPropagation()}>
+        {onOpenDesigner && (
+          <button 
+            onClick={() => onOpenDesigner(container)}
+            className="p-3 bg-white/15 backdrop-blur-md text-white rounded-xl hover:bg-white/30 transition shadow-sm"
+            title="SketchUp Organizer Designer"
+          >
+            <Ruler size={16} className="text-amber-300" />
+          </button>
+        )}
         <button 
           onClick={() => onEdit(container)}
           className="p-3 bg-white/15 backdrop-blur-md text-white rounded-xl hover:bg-white/30 transition shadow-sm"
@@ -346,7 +358,8 @@ const OrganizerWorkspacePopover = ({
   onClearDraft,
   onConfirmDraft,
   onSetDraft,
-  onSwitchOrganizer
+  onSwitchOrganizer,
+  onOpenDesigner
 }: {
   container: Container;
   containers: Container[];
@@ -363,6 +376,7 @@ const OrganizerWorkspacePopover = ({
   onConfirmDraft: (id: string) => void;
   onSetDraft: (id: string, draft: any) => void;
   onSwitchOrganizer: (id: string) => void;
+  onOpenDesigner?: (container: Container) => void;
 }) => {
   const [showLoadSelector, setShowLoadSelector] = useState(false);
   const [selectorTab, setSelectorTab] = useState<'kit' | 'list' | 'inventory'>('kit');
@@ -799,7 +813,19 @@ const OrganizerWorkspacePopover = ({
 
             {/* Quick Portals & Tools Grid */}
             <div className="space-y-2.5">
-              <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Operational Portals</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Operational Portals & Layout</p>
+              {onOpenDesigner && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenDesigner(container);
+                  }}
+                  className="w-full py-3 bg-neutral-900 hover:bg-black text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition flex items-center justify-center gap-2 shadow-sm mb-2"
+                >
+                  <Ruler size={14} className="text-amber-400" />
+                  <span>SketchUp Layout Designer</span>
+                </button>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <Link 
                   to={`/organizer/${container.id}/io`}
@@ -905,14 +931,14 @@ const OrganizerWorkspacePopover = ({
               {/* View Mode: Flat List */}
               {viewMode === 'flat' && (
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3 mt-4 text-left">
-                  {container.items.map(itemId => {
+                  {container.items.map((itemId, itemIdx) => {
                     const item = gear.find(g => g.id === itemId);
                     const isKit = item?.isKit || item?.category === 'Kit' || item?.category === 'Kits';
                     const hasExpandableContent = (isKit && item?.childItemIds && item.childItemIds.length > 0) || (item?.addOns && item.addOns.length > 0);
                     const isExpanded = expandedItems.has(itemId);
                     
                     return (
-                      <div key={itemId} className="space-y-1.5 p-1 bg-white border border-neutral-150 rounded-2xl shadow-sm">
+                      <div key={`${itemId}-${itemIdx}`} className="space-y-1.5 p-1 bg-white border border-neutral-150 rounded-2xl shadow-sm">
                         <div className="flex items-center justify-between p-3.5 bg-white rounded-xl group/item">
                           <div className="flex items-center gap-3 truncate">
                             {hasExpandableContent ? (
@@ -1153,10 +1179,10 @@ const OrganizerWorkspacePopover = ({
 
                           {/* Section Items */}
                           <div className="space-y-1.5 pt-1 border-t border-neutral-50">
-                            {secAssignedItems.map(itemId => {
+                            {secAssignedItems.map((itemId, sIdx) => {
                               const item = gear.find(g => g.id === itemId);
                               return (
-                                <div key={itemId} className="p-2.5 bg-neutral-50 border border-neutral-150 rounded-xl flex items-center justify-between gap-3 text-left">
+                                <div key={`sec-item-${itemId}-${sIdx}`} className="p-2.5 bg-neutral-50 border border-neutral-150 rounded-xl flex items-center justify-between gap-3 text-left">
                                   <div className="flex items-center gap-2 truncate">
                                     <Package size={12} className="text-neutral-400 shrink-0" />
                                     <span className="text-xs font-semibold text-neutral-700 truncate">{item?.name || 'Unknown Item'}</span>
@@ -1192,10 +1218,10 @@ const OrganizerWorkspacePopover = ({
                                 defaultValue=""
                               >
                                 <option value="" disabled>-- Select unpacked item --</option>
-                                {unassignedItems.map(itemId => {
+                                {unassignedItems.map((itemId, uIdx) => {
                                   const item = gear.find(g => g.id === itemId);
                                   return (
-                                    <option key={itemId} value={itemId}>
+                                    <option key={`opt-${itemId}-${uIdx}`} value={itemId}>
                                       {item?.brand ? `[${item.brand}] ` : ''}{item?.name || 'Unknown'}
                                     </option>
                                   );
@@ -1218,11 +1244,11 @@ const OrganizerWorkspacePopover = ({
                       </div>
 
                       <div className="space-y-1.5">
-                        {unassignedItems.map(itemId => {
+                        {unassignedItems.map((itemId, uIdx) => {
                           const item = gear.find(g => g.id === itemId);
                           const isKit = item?.isKit || item?.category === 'Kit' || item?.category === 'Kits';
                           return (
-                            <div key={itemId} className="p-3 bg-white border border-neutral-150 rounded-xl flex items-center justify-between gap-3 text-left">
+                            <div key={`unassigned-${itemId}-${uIdx}`} className="p-3 bg-white border border-neutral-150 rounded-xl flex items-center justify-between gap-3 text-left">
                               <div className="flex items-center gap-2 truncate">
                                 {isKit ? <Layers size={13} className="text-primary shrink-0 animate-pulse" /> : <Package size={13} className="text-neutral-400 shrink-0" />}
                                 <span className="text-xs font-bold text-neutral-800 truncate">{item?.name || 'Unknown Item'}</span>
@@ -1421,6 +1447,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
   const [selectedLibraryItems, setSelectedLibraryItems] = useState<string[]>([]);
   const [packingSuggestions, setPackingSuggestions] = useState<{ containerId: string; itemIds: string[]; reasoning: string }[] | null>(null);
   const [showSuggestionsModal, setShowSuggestionsModal] = useState(false);
+  const [designerContainer, setDesignerContainer] = useState<Container | null>(null);
 
   // Draft state for individual organizer previews
   const [draftAllocations, setDraftAllocations] = useState<{ [containerId: string]: any }>({});
@@ -1916,6 +1943,20 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto shrink-0">
             <button 
+              onClick={() => {
+                if (containers.length > 0) {
+                  setDesignerContainer(containers[0]);
+                } else {
+                  toast.error("Please create an organizer first to launch the sketchup layout designer.");
+                }
+              }}
+              className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-neutral-100 hover:bg-neutral-200/80 text-neutral-900 border border-neutral-250 rounded-2xl font-bold transition shadow-xs w-full sm:w-auto text-sm shrink-0"
+              title="SketchUp Layout Sketch Designer"
+            >
+              <Ruler size={20} className="text-amber-500" />
+              <span>Layout Designer</span>
+            </button>
+            <button 
               onClick={handleSmartOrganize}
               disabled={isAIProcessing}
               className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-primary text-white rounded-2xl font-bold hover:bg-primary/90 transition shadow-lg disabled:opacity-50 w-full sm:w-auto text-sm shrink-0"
@@ -1962,6 +2003,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                     setIsAddModalOpen(true);
                   }}
                   onFocusOrganizer={(id) => setFocusedOrganizerId(id)}
+                  onOpenDesigner={(c) => setDesignerContainer(c)}
                 />
               ))}
               {rootContainers.length === 0 && (
@@ -2022,8 +2064,8 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                 {activeRightTab === 'single' && (
                   <div className="space-y-3">
                     <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Unassigned Single Gear</p>
-                    {unassignedGear.map(item => (
-                      <DraggableGearItem key={item.id} item={item} />
+                    {unassignedGear.map((item, gIdx) => (
+                      <DraggableGearItem key={`drg-${item.id}-${gIdx}`} item={item} />
                     ))}
                     {unassignedGear.length === 0 && (
                       <p className="text-sm text-neutral-400 text-center py-8 italic bg-neutral-50 rounded-2xl">All individual gear is assigned!</p>
@@ -2034,10 +2076,10 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                 {activeRightTab === 'kits' && (
                   <div className="space-y-4">
                     <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Workspace Kits ({kits.length})</p>
-                    {kits.map(kit => {
+                    {kits.map((kit, kIdx) => {
                       const isExpanded = expandedKitId === kit.id;
                       return (
-                        <div key={kit.id} className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-3 transition">
+                        <div key={`kit-${kit.id}-${kIdx}`} className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-3 transition">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 truncate">
                               <Layers size={16} className="text-primary shrink-0" />
@@ -2239,7 +2281,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
 
               <div className="flex-1 overflow-y-auto space-y-4 pr-2">
                 {filteredLibraryItems.length > 0 ? (
-                  filteredLibraryItems.map((item) => {
+                  filteredLibraryItems.map((item, flIdx) => {
                     const currentContainer = containers.find(c => c.items.includes(item.id));
                     const isAlreadyInThisContainer = selectedContainerId && containers.find(c => c.id === selectedContainerId)?.items.includes(item.id);
                     const isSelected = selectedLibraryItems.includes(item.id);
@@ -2247,7 +2289,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
 
                     return (
                       <button 
-                        key={item.id} 
+                        key={`lib-${item.id}-${flIdx}`} 
                         disabled={!!isAlreadyInThisContainer}
                         onClick={() => {
                           if (isSelected) {
@@ -2563,9 +2605,34 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                   setDraftAllocations(prev => ({ ...prev, [cid]: draft }));
                 }}
                 onSwitchOrganizer={(id) => setFocusedOrganizerId(id)}
+                onOpenDesigner={(c) => setDesignerContainer(c)}
               />
             );
           })()}
+        </AnimatePresence>
+
+        {/* SketchUp Layout Designer Full Modal */}
+        <AnimatePresence>
+          {designerContainer && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-6 overflow-hidden">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full h-full max-w-7xl bg-neutral-900 text-white rounded-[2rem] overflow-hidden shadow-2xl flex flex-col relative"
+              >
+                <OrganizerDesignerWidget
+                  container={designerContainer}
+                  allGear={gear}
+                  allPackingLists={packingLists}
+                  onSaveSuccess={() => {
+                    toast.success(`Layout sketch saved to "${designerContainer.name}"!`);
+                  }}
+                  onClose={() => setDesignerContainer(null)}
+                />
+              </motion.div>
+            </div>
+          )}
         </AnimatePresence>
 
         {/* Suggestions Modal */}
@@ -2603,7 +2670,7 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                         
                         return (
                           <motion.div 
-                            key={suggestion.containerId}
+                            key={`sugg-${suggestion.containerId}-${idx}`}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.1 }}
@@ -2624,11 +2691,11 @@ export default function OrganizerModule({ user, adminSettings: propAdminSettings
                             <div className="p-6 space-y-3 flex-1">
                               <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Items to Pack ({suggestion.itemIds.length})</p>
                               <div className="space-y-2">
-                                {suggestion.itemIds.map(itemId => {
+                                {suggestion.itemIds.map((itemId, sIdx) => {
                                   const item = gear.find(g => g.id === itemId);
                                   const isKit = item?.isKit || item?.category === 'Kit' || item?.category === 'Kits';
                                   return (
-                                    <div key={itemId} className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200/50 shadow-sm group/recitem">
+                                    <div key={`sugg-item-${itemId}-${sIdx}`} className="flex items-center justify-between p-3 bg-white rounded-xl border border-neutral-200/50 shadow-sm group/recitem">
                                       <div className="flex items-center gap-3 truncate">
                                         {isKit ? <Layers size={14} className="text-primary shrink-0" /> : <Package size={14} className="text-neutral-400 shrink-0" />}
                                         <span className="text-sm font-bold truncate flex items-center gap-1.5">

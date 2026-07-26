@@ -1,10 +1,38 @@
 # 📘 Packer Tools Knowledge Base
 
-Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including the latest asset organization, bulk allocation, audit workflows, AI scenario coaching, and native mobile UX.
+Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including Organizer Designer group/ungroup shapes engine, CAD exports, magnetic alignment snapping, public share link resolution, unauthenticated asset passports, bulk allocation, audit workflows, AI scenario coaching, and native mobile UX.
 
 ---
 
-## 📱 0. Native Mobile UX & Tactile Haptics (v5.14.0)
+## 📐 0.0. Organizer Designer Multi-Select Group & Ungroup Engine (v5.17.0)
+
+The **Organizer Designer** 2D foam layout builder includes multi-select grouping capabilities:
+- **Multi-Selection**: Hold `Shift` or `Ctrl/Cmd` while clicking shapes to select multiple items simultaneously. Clicking a grouped item selects all items belonging to that group.
+- **Group & Ungroup Controls**: Click **"Group"** (`Ctrl+G`) in the top toolbar, group overlay banner, or right-click context menu to lock selected shapes into a single group entity. Click **"Ungroup"** (`Ctrl+Shift+G`) to break group associations.
+- **Interactive Bounding Box Overlay**: Renders a purple dashed bounding box overlay spanning the grouped shapes with quick "Lock Group" and "Ungroup" controls.
+- **Synchronized Group Moving & Scaling**: Dragging or resizing any element within a group translates or proportionally scales all member shapes together smoothly.
+
+---
+
+## 📐 0.0. Organizer Designer CAD Exports & Magnetic Alignment Snapping (v5.16.0)
+
+The **Organizer Designer** 2D foam layout builder includes CAD export capabilities and magnetic edge alignment snapping:
+- **Vector SVG & High-Res PNG Exports**: Export foam layout sketches instantly to vector `.svg` or 1600x1067 high-resolution `.png` image files with embedded case labels, real dimension specifications, and assigned item indicators.
+- **Magnetic Alignment Snapping**: Dragging shapes near container boundaries, center axes, or adjacent shape edges applies a magnetic snap force with active cyan guide lines.
+- **Snap Toggle & Persistence**: Enable/disable magnetic snapping via the top toolbar button (`Magnet ON / OFF`) with settings saved into Firestore container layout sketches.
+
+---
+
+## 🌐 0. Public Share Links, Direct Non-Auth Access & Security Rules (v5.15.0)
+
+Packer Tools supports direct, unauthenticated access for shared gear items, digital asset passports, and packing manifests:
+- **Unauthenticated Item & Public Bio Access**: Shared gear items (`/gear/:id`), public digital passports, and public packing lists (`/p/:id`) can be accessed directly without requiring user authentication.
+- **Collection Group Firestore Fallback**: Shared item resolution automatically queries `collectionGroup` when owner ID parameters are omitted in direct links or QR scans.
+- **Hardened Firestore Security Rules**: Updated security rules allow public read permissions for shared gear items, booking conditions, and public packing lists while keeping full mutation/write protections restricted to authenticated owners.
+
+---
+
+## 📱 0.1. Native Mobile UX & Tactile Haptics (v5.14.0)
 
 Packer Tools includes native mobile UX patterns for field camera operators, riggers, and warehouse technicians:
 - **Floating Bottom Navigation**: Persistent bottom tab bar with glassmorphic dark-mode backdrop filters and animated active tab dots (`motion/react`).

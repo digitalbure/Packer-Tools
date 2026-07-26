@@ -114,7 +114,7 @@ interface CrewItem {
 const CATEGORIES: CategoryItem[] = [
   { id: 'cinema-cameras', name: 'Cinema Cameras', count: 18960, image: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=400' },
   { id: 'cinema-lenses', name: 'Cinema Lenses', count: 10646, image: 'https://images.unsplash.com/photo-1617005082133-5c8cdd97eadd?auto=format&fit=crop&q=80&w=400' },
-  { id: 'photography-lenses', name: 'Photography Lenses', count: 6830, image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400' },
+  { id: 'photography-lenses', name: 'Photography Lenses', count: 6830, image: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400' },
   { id: 'still-hybrid', name: 'Still / Hybrid Cameras', count: 3055, image: 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?auto=format&fit=crop&q=80&w=400' },
   { id: 'lighting-electric', name: 'Lighting / Electric', count: 16502, image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&q=80&w=400' },
   { id: 'audio', name: 'Audio Gear', count: 8620, image: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&q=80&w=400' },
@@ -208,7 +208,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       const docs = snapshot.docs.map(doc => ({
         id: doc.id,
         name: doc.data().name || '',
-        image: doc.data().image || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
+        image: doc.data().image || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400',
         count: 0
       }));
       setDbCategories(docs);
@@ -236,7 +236,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
           originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
           rating: 5.0,
           reviews: 1,
-          image: data.image || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
+          image: data.image || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400',
           ownerName: data.ownerEmail ? data.ownerEmail.split('@')[0] : 'Owner',
           ownerId: data.ownerId || '',
           ownerRating: 5.0,
@@ -292,7 +292,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   const bannerATitle = landingConfig.bannerATitle || 'Packer Insights';
   const bannerASubtitle = landingConfig.bannerASubtitle || 'Get the latest data on which products rented & sold best across major organizations.';
   const bannerAButtonText = landingConfig.bannerAButtonText || 'View Report';
-  const bannerAImage = landingConfig.bannerAImage || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400';
+  const bannerAImage = landingConfig.bannerAImage || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400';
   const bannerBTitle = landingConfig.bannerBTitle || 'Exclusive Student Discounts';
   const bannerBSubtitle = landingConfig.bannerBSubtitle || 'Are you enrolled in film academy? Enjoy up to a 20% discount as a verified student operator.';
   const bannerBButtonText = landingConfig.bannerBButtonText || 'Claim Now';

@@ -844,7 +844,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
             orgId: orgId,
             deptId: deptCreativeId,
             teamId: teamStudioId,
-            photoUrls: ["https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=300"],
+            photoUrls: ["https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=300"],
             createdAt: serverTimestamp()
           });
         }

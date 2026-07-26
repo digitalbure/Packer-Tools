@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.14.0`
+## Current Application Version: `v5.17.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,31 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Stable Release: v5.17.0 (Multi-Select Group & Ungroup Shapes Engine in Organizer Designer)
+*Released on: July 25, 2026*
+- **Multi-Select & Group / Ungroup Shapes Engine**: Added Shift/Ctrl/Cmd multi-selection support for Organizer Designer foam shapes with keyboard shortcuts for Group (`Ctrl+G`) and Ungroup (`Ctrl+Shift+G`).
+- **Interactive Group Bounding Box Overlay**: Renders dynamic purple dashed group bounding overlays with quick 'Lock Group' and 'Ungroup' action banners on multi-selection.
+- **Group Drag & Proportional Scaling**: Move or resize entire grouped shape arrays simultaneously with automatic relative coordinate scaling.
+- **Context Menu & Toolbar Grouping Integration**: Quick-action Group/Ungroup buttons added directly to top action toolbar and right-click canvas context menus.
+
+---
+
+### 🚀 Stable Release: v5.16.0 (Organizer Designer SVG/PNG CAD Export & Magnetic Snap Alignment Engine)
+*Released on: July 25, 2026*
+- **Vector & High-Res PNG CAD Layout Export**: Added direct SVG vector and 1600x1067 high-resolution PNG image download exports to the Organizer Designer for sharing, documentation, and laser foam printing.
+- **Magnetic Snap Alignment Engine**: Implemented smart magnetic edge-to-edge, center-axis, and container boundary snapping for shape dragging and resizing with active cyan alignment guide lines.
+- **Magnetic Snapping Controls & Persistence**: Integrated a toolbar magnet toggle control and saved magnetic snapping settings directly into Firestore container layout sketches.
+
+---
+
+### 🚀 Stable Release: v5.15.0 (Public Share Links Resolution, Non-Auth Public Asset Access & Security Rules Hardening)
+*Released on: July 25, 2026*
+- **Unauthenticated Item & Public Bio Access**: Shared gear items, public digital passports, and public packing lists can now be accessed directly without requiring user authentication.
+- **Collection Group Firestore Fallback**: Shared item resolution automatically queries collectionGroup when owner ID params are omitted in direct links or QR scans.
+- **Firestore Security Rules Hardening**: Updated security rules to allow read permissions for public gear items, booking conditions, and shared packing lists while maintaining full mutation protections.
 
 ---
 

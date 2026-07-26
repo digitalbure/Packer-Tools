@@ -94,7 +94,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
         || itemAny.imageUrl
         || itemAny.image
         || (itemAny.photos && itemAny.photos.length > 0 && itemAny.photos[0])
-        || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600';
+        || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=600';
       
       const updateOrCreateMetaTag = (selector: string, attrName: string, attrVal: string, contentVal: string) => {
         let element = document.querySelector(selector);
@@ -199,6 +199,14 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
               const docSnap = tagSnap.docs[0];
               foundData = { id: docSnap.id, ...docSnap.data() } as GearItem;
               finalOwnerId = foundData.ownerId || docSnap.ref.parent?.parent?.id || null;
+            } else {
+              // Fallback: search recent collectionGroup docs matching doc.id
+              const allCgSnap = await getDocs(query(collectionGroup(db, 'gearLibrary'), limit(300)));
+              const matchDoc = allCgSnap.docs.find(d => d.id === id || d.data().assetTag === id);
+              if (matchDoc) {
+                foundData = { id: matchDoc.id, ...matchDoc.data() } as GearItem;
+                finalOwnerId = foundData.ownerId || matchDoc.ref.parent?.parent?.id || null;
+              }
             }
           }
         } catch (cgErr) {

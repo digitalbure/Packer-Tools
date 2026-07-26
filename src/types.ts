@@ -469,8 +469,41 @@ export interface Container {
   pinCode?: string;
   isLocked?: boolean;
   sections?: ContainerSection[];
+  layoutSketch?: DesignerSketch;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DesignerShape {
+  id: string;
+  type: 'rectangle' | 'square' | 'circle' | 'divider-v' | 'divider-h' | 'foam-cutout';
+  x: number; // percentage (0-100)
+  y: number; // percentage (0-100)
+  width: number; // percentage (0-100)
+  height: number; // percentage (0-100)
+  label: string;
+  color: string; // hex or tailwind identifier
+  assignedGearIds?: string[]; // GearItem or PackingItem IDs
+  notes?: string;
+  rotation?: number; // 0, 90, 180, 270
+  isLocked?: boolean;
+  groupId?: string;
+  zIndex?: number;
+}
+
+export interface DesignerSketch {
+  containerType?: string;
+  canvasWidthPx?: number;
+  canvasHeightPx?: number;
+  gridSizePx?: number;
+  gridSize?: number;
+  snapToGrid?: boolean;
+  magneticSnap?: boolean;
+  version?: number;
+  notes?: string;
+  backgroundColor?: string;
+  shapes: DesignerShape[];
+  lastUpdated?: string;
 }
 
 export interface ContainerSection {

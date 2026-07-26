@@ -215,7 +215,7 @@ export function getDefaultAdminSettings(): AdminSettings {
       bannerATitle: 'Packer Insights',
       bannerASubtitle: 'Get the latest data on which products rented & sold best across major organizations.',
       bannerAButtonText: 'View Report',
-      bannerAImage: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400',
+      bannerAImage: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400',
       bannerBTitle: 'Exclusive Student Discounts',
       bannerBSubtitle: 'Are you enrolled in film academy? Enjoy up to a 20% discount as a verified student operator.',
       bannerBButtonText: 'Claim Now',

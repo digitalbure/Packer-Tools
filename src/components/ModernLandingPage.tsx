@@ -175,7 +175,7 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
             <PackerLogo size={36} />
             <div className="hidden sm:flex flex-col">
               <span className="text-xs font-black uppercase tracking-widest text-neutral-400">Packer Tools</span>
-              <span className="text-[10px] text-[#ff4f3a] font-mono font-bold">v5.15 Enterprise</span>
+              <span className="text-[10px] text-[#ff4f3a] font-mono font-bold">v5.17 Enterprise</span>
             </div>
           </div>
 
