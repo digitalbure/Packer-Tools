@@ -2038,4 +2038,38 @@ Return a JSON object containing a "shapes" array of section cutout shapes.`;
   }
 });
 
+// Convert image URL to Base64 string with SSRF validation
+router.post("/api/url-to-base64", authenticateUser, async (req, res) => {
+  const { url } = req.body;
+  if (!url || typeof url !== "string") {
+    return res.status(400).json({ error: "Missing or invalid URL parameter." });
+  }
+
+  const urlCheck = isSafeUrl(url);
+  if (!urlCheck.safe) {
+    return res.status(400).json({ error: urlCheck.reason || "Forbidden URL address." });
+  }
+
+  try {
+    const fetchRes = await axios.get(urlCheck.url!.toString(), {
+      responseType: "arraybuffer",
+      timeout: 10000,
+      maxContentLength: 10 * 1024 * 1024,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "image/*,*/*;q=0.8"
+      }
+    });
+
+    const contentType = fetchRes.headers["content-type"] || "image/jpeg";
+    const base64Data = Buffer.from(fetchRes.data, "binary").toString("base64");
+    const dataUri = `data:${contentType};base64,${base64Data}`;
+
+    return res.json({ base64: dataUri, mimeType: contentType });
+  } catch (err: any) {
+    console.error("[URL-to-Base64 Error]", err.message);
+    return res.status(500).json({ error: `Failed to download image from link: ${err.message}` });
+  }
+});
+
 export default router;

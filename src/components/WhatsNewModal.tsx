@@ -27,25 +27,30 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
       version: 'v5.19.1',
       tag: 'Latest',
       tagBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-300',
-      title: 'Security Hardening, Fail-Closed Webhooks & SSRF Protection',
+      title: 'Security Hardening: SSRF Defense, Fail-Closed Webhooks & Developer Endpoint Auth',
       date: 'July 2026',
       icon: Sparkles,
       color: 'text-emerald-600 dark:text-emerald-400',
       updates: [
         {
-          title: 'Fail-Closed Webhook Verification',
-          desc: 'Paddle & Dodo payment webhooks now enforce mandatory cryptographic signature validation in production environments with strict fail-closed enforcement.',
+          title: 'SSRF Protection for /api/url-to-base64 & Image Scrapers',
+          desc: 'Added dedicated SSRF validation engine blocking internal subnets, loopbacks, and non-HTTP protocols on /api/url-to-base64, /api/analyze-item, and /api/extract-case-url endpoints.',
           badge: 'Security'
         },
         {
-          title: 'SSRF URL Validation Engine',
-          desc: 'External URL scrapers for gear specs and case extraction now run against dedicated IP & protocol validation guards to block internal subnet requests.',
-          badge: 'Hardening'
+          title: 'Protected /api/developer/* Endpoints',
+          desc: 'Enforced mandatory API key header authentication (requireDevApiKey) on /api/developer/lists and /api/developer/gear, and session token auth on /api/developer/embed.',
+          badge: 'Authentication'
         },
         {
-          title: 'Developer API & Label Template Auth',
-          desc: 'Enforced developer API key header authentication on developer endpoints and user session validation on custom label template operations.',
-          badge: 'Protection'
+          title: 'Fail-Closed Webhook Secret Enforcement',
+          desc: 'Updated Paddle and Dodo payment webhooks (/api/webhooks/paddle, /api/webhooks/dodopayments) to fail-closed behavior, rejecting unsigned requests when secrets or signatures are missing.',
+          badge: 'Payment Security'
+        },
+        {
+          title: 'Authenticated Label Studio Operations',
+          desc: 'Enforced user authentication middleware on label printing, template creation, template deletion, and marketplace publishing routes.',
+          badge: 'Hardening'
         }
       ]
     },

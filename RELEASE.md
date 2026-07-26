@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.18.6`
+## Current Application Version: `v5.19.1`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -15,7 +15,19 @@ Below is the consolidated history of Packer Tools, tracing all production rollou
 
 ---
 
-### 🚀 Production Patch Update: v5.18.6 (Dynamic Module Import Recovery, Cache Invalidation & Marketing/CTA Alignment)
+### 🚀 Security Hardening & Patch Release: v5.19.1 (SSRF Protection, Fail-Closed Webhooks & Developer Endpoint Auth)
+*Released on: July 26, 2026*
+- **SSRF Defense Engine (`/api/url-to-base64`, `/api/analyze-item`, `/api/extract-case-url`)**: Implemented dedicated IP and URL protocol validation (`server/utils/ssrf.ts`) blocking internal subnets, localhost, metadata IP addresses (`169.254.169.254`), and non-HTTP/HTTPS schemes across image downloading and spec extraction endpoints. Added dedicated `POST /api/url-to-base64` endpoint with session authentication.
+- **Protected Developer API Endpoints (`/api/developer/*`)**: Secured `/api/developer/lists` and `/api/developer/gear` behind mandatory `requireDevApiKey` header/query authentication and `/api/developer/embed` behind user authentication middleware (`authenticateUser`).
+- **Fail-Closed Webhook Secret Enforcement (`/api/webhooks/*`)**: Hardened Paddle (`/api/webhooks/paddle`) and Dodo (`/api/webhooks/dodopayments`) payment webhooks to fail-closed behavior. Unconfigured secrets now return `500 Internal Server Error` and missing/invalid signatures return `401 Unauthorized`.
+- **Authenticated Label Operations**: Applied `authenticateUser` middleware to custom label template creation, template deletion, print logging, and marketplace publishing routes in `server/routes/labels.ts`.
+
+---
+
+### 🚀 Major Production Release: v5.19.0 (Landing Page Redesign, Single Header Login & Soft Dark Glassmorphism)
+*Released on: July 26, 2026*
+- **Landing Page Redesign**: Complete overhaul of public landing UI featuring single-header login buttons, soft dark glassmorphism aesthetic, interactive gear calculator preview, and responsive hero banners.
+- **Unified Seat Pricing Model**: Added support for configurable included seats and extra seat pricing ($/month) per subscription plan in `AdminPanel.tsx`.
 *Released on: July 26, 2026*
 - **Dynamic Import Auto-Recovery**: Enforced exponential backoff and automatic Service Worker cache invalidation/unregistration on chunk load failures in `src/app/routes.tsx` to eliminate white-screen errors during background deployment rollouts.
 - **Enhanced Crash Boundary**: Added smart import error detection and a dedicated `"Reload & Clear Cache"` recovery action to `ErrorBoundary.tsx` that forcefully purges stale PWA service workers and refreshes the browser module graph.
