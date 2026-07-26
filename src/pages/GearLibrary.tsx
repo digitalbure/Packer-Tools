@@ -5753,8 +5753,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       ) : viewMode === 'grid' ? (
         selectedCategory === 'All' ? (
           <div className="space-y-12 w-full">
-            {groupedGearEntries.map(({ categoryNormalized, items }) => (
-              <div key={categoryNormalized} className="space-y-4">
+            {groupedGearEntries.map(({ categoryNormalized, items }, catIdx) => (
+              <div key={`cat-grid-${categoryNormalized}-${catIdx}`} className="space-y-4">
                 <div className="flex items-center gap-4 border-b border-neutral-100 pb-2.5">
                   <h2 className="text-xs md:text-sm font-black uppercase tracking-[0.2em] text-neutral-400">
                     {categoryNormalized === 'Kits' ? 'Kits & Bundles' : categoryNormalized}
@@ -5781,8 +5781,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       ) : viewMode === 'compact' ? (
         selectedCategory === 'All' ? (
           <div className="space-y-12 w-full">
-            {groupedGearEntries.map(({ categoryNormalized, items }) => (
-              <div key={categoryNormalized} className="space-y-4">
+            {groupedGearEntries.map(({ categoryNormalized, items }, catIdx) => (
+              <div key={`cat-compact-${categoryNormalized}-${catIdx}`} className="space-y-4">
                 <div className="flex items-center gap-4 border-b border-neutral-100 pb-2.5">
                   <h2 className="text-xs md:text-sm font-black uppercase tracking-[0.2em] text-neutral-400">
                     {categoryNormalized === 'Kits' ? 'Kits & Bundles' : categoryNormalized}
@@ -5875,8 +5875,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             </thead>
             <tbody>
               {selectedCategory === 'All' ? (
-                groupedGearEntries.map(({ categoryNormalized, items }) => (
-                  <React.Fragment key={categoryNormalized}>
+                groupedGearEntries.map(({ categoryNormalized, items }, catIdx) => (
+                  <React.Fragment key={`cat-table-${categoryNormalized}-${catIdx}`}>
                     <tr className="bg-neutral-50/50">
                       <td colSpan={7} className="px-8 py-3.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-neutral-400 border-y border-neutral-100/80">
                         {categoryNormalized === 'Kits' ? 'Kits & Bundles' : categoryNormalized} ({items.length})
@@ -5895,8 +5895,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           {/* Mobile List View (Cards) */}
           <div className="md:hidden space-y-3">
             {selectedCategory === 'All' ? (
-               groupedGearEntries.map(({ categoryNormalized, items }) => (
-                <div key={categoryNormalized} className="space-y-3 pt-6 first:pt-0">
+               groupedGearEntries.map(({ categoryNormalized, items }, catIdx) => (
+                <div key={`cat-mob-${categoryNormalized}-${catIdx}`} className="space-y-3 pt-6 first:pt-0">
                   <div className="flex items-center gap-3 border-b border-neutral-100 pb-2">
                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
                       {categoryNormalized === 'Kits' ? 'Kits & Bundles' : categoryNormalized}

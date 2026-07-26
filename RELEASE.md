@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.18.0`
+## Current Application Version: `v5.18.1`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Patch Release: v5.18.1 (React Duplicate Key Resolution & Package Lock Alignment)
+*Released on: July 25, 2026*
+- **React Duplicate Keys Resolution**: Resolved non-unique key warnings across grouped categories in `GearLibrary`, brand category tags in `AdminPanel`, and release tabs in `WhatsNewModal` by applying index-indexed composite React keys.
+- **Dependency & Package Lock Synchronization**: Fully resolved package lockfile migration states via `install_applet_dependencies` clean sync.
+- **MCP Server Knowledge Base Sync**: Synchronized backend MCP capabilities, `RELEASE.md`, and `KNOWLEDGE_BASE.md` resources to v5.18.1 specifications.
 
 ---
 

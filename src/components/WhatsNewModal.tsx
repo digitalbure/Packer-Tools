@@ -8,7 +8,7 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,8 +24,34 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.18.0',
+      version: 'v5.18.1',
       tag: 'Latest',
+      tagBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-300',
+      title: 'React Duplicate Key Resolution & Lockfile Synchronization',
+      date: 'July 2026',
+      icon: Sparkles,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      updates: [
+        {
+          title: 'React Non-Unique Key Resolution',
+          desc: 'Fixed duplicate key warning issues in GearLibrary category groups, AdminPanel brand tags, and WhatsNewModal tabs by assigning composite index keys.',
+          badge: 'Bug Fix'
+        },
+        {
+          title: 'Package Lockfile Synchronization',
+          desc: 'Synchronized package.json and lockfile dependencies cleanly across build environments.',
+          badge: 'Build'
+        },
+        {
+          title: 'MCP Server & Knowledge Base Sync',
+          desc: 'Updated backend MCP server tool descriptions and Knowledge Base guide resources to v5.18.1 standards.',
+          badge: 'MCP Sync'
+        }
+      ]
+    },
+    {
+      version: 'v5.18.0',
+      tag: 'Stable',
       tagBg: 'bg-purple-500/10 text-purple-600 border-purple-500/20 dark:bg-purple-500/20 dark:text-purple-300',
       title: 'Claude Code, Claude Marketing Agent & Cursor MCP Server Integration',
       date: 'July 2026',
@@ -507,9 +533,9 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               >
                 All Releases
               </button>
-              {releases.map((r) => (
+              {releases.map((r, rIdx) => (
                 <button
-                  key={r.version}
+                  key={`rel-tab-${r.version}-${rIdx}`}
                   onClick={() => setActiveTab(r.version.replace('v', '') as any)}
                   className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border transition whitespace-nowrap ${
                     activeTab === r.version.replace('v', '')
@@ -524,10 +550,10 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
             {/* Content Body */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 min-h-0">
-              {filteredReleases.map((release) => {
+              {filteredReleases.map((release, relIdx) => {
                 const IconComponent = release.icon;
                 return (
-                  <div key={release.version} className="space-y-3.5">
+                  <div key={`rel-card-${release.version}-${relIdx}`} className="space-y-3.5">
                     {/* Version Banner Title */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-neutral-100 pb-3">
                       <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
@@ -552,7 +578,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                     <div className="grid grid-cols-1 gap-3">
                       {release.updates.map((update, uIdx) => (
                         <div 
-                          key={uIdx} 
+                          key={`update-${release.version}-${uIdx}`} 
                           className="p-3.5 sm:p-5 bg-neutral-50 border border-neutral-100 rounded-2xl sm:rounded-3xl space-y-1.5 group hover:bg-white hover:border-neutral-200/80 transition-all duration-200"
                         >
                           <div className="flex items-start justify-between gap-2.5">
@@ -583,7 +609,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[10px] uppercase font-black tracking-wide hidden sm:inline text-neutral-400">
-                  Build v5.18.0
+                  Build v5.18.1
                 </span>
                 <button
                   type="button"

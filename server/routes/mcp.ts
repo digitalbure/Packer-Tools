@@ -218,13 +218,13 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "get_release_notes",
-        description: "Admin Capabilities Tool: Query current platform release version (v5.18.0) and full release changelog history.",
+        description: "Admin Capabilities Tool: Query current platform release version (v5.18.1) and full release changelog history.",
         inputSchema: {
           type: "object",
           properties: {
             version: {
               type: "string",
-              description: "Optional version string to filter changelog notes for (e.g., 'v5.18.0', 'v5.17.0')."
+              description: "Optional version string to filter changelog notes for (e.g., 'v5.18.1', 'v5.18.0')."
             }
           }
         }
@@ -534,7 +534,7 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "get_app_capabilities": {
         const capabilities = {
           name: "Packer Tools",
-          version: "v5.18.0",
+          version: "v5.18.1",
           description: "Multi-industry Asset & Inventory Management and Gear Logistics platform.",
           industries: [
             "General Logistics & Operations",
@@ -581,7 +581,7 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
           content = fs.readFileSync(filePath, "utf-8");
         } catch {
-          content = "# Release Notes\n\nCurrent Version: v5.18.0";
+          content = "# Release Notes\n\nCurrent Version: v5.18.1";
         }
 
         if (filterVersion) {
@@ -635,11 +635,11 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
         const targetIndustry = (args.industry as string | undefined)?.toLowerCase();
         const kit = {
           brand: "Packer Tools",
-          version: "v5.18.0",
+          version: "v5.18.1",
           tagline: "High-Performance Asset & Inventory Management and Gear Logistics Platform",
           valuePropositions: [
             "Multi-Industry Adaptability: Instantly adjusts terminology, icons, and workflows whether you manage camera trucks, construction rigs, athletic rosters, or auto repair bays.",
-            "Visual 2D Foam CAD Organizer Designer (v5.18.0): Design custom case inserts with magnetic snap alignment, shape grouping (Ctrl+G), box-select marquee, and high-res vector SVG/PNG CAD exports.",
+            "Visual 2D Foam CAD Organizer Designer (v5.18.1): Design custom case inserts with magnetic snap alignment, shape grouping (Ctrl+G), box-select marquee, and high-res vector SVG/PNG CAD exports.",
             "Standalone Kiosk Mode: Fast touchscreen check-in/out with digital signatures and instant barcode verification.",
             "Systems Builder: Drag-and-drop visual connection maps for complex equipment setups and cable topologies.",
             "Offline PWA & Audit Trail: Works in remote field locations with zero data loss and automated maintenance interval calculations."
@@ -768,7 +768,7 @@ mcpServer.setRequestHandler(ListResourcesRequestSchema, async () => {
         uri: "packer://release-notes",
         name: "Release History & Changelog (RELEASE.md)",
         mimeType: "text/markdown",
-        description: "Official release notes, current build version (v5.18.0), and feature changelog history."
+        description: "Official release notes, current build version (v5.18.1), and feature changelog history."
       },
       {
         uri: "packer://knowledge-base",
@@ -799,7 +799,7 @@ mcpServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   if (uri === "packer://app-capabilities") {
     const capabilities = {
       name: "Packer Tools",
-      version: "v5.18.0",
+      version: "v5.18.1",
       description: "Multi-industry Asset & Inventory Management and Gear Logistics platform.",
       industries: [
         "General Logistics & Operations",
@@ -836,12 +836,12 @@ mcpServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   if (uri === "packer://marketing-playbook") {
     const playbook = {
       brand: "Packer Tools",
-      version: "v5.18.0",
+      version: "v5.18.1",
       tagline: "High-Performance Asset & Inventory Management and Gear Logistics Platform",
       mission: "To eliminate lost equipment, gear chaos, and spreadsheet downtime across high-consequence industries.",
       valuePropositions: [
         "Multi-Industry Adaptability: Instantly adjusts terminology, icons, and workflows whether you manage camera trucks, construction rigs, athletic rosters, or auto repair bays.",
-        "Visual 2D Foam CAD Organizer Designer (v5.18.0): Design custom case inserts with magnetic snap alignment, shape grouping (Ctrl+G), box-select marquee, and high-res vector SVG/PNG CAD exports.",
+        "Visual 2D Foam CAD Organizer Designer (v5.18.1): Design custom case inserts with magnetic snap alignment, shape grouping (Ctrl+G), box-select marquee, and high-res vector SVG/PNG CAD exports.",
         "Standalone Kiosk Mode: Fast touchscreen check-in/out with digital signatures and instant barcode verification.",
         "Systems Builder: Drag-and-drop visual connection maps for complex equipment setups and cable topologies.",
         "Offline PWA & Audit Trail: Works in remote field locations with zero data loss and automated maintenance interval calculations."
@@ -890,7 +890,7 @@ mcpServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     try {
       content = fs.readFileSync(filePath, "utf-8");
     } catch {
-      content = "# Release Notes\n\nCurrent Version: v5.18.0";
+      content = "# Release Notes\n\nCurrent Version: v5.18.1";
     }
     return {
       contents: [{ uri, mimeType: "text/markdown", text: content }]
@@ -1011,7 +1011,7 @@ ${Object.entries(statusCounts)
 });
 
 // 5. Mount SSE Endpoints
-const handleSse = async (req: express.Request, res: express.Response) => {
+router.get("/api/mcp/sse", async (req, res) => {
   console.info("[MCP Router] Initializing new client SSE connection stream...");
   const transport = new SSEServerTransport("/api/mcp/messages", res);
   const sessionId = transport.sessionId;
@@ -1025,9 +1025,9 @@ const handleSse = async (req: express.Request, res: express.Response) => {
   });
 
   await mcpServer.connect(transport);
-};
+});
 
-const handleMessages = async (req: express.Request, res: express.Response) => {
+router.post("/api/mcp/messages", async (req, res) => {
   const sessionId = req.query.sessionId as string;
   const transport = activeTransports.get(sessionId);
 
@@ -1037,40 +1037,6 @@ const handleMessages = async (req: express.Request, res: express.Response) => {
     console.warn(`[MCP Router] Failed to route message. SessionId not active or stale: ${sessionId}`);
     res.status(404).json({ error: "Session not found or connection terminated." });
   }
-};
-
-router.get("/api/mcp/sse", handleSse);
-router.get("/mcp/sse", handleSse);
-
-router.post("/api/mcp/messages", handleMessages);
-router.post("/mcp/messages", handleMessages);
-
-// Basic health / connector discovery endpoint
-const handleMcpInfo = (_req: express.Request, res: express.Response) => {
-  res.json({
-    status: "ok",
-    server: "packer-tools-mcp",
-    version: "v5.18.0",
-    transport: "sse",
-    sseEndpoint: "/api/mcp/sse",
-    messagesEndpoint: "/api/mcp/messages",
-    capabilities: ["tools", "resources"],
-    availableTools: [
-      "get_app_capabilities",
-      "get_marketing_messaging_kit",
-      "get_release_notes",
-      "get_knowledge_base_guide",
-      "list_gear",
-      "add_gear_item",
-      "lookup_user",
-      "update_user_plan",
-      "list_organizations",
-      "get_system_telemetry"
-    ]
-  });
-};
-
-router.get("/api/mcp", handleMcpInfo);
-router.get("/mcp", handleMcpInfo);
+});
 
 export default router;
