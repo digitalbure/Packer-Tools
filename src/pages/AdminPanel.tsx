@@ -7716,13 +7716,13 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
       )}
 
       {activeTab === 'landing' && settings && (
-        <div className="space-y-12">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-1">
-              <h2 className="text-3xl font-black uppercase tracking-tighter">Landing Page Manager</h2>
-              <p className="text-neutral-500 font-medium">Create and manage multiple versions of your landing page</p>
+        <div className="space-y-8 sm:space-y-12 overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter truncate">Landing Page Manager</h2>
+              <p className="text-neutral-500 text-xs sm:text-sm font-medium">Create and manage multiple versions of your landing page</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
               <button 
                 onClick={() => {
                   const newId = `lander-${Date.now()}`;
@@ -7738,7 +7738,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   });
                   toast.success("New lander created!");
                 }}
-                className="flex items-center gap-2 px-6 py-3 bg-neutral-100 text-neutral-900 rounded-xl font-bold hover:bg-neutral-200 transition"
+                className="flex items-center justify-center gap-2 px-5 py-3 bg-neutral-100 text-neutral-900 rounded-xl font-bold hover:bg-neutral-200 transition text-xs sm:text-sm"
               >
                 <Plus size={18} />
                 <span>Create New Lander</span>
@@ -7748,22 +7748,22 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   await updateDoc(doc(db, 'adminSettings', 'global'), settings as any);
                   toast.success("All lander settings saved!");
                 }}
-                className="px-8 py-3 bg-primary text-white rounded-xl font-black uppercase text-xs tracking-widest hover:scale-105 transition shadow-xl"
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-black uppercase text-xs tracking-widest hover:scale-[1.02] transition shadow-xl"
               >
-                <Save size={18} className="inline mr-2" />
+                <Save size={18} className="inline mr-1.5" />
                 Save Changes
               </button>
             </div>
           </div>
 
           {/* Active Landing Page & Marketplace Visibility Selector */}
-          <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-8">
+          <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2rem] border border-neutral-100 shadow-sm space-y-6 sm:space-y-8 overflow-hidden">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-100 pb-4">
-              <div className="space-y-1">
-                <h3 className="text-lg font-black uppercase tracking-tight text-neutral-800">Marketplace & Landing Configuration</h3>
-                <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider">Configure your default root entry-point strategies, public views, and security gate visibility levels.</p>
+              <div className="space-y-1 min-w-0">
+                <h3 className="text-base sm:text-lg font-black uppercase tracking-tight text-neutral-800">Marketplace & Landing Configuration</h3>
+                <p className="text-[11px] sm:text-xs text-neutral-400 font-bold uppercase tracking-wider">Configure your default root entry-point strategies, public views, and security gate visibility levels.</p>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 text-primary rounded-full text-[10px] font-black uppercase tracking-widest">
+              <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 text-primary rounded-full text-[10px] font-black uppercase tracking-widest shrink-0 self-start md:self-auto">
                 <Globe size={12} className="animate-pulse" />
                 <span>Active Routing Engine</span>
               </div>
@@ -8018,9 +8018,9 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               {settings.landers?.find(l => l.id === settings.activeLanderId) ? (
                 <div className="space-y-12">
                   {/* Lander Basic Info */}
-                  <div className="bg-white p-8 md:p-12 rounded-[3rem] border border-neutral-100 shadow-sm space-y-8">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                      <div className="space-y-2 flex-1">
+                  <div className="bg-white p-4 sm:p-8 md:p-12 rounded-2xl sm:rounded-[3rem] border border-neutral-100 shadow-sm space-y-6 sm:space-y-8 overflow-hidden">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6">
+                      <div className="space-y-2 flex-1 min-w-0">
                         <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Lander Name</label>
                         <input
                           type="text"
@@ -8033,7 +8033,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                               setSettings({ ...settings, landers: newLanders });
                             }
                           }}
-                          className="w-full text-4xl font-black bg-transparent border-none outline-none focus:ring-2 focus:ring-primary/20 rounded-2xl px-4 py-2 -ml-4"
+                          className="w-full min-w-0 text-2xl sm:text-4xl font-black bg-transparent border-none outline-none focus:ring-2 focus:ring-primary/20 rounded-2xl px-2 sm:px-4 py-2 -ml-2 sm:-ml-4"
                         />
                       </div>
                     </div>
@@ -8214,18 +8214,18 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   />
                   
                   {/* AI Recognition Settings / Hero Slide Images */}
-                  <div className="bg-white p-8 rounded-[3rem] border border-neutral-100 shadow-sm space-y-6">
-                    <div className="flex items-center justify-between border-b border-neutral-50 pb-4">
-                      <div className="space-y-1">
-                        <h3 className="text-xl font-bold flex items-center gap-2">
-                          <ImageIcon size={20} className="text-primary" />
-                          <span>Hero Slides & AI Recognition Showcase (Global)</span>
+                  <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[3rem] border border-neutral-100 shadow-sm space-y-6 overflow-hidden">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-50 pb-4">
+                      <div className="space-y-1 min-w-0">
+                        <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+                          <ImageIcon size={20} className="text-primary shrink-0" />
+                          <span className="truncate">Hero Slides & AI Recognition Showcase (Global)</span>
                         </h3>
                         <p className="text-xs text-neutral-400">Configure the high-fidelity slideshow images and metadata displayed on the main landing page hero section.</p>
                       </div>
                       <button 
                         onClick={() => setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, enabled: !s.aiRecognitionConfig!.enabled } } : null)}
-                        className={`w-14 h-7 rounded-full relative transition-colors ${settings.aiRecognitionConfig?.enabled ? 'bg-primary' : 'bg-neutral-200'}`}
+                        className={`w-14 h-7 rounded-full relative transition-colors shrink-0 ${settings.aiRecognitionConfig?.enabled ? 'bg-primary' : 'bg-neutral-200'}`}
                       >
                         <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${settings.aiRecognitionConfig?.enabled ? 'right-1' : 'left-1'}`}></div>
                       </button>
@@ -8233,7 +8233,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
                     {settings.aiRecognitionConfig?.enabled && (
                       <div className="space-y-6">
-                        <div className="grid md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                           <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Rotation Interval (ms)</label>
                             <input
@@ -8243,10 +8243,10 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                                 const val = parseInt(e.target.value) || 6000;
                                 setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, interval: val } } : null);
                               }}
-                              className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                              className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
                             />
                           </div>
-                          <div className="flex items-end justify-end">
+                          <div className="flex items-end justify-start sm:justify-end">
                             <button
                               onClick={() => {
                                 const newItems = [...(settings.aiRecognitionConfig?.items || [])];
@@ -8259,27 +8259,28 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                                 });
                                 setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, items: newItems } } : null);
                               }}
-                              className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                              className="w-full sm:w-auto px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
                             >
                               <Plus size={14} /> Add Hero Slide Image
                             </button>
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 no-scrollbar">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-1 no-scrollbar">
                           {(settings.aiRecognitionConfig.items || []).map((item, idx) => (
-                            <div key={item.id || idx} className="bg-neutral-50 rounded-2xl border border-neutral-150 p-4 space-y-3 group relative">
+                            <div key={item.id || idx} className="bg-neutral-50 rounded-2xl border border-neutral-150 p-3 sm:p-4 space-y-3 group relative">
                               <button 
                                 onClick={() => {
                                   const newItems = (settings.aiRecognitionConfig?.items || []).filter((_, i) => i !== idx);
                                   setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, items: newItems } } : null);
                                 }}
-                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-500 hover:scale-110 transition p-1"
+                                className="absolute top-2 right-2 opacity-80 sm:opacity-0 group-hover:opacity-100 text-red-500 hover:scale-110 transition p-1 z-10"
+                                title="Delete Slide"
                               >
                                 <Trash2 size={14} />
                               </button>
-                              <div className="grid grid-cols-3 gap-3">
-                                <div className="col-span-1">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="col-span-1 h-28 sm:h-full">
                                   {item.image ? (
                                     <div className="h-full w-full rounded-xl overflow-hidden border border-neutral-200">
                                       <img src={item.image} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -8290,7 +8291,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                                     </div>
                                   )}
                                 </div>
-                                <div className="col-span-2 space-y-2">
+                                <div className="col-span-1 sm:col-span-2 space-y-2 min-w-0">
                                   <div className="space-y-1">
                                     <label className="text-[8px] font-black uppercase text-neutral-400">Asset Name</label>
                                     <input
@@ -8301,7 +8302,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                                         newItems[idx].name = e.target.value;
                                         setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, items: newItems } } : null);
                                       }}
-                                      className="w-full px-2 py-1 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold outline-none"
+                                      className="w-full min-w-0 px-2.5 py-1.5 bg-white border border-neutral-200 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-primary/20"
                                     />
                                   </div>
                                   <div className="space-y-1">
@@ -8314,12 +8315,12 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                                         newItems[idx].details = e.target.value;
                                         setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, items: newItems } } : null);
                                       }}
-                                      className="w-full px-2 py-1 bg-white border border-neutral-200 rounded-lg text-[10px] outline-none"
+                                      className="w-full min-w-0 px-2.5 py-1.5 bg-white border border-neutral-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-primary/20"
                                     />
                                   </div>
                                 </div>
                               </div>
-                              <div className="space-y-1">
+                              <div className="space-y-1 min-w-0">
                                 <label className="text-[8px] font-black uppercase text-neutral-400 font-mono">Image URL</label>
                                 <input
                                   type="text"
@@ -8329,7 +8330,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                                     newItems[idx].image = e.target.value;
                                     setSettings(s => s ? { ...s, aiRecognitionConfig: { ...s.aiRecognitionConfig!, items: newItems } } : null);
                                   }}
-                                  className="w-full px-2 py-1 bg-white border border-neutral-200 rounded-lg text-[9px] outline-none"
+                                  className="w-full min-w-0 px-2.5 py-1.5 bg-white border border-neutral-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-primary/20"
                                 />
                               </div>
                             </div>
@@ -10238,21 +10239,21 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8 overflow-hidden">
       {/* Header Settings */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
-        <h3 className="text-xl font-bold flex items-center gap-2">
-          <Menu size={20} className="text-primary" />
+      <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 overflow-hidden">
+        <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+          <Menu size={20} className="text-primary shrink-0" />
           <span>Header</span>
         </h3>
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          <div className="space-y-2 min-w-0">
             <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Logo Text</label>
             <input
               type="text"
               value={content.header.logoText}
               onChange={(e) => updateContent('header', { ...content.header, logoText: e.target.value })}
-              className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+              className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm font-medium"
             />
           </div>
         </div>
@@ -10266,9 +10267,9 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
               <Plus size={14} /> Add Link
             </button>
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-2.5">
             {content.header.links.map((link, idx) => (
-              <div key={idx} className="flex items-center gap-4 bg-neutral-50 p-2 rounded-xl border border-neutral-100">
+              <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-neutral-50 p-2.5 rounded-xl border border-neutral-100">
                 <input
                   type="text"
                   value={link.label}
@@ -10278,7 +10279,7 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                     updateContent('header', { ...content.header, links: newLinks });
                   }}
                   placeholder="Label"
-                  className="flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs"
+                  className="w-full min-w-0 flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-primary outline-none"
                 />
                 <input
                   type="text"
@@ -10289,17 +10290,20 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                     updateContent('header', { ...content.header, links: newLinks });
                   }}
                   placeholder="URL/Hash"
-                  className="flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs"
+                  className="w-full min-w-0 flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-primary outline-none"
                 />
-                <button 
-                  onClick={() => {
-                    const newLinks = content.header.links.filter((_, i) => i !== idx);
-                    updateContent('header', { ...content.header, links: newLinks });
-                  }}
-                  className="p-2 text-neutral-300 hover:text-red-500 transition"
-                >
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex justify-end shrink-0">
+                  <button 
+                    onClick={() => {
+                      const newLinks = content.header.links.filter((_, i) => i !== idx);
+                      updateContent('header', { ...content.header, links: newLinks });
+                    }}
+                    className="p-2 text-neutral-400 hover:text-red-500 transition"
+                    title="Delete Link"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -10307,15 +10311,15 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
       </div>
 
       {/* Hero Section */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
+      <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 overflow-hidden">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold flex items-center gap-2">
-            <Layout size={20} className="text-primary" />
+          <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+            <Layout size={20} className="text-primary shrink-0" />
             <span>Hero Section</span>
           </h3>
           <button 
             onClick={() => updateContent('hero', { ...content.hero, isEnabled: !content.hero.isEnabled })}
-            className={`w-12 h-6 rounded-full relative transition-colors ${content.hero.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+            className={`w-12 h-6 rounded-full relative transition-colors shrink-0 ${content.hero.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
           >
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${content.hero.isEnabled ? 'right-1' : 'left-1'}`}></div>
           </button>
@@ -10323,52 +10327,52 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
         
         {content.hero.isEnabled && (
           <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-2 min-w-0">
                 <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Primary Title</label>
                 <input
                   type="text"
                   value={content.hero.title}
                   onChange={(e) => updateContent('hero', { ...content.hero, title: e.target.value })}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                  className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Subtitle Tag</label>
                 <input
                   type="text"
                   value={content.hero.subtitle}
                   onChange={(e) => updateContent('hero', { ...content.hero, subtitle: e.target.value })}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                  className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
                 />
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Description</label>
               <textarea
                 value={content.hero.description}
                 onChange={(e) => updateContent('hero', { ...content.hero, description: e.target.value })}
                 rows={3}
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
               />
             </div>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-2 min-w-0">
                 <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Primary Button Text</label>
                 <input
                   type="text"
                   value={content.hero.primaryButtonText}
                   onChange={(e) => updateContent('hero', { ...content.hero, primaryButtonText: e.target.value })}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                  className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Secondary Button Text</label>
                 <input
                   type="text"
                   value={content.hero.secondaryButtonText}
                   onChange={(e) => updateContent('hero', { ...content.hero, secondaryButtonText: e.target.value })}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                  className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
                 />
               </div>
             </div>
@@ -10377,28 +10381,28 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
       </div>
 
       {/* Ticker Section */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
+      <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 overflow-hidden">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold flex items-center gap-2">
-            <Activity size={20} className="text-primary" />
+          <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+            <Activity size={20} className="text-primary shrink-0" />
             <span>Industrial Ticker</span>
           </h3>
           <button 
             onClick={() => updateContent('ticker', { ...content.ticker, isEnabled: !content.ticker.isEnabled })}
-            className={`w-12 h-6 rounded-full relative transition-colors ${content.ticker.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+            className={`w-12 h-6 rounded-full relative transition-colors shrink-0 ${content.ticker.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
           >
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${content.ticker.isEnabled ? 'right-1' : 'left-1'}`}></div>
           </button>
         </div>
         {content.ticker.isEnabled && (
           <div className="space-y-6">
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Section Title</label>
               <input
                 type="text"
                 value={content.ticker.title}
                 onChange={(e) => updateContent('ticker', { ...content.ticker, title: e.target.value })}
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
               />
             </div>
             <div className="space-y-4">
@@ -10411,9 +10415,9 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                   + Add Pair
                 </button>
               </div>
-              <div className="grid md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-1">
                 {content.ticker.pairs.map((pair, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-neutral-50 p-2 rounded-xl border border-neutral-100">
+                  <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2 bg-neutral-50 p-2.5 rounded-xl border border-neutral-100">
                     <input
                       type="text"
                       value={pair.by}
@@ -10422,7 +10426,8 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                         newPairs[idx].by = e.target.value;
                         updateContent('ticker', { ...content.ticker, pairs: newPairs });
                       }}
-                      className="flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-[10px]"
+                      placeholder="By Team/Role"
+                      className="w-full min-w-0 flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-primary outline-none"
                     />
                     <input
                       type="text"
@@ -10432,16 +10437,21 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                         newPairs[idx].for = e.target.value;
                         updateContent('ticker', { ...content.ticker, pairs: newPairs });
                       }}
-                      className="flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold"
+                      placeholder="For Use Case"
+                      className="w-full min-w-0 flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-bold focus:ring-2 focus:ring-primary outline-none"
                     />
-                    <button 
-                      onClick={() => {
-                        const newPairs = content.ticker.pairs.filter((_, i) => i !== idx);
-                        updateContent('ticker', { ...content.ticker, pairs: newPairs });
-                      }}
-                    >
-                      <Trash2 size={14} className="text-neutral-300 hover:text-red-500" />
-                    </button>
+                    <div className="flex justify-end shrink-0">
+                      <button 
+                        onClick={() => {
+                          const newPairs = content.ticker.pairs.filter((_, i) => i !== idx);
+                          updateContent('ticker', { ...content.ticker, pairs: newPairs });
+                        }}
+                        className="p-1.5 text-neutral-400 hover:text-red-500 transition"
+                        title="Delete Pair"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -10451,38 +10461,38 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
       </div>
 
       {/* Features Section */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
+      <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 overflow-hidden">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-          <h3 className="text-xl font-bold flex items-center gap-2">
-            <Zap size={20} className="text-primary" />
+          <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+            <Zap size={20} className="text-primary shrink-0" />
             <span>Value Propositions (Features)</span>
           </h3>
           <button 
             onClick={() => updateContent('features', { ...content.features, isEnabled: !content.features.isEnabled })}
-            className={`w-12 h-6 rounded-full relative transition-colors ${content.features.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+            className={`w-12 h-6 rounded-full relative transition-colors shrink-0 ${content.features.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
           >
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${content.features.isEnabled ? 'right-1' : 'left-1'}`}></div>
           </button>
         </div>
         {content.features.isEnabled && (
-          <div className="space-y-8">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
+          <div className="space-y-6 sm:space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-2 min-w-0">
                 <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Main Title</label>
                 <input
                   type="text"
                   value={content.features.title}
                   onChange={(e) => updateContent('features', { ...content.features, title: e.target.value })}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                  className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Contextual Description</label>
                 <input
                   type="text"
                   value={content.features.description}
                   onChange={(e) => updateContent('features', { ...content.features, description: e.target.value })}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                  className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
                 />
               </div>
             </div>
@@ -10497,20 +10507,21 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                   + Add Feature
                 </button>
               </div>
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 {content.features.items.map((item, idx) => (
-                  <div key={idx} className="p-6 bg-neutral-50 rounded-3xl border border-neutral-100 group relative">
+                  <div key={idx} className="p-4 sm:p-6 bg-neutral-50 rounded-2xl sm:rounded-3xl border border-neutral-100 group relative">
                     <button 
                       onClick={() => {
                         const newItems = content.features.items.filter((_, i) => i !== idx);
                         updateContent('features', { ...content.features, items: newItems });
                       }}
-                      className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 text-red-500 transition"
+                      className="absolute top-3 right-3 opacity-80 sm:opacity-0 group-hover:opacity-100 text-red-500 transition p-1"
+                      title="Delete Feature"
                     >
                       <Trash2 size={16} />
                     </button>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-4">
+                    <div className="space-y-3 sm:space-y-4">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pr-6 sm:pr-0">
                         <input
                           type="text"
                           value={item.icon}
@@ -10520,7 +10531,7 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                             updateContent('features', { ...content.features, items: newItems });
                           }}
                           placeholder="Icon"
-                          className="w-20 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs"
+                          className="w-full sm:w-24 min-w-0 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs"
                         />
                         <input
                           type="text"
@@ -10531,7 +10542,7 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                             updateContent('features', { ...content.features, items: newItems });
                           }}
                           placeholder="Title"
-                          className="flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-bold"
+                          className="w-full min-w-0 flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-bold"
                         />
                       </div>
                       <textarea
@@ -10543,7 +10554,7 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                         }}
                         placeholder="Detailed description..."
                         rows={2}
-                        className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs"
+                        className="w-full min-w-0 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs"
                       />
                     </div>
                   </div>
@@ -10555,38 +10566,38 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
       </div>
 
       {/* Scenarios Section */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
+      <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 overflow-hidden">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-          <h3 className="text-xl font-bold flex items-center gap-2">
-            <Globe size={20} className="text-primary" />
+          <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+            <Globe size={20} className="text-primary shrink-0" />
             <span>Industrial Scenarios</span>
           </h3>
           <button 
             onClick={() => updateContent('scenarios', { ...content.scenarios, isEnabled: !content.scenarios.isEnabled })}
-            className={`w-12 h-6 rounded-full relative transition-colors ${content.scenarios.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+            className={`w-12 h-6 rounded-full relative transition-colors shrink-0 ${content.scenarios.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
           >
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${content.scenarios.isEnabled ? 'right-1' : 'left-1'}`}></div>
           </button>
         </div>
         {content.scenarios.isEnabled && (
-          <div className="space-y-8">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
+          <div className="space-y-6 sm:space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-2 min-w-0">
                 <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Section Title</label>
                 <input
                   type="text"
                   value={content.scenarios.title}
                   onChange={(e) => updateContent('scenarios', { ...content.scenarios, title: e.target.value })}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                  className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Subtitle/Context</label>
                 <input
                   type="text"
                   value={content.scenarios.subtitle}
                   onChange={(e) => updateContent('scenarios', { ...content.scenarios, subtitle: e.target.value })}
-                  className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                  className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
                 />
               </div>
             </div>
@@ -10601,19 +10612,20 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                   + Add Scenario
                 </button>
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {content.scenarios.items.map((item, idx) => (
-                  <div key={idx} className="bg-neutral-50 rounded-2xl border border-neutral-100 p-4 space-y-4 group relative">
+                  <div key={idx} className="bg-neutral-50 rounded-2xl border border-neutral-100 p-3.5 sm:p-4 space-y-3 group relative">
                     <button 
                       onClick={() => {
                         const newItems = content.scenarios.items.filter((_, i) => i !== idx);
                         updateContent('scenarios', { ...content.scenarios, items: newItems });
                       }}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-500"
+                      className="absolute top-2 right-2 opacity-80 sm:opacity-0 group-hover:opacity-100 text-red-500 transition p-1"
+                      title="Delete Scenario"
                     >
                       <Trash2 size={14} />
                     </button>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5 min-w-0 pr-6 sm:pr-0">
                       <label className="text-[8px] font-black uppercase text-neutral-400">Sector Title</label>
                       <input
                         type="text"
@@ -10623,10 +10635,10 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                           newItems[idx].title = e.target.value;
                           updateContent('scenarios', { ...content.scenarios, items: newItems });
                         }}
-                        className="w-full px-2 py-1.5 bg-white border border-neutral-200 rounded-lg text-[10px] font-bold"
+                        className="w-full min-w-0 px-2.5 py-1.5 bg-white border border-neutral-200 rounded-lg text-xs font-bold outline-none"
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5 min-w-0">
                       <label className="text-[8px] font-black uppercase text-neutral-400">Background Image URL</label>
                       <input
                         type="text"
@@ -10636,7 +10648,7 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                           newItems[idx].image = e.target.value;
                           updateContent('scenarios', { ...content.scenarios, items: newItems });
                         }}
-                        className="w-full px-2 py-1.5 bg-white border border-neutral-200 rounded-lg text-[10px]"
+                        className="w-full min-w-0 px-2.5 py-1.5 bg-white border border-neutral-200 rounded-lg text-xs outline-none"
                       />
                       {item.image && (
                         <div className="mt-1 h-16 w-full rounded-lg overflow-hidden border border-neutral-200/60">
@@ -10653,24 +10665,24 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
       </div>
 
       {/* Stats Section */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
+      <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 overflow-hidden">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-          <h3 className="text-xl font-bold flex items-center gap-2">
-            <TrendingUp size={20} className="text-primary" />
+          <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+            <TrendingUp size={20} className="text-primary shrink-0" />
             <span>Industrial Stats</span>
           </h3>
           <button 
             onClick={() => updateContent('stats', { ...content.stats, isEnabled: !content.stats.isEnabled })}
-            className={`w-12 h-6 rounded-full relative transition-colors ${content.stats.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+            className={`w-12 h-6 rounded-full relative transition-colors shrink-0 ${content.stats.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
           >
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${content.stats.isEnabled ? 'right-1' : 'left-1'}`}></div>
           </button>
         </div>
         {content.stats.isEnabled && (
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
             {content.stats.items.map((stat, idx) => (
-              <div key={idx} className="flex gap-4 items-end">
-                <div className="flex-1 space-y-1">
+              <div key={idx} className="flex gap-3 items-end bg-neutral-50 p-3 sm:p-4 rounded-2xl border border-neutral-100">
+                <div className="flex-1 space-y-2 min-w-0">
                   <input
                     type="text"
                     value={stat.value}
@@ -10680,7 +10692,7 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                       updateContent('stats', { ...content.stats, items: newStats });
                     }}
                     placeholder="99%"
-                    className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-black text-xl"
+                    className="w-full min-w-0 px-3 py-2 bg-white border border-neutral-200 rounded-xl font-black text-lg sm:text-xl outline-none"
                   />
                   <input
                     type="text"
@@ -10691,7 +10703,7 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                       updateContent('stats', { ...content.stats, items: newStats });
                     }}
                     placeholder="Label"
-                    className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-neutral-400"
+                    className="w-full min-w-0 px-3 py-2 bg-white border border-neutral-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-neutral-400 outline-none"
                   />
                 </div>
               </div>
@@ -10701,50 +10713,57 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
       </div>
 
       {/* Testimonials */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
+      <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 overflow-hidden">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-          <h3 className="text-xl font-bold flex items-center gap-2">
-            <MessageSquare size={20} className="text-primary" />
+          <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+            <MessageSquare size={20} className="text-primary shrink-0" />
             <span>Testimonials</span>
           </h3>
           <button 
             onClick={() => updateContent('testimonials', { ...content.testimonials, isEnabled: !content.testimonials.isEnabled })}
-            className={`w-12 h-6 rounded-full relative transition-colors ${content.testimonials.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+            className={`w-12 h-6 rounded-full relative transition-colors shrink-0 ${content.testimonials.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
           >
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${content.testimonials.isEnabled ? 'right-1' : 'left-1'}`}></div>
           </button>
         </div>
         {content.testimonials.isEnabled && (
           <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <input
-                type="text"
-                value={content.testimonials.title}
-                onChange={(e) => updateContent('testimonials', { ...content.testimonials, title: e.target.value })}
-                placeholder="Section Title"
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl"
-              />
-              <input
-                type="text"
-                value={content.testimonials.subtitle}
-                onChange={(e) => updateContent('testimonials', { ...content.testimonials, subtitle: e.target.value })}
-                placeholder="Section Subtitle"
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-1.5 min-w-0">
+                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Title</label>
+                <input
+                  type="text"
+                  value={content.testimonials.title}
+                  onChange={(e) => updateContent('testimonials', { ...content.testimonials, title: e.target.value })}
+                  placeholder="Section Title"
+                  className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs sm:text-sm outline-none"
+                />
+              </div>
+              <div className="space-y-1.5 min-w-0">
+                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Subtitle</label>
+                <input
+                  type="text"
+                  value={content.testimonials.subtitle}
+                  onChange={(e) => updateContent('testimonials', { ...content.testimonials, subtitle: e.target.value })}
+                  placeholder="Section Subtitle"
+                  className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs sm:text-sm outline-none"
+                />
+              </div>
             </div>
             <div className="grid gap-4">
               {content.testimonials.items.map((t, idx) => (
-                <div key={idx} className="p-6 bg-neutral-50 rounded-2xl border border-neutral-100 space-y-4 group relative">
+                <div key={idx} className="p-4 sm:p-6 bg-neutral-50 rounded-2xl border border-neutral-100 space-y-4 group relative">
                   <button 
                     onClick={() => {
                       const newItems = content.testimonials.items.filter((_, i) => i !== idx);
                       updateContent('testimonials', { ...content.testimonials, items: newItems });
                     }}
-                    className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 text-red-500"
+                    className="absolute top-3 right-3 opacity-80 sm:opacity-0 group-hover:opacity-100 text-red-500 transition p-1"
+                    title="Delete Testimonial"
                   >
                     <Trash2 size={16} />
                   </button>
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pr-6 sm:pr-0">
                     <input
                       type="text"
                       value={t.name}
@@ -10754,7 +10773,7 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                         updateContent('testimonials', { ...content.testimonials, items: newTells });
                       }}
                       placeholder="Name"
-                      className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-bold"
+                      className="w-full min-w-0 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-bold outline-none"
                     />
                     <input
                       type="text"
@@ -10765,7 +10784,7 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                         updateContent('testimonials', { ...content.testimonials, items: newTells });
                       }}
                       placeholder="Role"
-                      className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs"
+                      className="w-full min-w-0 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs outline-none"
                     />
                     <input
                       type="text"
@@ -10776,7 +10795,7 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                         updateContent('testimonials', { ...content.testimonials, items: newTells });
                       }}
                       placeholder="Avatar URL"
-                      className="px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs"
+                      className="w-full min-w-0 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs outline-none"
                     />
                   </div>
                   <textarea
@@ -10787,13 +10806,14 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                       updateContent('testimonials', { ...content.testimonials, items: newTells });
                     }}
                     placeholder="Testimonial content..."
-                    className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs"
+                    rows={2}
+                    className="w-full min-w-0 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs outline-none"
                   />
                 </div>
               ))}
               <button 
                 onClick={() => updateContent('testimonials', { ...content.testimonials, items: [...content.testimonials.items, { name: '', role: '', content: '' }] })}
-                className="w-full py-4 border-2 border-dashed border-neutral-200 rounded-2xl text-neutral-400 font-bold hover:border-primary/20 hover:text-primary transition"
+                className="w-full py-3.5 sm:py-4 border-2 border-dashed border-neutral-200 rounded-2xl text-neutral-400 font-bold hover:border-primary/20 hover:text-primary transition text-xs sm:text-sm"
               >
                 + Add Testimonial
               </button>
@@ -10803,60 +10823,63 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
       </div>
 
       {/* FAQ Section */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
+      <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 overflow-hidden">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-          <h3 className="text-xl font-bold flex items-center gap-2">
-            <HelpCircle size={20} className="text-primary" />
+          <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+            <HelpCircle size={20} className="text-primary shrink-0" />
             <span>FAQ Section</span>
           </h3>
           <button 
             onClick={() => updateContent('faq', { ...content.faq, isEnabled: !content.faq.isEnabled })}
-            className={`w-12 h-6 rounded-full relative transition-colors ${content.faq.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+            className={`w-12 h-6 rounded-full relative transition-colors shrink-0 ${content.faq.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
           >
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${content.faq.isEnabled ? 'right-1' : 'left-1'}`}></div>
           </button>
         </div>
         {content.faq.isEnabled && (
           <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <input
                 type="text"
                 value={content.faq.title}
                 onChange={(e) => updateContent('faq', { ...content.faq, title: e.target.value })}
                 placeholder="FAQ Title"
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl"
+                className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs sm:text-sm outline-none"
               />
               <input
                 type="text"
                 value={content.faq.subtitle}
                 onChange={(e) => updateContent('faq', { ...content.faq, subtitle: e.target.value })}
                 placeholder="FAQ Subtitle"
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl"
+                className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs sm:text-sm outline-none"
               />
             </div>
             <div className="space-y-4">
               {content.faq.items.map((item, idx) => (
-                <div key={idx} className="p-6 bg-neutral-50 rounded-2xl border border-neutral-100 space-y-4 group relative">
+                <div key={idx} className="p-4 sm:p-6 bg-neutral-50 rounded-2xl border border-neutral-100 space-y-3 group relative">
                   <button 
                     onClick={() => {
                       const newItems = content.faq.items.filter((_, i) => i !== idx);
                       updateContent('faq', { ...content.faq, items: newItems });
                     }}
-                    className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 text-red-500"
+                    className="absolute top-3 right-3 opacity-80 sm:opacity-0 group-hover:opacity-100 text-red-500 transition p-1"
+                    title="Delete FAQ"
                   >
                     <Trash2 size={16} />
                   </button>
-                  <input
-                    type="text"
-                    value={item.question}
-                    onChange={(e) => {
-                      const newFaqs = [...content.faq.items];
-                      newFaqs[idx].question = e.target.value;
-                      updateContent('faq', { ...content.faq, items: newFaqs });
-                    }}
-                    placeholder="Question"
-                    className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-bold"
-                  />
+                  <div className="pr-6 sm:pr-0">
+                    <input
+                      type="text"
+                      value={item.question}
+                      onChange={(e) => {
+                        const newFaqs = [...content.faq.items];
+                        newFaqs[idx].question = e.target.value;
+                        updateContent('faq', { ...content.faq, items: newFaqs });
+                      }}
+                      placeholder="Question"
+                      className="w-full min-w-0 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs sm:text-sm font-bold outline-none"
+                    />
+                  </div>
                   <textarea
                     value={item.answer}
                     onChange={(e) => {
@@ -10865,13 +10888,14 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                       updateContent('faq', { ...content.faq, items: newFaqs });
                     }}
                     placeholder="Answer"
-                    className="w-full px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm"
+                    rows={2}
+                    className="w-full min-w-0 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs sm:text-sm outline-none"
                   />
                 </div>
               ))}
               <button 
                 onClick={() => updateContent('faq', { ...content.faq, items: [...content.faq.items, { question: '', answer: '' }] })}
-                className="w-full py-4 border-2 border-dashed border-neutral-200 rounded-2xl text-neutral-400 font-bold hover:border-primary/20 hover:text-primary transition"
+                className="w-full py-3.5 sm:py-4 border-2 border-dashed border-neutral-200 rounded-2xl text-neutral-400 font-bold hover:border-primary/20 hover:text-primary transition text-xs sm:text-sm"
               >
                 + Add FAQ
               </button>
@@ -10881,46 +10905,46 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
       </div>
 
       {/* CTA Section */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
+      <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 overflow-hidden">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-          <h3 className="text-xl font-bold flex items-center gap-2">
-            <MousePointer2 size={20} className="text-primary" />
+          <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+            <MousePointer2 size={20} className="text-primary shrink-0" />
             <span>Call to Action</span>
           </h3>
           <button 
             onClick={() => updateContent('cta', { ...content.cta, isEnabled: !content.cta.isEnabled })}
-            className={`w-12 h-6 rounded-full relative transition-colors ${content.cta.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
+            className={`w-12 h-6 rounded-full relative transition-colors shrink-0 ${content.cta.isEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
           >
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${content.cta.isEnabled ? 'right-1' : 'left-1'}`}></div>
           </button>
         </div>
         {content.cta.isEnabled && (
           <div className="space-y-6">
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Main Title</label>
               <input
                 type="text"
                 value={content.cta.title}
                 onChange={(e) => updateContent('cta', { ...content.cta, title: e.target.value })}
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Contextual Description</label>
               <textarea
                 value={content.cta.description}
                 onChange={(e) => updateContent('cta', { ...content.cta, description: e.target.value })}
                 rows={2}
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Button Text</label>
               <input
                 type="text"
                 value={content.cta.buttonText}
                 onChange={(e) => updateContent('cta', { ...content.cta, buttonText: e.target.value })}
-                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
               />
             </div>
           </div>
@@ -10928,19 +10952,19 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
       </div>
 
       {/* Footer Section */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6">
-        <h3 className="text-xl font-bold flex items-center gap-2">
-          <ChevronDown size={20} className="text-primary" />
+      <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-6 overflow-hidden">
+        <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+          <ChevronDown size={20} className="text-primary shrink-0" />
           <span>Footer</span>
         </h3>
         <div className="space-y-6">
-          <div className="space-y-2">
+          <div className="space-y-2 min-w-0">
             <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Copyright Text</label>
             <input
               type="text"
               value={content.footer.copyright}
               onChange={(e) => updateContent('footer', { ...content.footer, copyright: e.target.value })}
-              className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none"
+              className="w-full min-w-0 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-xs sm:text-sm"
             />
           </div>
           <div className="space-y-4">
@@ -10953,9 +10977,9 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                 <Plus size={14} /> Add Link
               </button>
             </div>
-            <div className="grid gap-2">
+            <div className="grid gap-2.5">
               {content.footer.links.map((link, idx) => (
-                <div key={idx} className="flex items-center gap-4 bg-neutral-50 p-2 rounded-xl border border-neutral-100">
+                <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-neutral-50 p-2.5 rounded-xl border border-neutral-100">
                   <input
                     type="text"
                     value={link.label}
@@ -10965,7 +10989,7 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                       updateContent('footer', { ...content.footer, links: newLinks });
                     }}
                     placeholder="Label"
-                    className="flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs"
+                    className="w-full min-w-0 flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-primary outline-none"
                   />
                   <input
                     type="text"
@@ -10976,17 +11000,20 @@ function LanderEditor({ lander, onUpdate }: { lander: Lander, onUpdate: (l: Land
                       updateContent('footer', { ...content.footer, links: newLinks });
                     }}
                     placeholder="URL"
-                    className="flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs"
+                    className="w-full min-w-0 flex-1 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-primary outline-none"
                   />
-                  <button 
-                    onClick={() => {
-                      const newLinks = content.footer.links.filter((_, i) => i !== idx);
-                      updateContent('footer', { ...content.footer, links: newLinks });
-                    }}
-                    className="p-2 text-neutral-300 hover:text-red-500 transition"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="flex justify-end shrink-0">
+                    <button 
+                      onClick={() => {
+                        const newLinks = content.footer.links.filter((_, i) => i !== idx);
+                        updateContent('footer', { ...content.footer, links: newLinks });
+                      }}
+                      className="p-2 text-neutral-400 hover:text-red-500 transition"
+                      title="Delete Link"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
