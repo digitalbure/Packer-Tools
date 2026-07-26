@@ -8,7 +8,7 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,9 +24,40 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.17.0',
+      version: 'v5.18.0',
       tag: 'Latest',
-      tagBg: 'bg-primary/10 text-primary border-primary/20',
+      tagBg: 'bg-purple-500/10 text-purple-600 border-purple-500/20 dark:bg-purple-500/20 dark:text-purple-300',
+      title: 'Claude Code, Claude Marketing Agent & Cursor MCP Server Integration',
+      date: 'July 2026',
+      icon: Cpu,
+      color: 'text-purple-600 dark:text-purple-400',
+      updates: [
+        {
+          title: 'Native Model Context Protocol (MCP) Server',
+          desc: 'Exposes a full-duplex SSE transport endpoint (/api/mcp/sse) for Claude Code CLI, Claude Desktop, and Cursor.',
+          badge: 'MCP Server'
+        },
+        {
+          title: 'Claude Marketing Agent Positioning Kit',
+          desc: 'get_marketing_messaging_kit tool & packer://marketing-playbook resource providing campaign angles for 6 key industries.',
+          badge: 'Marketing AI'
+        },
+        {
+          title: 'Live App Capability & Documentation Sync',
+          desc: 'get_app_capabilities, get_release_notes, and get_knowledge_base_guide keep Claude synced on platform specs and v5.18.0 features.',
+          badge: 'Docs Sync'
+        },
+        {
+          title: 'Admin User & Telemetry Management',
+          desc: 'Remote tools to lookup user profiles, update subscription plan tiers, and read system health metrics.',
+          badge: 'Admin'
+        }
+      ]
+    },
+    {
+      version: 'v5.17.0',
+      tag: 'Stable',
+      tagBg: 'bg-neutral-100 text-neutral-600 border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400',
       title: 'Multi-Select Group & Ungroup Shapes Engine in Organizer Designer',
       date: 'July 2026',
       icon: Sparkles,
@@ -552,7 +583,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[10px] uppercase font-black tracking-wide hidden sm:inline text-neutral-400">
-                  Build v5.17.0
+                  Build v5.18.0
                 </span>
                 <button
                   type="button"

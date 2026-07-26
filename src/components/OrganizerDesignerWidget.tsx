@@ -39,7 +39,8 @@ import {
   Maximize,
   Magnet,
   Group,
-  Ungroup
+  Ungroup,
+  BoxSelect
 } from 'lucide-react';
 import { Container, GearItem, PackingList, DesignerShape, DesignerSketch } from '../types';
 import { generateOrganizerLayout } from '../services/geminiService';
@@ -149,6 +150,16 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
   const [containerPreset, setContainerPreset] = useState<string>(
     container.layoutSketch?.containerType || 'pelican_1510'
   );
+
+  // Marquee Selection Box State
+  const [marqueeState, setMarqueeState] = useState<{
+    startX: number;
+    startY: number;
+    currX: number;
+    currY: number;
+    isShift: boolean;
+    initialSelectedIds: Set<string>;
+  } | null>(null);
 
   // Grid & Snap Settings
   const [showGrid, setShowGrid] = useState<boolean>(true);
@@ -727,14 +738,64 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
     return () => window.removeEventListener('click', handleClickOutside);
   }, [contextMenu.visible]);
 
-  // Canvas Mouse Down - Start Drawing or Deselect
+  // Global Listener for Marquee Selection Box Dragging
+  useEffect(() => {
+    if (!marqueeState) return;
+
+    const handleMarqueeMouseMove = (e: MouseEvent) => {
+      if (!canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const currX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const currY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+
+      setMarqueeState(prev => prev ? { ...prev, currX, currY } : null);
+
+      const minX = Math.min(marqueeState.startX, currX);
+      const maxX = Math.max(marqueeState.startX, currX);
+      const minY = Math.min(marqueeState.startY, currY);
+      const maxY = Math.max(marqueeState.startY, currY);
+
+      if (maxX - minX > 0.5 || maxY - minY > 0.5) {
+        const intersectedIds = new Set<string>(marqueeState.initialSelectedIds);
+
+        shapes.forEach(s => {
+          const shapeMaxX = s.x + s.width;
+          const shapeMaxY = s.y + s.height;
+          const intersects = s.x < maxX && shapeMaxX > minX && s.y < maxY && shapeMaxY > minY;
+
+          if (intersects) {
+            if (s.groupId) {
+              shapes.filter(grpShape => grpShape.groupId === s.groupId).forEach(grpShape => intersectedIds.add(grpShape.id));
+            } else {
+              intersectedIds.add(s.id);
+            }
+          }
+        });
+
+        setSelectedShapeIds(intersectedIds);
+      }
+    };
+
+    const handleMarqueeMouseUp = () => {
+      setMarqueeState(null);
+    };
+
+    window.addEventListener('mousemove', handleMarqueeMouseMove);
+    window.addEventListener('mouseup', handleMarqueeMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMarqueeMouseMove);
+      window.removeEventListener('mouseup', handleMarqueeMouseUp);
+    };
+  }, [marqueeState, shapes]);
+
+  // Canvas Mouse Down - Start Drawing or Deselect / Box Select Marquee
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     if (!canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
-    const clickX = ((e.clientX - rect.left) / rect.width) * 100;
-    const clickY = ((e.clientY - rect.top) / rect.height) * 100;
+    const clickX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const clickY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
 
     if (activeTool !== 'select') {
       setIsDrawing(true);
@@ -742,7 +803,21 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
       setCurrentDrawRect({ x: snap(clickX), y: snap(clickY), width: 5, height: 5 });
       setSelectedShapeId(null);
     } else {
-      setSelectedShapeId(null);
+      const isMulti = e.shiftKey || e.ctrlKey || e.metaKey;
+      const initialIds = isMulti ? new Set(selectedShapeIds) : new Set<string>();
+
+      if (!isMulti) {
+        setSelectedShapeIds(new Set());
+      }
+
+      setMarqueeState({
+        startX: clickX,
+        startY: clickY,
+        currX: clickX,
+        currY: clickY,
+        isShift: isMulti,
+        initialSelectedIds: initialIds
+      });
     }
   };
 
@@ -1512,7 +1587,7 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
             className={`p-2.5 rounded-xl transition flex flex-col items-center text-[9px] font-bold ${
               activeTool === 'select' ? 'bg-primary text-white shadow-lg' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
             }`}
-            title="Select & Drag Shapes"
+            title="Select, Move & Box-Select Shapes (Drag rectangle)"
           >
             <Move size={18} />
           </button>
@@ -1647,6 +1722,24 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
                   <span className="px-2 py-0.5 bg-black/80 text-primary text-[9px] font-mono font-bold rounded">
                     {formatDimensions(currentDrawRect.width, currentDrawRect.height)}
                   </span>
+                </div>
+              )}
+
+              {/* Visual Box Selection Marquee Overlay */}
+              {marqueeState && (Math.abs(marqueeState.currX - marqueeState.startX) > 0.5 || Math.abs(marqueeState.currY - marqueeState.startY) > 0.5) && (
+                <div
+                  className="absolute border-2 border-dashed border-cyan-400 bg-cyan-500/15 shadow-[0_0_20px_rgba(34,211,238,0.4)] pointer-events-none z-40 rounded-xl transition-none"
+                  style={{
+                    left: `${Math.min(marqueeState.startX, marqueeState.currX)}%`,
+                    top: `${Math.min(marqueeState.startY, marqueeState.currY)}%`,
+                    width: `${Math.abs(marqueeState.currX - marqueeState.startX)}%`,
+                    height: `${Math.abs(marqueeState.currY - marqueeState.startY)}%`
+                  }}
+                >
+                  <div className="absolute -top-7 left-0 bg-neutral-950/95 text-cyan-300 border border-cyan-500/60 text-[9px] font-mono font-bold px-2.5 py-0.5 rounded-full shadow-xl flex items-center gap-1.5 whitespace-nowrap">
+                    <BoxSelect size={11} className="text-cyan-400 animate-pulse shrink-0" />
+                    <span>Box Select ({selectedShapeIds.size} selected)</span>
+                  </div>
                 </div>
               )}
 

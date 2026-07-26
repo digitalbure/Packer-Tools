@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.17.0`
+## Current Application Version: `v5.18.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -15,8 +15,18 @@ Below is the consolidated history of Packer Tools, tracing all production rollou
 
 ---
 
-### 🚀 Stable Release: v5.17.0 (Multi-Select Group & Ungroup Shapes Engine in Organizer Designer)
+### 🚀 Stable Release: v5.18.0 (Claude Code, Claude Marketing Agent & Cursor Model Context Protocol (MCP) Server)
 *Released on: July 25, 2026*
+- **Native Model Context Protocol (MCP) Server**: Full-duplex SSE transport endpoint (`/api/mcp/sse`) and JSON-RPC stream handling (`/api/mcp`) exposing Packer Tools as a first-class custom connector for Claude Code, Claude Marketing Agent, and Cursor.
+- **Claude Marketing Agent Positioning Kit**: Dedicated `get_marketing_messaging_kit` tool and `packer://marketing-playbook` resource endpoint supplying multi-industry angles (Film, Construction, Automotive, Sports, Medical, Logistics), social copy hooks, and value props.
+- **Live Capability & Documentation Sync**: Integrated `get_app_capabilities`, `get_release_notes`, and `get_knowledge_base_guide` endpoints so AI agents always possess exact, real-time knowledge of platform features, v5.18.0 updates, and layout tools.
+- **Admin System Operations & Telemetry**: Exposed `lookup_user`, `update_user_plan`, `list_organizations`, and `get_system_telemetry` for remote workspace management.
+
+---
+
+### 🚀 Stable Release: v5.17.0 (Multi-Select Group & Ungroup Shapes Engine & Visual Marquee Box-Select in Organizer Designer)
+*Released on: July 25, 2026*
+- **Visual Selection Marquee (Box-Select)**: Click and drag on empty canvas space to draw a responsive selection rectangle to multi-select shapes at once.
 - **Multi-Select & Group / Ungroup Shapes Engine**: Added Shift/Ctrl/Cmd multi-selection support for Organizer Designer foam shapes with keyboard shortcuts for Group (`Ctrl+G`) and Ungroup (`Ctrl+Shift+G`).
 - **Interactive Group Bounding Box Overlay**: Renders dynamic purple dashed group bounding overlays with quick 'Lock Group' and 'Ungroup' action banners on multi-selection.
 - **Group Drag & Proportional Scaling**: Move or resize entire grouped shape arrays simultaneously with automatic relative coordinate scaling.

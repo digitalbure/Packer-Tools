@@ -1,13 +1,41 @@
 # 📘 Packer Tools Knowledge Base
 
-Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including Organizer Designer group/ungroup shapes engine, CAD exports, magnetic alignment snapping, public share link resolution, unauthenticated asset passports, bulk allocation, audit workflows, AI scenario coaching, and native mobile UX.
+Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including Model Context Protocol (MCP) connectors, Claude Marketing Agent positioning kits, Organizer Designer marquee box-select and group/ungroup shapes engine, CAD exports, magnetic alignment snapping, public share link resolution, unauthenticated asset passports, bulk allocation, audit workflows, AI scenario coaching, and native mobile UX.
 
 ---
 
-## 📐 0.0. Organizer Designer Multi-Select Group & Ungroup Engine (v5.17.0)
+## 🤖 0.00. Model Context Protocol (MCP) Server & Claude Marketing Agent Connector (v5.18.0)
 
-The **Organizer Designer** 2D foam layout builder includes multi-select grouping capabilities:
-- **Multi-Selection**: Hold `Shift` or `Ctrl/Cmd` while clicking shapes to select multiple items simultaneously. Clicking a grouped item selects all items belonging to that group.
+Packer Tools includes a native **Model Context Protocol (MCP) Server** running directly on the backend (`/api/mcp` and `/api/mcp/sse`), enabling Claude Code, Claude Desktop, Claude Marketing Agents, and Cursor to pair seamlessly with your Packer Tools workspace:
+
+### 1. Connecting Claude Code CLI or Cursor
+Add Packer Tools directly in your terminal or Claude Desktop config using the active Server-Sent Events (SSE) transport endpoint:
+```bash
+claude mcp add packer-tools -- https://<your-domain>/api/mcp/sse
+```
+
+### 2. Available Admin & Marketing Capabilities Tools
+- `get_app_capabilities`: Syncs Claude on complete platform specifications, active modules, layout presets, tech stack, and architectural rules.
+- `get_marketing_messaging_kit`: Provides the **Claude Marketing Agent** with target audience personas, pain points, value propositions, feature hooks, social media post templates, and hashtags across 6 key industries (Film, Construction, Automotive, Sports, Medical, Logistics).
+- `get_release_notes`: Fetches current version notes (`v5.18.0`) and full changelog history directly from `RELEASE.md`.
+- `get_knowledge_base_guide`: Allows Claude to search step-by-step module documentation directly from `KNOWLEDGE_BASE.md`.
+- `lookup_user` & `update_user_plan`: Admin tools to inspect user profiles, plan tiers, seat limits, and subscription statuses.
+- `get_system_telemetry`: Provides real-time metrics including total user count, active organizations, custom inventory sheets, and system operational health.
+
+### 3. Exposed MCP Resources (`packer://`)
+- `packer://app-capabilities`: Live JSON specifications of all platform features and capabilities.
+- `packer://marketing-playbook`: Comprehensive marketing playbook & positioning kit for social/campaign generation.
+- `packer://release-notes`: Markdown content of `RELEASE.md`.
+- `packer://knowledge-base`: Markdown content of `KNOWLEDGE_BASE.md`.
+- `packer://agent-rules`: Developer constraints from `AGENTS.md`.
+
+---
+
+## 📐 0.0. Organizer Designer Multi-Select Marquee & Group / Ungroup Engine (v5.17.0)
+
+The **Organizer Designer** 2D foam layout builder includes visual marquee box-selection and multi-select grouping capabilities:
+- **Visual Marquee (Box-Select)**: Click and drag across empty canvas space in `select` mode to draw a translucent cyan selection rectangle. All shapes intersecting or contained within the marquee box are automatically selected.
+- **Shift / Ctrl / Cmd Selection**: Hold `Shift` or `Ctrl/Cmd` while dragging the marquee or clicking shapes to add/remove items to/from the current selection set.
 - **Group & Ungroup Controls**: Click **"Group"** (`Ctrl+G`) in the top toolbar, group overlay banner, or right-click context menu to lock selected shapes into a single group entity. Click **"Ungroup"** (`Ctrl+Shift+G`) to break group associations.
 - **Interactive Bounding Box Overlay**: Renders a purple dashed bounding box overlay spanning the grouped shapes with quick "Lock Group" and "Ungroup" controls.
 - **Synchronized Group Moving & Scaling**: Dragging or resizing any element within a group translates or proportionally scales all member shapes together smoothly.

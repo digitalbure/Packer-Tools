@@ -26,22 +26,22 @@ export default function AdminDocsTab() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400">Platform Build</p>
-          <p className="text-2xl font-black text-neutral-950">v5.17.0</p>
+          <p className="text-2xl font-black text-neutral-950">v5.18.0</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[8px] font-mono font-bold">Stable Core</span>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400 font-mono">AI Scraper Engine</p>
-          <p className="text-2xl font-black text-neutral-950">v5.17.0</p>
+          <p className="text-2xl font-black text-neutral-950">v5.18.0</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[8px] font-mono font-bold">Gemini Live</span>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400">Embed Widget SDK</p>
-          <p className="text-2xl font-black text-neutral-950">v5.17.0</p>
+          <p className="text-2xl font-black text-neutral-950">v5.18.0</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[8px] font-mono font-bold">CORS Whitelisted</span>
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm space-y-1">
           <p className="text-[9px] font-black tracking-widest uppercase text-neutral-400 font-mono">DB Schema Spec</p>
-          <p className="text-2xl font-black text-neutral-950">v5.17.0</p>
+          <p className="text-2xl font-black text-neutral-950">v5.18.0</p>
           <span className="inline-block px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[8px] font-mono font-bold">Encrypted Keys</span>
         </div>
       </div>
@@ -124,6 +124,110 @@ export default function AdminDocsTab() {
               <div>
                 <strong className="font-extrabold block mb-1 uppercase tracking-tight">Security Caution</strong>
                 Your confidential API credentials (`pk_live_packer_...`) grant total retrieval access code permissions. Never write credentials onto client-side JavaScript. Keep them isolated inside secure backend servers.
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Model Context Protocol (MCP) Server & Claude Code Connector */}
+          <div className="bg-neutral-900 text-white p-8 rounded-[2.5rem] border border-neutral-800 shadow-xl space-y-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 blur-[80px] pointer-events-none rounded-full" />
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-purple-500/20 text-purple-400 rounded-2xl border border-purple-500/30">
+                  <Cpu size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
+                    <span>3. Claude Code & Claude Desktop MCP Connector</span>
+                    <span className="px-2.5 py-0.5 text-[9px] bg-purple-500/20 text-purple-300 font-mono font-bold rounded-full border border-purple-500/30">SSE Active</span>
+                  </h3>
+                  <p className="text-xs text-neutral-400 font-medium">Connect Claude directly to your Packer Tools admin backend via Model Context Protocol (MCP).</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4 text-xs font-mono">
+              <div className="p-4 bg-neutral-950/80 rounded-2xl border border-neutral-800 space-y-2">
+                <span className="text-[9px] text-purple-400 font-bold uppercase tracking-wider block">SSE Transport Endpoint</span>
+                <p className="text-neutral-200 text-[11px] font-bold select-all bg-neutral-900 px-3 py-2 rounded-xl border border-neutral-800">
+                  {window.location.origin}/api/mcp/sse
+                </p>
+                <p className="text-[10px] text-neutral-400 font-sans">Full-duplex Server-Sent Events connection stream for Claude Code & Cursor.</p>
+              </div>
+
+              <div className="p-4 bg-neutral-950/80 rounded-2xl border border-neutral-800 space-y-2">
+                <span className="text-[9px] text-purple-400 font-bold uppercase tracking-wider block">Claude Code CLI Add Command</span>
+                <p className="text-purple-300 text-[11px] font-bold select-all bg-neutral-900 px-3 py-2 rounded-xl border border-neutral-800">
+                  claude mcp add packer-tools -- {window.location.origin}/api/mcp/sse
+                </p>
+                <p className="text-[10px] text-neutral-400 font-sans">Run inside your terminal to instantly pair Claude Code CLI with Packer Tools.</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 block">Claude Desktop Configuration (`claude_desktop_config.json`)</span>
+              <pre className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 text-[11px] font-mono text-emerald-400 overflow-x-auto select-all">
+{JSON.stringify({
+  "mcpServers": {
+    "packer-tools": {
+      "url": `${window.location.origin}/api/mcp/sse`
+    }
+  }
+}, null, 2)}
+              </pre>
+            </div>
+
+            <div className="space-y-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-300 block">Exposed MCP Admin & Capability Endpoints</span>
+              <div className="grid sm:grid-cols-2 gap-3 text-xs font-sans">
+                {/* Admin Capability Connector tools */}
+                <div className="p-3.5 bg-neutral-950/70 rounded-xl border border-purple-500/30 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-purple-300 text-[11px]">get_app_capabilities</span>
+                    <span className="text-[8px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-500/30">Capabilities Sync</span>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 leading-tight">Syncs Claude on platform specs, active modules, layout presets, tech stack, and system feature rules.</p>
+                </div>
+
+                <div className="p-3.5 bg-neutral-950/70 rounded-xl border border-purple-500/30 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-purple-300 text-[11px]">get_release_notes</span>
+                    <span className="text-[8px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-500/30">v5.18.0 Changelog</span>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 leading-tight">Retrieves official release notes (`RELEASE.md`), version history, and feature additions.</p>
+                </div>
+
+                <div className="p-3.5 bg-neutral-950/70 rounded-xl border border-purple-500/30 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-purple-300 text-[11px]">get_knowledge_base_guide</span>
+                    <span className="text-[8px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-500/30">Knowledge Base</span>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 leading-tight">Fetches step-by-step guides (`KNOWLEDGE_BASE.md`) for Organizer Designer, CAD export, and snapping.</p>
+                </div>
+
+                <div className="p-3.5 bg-neutral-950/70 rounded-xl border border-neutral-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-purple-300 text-[11px]">lookup_user / update_user_plan</span>
+                    <span className="text-[8px] bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded-full uppercase font-bold">Operational Admin</span>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 leading-tight">Find user profiles and update subscription tiers, seat limits, or feature configurations.</p>
+                </div>
+
+                <div className="p-3.5 bg-neutral-950/70 rounded-xl border border-neutral-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-purple-300 text-[11px]">list_gear / add_gear_item</span>
+                    <span className="text-[8px] bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded-full uppercase font-bold">App Inventory</span>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 leading-tight">Query, search, or register physical equipment items into user libraries.</p>
+                </div>
+
+                <div className="p-3.5 bg-neutral-950/70 rounded-xl border border-neutral-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-purple-300 text-[11px]">get_system_telemetry</span>
+                    <span className="text-[8px] bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded-full uppercase font-bold">System Health</span>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 leading-tight">Read live database metrics, user counts, organization stats, and system health status.</p>
+                </div>
               </div>
             </div>
           </div>
