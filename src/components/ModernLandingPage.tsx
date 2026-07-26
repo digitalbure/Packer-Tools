@@ -37,12 +37,16 @@ import {
   Sliders,
   CheckSquare,
   Package,
-  Crosshair
+  Crosshair,
+  Menu,
+  X,
+  LogIn
 } from 'lucide-react';
 import { UserProfile, AdminSettings } from '../types';
 import { signInWithGoogle } from '../firebase';
 import PackerLogo from './PackerLogo';
 import { hapticLight, hapticSuccess, hapticMedium } from '../utils/haptics';
+import { useAuth } from '../providers/AuthProvider';
 
 interface ModernLandingPageProps {
   user: UserProfile | null;
@@ -139,7 +143,22 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
   const [activeTab, setActiveTab] = useState<'blueprint' | 'ai_scan' | 'kiosk' | 'qr'>('blueprint');
   const [selectedIndustry, setSelectedIndustry] = useState('cinema');
   const [selectedCaseItem, setSelectedCaseItem] = useState<string | null>('1');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
+  const { 
+    selectedCommunity, 
+    setIsCommunitySelectorOpen, 
+    selectedCurrency, 
+    setSelectedCurrency 
+  } = useAuth();
+
+  const activeCommunities = adminSettings?.communities || [
+    { id: 'fiji', name: 'Fiji Community', country: 'Fiji', countryCode: 'FJ', currency: 'FJD', flag: '🇫🇯', companyName: 'Packer Tools Fiji', isActive: true },
+    { id: 'australia', name: 'Australian Community', country: 'Australia', countryCode: 'AU', currency: 'AUD', flag: '🇦🇺', companyName: 'Packer Tools Australia', isActive: true },
+    { id: 'new_zealand', name: 'New Zealand Community', country: 'New Zealand', countryCode: 'NZ', currency: 'NZD', flag: '🇳🇿', companyName: 'Packer Tools New Zealand', isActive: true }
+  ];
+  const currentComm = activeCommunities.find(c => c.id === selectedCommunity) || activeCommunities[0];
+
   // Weight calculator simulator
   const [calcCameraCount, setCalcCameraCount] = useState(2);
   const [calcLensCount, setCalcLensCount] = useState(4);
@@ -167,19 +186,57 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
       <div className="fixed inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none z-0" />
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-[#ff4f3a]/15 via-amber-500/5 to-transparent blur-[140px] pointer-events-none z-0" />
 
-      {/* Top Floating Glass Navigation */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-[#0d0f12]/80 border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      {/* Top Floating Glass Navigation Bar (Single Unified Bar) */}
+      <header className="sticky top-0 z-50 backdrop-blur-2xl bg-[#0d0f12]/90 border-b border-white/10 shadow-2xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
           
-          <div className="flex items-center gap-3">
-            <PackerLogo size={36} />
-            <div className="hidden sm:flex flex-col">
-              <span className="text-xs font-black uppercase tracking-widest text-neutral-400">Packer Tools</span>
-              <span className="text-[10px] text-[#ff4f3a] font-mono font-bold">v5.17 Enterprise</span>
+          {/* Brand Logo & Version */}
+          <div className="flex items-center gap-3 shrink-0">
+            <a href="#/" className="flex items-center gap-3 group">
+              <PackerLogo size={34} />
+              <div className="flex flex-col">
+                <span className="text-sm font-black uppercase tracking-wider text-white group-hover:text-[#ff4f3a] transition-colors">Packer Tools</span>
+                <span className="text-[10px] text-[#ff4f3a] font-mono font-extrabold tracking-tight">v5.19 Enterprise</span>
+              </div>
+            </a>
+
+            {/* Region & Currency Badges (Integrated into main bar) */}
+            <div className="hidden lg:flex items-center gap-2 pl-3 border-l border-white/10">
+              <button 
+                onClick={() => {
+                  hapticLight();
+                  setIsCommunitySelectorOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-neutral-200 rounded-full text-xs font-bold border border-white/10 transition cursor-pointer"
+                title="Switch Regional Community Portal"
+              >
+                <span>{currentComm ? currentComm.flag : '🌐'}</span>
+                <span className="text-[10px] font-black uppercase tracking-wider">{currentComm ? currentComm.name : 'Global Portal'}</span>
+                <ChevronDown size={11} className="text-neutral-400" />
+              </button>
+
+              <div className="relative inline-flex items-center">
+                <select
+                  value={selectedCurrency}
+                  onChange={(e) => setSelectedCurrency(e.target.value)}
+                  className="bg-white/5 hover:bg-white/10 text-neutral-200 border border-white/10 rounded-full px-3 py-1 text-xs font-bold font-sans transition outline-none focus:ring-1 focus:ring-[#ff4f3a] cursor-pointer appearance-none pr-7 pl-3"
+                  title="App-wide Display Currency"
+                >
+                  <option value="USD" className="bg-neutral-900 text-white">USD ($)</option>
+                  <option value="EUR" className="bg-neutral-900 text-white">EUR (€)</option>
+                  <option value="GBP" className="bg-neutral-900 text-white">GBP (£)</option>
+                  <option value="AUD" className="bg-neutral-900 text-white">AUD (A$)</option>
+                  <option value="FJD" className="bg-neutral-900 text-white">FJD (FJ$)</option>
+                  <option value="CAD" className="bg-neutral-900 text-white">CAD (C$)</option>
+                  <option value="NZD" className="bg-neutral-900 text-white">NZD (NZ$)</option>
+                </select>
+                <ChevronDown size={10} className="absolute right-2.5 text-neutral-400 pointer-events-none" />
+              </div>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-neutral-300">
+          {/* Desktop Navigation Links */}
+          <nav className="hidden xl:flex items-center gap-6 text-xs font-bold text-neutral-300">
             <a href="#features" onClick={() => hapticLight()} className="hover:text-white transition">Capabilities</a>
             <a href="#blueprint" onClick={() => hapticLight()} className="hover:text-[#ff4f3a] transition flex items-center gap-1.5">
               <Layers size={14} className="text-[#ff4f3a]" />
@@ -191,14 +248,15 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
             <a href="#faq" onClick={() => hapticLight()} className="hover:text-white transition">FAQ</a>
           </nav>
 
-          <div className="flex items-center gap-3">
+          {/* Action / Auth Button (Single Primary Login Entry) */}
+          <div className="flex items-center gap-3 shrink-0">
             {onExploreMarketplace && (
               <button
                 onClick={() => {
                   hapticLight();
                   onExploreMarketplace();
                 }}
-                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold border border-white/10 transition"
+                className="hidden sm:flex items-center gap-2 px-3.5 py-2 bg-white/5 hover:bg-white/10 text-neutral-200 rounded-2xl text-xs font-bold border border-white/10 transition"
               >
                 <ShoppingBag size={14} className="text-amber-400" />
                 <span>Marketplace</span>
@@ -207,9 +265,9 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
 
             {user ? (
               <a
-                href="/dashboard"
+                href="#/dashboard"
                 onClick={() => hapticSuccess()}
-                className="px-5 py-2.5 bg-[#ff4f3a] hover:bg-[#ff3b22] text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-[#ff4f3a]/25 flex items-center gap-2"
+                className="px-5 py-2.5 bg-[#ff4f3a] hover:bg-[#ff3b22] text-white rounded-2xl text-xs font-black uppercase tracking-wider transition shadow-xl shadow-[#ff4f3a]/30 flex items-center gap-2"
               >
                 <span>Go to Workspace</span>
                 <ArrowRight size={14} />
@@ -217,14 +275,91 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
             ) : (
               <button
                 onClick={handleStartAuth}
-                className="px-5 py-2.5 bg-[#ff4f3a] hover:bg-[#ff3b22] text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-[#ff4f3a]/25 flex items-center gap-2 cursor-pointer"
+                className="px-5 py-2.5 bg-[#ff4f3a] hover:bg-[#ff3b22] text-white rounded-2xl text-xs font-black uppercase tracking-wider transition shadow-xl shadow-[#ff4f3a]/30 hover:scale-[1.02] active:scale-95 flex items-center gap-2 cursor-pointer"
               >
-                <Zap size={14} />
-                <span>Start Free Trial — 14 Days →</span>
+                <LogIn size={15} />
+                <span>Sign In / Free Trial →</span>
               </button>
             )}
+
+            {/* Mobile Menu Toggle Button */}
+            <button
+              onClick={() => {
+                hapticLight();
+                setIsMobileMenuOpen(!isMobileMenuOpen);
+              }}
+              className="xl:hidden p-2 text-neutral-300 hover:text-white bg-white/5 border border-white/10 rounded-xl transition"
+              aria-label="Toggle Navigation Menu"
+            >
+              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="xl:hidden bg-[#0a0c0f]/95 border-b border-white/10 backdrop-blur-2xl px-6 py-6 space-y-5"
+            >
+              {/* Region and Currency on Mobile */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/10">
+                <button 
+                  onClick={() => {
+                    hapticLight();
+                    setIsCommunitySelectorOpen(true);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold border border-white/10 transition"
+                >
+                  <span>{currentComm ? currentComm.flag : '🌐'}</span>
+                  <span>{currentComm ? currentComm.name : 'Global Portal'}</span>
+                </button>
+
+                <select
+                  value={selectedCurrency}
+                  onChange={(e) => setSelectedCurrency(e.target.value)}
+                  className="bg-white/5 text-white border border-white/10 rounded-xl px-3 py-2 text-xs font-bold transition outline-none"
+                >
+                  <option value="USD" className="bg-neutral-900">USD ($)</option>
+                  <option value="EUR" className="bg-neutral-900">EUR (€)</option>
+                  <option value="GBP" className="bg-neutral-900">GBP (£)</option>
+                  <option value="AUD" className="bg-neutral-900">AUD (A$)</option>
+                  <option value="FJD" className="bg-neutral-900">FJD (FJ$)</option>
+                  <option value="CAD" className="bg-neutral-900">CAD (C$)</option>
+                  <option value="NZD" className="bg-neutral-900">NZD (NZ$)</option>
+                </select>
+              </div>
+
+              {/* Mobile Nav Links */}
+              <div className="grid grid-cols-2 gap-3 text-xs font-bold text-neutral-300">
+                <a href="#features" onClick={() => setIsMobileMenuOpen(false)} className="p-3 bg-white/5 rounded-xl hover:text-white">Capabilities</a>
+                <a href="#blueprint" onClick={() => setIsMobileMenuOpen(false)} className="p-3 bg-white/5 rounded-xl hover:text-[#ff4f3a] flex items-center gap-1.5"><Layers size={14} className="text-[#ff4f3a]" /> 2D Blueprint</a>
+                <a href="#industries" onClick={() => setIsMobileMenuOpen(false)} className="p-3 bg-white/5 rounded-xl hover:text-white">Industries</a>
+                <a href="#calculator" onClick={() => setIsMobileMenuOpen(false)} className="p-3 bg-white/5 rounded-xl hover:text-white">Weight Calc</a>
+                <a href="#pricing" onClick={() => setIsMobileMenuOpen(false)} className="p-3 bg-white/5 rounded-xl hover:text-white">Pricing</a>
+                <a href="#faq" onClick={() => setIsMobileMenuOpen(false)} className="p-3 bg-white/5 rounded-xl hover:text-white">FAQ</a>
+              </div>
+
+              {/* Mobile CTA */}
+              {!user && (
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    handleStartAuth();
+                  }}
+                  className="w-full py-3.5 bg-[#ff4f3a] text-white rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-[#ff4f3a]/30"
+                >
+                  <LogIn size={16} />
+                  <span>Sign In / Free Trial →</span>
+                </button>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* HERO SECTION */}
@@ -240,7 +375,7 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
               className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ff4f3a]/20 via-amber-500/20 to-blue-500/20 border border-[#ff4f3a]/30 rounded-full text-xs font-mono text-neutral-200 shadow-xl"
             >
               <Sparkles size={14} className="text-[#ff4f3a] animate-pulse" />
-              <span className="font-bold text-white">Packer Tools v5.18.6</span>
+              <span className="font-bold text-white">Packer Tools v5.19.0</span>
               <span className="text-neutral-400">|</span>
               <span className="text-amber-300 font-bold">Multi-Industry Field Asset & Logistics Engine</span>
             </motion.div>

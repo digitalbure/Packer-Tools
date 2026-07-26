@@ -1697,11 +1697,11 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                     <h2 className="text-2xl font-bold">Upcoming Reminders</h2>
                   </div>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {reminders.map((reminder) => {
+                    {reminders.map((reminder, idx) => {
                       const isOverdue = new Date(reminder.dueDate) < new Date();
                       return (
                         <div 
-                          key={`rem-sec1-${reminder.id}`} 
+                          key={`rem-sec1-${reminder.id || 'rem'}-${idx}`} 
                           className={`p-6 rounded-3xl border transition-all flex flex-col justify-between gap-4 text-left ${
                             isOverdue ? 'bg-red-50 border-red-100' : 'bg-white border-neutral-100 shadow-sm'
                           }`}
@@ -2289,11 +2289,11 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                   <h2 className="text-2xl font-bold">Upcoming Reminders</h2>
                 </div>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {reminders.map((reminder) => {
+                  {reminders.map((reminder, idx) => {
                     const isOverdue = new Date(reminder.dueDate) < new Date();
                     return (
                       <div 
-                        key={`rem-sec2-${reminder.id}`} 
+                        key={`rem-sec2-${reminder.id || 'rem'}-${idx}`} 
                         className={`p-6 rounded-3xl border transition-all flex flex-col justify-between gap-4 ${
                           isOverdue ? 'bg-red-50 border-red-100' : 'bg-white border-neutral-100 shadow-sm'
                         }`}

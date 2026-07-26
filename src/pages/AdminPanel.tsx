@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, limit, addDoc, deleteDoc, where, serverTimestamp, writeBatch, setDoc, startAfter, orderBy, getCountFromServer } from 'firebase/firestore';
-import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Compass, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Smartphone, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin, Bug, Sparkles, Server, Flame, LayoutGrid, GripVertical, Loader2, Camera, List, ArrowUpDown, Image as ImageIcon } from 'lucide-react';
+import { Users, BarChart3, Settings, ShieldCheck, UserPlus, Search, Compass, Mail, Calendar, CreditCard, Zap, Package, TrendingUp, FileText, Plus, Trash2, Edit2, Check, X, Globe, Save, Layout, Activity, MousePointer2, Menu, PanelLeftClose, PanelLeftOpen, ChevronRight, LogOut, CheckCircle2, User, Clock, MessageSquare, HelpCircle, ChevronDown, QrCode, Lock as LockIcon, AlertCircle, Building2, GitBranch, Layers, ChevronLeft, ArrowRight, ArrowUpRight, Shield, Briefcase, Wrench, Percent, Truck, Cpu, Smartphone, Coins, ShoppingBag, Eye, EyeOff, Database, Upload, MapPin, Bug, Sparkles, Server, Flame, LayoutGrid, GripVertical, Loader2, Camera, List, ArrowUpDown, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
 import { UserProfile, AdminSettings, PackingList, Plan, CheckoutRecord, Lander, LandingPageContent, NavLink, Organization, Department, Team, Project, INDUSTRIES, BugReport } from '../types';
@@ -5295,7 +5295,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               <div className="p-6 bg-neutral-50 border border-neutral-100 rounded-3xl space-y-3">
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-bold text-neutral-800 text-sm">1. Write-Batch Operation Throttle (500 Limit)</span>
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v5.18.6</span>
+                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v5.19.0</span>
                 </div>
                 <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
                   Firestore limits write-batches to 500 documents per request. Bulk allocations of tens of thousands of assets are fully safeguarded via transaction volume splitting chunking. Prevents fatal crashes during catalog updates.
@@ -5305,7 +5305,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               <div className="p-6 bg-neutral-50 border border-neutral-100 rounded-3xl space-y-3">
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-bold text-neutral-800 text-sm">2. Resource Limit Audits Cost Slasher</span>
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v5.18.6</span>
+                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v5.19.0</span>
                 </div>
                 <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
                   Instead of downloading millions of user properties to confirm plan compliance and check limits, real-time validations run on-demand serverless metadata aggregations via 
@@ -7770,8 +7770,18 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             </div>
             
             <div className="space-y-4">
-              <label className="text-xs font-black uppercase tracking-widest text-neutral-400 block">1. Selected Landing Interface Strategy</label>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black uppercase tracking-widest text-neutral-400 block">1. Selected Landing Interface Strategy</label>
+                <Link
+                  to="/admin/pages"
+                  className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline flex items-center gap-1"
+                >
+                  <span>Open Pages Manager</span>
+                  <ArrowUpRight size={12} />
+                </Link>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 
                 {/* Modern Enterprise Landing Page v2 */}
                 <button
@@ -7804,6 +7814,32 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   </div>
                 </button>
 
+                {/* SaaS & Workflow Portal */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettings({ ...settings, activeLandingPageType: 'saas' });
+                    toast.success("Default root page set to SaaS Workflow Landing Portal");
+                  }}
+                  className={`p-6 rounded-2xl border text-left transition duration-150 flex items-start gap-4 ${
+                    settings.activeLandingPageType === 'saas'
+                      ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg'
+                      : 'border-neutral-150 bg-neutral-50/40 hover:bg-neutral-50 text-neutral-800 hover:border-neutral-200'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    settings.activeLandingPageType === 'saas' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600'
+                  }`}>
+                    <Zap size={18} />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-black uppercase tracking-wider">SaaS & Workflow Portal</div>
+                    <div className={`text-[10px] uppercase font-bold leading-relaxed ${settings.activeLandingPageType === 'saas' ? 'text-white/60' : 'text-neutral-400'}`}>
+                      High-conversion SaaS workflow portal, modular pricing tiers, live interactive calculators, and trial booking.
+                    </div>
+                  </div>
+                </button>
+
                 {/* Main Classic Landing Page */}
                 <button
                   type="button"
@@ -7826,6 +7862,32 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     <div className="text-xs font-black uppercase tracking-wider">Classic Core Landing</div>
                     <div className={`text-[10px] uppercase font-bold leading-relaxed ${settings.activeLandingPageType === 'main' ? 'text-white/60' : 'text-neutral-400'}`}>
                       Standard visual gear tracking, scenarios, features ticker, and client portal access points.
+                    </div>
+                  </div>
+                </button>
+
+                {/* Pages Manager Custom Lander */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettings({ ...settings, activeLandingPageType: 'custom' });
+                    toast.success("Default root page set to Pages Manager Custom Page");
+                  }}
+                  className={`p-6 rounded-2xl border text-left transition duration-150 flex items-start gap-4 ${
+                    settings.activeLandingPageType === 'custom'
+                      ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg'
+                      : 'border-neutral-150 bg-neutral-50/40 hover:bg-neutral-50 text-neutral-800 hover:border-neutral-200'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    settings.activeLandingPageType === 'custom' ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600'
+                  }`}>
+                    <FileText size={18} />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-black uppercase tracking-wider">Pages Manager Custom</div>
+                    <div className={`text-[10px] uppercase font-bold leading-relaxed ${settings.activeLandingPageType === 'custom' ? 'text-white/60' : 'text-neutral-400'}`}>
+                      Render custom landing page documents created in Pages Manager with rich markdown and templates.
                     </div>
                   </div>
                 </button>

@@ -943,9 +943,10 @@ export interface CustomPage {
   slug: string;
   title: string;
   content: string;
-  category: 'legal' | 'policy' | 'info' | 'other';
+  category: 'legal' | 'policy' | 'info' | 'other' | 'landing';
   status: 'draft' | 'published';
   isVisible: boolean;
+  isLandingPage?: boolean;
   createdAt: any;
   updatedAt: any;
   lastUpdatedBy: string;
@@ -1007,7 +1008,8 @@ export interface AdminSettings {
   landingPage?: LandingPageContent;
   landers?: Lander[];
   activeLanderId?: string;
-  activeLandingPageType?: 'main' | 'marketplace' | 'modern';
+  activeCustomPageSlug?: string;
+  activeLandingPageType?: 'main' | 'marketplace' | 'modern' | 'saas' | 'custom';
   rootVisibility?: 'public' | 'auth_only';
   billingEnabled: boolean;
   marketplaceVisibility?: 'signed-in' | 'public';

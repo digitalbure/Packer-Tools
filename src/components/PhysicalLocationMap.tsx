@@ -1055,8 +1055,8 @@ export default function PhysicalLocationMap({
                         onChange={(e) => setSelectedTargetContainer(e.target.value)}
                         className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-xs outline-none focus:ring-1 focus:ring-black h-12"
                       >
-                        {CONTAINERS.filter(c => c.unitId === selectedTargetStaticUnit).map(c => (
-                          <option key={c.name} value={c.name}>{c.name}</option>
+                        {CONTAINERS.filter(c => c.unitId === selectedTargetStaticUnit).map((c, idx) => (
+                          <option key={`${c.unitId}-${c.name}-${idx}`} value={c.name}>{c.name}</option>
                         ))}
                       </select>
                     ) : (

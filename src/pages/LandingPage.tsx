@@ -337,8 +337,9 @@ export default function LandingPage({
   // Use new structure if available, otherwise fallback to old one
   const lp = activeLander?.content || adminSettings?.landingPage;
   // Check active landing page type configuration from Admin Settings
-  const isMarketplaceActive = landingView === 'marketplace' || (landingView !== 'main' && landingView !== 'modern' && adminSettings?.activeLandingPageType === 'marketplace');
-  const isClassicActive = landingView === 'main' || (landingView !== 'modern' && adminSettings?.activeLandingPageType === 'main');
+  const activeType = adminSettings?.activeLandingPageType || 'modern';
+  const isMarketplaceActive = landingView === 'marketplace' || (landingView !== 'main' && landingView !== 'modern' && landingView !== 'saas' && activeType === 'marketplace');
+  const isClassicActive = landingView === 'main' || landingView === 'saas' || (landingView !== 'modern' && (activeType === 'main' || activeType === 'saas'));
 
   if (isMarketplaceActive) {
     return (
@@ -350,7 +351,7 @@ export default function LandingPage({
     );
   }
 
-  if (!isClassicActive) {
+  if (!isClassicActive && activeType === 'modern') {
     return (
       <ModernLandingPage 
         user={user} 

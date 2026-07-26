@@ -819,20 +819,23 @@ export default function ScenarioBuilder({ user, adminSettings }: ScenarioBuilder
               onDragEnd={handleDragEnd}
             >
               <SortableContext
-                items={suggestedItems.map(item => item.id)}
+                items={suggestedItems.map((item, idx) => item.id ? `${item.id}-${idx}` : `sugg-${idx}`)}
                 strategy={rectSortingStrategy}
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {suggestedItems.map((item) => (
-                    <SortableGridItem
-                      key={item.id}
-                      item={item}
-                      gearLibrary={gearLibrary}
-                      onToggleInclude={handleToggleInclude}
-                      onUpdateField={handleUpdateItemValue}
-                      onRemove={handleRemoveItem}
-                    />
-                  ))}
+                  {suggestedItems.map((item, idx) => {
+                    const uniqueKey = item.id ? `${item.id}-${idx}` : `sugg-${idx}`;
+                    return (
+                      <SortableGridItem
+                        key={uniqueKey}
+                        item={{ ...item, id: uniqueKey }}
+                        gearLibrary={gearLibrary}
+                        onToggleInclude={handleToggleInclude}
+                        onUpdateField={handleUpdateItemValue}
+                        onRemove={handleRemoveItem}
+                      />
+                    );
+                  })}
                 </div>
               </SortableContext>
             </DndContext>

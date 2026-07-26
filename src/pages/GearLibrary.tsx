@@ -3913,10 +3913,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     return entries;
   }, [paginatedGear, selectedCategory, categories]);
 
-  const renderGridItem = (item: GearItem) => (
+  const renderGridItem = (item: GearItem, uniqueKey: string = item.id) => (
     <motion.div
       layout
-      key={item.id}
+      key={uniqueKey}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
@@ -4107,10 +4107,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     </motion.div>
   );
 
-  const renderCompactItem = (item: GearItem) => (
+  const renderCompactItem = (item: GearItem, uniqueKey: string = item.id) => (
     <motion.div
       layout
-      key={item.id}
+      key={uniqueKey}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
@@ -5765,7 +5765,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 </div>
                 <div className="grid grid-cols-1 min-[450px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 w-full">
                   <AnimatePresence mode="popLayout">
-                    {items.map((item) => renderGridItem(item))}
+                    {items.map((item, idx) => renderGridItem(item, `grid-${categoryNormalized}-${item.id}-${idx}`))}
                   </AnimatePresence>
                 </div>
               </div>
@@ -5774,7 +5774,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         ) : (
           <div className="grid grid-cols-1 min-[450px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 w-full">
             <AnimatePresence mode="popLayout">
-              {paginatedGear.map((item) => renderGridItem(item))}
+              {paginatedGear.map((item, idx) => renderGridItem(item, `grid-paginated-${item.id}-${idx}`))}
             </AnimatePresence>
           </div>
         )
@@ -5793,7 +5793,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 </div>
                 <div className="grid grid-cols-1 min-[450px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                   <AnimatePresence mode="popLayout">
-                    {items.map((item) => renderCompactItem(item))}
+                    {items.map((item, idx) => renderCompactItem(item, `compact-${categoryNormalized}-${item.id}-${idx}`))}
                   </AnimatePresence>
                 </div>
               </div>
@@ -5802,7 +5802,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         ) : (
           <div className="grid grid-cols-1 min-[450px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             <AnimatePresence mode="popLayout">
-              {paginatedGear.map((item) => renderCompactItem(item))}
+              {paginatedGear.map((item, idx) => renderCompactItem(item, `compact-paginated-${item.id}-${idx}`))}
             </AnimatePresence>
           </div>
         )

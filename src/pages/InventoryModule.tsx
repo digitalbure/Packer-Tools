@@ -3070,11 +3070,11 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-100 pb-4 pt-2">
                 {/* Category Buttons List */}
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide shrink">
-                  {inventoryCategories.map(cat => {
+                  {inventoryCategories.map((cat, catIdx) => {
                     const catItemsCount = inventoryItems.filter(i => cat === 'All' || (i.primaryCategory || 'Other') === cat).length;
                     return (
                       <button
-                        key={cat}
+                        key={`${cat}-${catIdx}`}
                         onClick={() => setSelectedInventoryCategory(cat)}
                         className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap border flex items-center gap-2 cursor-pointer ${
                           selectedInventoryCategory === cat
@@ -3212,12 +3212,12 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-50">
-                          {paginatedInventoryItems.map(item => {
+                          {paginatedInventoryItems.map((item, idx) => {
                             const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
                             const isCheckedOut = item.status === 'in_use';
                             return (
                               <tr 
-                                key={item.id} 
+                                key={`inv-tbl-${item.id}-${idx}`} 
                                 className={`transition-colors ${
                                   isAttention 
                                     ? 'bg-amber-55/40 border-l-4 border-l-amber-500' 
@@ -3406,12 +3406,12 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
                     {/* Mobile layout / Custom stack ensuring perfect horizontal containment */}
                     <div className="block lg:hidden divide-y divide-neutral-100">
-                      {paginatedInventoryItems.map(item => {
+                      {paginatedInventoryItems.map((item, idx) => {
                         const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
                         const isCheckedOut = item.status === 'in_use';
                         return (
                           <div 
-                            key={item.id}
+                            key={`inv-mob-${item.id}-${idx}`}
                             className={`p-4 space-y-3 transition-colors ${
                               isAttention 
                                 ? 'bg-amber-55/40 border-l-4 border-l-amber-500' 
@@ -3584,13 +3584,13 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                   </div>
                   ) : inventoryViewMode === 'grid' ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
-                      {paginatedInventoryItems.map((item) => {
+                      {paginatedInventoryItems.map((item, idx) => {
                         const photoUrl = (item.photoUrls && item.photoUrls[0]) || `https://picsum.photos/seed/${item.id}/400/400`;
                         const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
                         const isCheckedOut = item.status === 'in_use';
                         return (
                           <div
-                            key={item.id}
+                            key={`inv-grid-${item.id}-${idx}`}
                             className={`group bg-white rounded-[2rem] border shadow-sm transition-all duration-500 overflow-hidden flex flex-col relative h-[380px] ${
                               isAttention 
                                 ? 'ring-2 ring-amber-500 border-amber-500 shadow-amber-100 shadow-lg' 

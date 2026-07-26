@@ -512,11 +512,11 @@ export default function CommunitySelector({
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-3.5">
-                  {filteredCommunities.map((c) => {
+                  {filteredCommunities.map((c, cIdx) => {
                     const isSelected = selectedCommunity === c.id;
                     return (
                       <button
-                        key={c.id}
+                        key={`${c.id}-${cIdx}`}
                         onClick={() => handleSelection(c.id)}
                         className={`p-5 rounded-2xl border transition-all text-left flex flex-col justify-between gap-4 cursor-pointer relative group ${
                           isSelected 
@@ -650,8 +650,8 @@ export default function CommunitySelector({
                   required
                 >
                   <option value="">-- Select Fiji City or Town --</option>
-                  {FIJI_CITIES_TOWNS.map((city) => (
-                    <option key={city} value={city}>{city}</option>
+                  {FIJI_CITIES_TOWNS.map((city, idx) => (
+                    <option key={`${city}-${idx}`} value={city}>{city}</option>
                   ))}
                 </select>
 
@@ -699,8 +699,8 @@ export default function CommunitySelector({
                   required
                 >
                   <option value="">-- Select Fiji Province --</option>
-                  {FIJI_PROVINCES.map((prov) => (
-                    <option key={prov} value={prov}>{prov}</option>
+                  {FIJI_PROVINCES.map((prov, idx) => (
+                    <option key={`${prov}-${idx}`} value={prov}>{prov}</option>
                   ))}
                 </select>
 

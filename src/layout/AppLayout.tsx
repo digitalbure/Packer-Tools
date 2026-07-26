@@ -53,6 +53,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     showScrollTop
   } = useAuth();
 
+  const isLandingPage = !user && (
+    currentHash === '' || 
+    currentHash === '#/' || 
+    currentHash === '#' || 
+    currentHash.startsWith('#/landing')
+  );
+
   const isBetaRestricted = adminSettings?.betaModeEnabled && user && !user.isSuperAdmin && isInvited === false;
 
   if (isBetaRestricted) {
@@ -103,7 +110,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           )}
         </AnimatePresence>
 
-        <div className={`flex-1 flex overflow-hidden w-full ${user && user.layoutTheme === 'workflow' && !isLayoutHidden ? 'bg-[#111113] text-[#dfdfe5]' : 'bg-neutral-50 text-neutral-900'}`}>
+        <div className={`flex-1 flex overflow-hidden w-full ${isLandingPage ? 'bg-[#0d0f12] text-white' : (user && user.layoutTheme === 'workflow' && !isLayoutHidden ? 'bg-[#111113] text-[#dfdfe5]' : 'bg-neutral-50 text-neutral-900')}`}>
         {user && user.layoutTheme === 'workflow' && !isLayoutHidden ? (
           <WorkflowLayout
             user={user}
@@ -130,7 +137,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             )}
             
             <div className="flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 font-sans">
-              {!isLayoutHidden && (
+              {!isLayoutHidden && !isLandingPage && (
                 <Navbar 
                   user={user} 
                   adminSettings={adminSettings} 
@@ -143,9 +150,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 />
               )}
               <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
-                isLayoutHidden 
-                  ? `max-w-none px-0 py-0 sm:px-0 sm:py-0 ${(currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/')) ? 'bg-neutral-50' : 'bg-neutral-900'}` 
-                  : 'max-w-[1700px] mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-28 md:pb-8'
+                isLandingPage
+                  ? 'max-w-none px-0 py-0 bg-[#0d0f12] text-white'
+                  : (isLayoutHidden 
+                      ? `max-w-none px-0 py-0 sm:px-0 sm:py-0 ${(currentHash.startsWith('#/p/') || currentHash.startsWith('#/gear/')) ? 'bg-neutral-50' : 'bg-neutral-900'}` 
+                      : 'max-w-[1700px] mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-28 md:pb-8')
               }`}>
                 <div className="flex-1">
                   <motion.div
@@ -157,7 +166,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                     {children}
                   </motion.div>
                 </div>
-                {!isLayoutHidden && (
+                {!isLayoutHidden && !isLandingPage && (
                   <Footer 
                     adminSettings={adminSettings} 
                     selectedCommunity={selectedCommunity}
