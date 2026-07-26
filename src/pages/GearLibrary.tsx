@@ -9235,7 +9235,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 {/* Selected Items Comparison Header */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center relative">
                   {compatItems.map((item, idx) => (
-                    <div key={item.id} className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200 flex items-center gap-3">
+                    <div key={`compat-${item.id || idx}-${idx}`} className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200 flex items-center gap-3">
                       <div className="w-12 h-12 rounded-xl overflow-hidden bg-neutral-200 border border-neutral-300 shrink-0">
                         {item.photoUrls?.[0] ? (
                           <LazyImage src={item.photoUrls[0]} className="w-full h-full object-cover" alt={item.name} />

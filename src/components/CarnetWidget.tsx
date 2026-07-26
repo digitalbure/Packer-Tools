@@ -654,7 +654,7 @@ export default function CarnetWidget({ list, items, onUpdateItem, isOwner }: Car
                 const isEditing = editingItemId === item.id;
                 
                 return (
-                  <tr key={item.id} className={`hover:bg-neutral-50/50 transition-colors ${!item.serialNumber || !item.countryOfOrigin || !item.price ? 'bg-amber-500/[0.02]' : ''}`}>
+                  <tr key={`carnet-${item.id || idx}-${idx}`} className={`hover:bg-neutral-50/50 transition-colors ${!item.serialNumber || !item.countryOfOrigin || !item.price ? 'bg-amber-500/[0.02]' : ''}`}>
                     
                     {/* Item Number */}
                     <td className="px-6 py-4 font-mono text-[10px] text-neutral-400">

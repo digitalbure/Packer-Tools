@@ -665,7 +665,7 @@ const OrganizerWorkspacePopover = ({
                   className="bg-transparent text-neutral-800 font-bold text-[10px] uppercase tracking-tight rounded px-1 py-0.5 border-none focus:outline-none cursor-pointer max-w-[120px]"
                 >
                   {rootContainers.map((c, i) => (
-                    <option key={c.id} value={c.id} className="text-neutral-900 font-bold uppercase text-[10px]">
+                    <option key={`root-cont-${c.id || i}-${i}`} value={c.id} className="text-neutral-900 font-bold uppercase text-[10px]">
                       {c.name.toUpperCase()}
                     </option>
                   ))}

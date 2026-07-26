@@ -141,7 +141,7 @@ export default function BOMWidget({ project, user, items: passedItems }: BOMWidg
                </thead>
                <tbody className="divide-y divide-neutral-50 font-bold">
                  {filteredItems.map((item, idx) => (
-                   <tr key={item.id} className="hover:bg-neutral-50/50 transition-all group">
+                   <tr key={`bom-${item.id || idx}-${idx}`} className="hover:bg-neutral-50/50 transition-all group">
                       <td className="px-8 py-5">
                          <div className="w-8 h-8 rounded-lg bg-neutral-900 text-white flex items-center justify-center text-[10px] font-black italic">
                            {(idx + 1).toString().padStart(2, '0')}

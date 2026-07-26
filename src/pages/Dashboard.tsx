@@ -1858,7 +1858,7 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                   </div>
                   <div className="space-y-4">
                     {gearStats.topUsed.map((item, idx) => (
-                      <div key={item.id} className="flex items-center gap-4">
+                      <div key={`topused-${item.id || idx}-${idx}`} className="flex items-center gap-4">
                         <div className="w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0">#{idx + 1}</div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold truncate">{item.name}</p>

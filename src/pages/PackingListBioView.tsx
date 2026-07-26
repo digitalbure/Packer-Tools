@@ -378,7 +378,7 @@ export default function PackingListBioView() {
           const isChecked = checkedItemIds.has(item.id);
           return (
             <motion.div
-              key={item.id}
+              key={`bio-item-${item.id || idx}-${idx}`}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.04 }}
