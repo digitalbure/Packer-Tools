@@ -196,7 +196,7 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
               <PackerLogo size={34} />
               <div className="flex flex-col">
                 <span className="text-sm font-black uppercase tracking-wider text-white group-hover:text-[#ff4f3a] transition-colors">Packer Tools</span>
-                <span className="text-[10px] text-[#ff4f3a] font-mono font-extrabold tracking-tight">v5.19 Enterprise</span>
+                <span className="text-[10px] text-[#ff4f3a] font-mono font-extrabold tracking-tight">v5.19.1 Enterprise</span>
               </div>
             </a>
 
@@ -375,7 +375,7 @@ export default function ModernLandingPage({ user, adminSettings, onExploreMarket
               className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ff4f3a]/20 via-amber-500/20 to-blue-500/20 border border-[#ff4f3a]/30 rounded-full text-xs font-mono text-neutral-200 shadow-xl"
             >
               <Sparkles size={14} className="text-[#ff4f3a] animate-pulse" />
-              <span className="font-bold text-white">Packer Tools v5.19.0</span>
+              <span className="font-bold text-white">Packer Tools v5.19.1</span>
               <span className="text-neutral-400">|</span>
               <span className="text-amber-300 font-bold">Multi-Industry Field Asset & Logistics Engine</span>
             </motion.div>

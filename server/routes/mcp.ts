@@ -328,13 +328,13 @@ function getMcpToolsList() {
       },
       {
         name: "get_release_notes",
-        description: "Admin Capabilities Tool: Query current platform release version (v5.18.6) and full release changelog history.",
+        description: "Admin Capabilities Tool: Query current platform release version (v5.19.1) and full release changelog history.",
         inputSchema: {
           type: "object",
           properties: {
             version: {
               type: "string",
-              description: "Optional version string to filter changelog notes for (e.g., 'v5.18.6', 'v5.18.5')."
+              description: "Optional version string to filter changelog notes for (e.g., 'v5.19.1', 'v5.19.0')."
             }
           }
         }
@@ -692,7 +692,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
       case "get_app_capabilities": {
         const capabilities = {
           name: "Packer Tools",
-          version: "v5.18.6",
+          version: "v5.19.1",
           description: "Multi-industry Asset & Inventory Management and Gear Logistics platform.",
           industries: [
             "General Logistics & Operations",
@@ -927,7 +927,7 @@ function getMcpResourcesList() {
         uri: "packer://release-notes",
         name: "Release History & Changelog (RELEASE.md)",
         mimeType: "text/markdown",
-        description: "Official release notes, current build version (v5.18.4), and feature changelog history."
+        description: "Official release notes, current build version (v5.19.1), and feature changelog history."
       },
       {
         uri: "packer://knowledge-base",
@@ -955,7 +955,7 @@ async function readMcpResource(uri: string) {
   if (uri === "packer://app-capabilities") {
     const capabilities = {
       name: "Packer Tools",
-      version: "v5.18.4",
+      version: "v5.19.1",
       description: "Multi-industry Asset & Inventory Management and Gear Logistics platform.",
       industries: [
         "General Logistics & Operations",
@@ -992,7 +992,7 @@ async function readMcpResource(uri: string) {
   if (uri === "packer://marketing-playbook") {
     const playbook = {
       brand: "Packer Tools",
-      version: "v5.18.6",
+      version: "v5.19.1",
       canonicalPositioning: "signed, bidirectional manifest",
       tagline: "Production Logistics OS for Professional Crews",
       mission: "To eliminate lost equipment, gear chaos, and spreadsheet downtime across high-consequence industries.",

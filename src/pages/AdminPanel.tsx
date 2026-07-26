@@ -2144,6 +2144,32 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                     />
                   </div>
                   <div className="space-y-2">
+                    <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest block">Included Seats</label>
+                    <input
+                      type="number"
+                      value={plan.includedSeats || 1}
+                      onChange={(e) => {
+                        const newPlans = [...(settings.plans || [])];
+                        newPlans[planIdx] = { ...plan, includedSeats: parseInt(e.target.value) || 1 };
+                        setSettings({ ...settings, plans: newPlans });
+                      }}
+                      className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-mono font-bold outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest block">Extra Seat Cost ($)</label>
+                    <input
+                      type="number"
+                      value={plan.extraSeatCost ?? 15}
+                      onChange={(e) => {
+                        const newPlans = [...(settings.plans || [])];
+                        newPlans[planIdx] = { ...plan, extraSeatCost: parseFloat(e.target.value) || 0 };
+                        setSettings({ ...settings, plans: newPlans });
+                      }}
+                      className="w-full px-4 py-2 bg-neutral-50 border border-neutral-200 rounded-xl font-mono font-bold outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest block">Max Teams</label>
                     <input
                       type="number"
@@ -5295,7 +5321,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               <div className="p-6 bg-neutral-50 border border-neutral-100 rounded-3xl space-y-3">
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-bold text-neutral-800 text-sm">1. Write-Batch Operation Throttle (500 Limit)</span>
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v5.19.0</span>
+                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v5.19.1</span>
                 </div>
                 <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
                   Firestore limits write-batches to 500 documents per request. Bulk allocations of tens of thousands of assets are fully safeguarded via transaction volume splitting chunking. Prevents fatal crashes during catalog updates.
@@ -5305,7 +5331,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               <div className="p-6 bg-neutral-50 border border-neutral-100 rounded-3xl space-y-3">
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-bold text-neutral-800 text-sm">2. Resource Limit Audits Cost Slasher</span>
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v5.19.0</span>
+                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v5.19.1</span>
                 </div>
                 <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
                   Instead of downloading millions of user properties to confirm plan compliance and check limits, real-time validations run on-demand serverless metadata aggregations via 

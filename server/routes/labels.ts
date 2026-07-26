@@ -108,7 +108,7 @@ router.get("/api/labels/templates", (req, res) => {
 });
 
 // 2. POST Save user custom template
-router.post("/api/labels/templates", (req, res) => {
+router.post("/api/labels/templates", authenticateUser, (req, res) => {
   const { name, width, height, elements, layout, category } = req.body;
   if (!name) {
     return res.status(400).json({ error: "Template name is required" });
@@ -135,7 +135,7 @@ router.post("/api/labels/templates", (req, res) => {
 });
 
 // 3. DELETE User custom template
-router.delete("/api/labels/templates/:id", (req, res) => {
+router.delete("/api/labels/templates/:id", authenticateUser, (req, res) => {
   const { id } = req.params;
   const idx = MEMORY_TEMPLATES.findIndex(t => t.id === id);
   if (idx > -1) {
@@ -148,7 +148,7 @@ router.delete("/api/labels/templates/:id", (req, res) => {
 });
 
 // 4. POST Log print session
-router.post("/api/labels/print", (req, res) => {
+router.post("/api/labels/print", authenticateUser, (req, res) => {
   const { templateId, assetIds, printerProfile, copies } = req.body;
   if (!assetIds || !Array.isArray(assetIds)) {
     return res.status(400).json({ error: "Invalid assets array for printing queue" });
@@ -230,7 +230,7 @@ router.get("/api/labels/marketplace", (req, res) => {
 });
 
 // 9. POST Publish custom template to Marketplace
-router.post("/api/labels/marketplace/publish", (req, res) => {
+router.post("/api/labels/marketplace/publish", authenticateUser, (req, res) => {
   const { template, category } = req.body;
   if (!template || !template.name) {
     return res.status(400).json({ error: "A valid template with name is required" });

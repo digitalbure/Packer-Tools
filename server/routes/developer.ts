@@ -1,8 +1,21 @@
 import express from "express";
+import { authenticateUser } from "../middleware/auth";
 
 const router = express.Router();
 
-router.get("/api/developer/lists", async (req, res) => {
+function requireDevApiKey(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const apiKey = req.headers["x-api-key"] || req.query.apiKey;
+  const expectedKey = process.env.DEVELOPER_API_KEY || process.env.ADMIN_API_KEY || "pt_sec_packertools_2026_mcp";
+  
+  if (!apiKey || apiKey !== expectedKey) {
+    return res.status(401).json({
+      error: "Unauthorized. Valid 'x-api-key' header or 'apiKey' query parameter is required to access developer API endpoints."
+    });
+  }
+  next();
+}
+
+router.get("/api/developer/lists", requireDevApiKey, async (req, res) => {
   const apiKey = req.headers["x-api-key"] || req.query.apiKey;
 
   const demoLists = [
@@ -53,7 +66,7 @@ router.get("/api/developer/lists", async (req, res) => {
   });
 });
 
-router.get("/api/developer/gear", async (req, res) => {
+router.get("/api/developer/gear", requireDevApiKey, async (req, res) => {
   const apiKey = req.headers["x-api-key"] || req.query.apiKey;
 
   const demoGear = [
@@ -102,7 +115,7 @@ router.get("/api/developer/gear", async (req, res) => {
   });
 });
 
-router.post("/api/developer/embed", (req, res) => {
+router.post("/api/developer/embed", authenticateUser, (req, res) => {
   const { theme, layout, listId, primaryColor, companyName } = req.body;
   
   const iframeUrl = `https://packer.tools/embed/${listId || 'all'}?theme=${theme || 'dark'}&color=${encodeURIComponent(primaryColor || '#ff4f3a')}&company=${encodeURIComponent(companyName || 'Packer Partner')}`;

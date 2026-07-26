@@ -11,14 +11,14 @@ router.post(["/api/webhook", "/api/webhooks/paddle"], express.raw({ type: 'appli
     const rawBody = rawBodyBuf instanceof Buffer ? rawBodyBuf.toString('utf8') : JSON.stringify(req.body);
 
     const secret = process.env.PADDLE_WEBHOOK_SECRET;
-    if (secret) {
-      const isValid = verifyPaddleSignature(req, rawBody, secret);
-      if (!isValid) {
-        console.warn("[Paddle Webhook] Cryptographic signature check FAILED.");
-        return res.status(401).json({ error: "Invalid webhook signature." });
-      }
-    } else {
-      console.warn("[Paddle Webhook] WARNING: PADDLE_WEBHOOK_SECRET is not configured. Webhook running without signature check.");
+    if (!secret) {
+      console.error("[Paddle Webhook] ERROR: PADDLE_WEBHOOK_SECRET is not configured. Webhook request rejected (fail-closed security rule).");
+      return res.status(500).json({ error: "Webhook secret is not configured on the server." });
+    }
+    const isValid = verifyPaddleSignature(req, rawBody, secret);
+    if (!isValid) {
+      console.warn("[Paddle Webhook] Cryptographic signature check FAILED.");
+      return res.status(401).json({ error: "Invalid webhook signature." });
     }
 
     const payload = JSON.parse(rawBody);
@@ -106,15 +106,14 @@ router.post("/api/webhooks/dodopayments", express.raw({ type: 'application/json'
     const rawBody = rawBodyBuf instanceof Buffer ? rawBodyBuf.toString('utf8') : JSON.stringify(req.body);
 
     const secret = process.env.DODO_WEBHOOK_SECRET;
-    if (secret) {
-      const dodoSignature = req.headers['dodo-signature'] || req.headers['x-dodo-signature'];
-      if (!dodoSignature) {
-        console.warn("[Dodo Webhook] Cryptographic signature header is missing.");
-      } else {
-        console.log("[Dodo Webhook] Cryptographic signature verification step accepted.");
-      }
-    } else {
-      console.warn("[Dodo Webhook] WARNING: DODO_WEBHOOK_SECRET is not configured. Webhook running without signature check.");
+    if (!secret) {
+      console.error("[Dodo Webhook] ERROR: DODO_WEBHOOK_SECRET is not configured. Webhook request rejected (fail-closed security rule).");
+      return res.status(500).json({ error: "Webhook secret is not configured on the server." });
+    }
+    const dodoSignature = req.headers['dodo-signature'] || req.headers['x-dodo-signature'];
+    if (!dodoSignature) {
+      console.warn("[Dodo Webhook] Cryptographic signature header is missing.");
+      return res.status(401).json({ error: "Missing webhook signature header." });
     }
 
     const payload = JSON.parse(rawBody);

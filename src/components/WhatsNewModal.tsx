@@ -8,7 +8,7 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.19.0' | '5.18.6' | '5.18.5' | '5.18.4' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.19.1' | '5.19.0' | '5.18.6' | '5.18.5' | '5.18.4' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,9 +24,35 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.19.0',
+      version: 'v5.19.1',
       tag: 'Latest',
       tagBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-300',
+      title: 'Security Hardening, Fail-Closed Webhooks & SSRF Protection',
+      date: 'July 2026',
+      icon: Sparkles,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      updates: [
+        {
+          title: 'Fail-Closed Webhook Verification',
+          desc: 'Paddle & Dodo payment webhooks now enforce mandatory cryptographic signature validation in production environments with strict fail-closed enforcement.',
+          badge: 'Security'
+        },
+        {
+          title: 'SSRF URL Validation Engine',
+          desc: 'External URL scrapers for gear specs and case extraction now run against dedicated IP & protocol validation guards to block internal subnet requests.',
+          badge: 'Hardening'
+        },
+        {
+          title: 'Developer API & Label Template Auth',
+          desc: 'Enforced developer API key header authentication on developer endpoints and user session validation on custom label template operations.',
+          badge: 'Protection'
+        }
+      ]
+    },
+    {
+      version: 'v5.19.0',
+      tag: 'Stable',
+      tagBg: 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:bg-blue-500/20 dark:text-blue-300',
       title: 'Landing Page Redesign, Single Header Login & Soft Dark Glassmorphism',
       date: 'July 2026',
       icon: Sparkles,
@@ -770,7 +796,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[10px] uppercase font-black tracking-wide hidden sm:inline text-neutral-400">
-                  Build v5.19.0
+                  Build v5.19.1
                 </span>
                 <button
                   type="button"

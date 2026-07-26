@@ -4,6 +4,7 @@ import axios from "axios";
 import { ai } from "../services/gemini";
 import { authenticateUser } from "../middleware/auth";
 import { isQuotaError, extractSpecsFromText } from "../utils/ai";
+import { isSafeUrl } from "../utils/ssrf";
 
 const router = express.Router();
 
@@ -130,9 +131,13 @@ router.post("/api/analyze-item", authenticateUser, async (req, res) => {
   let webpageTextContent = "";
   let extractedMeta: any = {};
   try {
-    if (url && url.startsWith("http")) {
-      try {
-        const fetchRes = await axios.get(url, {
+    if (url) {
+      const urlCheck = isSafeUrl(url);
+      if (!urlCheck.safe) {
+        console.warn("[Analyze Item SSRF Block]", urlCheck.reason);
+      } else {
+        try {
+          const fetchRes = await axios.get(urlCheck.url!.toString(), {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -167,6 +172,7 @@ ${extractedMeta.specsTableText ? `\n- Extracted Web Specifications Tables:\n${ex
         }
       } catch (scrapingError: any) {
         console.error("Scraper failed to download product URL:", scrapingError.message);
+      }
       }
     }
 
@@ -308,9 +314,13 @@ router.post("/api/extract-case-url", authenticateUser, async (req, res) => {
   let extractedMeta: any = {};
 
   try {
-    if (url && url.startsWith("http")) {
-      try {
-        const fetchRes = await axios.get(url, {
+    if (url) {
+      const urlCheck = isSafeUrl(url);
+      if (!urlCheck.safe) {
+        console.warn("[Extract Case URL SSRF Block]", urlCheck.reason);
+      } else {
+        try {
+          const fetchRes = await axios.get(urlCheck.url!.toString(), {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -341,6 +351,7 @@ ${extractedMeta.specsTableText ? `- Specs Tables:\n${extractedMeta.specsTableTex
         }
       } catch (err: any) {
         console.warn("Scraper notice for case URL:", err.message);
+      }
       }
     }
 
@@ -795,7 +806,7 @@ router.post("/api/dukey-chat", authenticateUser, async (req, res) => {
       ? gear.map((g: any, idx: number) => `${idx + 1}. ${g.name || 'Item'} (${g.brand || ''} ${g.model || ''}) [Qty: ${g.quantity || 1}, Cat: ${g.primaryCategory || 'General'}]`).slice(0, 25).join('\n')
       : 'No onboarded gear items recorded yet.';
 
-    const sysInstruction = `You are "Dukey", the definitive, ultra-precise AI Knowledge Base Companion and Gear Strategist for the "Packer Tools" platform (Stable Version v5.15.0).
+    const sysInstruction = `You are "Dukey", the definitive, ultra-precise AI Knowledge Base Companion and Gear Strategist for the "Packer Tools" platform (Stable Version v5.19.1).
 
 MANDATORY RULES:
 1. EXPLICIT & ACTIONABLE RESPONSES: Speak in clear, professional, direct language. When the user asks about operational scenarios, feature walkthroughs, packing strategies, or how to use Packer Tools features for their equipment, provide a structured, high-value breakdown (2-4 clear bullet points) referencing their specific onboarded items where applicable. For quick general questions, stay brief (1-2 sentences). Cut out all polite filler, conversational preambles, and unnecessary retrospectives.
@@ -819,7 +830,7 @@ ${onboardedGearSummary}
    - Global App Settings & Bug Finder: [Systems Settings](#/admin?tab=settings)
    - User profile & public storefronts: [User Profile](#/profile)
 
-OFFICIAL PLATFORM KNOWLEDGE BASE & SCENARIO FEATURES (v5.15.0):
+OFFICIAL PLATFORM KNOWLEDGE BASE & SCENARIO FEATURES (v5.19.1):
 - PUBLIC SHARE LINKS & UNAUTHENTICATED ASSET RESOLUTION (v5.15.0): Direct unauthenticated public access for shared gear items, digital asset passports, and packing lists with automatic collectionGroup fallback and hardened Firestore security rules.
 - NATIVE MOBILE UX & TACTILE HAPTICS (v5.14.0): Enhanced mobile navigation bar with active tab spring indicators, native iOS pull handle bottom sheets, enlarged touch targets, and browser tactile haptics.
 - TRAVEL CASE & SPEC EXTRACTOR (v5.13.0): Paste any manufacturer or store URL (Pelican, Nanuk, SKB, Peak Design camera backpacks, Lowepro bags, Gator 19" rack cases) or enter custom dimensions. Auto-extracts interior volume, dimensions, and weight, then deploys directly as an active Container with interactive 2D Blueprint visualizer.
