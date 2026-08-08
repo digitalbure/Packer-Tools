@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { UserProfile, Rack, RackItem, Project } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import { DndContext, useDraggable, useDroppable, DragEndEvent, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 
 interface DraggableRackItemProps {
@@ -118,6 +119,7 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
   });
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [userProjects, setUserProjects] = useState<Project[]>([]);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
   const [projectTab, setProjectTab] = useState<'link' | 'new'>('link');
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
@@ -465,14 +467,25 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
     }
   };
 
-  const handleDeleteItem = async (itemId: string) => {
+  const handleDeleteItem = async (itemId: string, itemName?: string) => {
     if (!id) return;
+    const target = items.find(i => i.id === itemId);
+    setItemToDelete({
+      id: itemId,
+      name: itemName || target?.name || 'Rack Item'
+    });
+  };
+
+  const executeDeleteItem = async () => {
+    if (!id || !itemToDelete) return;
     try {
-      await deleteDoc(doc(db, 'racks', id, 'items', itemId));
-      toast.success("Item removed");
+      await deleteDoc(doc(db, 'racks', id, 'items', itemToDelete.id));
+      toast.success("Item removed from rack");
     } catch (error) {
       console.error("Error deleting item:", error);
       toast.error("Failed to remove item");
+    } finally {
+      setItemToDelete(null);
     }
   };
 
@@ -1365,6 +1378,17 @@ export default function RackDetail({ user }: { user: UserProfile | null }) {
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal for Rack Item Deletion */}
+      <ConfirmDeleteModal
+        isOpen={!!itemToDelete}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={executeDeleteItem}
+        title="Remove Item from Rack?"
+        description={`Are you sure you want to remove "${itemToDelete?.name || 'this item'}" from this rack unit layout? This action cannot be undone.`}
+        itemName={itemToDelete?.name}
+        confirmText="Remove Item"
+      />
     </div>
   );
 }

@@ -92,6 +92,17 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
   useEffect(() => {
     if (!isLoadDirectModalOpen || !user?.uid) return;
 
+    // Check if user is currently viewing a list page
+    const pathname = window.location.pathname;
+    if (pathname.startsWith('/list/')) {
+      const currentListId = pathname.split('/list/')[1]?.split('/')[0];
+      if (currentListId) {
+        setTargetType('packingList');
+        setTargetSelection('existing');
+        setSelectedTargetId(currentListId);
+      }
+    }
+
     setFetchingLists(true);
     const qLists = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid));
     const qInvs = query(collection(db, 'inventories'), where('ownerId', '==', user.uid));

@@ -8,7 +8,7 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.19.1' | '5.19.0' | '5.18.6' | '5.18.5' | '5.18.4' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.19.4' | '5.19.3' | '5.19.2' | '5.19.1' | '5.19.0' | '5.18.6' | '5.18.5' | '5.18.4' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,9 +24,35 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.19.3',
+      version: 'v5.19.4',
       tag: 'Latest',
       tagBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-300',
+      title: 'Universal Accidental Deletion Confirmation Dialogs & Protection',
+      date: 'August 2026',
+      icon: Sparkles,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      updates: [
+        {
+          title: 'Universal Confirm Delete Modal Component',
+          desc: 'Introduced an animated confirmation dialog with target item highlights, batch count badges, loading feedback, and Escape key dismissal.',
+          badge: 'UX / Protection'
+        },
+        {
+          title: 'Packing List & Container Safeguards',
+          desc: 'Replaced browser confirm prompts with rich deletion dialogs across item deletions, bulk selections, container removals, and list purges.',
+          badge: 'List Management'
+        },
+        {
+          title: 'Inventory & Rack Unit Protection',
+          desc: 'Added confirmation modal integrations for inventory asset rows and rack unit layouts to prevent accidental asset loss.',
+          badge: 'Assets & Racks'
+        }
+      ]
+    },
+    {
+      version: 'v5.19.3',
+      tag: 'Stable',
+      tagBg: 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:bg-blue-500/20 dark:text-blue-300',
       title: 'Inline Project Creation & Mobile List Modal Optimization',
       date: 'August 2026',
       icon: Sparkles,

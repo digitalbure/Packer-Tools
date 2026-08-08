@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { doc, getDoc, collection, query, onSnapshot, deleteDoc, updateDoc, addDoc, getDocs, writeBatch, where, orderBy, arrayUnion } from 'firebase/firestore';
-import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download, AlertTriangle, Cpu, Plane, Globe, FileSpreadsheet, Sparkles, AlertCircle, Settings, ListChecks, Check, ShieldCheck } from 'lucide-react';
+import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download, AlertTriangle, Cpu, Plane, Globe, FileSpreadsheet, Sparkles, AlertCircle, Settings, ListChecks, Check, ShieldCheck, ListPlus } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Reorder, AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -16,6 +16,7 @@ import { identifyItem, suggestItemMetadata } from '../services/geminiService';
 import { compressImage } from '../lib/imageUtils';
 import QRPrintModal from '../components/QRPrintModal';
 import ManualCheckoutModal from '../components/ManualCheckoutModal';
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import { checkLimit } from '../lib/limitUtils';
 import ShareModal from '../components/ShareModal';
 import AddPhotoWidget from '../components/AddPhotoWidget';
@@ -381,7 +382,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   // --- POWER ONBOARDER & IMPORT MODAL STATE ---
   const [showPowerImportModal, setShowPowerImportModal] = useState(false);
   const [stagedItems, setStagedItems] = useState<any[]>([]);
-  const [importTab, setImportTab] = useState<'scan' | 'barcode' | 'lists' | 'inventories' | 'gear'>('gear');
+  const [importTab, setImportTab] = useState<'scan' | 'barcode' | 'lists' | 'inventories' | 'gear' | 'kits' | 'url'>('gear');
   const [importSearchQuery, setImportSearchQuery] = useState('');
   const [browseListId, setBrowseListId] = useState('');
   const [browseListItems, setBrowseListItems] = useState<any[]>([]);
@@ -400,6 +401,20 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [isScanningImage, setIsScanningImage] = useState(false);
   const [barcodeQuery, setBarcodeQuery] = useState('');
   const [isBatchImporting, setIsBatchImporting] = useState(false);
+
+  // Confirmation Modal State for Deletions
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{
+    isOpen: boolean;
+    type: 'singleItem' | 'bulkItems' | 'container' | 'list';
+    itemId?: string;
+    itemName?: string;
+    containerId?: string;
+    containerName?: string;
+    itemCount?: number;
+  }>({
+    isOpen: false,
+    type: 'singleItem'
+  });
 
   const handleStageBarcodeMatch = (item: any) => {
     const isAlreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'barcode');
@@ -767,16 +782,12 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     }
   };
 
-  const handleDeleteList = async () => {
-    if (!id || !window.confirm("Are you sure you want to delete this entire packing list? This action cannot be undone.")) return;
-    try {
-      await deleteDoc(doc(db, 'packingLists', id));
-      toast.success("Packing list deleted successfully");
-      navigate('/dashboard');
-    } catch (error) {
-      console.error("Error deleting list:", error);
-      toast.error("Failed to delete packing list");
-    }
+  const handleDeleteList = () => {
+    setDeleteConfirmState({
+      isOpen: true,
+      type: 'list',
+      itemName: list?.name || 'this packing list'
+    });
   };
 
   const handleUpdateBrand = async (e: React.FormEvent) => {
@@ -1241,25 +1252,14 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     }
   };
 
-  const handleDeleteContainer = async (containerId: string) => {
-    if (!user || !window.confirm("Are you sure you want to delete this container? All packed items will be unpacked.")) return;
-    try {
-      const container = containers.find(c => c.id === containerId);
-      if (container) {
-        const packedItems = items.filter(it => it.containerName === container.name);
-        const batch = writeBatch(db);
-        packedItems.forEach(item => {
-          const itemRef = doc(db, 'packingLists', id!, 'items', item.id);
-          batch.update(itemRef, { containerName: null });
-        });
-        await batch.commit();
-      }
-      await deleteDoc(doc(db, 'users', user.uid, 'containers', containerId));
-      toast.success("Container deleted successfully");
-    } catch (err) {
-      console.error("Error deleting container:", err);
-      toast.error("Failed to delete container");
-    }
+  const handleDeleteContainer = (containerId: string) => {
+    const container = containers.find(c => c.id === containerId);
+    setDeleteConfirmState({
+      isOpen: true,
+      type: 'container',
+      containerId,
+      containerName: container?.name || 'this container'
+    });
   };
 
   const handleRemoveItemFromContainer = async (itemId: string, containerId: string) => {
@@ -1888,33 +1888,83 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     }
   };
 
-  const handleDeleteItem = async (itemId: string) => {
-    if (!id || !window.confirm("Delete this item?")) return;
-    try {
-      await deleteDoc(doc(db, 'packingLists', id, 'items', itemId));
-      setSelectedItems(prev => {
-        const next = new Set(prev);
-        next.delete(itemId);
-        return next;
-      });
-    } catch (error) {
-      console.error("Error deleting item:", error);
-    }
+  const handleDeleteItem = (itemId: string, itemName?: string) => {
+    const targetItem = items.find(i => i.id === itemId);
+    setDeleteConfirmState({
+      isOpen: true,
+      type: 'singleItem',
+      itemId,
+      itemName: itemName || targetItem?.name || 'this item'
+    });
   };
 
-  const handleBulkDelete = async () => {
-    if (!id || selectedItems.size === 0 || !window.confirm(`Delete ${selectedItems.size} selected items?`)) return;
-    
-    const batch = writeBatch(db);
-    selectedItems.forEach(itemId => {
-      batch.delete(doc(db, 'packingLists', id, 'items', itemId));
+  const handleBulkDelete = () => {
+    if (!id || selectedItems.size === 0) return;
+    setDeleteConfirmState({
+      isOpen: true,
+      type: 'bulkItems',
+      itemCount: selectedItems.size
     });
+  };
 
-    try {
-      await batch.commit();
-      setSelectedItems(new Set());
-    } catch (error) {
-      console.error("Error bulk deleting items:", error);
+  const executeDeleteConfirm = async () => {
+    if (!id) return;
+    const { type, itemId, containerId } = deleteConfirmState;
+
+    if (type === 'singleItem' && itemId) {
+      try {
+        await deleteDoc(doc(db, 'packingLists', id, 'items', itemId));
+        setSelectedItems(prev => {
+          const next = new Set(prev);
+          next.delete(itemId);
+          return next;
+        });
+        toast.success("Item deleted successfully");
+      } catch (error) {
+        console.error("Error deleting item:", error);
+        toast.error("Failed to delete item");
+      }
+    } else if (type === 'bulkItems') {
+      if (selectedItems.size === 0) return;
+      const batch = writeBatch(db);
+      selectedItems.forEach(iId => {
+        batch.delete(doc(db, 'packingLists', id, 'items', iId));
+      });
+      try {
+        await batch.commit();
+        toast.success(`${selectedItems.size} items deleted successfully`);
+        setSelectedItems(new Set());
+      } catch (error) {
+        console.error("Error bulk deleting items:", error);
+        toast.error("Failed to delete selected items");
+      }
+    } else if (type === 'container' && containerId && user) {
+      try {
+        const container = containers.find(c => c.id === containerId);
+        if (container) {
+          const packedItems = items.filter(it => it.containerName === container.name);
+          const batch = writeBatch(db);
+          packedItems.forEach(item => {
+            const itemRef = doc(db, 'packingLists', id, 'items', item.id);
+            batch.update(itemRef, { containerName: null });
+          });
+          await batch.commit();
+        }
+        await deleteDoc(doc(db, 'users', user.uid, 'containers', containerId));
+        toast.success("Container deleted successfully");
+      } catch (err) {
+        console.error("Error deleting container:", err);
+        toast.error("Failed to delete container");
+      }
+    } else if (type === 'list') {
+      try {
+        await deleteDoc(doc(db, 'packingLists', id));
+        toast.success("Packing list deleted successfully");
+        navigate('/dashboard');
+      } catch (error) {
+        console.error("Error deleting list:", error);
+        toast.error("Failed to delete packing list");
+      }
     }
   };
 
@@ -3351,7 +3401,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
           )}
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-neutral-50 pt-6">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar flex-1">
               {(['all', 'pending', 'packed', 'returned'] as const).map((status) => (
                 <button
                   key={status}
@@ -3365,6 +3415,19 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                   {status}
                 </button>
               ))}
+
+              {isOwner && (
+                <button
+                  onClick={() => {
+                    triggerHaptic('scan');
+                    setShowPowerImportModal(true);
+                  }}
+                  className="ml-auto px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-primary/90 transition-all shadow-md shadow-primary/20 flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation active:scale-95 shrink-0"
+                >
+                  <Plus size={14} strokeWidth={3} />
+                  <span>Add Item / Kit</span>
+                </button>
+              )}
             </div>
 
             <div className="flex items-center bg-neutral-100 p-1 rounded-xl">
@@ -7382,39 +7445,87 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                 {/* Left Panel: Navigation & Active Sources (70% width) */}
                 <div className="w-full md:w-3/5 flex flex-col border-r border-neutral-100 overflow-hidden">
                   {/* Tabs Selection Bar */}
-                  <div className="flex border-b border-neutral-100 bg-neutral-50/50 p-1.5 overflow-x-auto no-scrollbar">
+                  <div className="flex border-b border-neutral-100 bg-neutral-50/50 p-1.5 overflow-x-auto no-scrollbar gap-1">
                     <button
                       onClick={() => {
                         setImportTab('gear');
                         setImportSearchQuery('');
                       }}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
-                        importTab === 'gear' ? 'bg-white text-primary shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'gear' ? 'bg-white text-primary shadow-sm border border-neutral-200' : 'text-neutral-500 hover:text-neutral-800'
                       }`}
                     >
                       <Package size={14} />
                       <span>Gear Library</span>
                     </button>
+
                     <button
                       onClick={() => {
                         setImportTab('inventories');
                         setImportSearchQuery('');
                       }}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
-                        importTab === 'inventories' ? 'bg-white text-primary shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'inventories' ? 'bg-white text-primary shadow-sm border border-neutral-200' : 'text-neutral-500 hover:text-neutral-800'
                       }`}
                     >
                       <Layers size={14} />
-                      <span>From Inventories</span>
+                      <span>Inventories</span>
                     </button>
+
+                    <button
+                      onClick={() => {
+                        setImportTab('kits');
+                        setImportSearchQuery('');
+                      }}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'kits' ? 'bg-white text-amber-600 shadow-sm border border-amber-200' : 'text-neutral-500 hover:text-neutral-800'
+                      }`}
+                    >
+                      <Box size={14} />
+                      <span>Kits & Bundles</span>
+                    </button>
+
+                    <button
+                      onClick={() => setImportTab('url')}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'url' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-200' : 'text-neutral-500 hover:text-neutral-800'
+                      }`}
+                    >
+                      <Globe size={14} />
+                      <span>Online Specs</span>
+                    </button>
+
+                    <button
+                      onClick={() => setImportTab('scan')}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'scan' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-200' : 'text-neutral-500 hover:text-neutral-800'
+                      }`}
+                    >
+                      <Plus size={14} />
+                      <span>Create Custom</span>
+                    </button>
+
                     <button
                       onClick={() => setImportTab('barcode')}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
-                        importTab === 'barcode' ? 'bg-white text-primary shadow-sm' : 'text-neutral-500 hover:text-neutral-800'
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'barcode' ? 'bg-white text-primary shadow-sm border border-neutral-200' : 'text-neutral-500 hover:text-neutral-800'
                       }`}
                     >
                       <QrCode size={14} />
                       <span>Barcode Scan</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setImportTab('lists');
+                        setImportSearchQuery('');
+                      }}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'lists' ? 'bg-white text-primary shadow-sm border border-neutral-200' : 'text-neutral-500 hover:text-neutral-800'
+                      }`}
+                    >
+                      <ListPlus size={14} />
+                      <span>Clone List</span>
                     </button>
                   </div>
 
@@ -7867,6 +7978,187 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       </div>
                     )}
 
+                    {/* KITS & BUNDLES TAB */}
+                    {importTab === 'kits' && (
+                      <div className="space-y-4">
+                        <div className="p-4 bg-amber-50/50 border border-amber-200/50 rounded-2xl flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-500/10 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
+                              <Box size={22} />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-black uppercase text-neutral-900">Equipment Kits & Bundles</h4>
+                              <p className="text-[10px] text-neutral-500 font-medium">Stage complete pre-packaged gear kits and nested accessories with a single tap.</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1">
+                          {bgGearItems.filter(item => item.isKit || (item.addOns && item.addOns.length > 0))
+                            .filter(item => item.name.toLowerCase().includes(importSearchQuery.toLowerCase()))
+                            .map(item => {
+                              const staged = stagedItems.some(st => st.sourceId === item.id && st.source === 'gear');
+                              return (
+                                <div
+                                  key={`kit-${item.id}`}
+                                  onClick={() => {
+                                    if (staged) {
+                                      setStagedItems(prev => prev.filter(st => !(st.sourceId === item.id && st.source === 'gear')));
+                                    } else {
+                                      const stageData = {
+                                        id: `gear-${item.id}`,
+                                        sourceId: item.id,
+                                        source: 'gear' as const,
+                                        name: item.name || '',
+                                        category: item.category || item.primaryCategory || 'Kit Package',
+                                        brand: item.brand || '',
+                                        quantity: 1,
+                                        weight: item.weight || 0,
+                                        weightUnit: 'kg',
+                                        price: item.price || 0,
+                                        notes: item.description || 'Pre-configured Kit Package',
+                                        photoUrls: item.photoUrls || [],
+                                        isKit: true,
+                                        childItemIds: item.childItemIds || [],
+                                        addOns: item.addOns || []
+                                      };
+                                      setStagedItems(prev => [...prev, stageData]);
+                                      toast.success(`Staged ${item.name} kit package!`);
+                                    }
+                                  }}
+                                  className={`p-4 rounded-2xl border transition flex items-center justify-between cursor-pointer ${
+                                    staged ? 'border-amber-500 bg-amber-50/20 ring-2 ring-amber-500/30' : 'border-neutral-200 bg-white hover:border-neutral-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-amber-100/80 rounded-xl flex items-center justify-center text-amber-700 font-bold shrink-0">
+                                      <Box size={20} />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <h5 className="text-xs font-black text-neutral-900 truncate">{item.name}</h5>
+                                      <p className="text-[10px] text-neutral-400 font-medium mt-0.5">
+                                        {item.addOns && item.addOns.length > 0 ? `${item.addOns.length} Bundled Accessories` : 'Kit Package'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shrink-0 transition ${
+                                    staged ? 'bg-amber-600 text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                                  }`}>
+                                    {staged ? 'Staged' : '+ Stage Kit'}
+                                  </button>
+                                </div>
+                              );
+                            })}
+
+                          {bgGearItems.filter(item => item.isKit || (item.addOns && item.addOns.length > 0)).length === 0 && (
+                            <div className="col-span-2 py-12 text-center text-neutral-400 text-xs font-medium">
+                              No kits found in Gear Library. Mark items as 'isKit' or add bundled accessories in the Gear Library to view them here.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ONLINE SPECS TAB */}
+                    {importTab === 'url' && (
+                      <div className="space-y-6">
+                        <div className="border border-neutral-100 bg-neutral-50/50 rounded-2xl p-6 space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                              <Globe size={22} />
+                            </div>
+                            <div>
+                              <h3 className="text-xs font-black uppercase text-neutral-900">Add from Web / Product Spec Search</h3>
+                              <p className="text-[10px] text-neutral-500 font-medium mt-0.5">Paste product URL (Amazon, B&H, Sony, RED, etc.) or type product model name.</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <input
+                              type="text"
+                              value={manualName}
+                              onChange={(e) => setManualName(e.target.value)}
+                              placeholder="Paste URL or type product name (e.g. Sony FX3 or https://...)"
+                              className="flex-1 px-4 py-3 bg-white border border-neutral-200 rounded-xl text-xs font-medium focus:ring-1 focus:ring-primary outline-none"
+                            />
+                            <button
+                              onClick={async () => {
+                                if (!manualName.trim()) {
+                                  toast.error("Please enter a URL or product name.");
+                                  return;
+                                }
+                                setIsScanningImage(true);
+                                try {
+                                  const res = await authenticatedFetch('/api/analyze-item', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ 
+                                      productName: manualName.startsWith('http') ? '' : manualName,
+                                      url: manualName.startsWith('http') ? manualName : ''
+                                    })
+                                  });
+                                  const data = await res.json();
+                                  setManualName(data.name || manualName);
+                                  setManualCategory(data.category || 'Camera');
+                                  if (data.specs) {
+                                    setManualNotes(typeof data.specs === 'object' ? JSON.stringify(data.specs) : String(data.specs));
+                                  }
+                                  toast.success("Loaded product specs with AI!");
+                                } catch (err) {
+                                  toast.error("AI spec retrieval failed. You can stage manually below.");
+                                } finally {
+                                  setIsScanningImage(false);
+                                }
+                              }}
+                              disabled={isScanningImage}
+                              className="px-5 py-3 bg-neutral-900 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-black transition flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                            >
+                              {isScanningImage ? <RefreshCw className="animate-spin" size={14} /> : <Sparkles size={14} className="text-amber-400 fill-amber-400 animate-pulse" />}
+                              <span>{isScanningImage ? 'Extracting...' : 'Analyze'}</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {manualName.trim() && (
+                          <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex items-center justify-between">
+                            <div>
+                              <span className="text-[8px] font-black uppercase text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">SPEC PREVIEW</span>
+                              <h5 className="text-xs font-black text-neutral-900 mt-1">{manualName}</h5>
+                              <p className="text-[10px] text-neutral-500">{manualCategory} • Ready to stage</p>
+                            </div>
+                            <button
+                              onClick={() => {
+                                const stageData = {
+                                  id: `url-${Math.random().toString()}`,
+                                  sourceId: '',
+                                  source: 'url',
+                                  name: manualName,
+                                  category: manualCategory,
+                                  brand: '',
+                                  quantity: 1,
+                                  weight: Number(manualWeight) || 0,
+                                  weightUnit: 'kg',
+                                  price: Number(manualPrice) || 0,
+                                  notes: manualNotes,
+                                  photoUrls: [],
+                                  isKit: false,
+                                  childItemIds: [],
+                                  addOns: []
+                                };
+                                setStagedItems(prev => [...prev, stageData]);
+                                setManualName('');
+                                setManualNotes('');
+                                toast.success("Staged web spec item!");
+                              }}
+                              className="px-4 py-2 bg-indigo-600 text-white font-black text-xs uppercase rounded-xl hover:bg-indigo-700 transition"
+                            >
+                              Stage Item
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* 3. FROM EXISTING LISTS */}
                     {importTab === 'lists' && (
                       <div className="space-y-4">
@@ -8308,12 +8600,81 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         )}
       </AnimatePresence>
 
+      {/* Persistent Mobile & Desktop Floating "+ Add Item / Kit" FAB */}
+      {isOwner && (
+        <motion.button
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.92 }}
+          onClick={() => {
+            triggerHaptic('scan');
+            setShowPowerImportModal(true);
+          }}
+          className="fixed bottom-20 right-4 sm:bottom-8 sm:right-8 z-40 bg-neutral-900 text-white p-3 sm:px-5 sm:py-3.5 rounded-full shadow-2xl shadow-neutral-950/40 border border-neutral-700/50 flex items-center gap-2 hover:bg-black transition-all cursor-pointer touch-manipulation"
+          title="Add Item or Kit to Manifest"
+        >
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shrink-0 shadow-sm">
+            <Plus size={18} strokeWidth={3} />
+          </div>
+          <span className="hidden sm:inline text-xs font-black uppercase tracking-wider text-white pr-1">
+            Add Item / Kit
+          </span>
+        </motion.button>
+      )}
+
       <QRPrintModal 
         isOpen={isQRPrintModalOpen}
         onClose={() => setIsQRPrintModalOpen(false)}
         items={items}
         user={user}
         initialSelectedIds={selectedItems}
+      />
+
+      {/* Confirmation Modal for Deletions */}
+      <ConfirmDeleteModal
+        isOpen={deleteConfirmState.isOpen}
+        onClose={() => setDeleteConfirmState(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={executeDeleteConfirm}
+        title={
+          deleteConfirmState.type === 'singleItem'
+            ? "Delete Item?"
+            : deleteConfirmState.type === 'bulkItems'
+            ? "Delete Selected Items?"
+            : deleteConfirmState.type === 'container'
+            ? "Delete Container?"
+            : "Delete Packing List?"
+        }
+        description={
+          deleteConfirmState.type === 'singleItem'
+            ? `Are you sure you want to delete "${deleteConfirmState.itemName || 'this item'}" from this list?`
+            : deleteConfirmState.type === 'bulkItems'
+            ? `Are you sure you want to delete ${deleteConfirmState.itemCount} selected items from this list?`
+            : deleteConfirmState.type === 'container'
+            ? `Are you sure you want to delete container "${deleteConfirmState.containerName || 'Container'}"? All packed items inside will be unpacked.`
+            : `Are you sure you want to permanently delete "${deleteConfirmState.itemName || 'this packing list'}"? This action cannot be undone.`
+        }
+        itemName={
+          deleteConfirmState.type === 'singleItem'
+            ? deleteConfirmState.itemName
+            : deleteConfirmState.type === 'container'
+            ? deleteConfirmState.containerName
+            : deleteConfirmState.type === 'list'
+            ? deleteConfirmState.itemName
+            : undefined
+        }
+        itemCount={
+          deleteConfirmState.type === 'bulkItems'
+            ? deleteConfirmState.itemCount
+            : undefined
+        }
+        confirmText={
+          deleteConfirmState.type === 'list'
+            ? "Delete List"
+            : deleteConfirmState.type === 'container'
+            ? "Delete Container"
+            : "Delete Item"
+        }
       />
         </div>
       </div>

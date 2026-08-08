@@ -1,6 +1,17 @@
 # 📘 Packer Tools Knowledge Base
 
-Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including Model Context Protocol (MCP) connectors, Claude Marketing Agent positioning kits, Organizer Designer marquee box-select and group/ungroup shapes engine, CAD exports, magnetic alignment snapping, public share link resolution, unauthenticated asset passports, bulk allocation, audit workflows, AI scenario coaching, and native mobile UX.
+Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including Model Context Protocol (MCP) connectors, Claude Marketing Agent positioning kits, deletion safeguards, Organizer Designer marquee box-select and group/ungroup shapes engine, CAD exports, magnetic alignment snapping, public share link resolution, unauthenticated asset passports, bulk allocation, audit workflows, AI scenario coaching, and native mobile UX.
+
+---
+
+## 🛡️ 0.000. Universal Accidental Deletion Safeguards & Confirm Delete Dialogs (v5.19.4)
+
+Packer Tools implements an integrated, non-intrusive deletion confirmation engine (`ConfirmDeleteModal`) across list and equipment management interfaces to prevent accidental data loss:
+- **Motion-Animated Confirmation Overlay**: Provides a backdrop blur modal with high-contrast warning badges, target item indicators, and clear destruction impact summaries.
+- **Target Selection & Quantity Badges**: Explicitly displays the target asset name or the exact count of selected items (e.g. "5 Items selected") so users can double-check the deletion target.
+- **Asynchronous Execution & Feedback**: Handles async database operations with animated loading spinners (`Deleting...`) and feedback toast notifications upon completion.
+- **Keyboard Shortcuts**: Supports `Escape` key listeners for rapid dismissal without performing destructive operations.
+- **Integrated Coverage**: Deletion protection active across Packing Lists (`PackingListDetail.tsx`), Inventory Sheets (`InventoryModule.tsx`), and Rack Unit Layouts (`RackDetail.tsx`).
 
 ---
 

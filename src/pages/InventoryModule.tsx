@@ -67,6 +67,7 @@ import { UserProfile, GearItem, Organization, Department, Team, AdminSettings } 
 import { toast } from 'sonner';
 import PhysicalLocationMap from '../components/PhysicalLocationMap';
 import BulkSerializeModal from '../components/BulkSerializeModal';
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import * as PAPA from 'papaparse';
@@ -378,6 +379,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   const [targetAnotherInventoryId, setTargetAnotherInventoryId] = useState('');
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
   const [isBulkSerializeModalOpen, setIsBulkSerializeModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Clear selections on changing inventory
   useEffect(() => {
@@ -1441,26 +1443,35 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
     setIsAddingItemManually(true);
   };
 
-  const handleDeleteItem = async (itemId: string) => {
+  const handleDeleteItem = async (itemId: string, itemName?: string) => {
     if (!selectedInventory) return;
-    if (!window.confirm("Perform final deletion of this asset item?")) return;
+    const targetItem = effectiveInventoryItems.find(it => it.id === itemId);
+    setItemToDelete({
+      id: itemId,
+      name: itemName || targetItem?.name || 'Asset'
+    });
+  };
+
+  const executeSingleItemDelete = async () => {
+    if (!selectedInventory || !itemToDelete) return;
     try {
       if (!isOnline) {
-        const targetItem = effectiveInventoryItems.find(it => it.id === itemId);
         await offlineSync.queueOperation({
           type: 'delete',
-          collectionPath: ['inventories', selectedInventory.id, 'items', itemId],
-          docId: itemId,
-          label: `Delete asset: ${targetItem?.name || 'Asset'}`
+          collectionPath: ['inventories', selectedInventory.id, 'items', itemToDelete.id],
+          docId: itemToDelete.id,
+          label: `Delete asset: ${itemToDelete.name}`
         });
         toast.success("Asset flagged for offline deletion. Queue updated.");
       } else {
-        await deleteDoc(doc(db, 'inventories', selectedInventory.id, 'items', itemId));
+        await deleteDoc(doc(db, 'inventories', selectedInventory.id, 'items', itemToDelete.id));
         toast.success("Asset removed from sheet lists.");
       }
     } catch (err) {
       console.error(err);
       toast.error("Deletion failed.");
+    } finally {
+      setItemToDelete(null);
     }
   };
 
@@ -5748,6 +5759,17 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
           setItemForm(prev => ({ ...prev, nfcTag: tagId }));
         }}
         onSearchSuccess={handleNfcSearchSuccess}
+      />
+
+      {/* Confirmation Modal for Single Asset Deletion */}
+      <ConfirmDeleteModal
+        isOpen={!!itemToDelete}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={executeSingleItemDelete}
+        title="Delete Asset Item?"
+        description={`Are you sure you want to delete "${itemToDelete?.name || 'this item'}" from this inventory sheet? This action cannot be undone.`}
+        itemName={itemToDelete?.name}
+        confirmText="Delete Asset"
       />
     </div>
   );

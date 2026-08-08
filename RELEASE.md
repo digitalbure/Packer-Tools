@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.19.3`
+## Current Application Version: `v5.19.4`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,15 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Feature Release: v5.19.4 (Universal Deletion Confirmation Modal & Safeguards)
+*Released on: August 7, 2026*
+- **Universal Deletion Confirmation Dialog (`ConfirmDeleteModal`)**: Introduced a reusable, motion-animated deletion confirmation modal featuring target asset highlights, batch count badges, loading states, and keyboard shortcuts (Escape key).
+- **Packing List Deletion Protection (`PackingListDetail.tsx`)**: Replaced native `window.confirm` browser prompts with the confirmation modal across single item deletions, bulk selection deletions, container removals, and full packing list purge actions.
+- **Inventory Sheet Safeguards (`InventoryModule.tsx`)**: Integrated deletion confirmation modal for individual inventory asset items with clear asset target names and offline sync queue awareness.
+- **Rack Layout Deletion Safeguards (`RackDetail.tsx`)**: Added item removal confirmation dialogs for rack unit layouts to prevent accidental unit displacement.
 
 ---
 
