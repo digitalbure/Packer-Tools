@@ -1384,7 +1384,7 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
               <h2 className="text-base font-black uppercase tracking-tight text-white">{container.name}</h2>
               <span className="text-[9px] font-black uppercase bg-primary/20 text-primary px-2 py-0.5 rounded-full border border-primary/30 flex items-center gap-1">
                 <span>Organizer Designer</span>
-                <span className="text-[8px] opacity-75">v5.19.1</span>
+                <span className="text-[8px] opacity-75">v5.19.2</span>
               </span>
             </div>
             <p className="text-[11px] text-neutral-400 font-medium">

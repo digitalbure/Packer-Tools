@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useIndustry } from '../context/IndustryContext';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, collectionGroup } from 'firebase/firestore';
-import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity, Users, Building2, Globe, Mail, MapPin, Building, Download, ArrowRightLeft, ListChecks, Sparkles } from 'lucide-react';
+import { Plus, Package, Trash2, ChevronRight, Clock, Box, X, Zap, Bell, Calendar, CheckCircle2, AlertCircle, Share2, QrCode, Home, Wrench, Layers, Briefcase, ShoppingBag, Truck, ShieldCheck, Search, Filter, SortAsc, SortDesc, LayoutGrid, List as ListIcon, PanelLeftClose, PanelLeftOpen, ChevronLeft, Menu, TrendingUp, Heart, PieChart, Activity, Users, Building2, Globe, Mail, MapPin, Building, Download, ArrowRightLeft, ListChecks, Sparkles, FolderPlus, ChevronDown, ListPlus } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../firebase';
@@ -79,6 +79,8 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
   const [newListName, setNewListName] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [newProjectNameInput, setNewProjectNameInput] = useState<string>('');
+  const [newProjectDescInput, setNewProjectDescInput] = useState<string>('');
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [allItems, setAllItems] = useState<any[]>([]);
   
@@ -566,6 +568,39 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
     }
 
     try {
+      let targetProjectId = selectedProjectId;
+
+      // Handle creation of a new project if user selected "__NEW_PROJECT__"
+      if (selectedProjectId === '__NEW_PROJECT__') {
+        if (!newProjectNameInput.trim()) {
+          toast.error("Please enter a name for the new project.");
+          return;
+        }
+
+        const projLimitCheck = await checkLimit(user, adminSettings, 'projects');
+        if (!projLimitCheck.allowed) {
+          toast.error(`Project limit reached (${projLimitCheck.current}/${projLimitCheck.limit}).`);
+          return;
+        }
+
+        const projectRef = await addDoc(collection(db, 'projects'), {
+          ownerId: user.uid,
+          ownerEmail: user.email || '',
+          name: newProjectNameInput.trim(),
+          description: newProjectDescInput.trim(),
+          status: 'planning',
+          priority: 'medium',
+          category: 'general',
+          listIds: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          workspaceId: currentWorkspaceId || ''
+        });
+
+        targetProjectId = projectRef.id;
+        toast.success(`Created project "${newProjectNameInput.trim()}"`);
+      }
+
       const docRef = await addDoc(collection(db, 'packingLists'), {
         ownerId: user.uid,
         ownerEmail: user.email,
@@ -573,14 +608,14 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         description: '',
         isTemplate: activeTab === 'templates' || createIsTemplate,
         workspaceId: currentWorkspaceId,
-        projectId: selectedProjectId || '',
+        projectId: targetProjectId || '',
         shareToken: Math.random().toString(36).substring(2, 15), // Generate token by default
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
 
-      if (selectedProjectId) {
-        await updateDoc(doc(db, 'projects', selectedProjectId), {
+      if (targetProjectId) {
+        await updateDoc(doc(db, 'projects', targetProjectId), {
           listIds: arrayUnion(docRef.id)
         });
       }
@@ -589,19 +624,23 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
         user.uid,
         user.displayName || user.email || 'Platform User',
         'list_add',
-        `Created packing list "${newListName}"`,
-        { listId: docRef.id, listName: newListName }
+        `Created packing list "${newListName}"${newProjectNameInput.trim() ? ` in new project "${newProjectNameInput.trim()}"` : ''}`,
+        { listId: docRef.id, listName: newListName, projectId: targetProjectId }
       );
+
       // Clear auto-saved draft list on successful creation
       if (user?.uid) {
         localStorage.removeItem(`packer_autosave_newlist_${user.uid}`);
       }
       setNewListName('');
       setSelectedProjectId('');
+      setNewProjectNameInput('');
+      setNewProjectDescInput('');
       setIsCreating(false);
       navigate(`/list/${docRef.id}`);
     } catch (error) {
       console.error("Error creating list:", error);
+      toast.error("Failed to create list. Please try again.");
     }
   };
 
@@ -3464,58 +3503,182 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
 
       <AnimatePresence>
         {isCreating && (
-          <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4 sm:p-6 overflow-y-auto">
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl relative"
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 w-full max-w-md shadow-2xl relative border border-neutral-100 my-auto max-h-[92vh] overflow-y-auto custom-scrollbar text-left space-y-5"
             >
               <button
-                onClick={() => setIsCreating(false)}
-                className="absolute top-6 right-6 p-2 text-neutral-400 hover:text-neutral-600 transition"
+                type="button"
+                onClick={() => {
+                  setIsCreating(false);
+                  setSelectedProjectId('');
+                  setNewProjectNameInput('');
+                  setNewProjectDescInput('');
+                }}
+                className="absolute top-5 right-5 sm:top-6 sm:right-6 p-2 text-neutral-400 hover:text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded-full transition cursor-pointer"
+                aria-label="Close modal"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
-              <h2 className="text-2xl font-bold mb-6">Create New List</h2>
-              <form onSubmit={handleCreateList} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider">List Name</label>
+
+              <div className="space-y-1 pr-8">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 bg-primary/10 text-primary rounded-xl">
+                    <ListPlus size={20} />
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black text-neutral-900 uppercase tracking-tight">Create New List</h2>
+                </div>
+                <p className="text-xs text-neutral-500 font-medium">
+                  Build a gear packing checklist and link it to a project or workspace.
+                </p>
+              </div>
+
+              <form onSubmit={handleCreateList} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-neutral-600 uppercase tracking-wider block">
+                    List Name <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     autoFocus
+                    required
                     value={newListName}
                     onChange={(e) => setNewListName(e.target.value)}
                     placeholder="e.g. Camera Rental Kit #1"
-                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary focus:bg-white focus:border-transparent outline-none transition text-base sm:text-sm font-semibold text-neutral-900 placeholder:text-neutral-400"
                   />
                 </div>
-                {projects.length > 0 && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-neutral-500 uppercase tracking-wider block">Link to Project (Optional)</label>
-                    <select
-                      value={selectedProjectId}
-                      onChange={(e) => setSelectedProjectId(e.target.value)}
-                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition text-sm font-medium text-neutral-800"
-                    >
-                      <option value="">-- No Project (Standalone List) --</option>
-                      {projects.map(proj => (
-                        <option key={proj.id} value={proj.id}>{proj.name}</option>
-                      ))}
-                    </select>
+
+                {/* Project Link Section with inline Create New Project option */}
+                <div className="space-y-3 pt-2 border-t border-neutral-100">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-xs font-black text-neutral-600 uppercase tracking-wider block">
+                      Link to Project <span className="text-neutral-400 font-normal">(Optional)</span>
+                    </label>
+                    <div className="flex bg-neutral-100 p-1 rounded-xl text-[10px] font-bold shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (selectedProjectId === '__NEW_PROJECT__') {
+                            setSelectedProjectId('');
+                          }
+                        }}
+                        className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                          selectedProjectId !== '__NEW_PROJECT__'
+                            ? 'bg-white text-neutral-900 shadow-xs font-black'
+                            : 'text-neutral-500 hover:text-neutral-800'
+                        }`}
+                      >
+                        Existing
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProjectId('__NEW_PROJECT__')}
+                        className={`px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer ${
+                          selectedProjectId === '__NEW_PROJECT__'
+                            ? 'bg-primary text-white shadow-xs font-black'
+                            : 'text-neutral-500 hover:text-neutral-800'
+                        }`}
+                      >
+                        <Plus size={11} /> New Project
+                      </button>
+                    </div>
                   </div>
-                )}
-                <div className="flex gap-3">
+
+                  {selectedProjectId !== '__NEW_PROJECT__' ? (
+                    <div className="relative">
+                      <select
+                        value={selectedProjectId}
+                        onChange={(e) => setSelectedProjectId(e.target.value)}
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary focus:bg-white focus:border-transparent outline-none transition text-base sm:text-sm font-semibold text-neutral-800 appearance-none cursor-pointer pr-10"
+                      >
+                        <option value="">-- No Project (Standalone List) --</option>
+                        <option value="__NEW_PROJECT__">➕ + Create New Project...</option>
+                        {projects.length > 0 && (
+                          <optgroup label="Existing Projects">
+                            {projects.map((proj) => (
+                              <option key={proj.id} value={proj.id}>
+                                {proj.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+                      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400">
+                        <ChevronDown size={18} />
+                      </div>
+                    </div>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-3 p-4 bg-primary/5 rounded-2xl border border-primary/20 text-left"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-wider text-primary flex items-center gap-1.5">
+                          <FolderPlus size={15} /> Create New Project
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProjectId('')}
+                          className="text-[10px] text-neutral-400 hover:text-neutral-700 underline font-semibold cursor-pointer"
+                        >
+                          Select Existing
+                        </button>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-neutral-600 uppercase tracking-wider block ml-0.5">
+                          New Project Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required={selectedProjectId === '__NEW_PROJECT__'}
+                          value={newProjectNameInput}
+                          onChange={(e) => setNewProjectNameInput(e.target.value)}
+                          placeholder="e.g. Commercial Shoot LA 2026"
+                          className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-base sm:text-xs font-bold text-neutral-900"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-neutral-600 uppercase tracking-wider block ml-0.5">
+                          Project Description (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={newProjectDescInput}
+                          onChange={(e) => setNewProjectDescInput(e.target.value)}
+                          placeholder="e.g. Multi-camera setup for client promo"
+                          className="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-base sm:text-xs font-medium text-neutral-800"
+                        />
+                      </div>
+                      <p className="text-[10px] text-neutral-500 font-medium leading-relaxed">
+                        💡 Will automatically provision a new project workspace and link this list upon creation.
+                      </p>
+                    </motion.div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => setIsCreating(false)}
-                    className="flex-1 py-3 bg-neutral-100 text-neutral-600 rounded-xl font-bold hover:bg-neutral-200 transition flex items-center justify-center text-center"
+                    onClick={() => {
+                      setIsCreating(false);
+                      setSelectedProjectId('');
+                      setNewProjectNameInput('');
+                      setNewProjectDescInput('');
+                    }}
+                    className="flex-1 py-3 bg-neutral-100 text-neutral-700 rounded-2xl font-bold hover:bg-neutral-200 transition flex items-center justify-center text-center text-xs uppercase tracking-wider cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition shadow-lg flex items-center justify-center text-center"
+                    className="flex-1 py-3 bg-primary text-white rounded-2xl font-black hover:bg-primary/90 transition shadow-lg flex items-center justify-center text-center text-xs uppercase tracking-widest cursor-pointer"
                   >
                     Create
                   </button>

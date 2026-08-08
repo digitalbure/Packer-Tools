@@ -3947,10 +3947,10 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
               <AnimatePresence>
                 {selectedInventoryItems.size > 0 && (
                   <motion.div 
-                    initial={{ y: 100, opacity: 0, x: '-50%' }}
-                    animate={{ y: 0, opacity: 1, x: '-50%' }}
-                    exit={{ y: 100, opacity: 0, x: '-50%' }}
-                    className="fixed bottom-26 md:bottom-8 left-1/2 -translate-x-1/2 z-[90] flex flex-col md:flex-row items-center gap-4 bg-neutral-900 text-white p-4 md:px-8 md:py-5 rounded-[1.5rem] md:rounded-[2.5rem] shadow-2xl border border-white/10 w-[min(calc(100%-2rem),48rem)]"
+                    initial={{ y: 100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 100, opacity: 0 }}
+                    className="fixed bottom-22 md:bottom-8 left-3 right-3 md:left-1/2 md:-translate-x-1/2 z-[90] flex flex-col md:flex-row items-center gap-3 md:gap-4 bg-neutral-900 text-white p-3.5 md:px-8 md:py-5 rounded-[1.5rem] md:rounded-[2.5rem] shadow-2xl border border-white/10 md:w-[min(calc(100%-2rem),48rem)] max-w-full"
                   >
                     <div className="flex items-center justify-between w-full md:w-auto md:border-r md:border-white/10 md:pr-6 md:mr-2">
                       <div className="flex items-center gap-3">
@@ -3981,7 +3981,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                       >
                         <button 
                           onClick={handleBulkCopyToGearLibrary}
-                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-700 transition shadow-lg whitespace-nowrap border border-white/5"
+                          className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-700 transition shadow-lg whitespace-nowrap border border-white/5"
                           title="Copy selected assets to your main Gear Library list"
                         >
                           <Layers className="w-4 h-4 text-emerald-400" />
@@ -3990,7 +3990,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
                         <button 
                           onClick={() => setIsQRPrintModalOpen(true)}
-                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 transition shadow-lg whitespace-nowrap border border-white/5"
+                          className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 transition shadow-lg whitespace-nowrap border border-white/5"
                           title="Send selected items to Label Studio for customization and printing"
                         >
                           <Tag className="w-4 h-4 text-[#F27D26]" />
@@ -4003,7 +4003,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                             setPrintOnlySelected(true);
                             setIsPrintView(true);
                           }}
-                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#F27D26] hover:bg-[#F27D26]/90 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
+                          className="shrink-0 flex items-center justify-center gap-2 bg-[#F27D26] hover:bg-[#F27D26]/90 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
                           title="Format selected items into a single PDF Packing Manifest"
                         >
                           <Printer className="w-4 h-4 text-white" />
@@ -4012,7 +4012,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
                         <button 
                           onClick={() => setIsExportToAnotherOpen(true)}
-                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 transition shadow-lg whitespace-nowrap"
+                          className="shrink-0 flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 transition shadow-lg whitespace-nowrap"
                           title="Copy selected items to another custom list sheet"
                         >
                           <Upload className="w-4 h-4 text-emerald-200" />
@@ -4029,7 +4029,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                             });
                             setIsInventoryBatchAssignOpen(true);
                           }}
-                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 transition shadow-lg whitespace-nowrap border border-white/5"
+                          className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 transition shadow-lg whitespace-nowrap border border-white/5"
                           title="Batch assign Organization, Department, and Team setting to selected items"
                         >
                           <ShieldAlert className="w-4 h-4 text-amber-400" />
@@ -4038,7 +4038,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
                         <button 
                           onClick={() => setIsBulkSerializeModalOpen(true)}
-                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#0066cc] hover:bg-[#0055b3] text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
+                          className="shrink-0 flex items-center justify-center gap-2 bg-[#0066cc] hover:bg-[#0055b3] text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
                           title="Decompose and transition selected Batch assets to Individual serial tracked assets in bulk"
                         >
                           <Zap className="w-4 h-4 text-blue-200" />
@@ -4047,7 +4047,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
 
                         <button 
                           onClick={() => setIsBulkDeleteConfirmOpen(true)}
-                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
+                          className="shrink-0 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap"
                         >
                           <Trash2 className="w-4 h-4 text-red-200" />
                           <span>Delete</span>

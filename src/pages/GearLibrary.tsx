@@ -8590,10 +8590,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       <AnimatePresence>
         {(selectedItems.size > 0 || isMultiSelectMode) && (
           <motion.div 
-            initial={{ y: 100, opacity: 0, x: '-50%' }}
-            animate={{ y: 0, opacity: 1, x: '-50%' }}
-            exit={{ y: 100, opacity: 0, x: '-50%' }}
-            className="fixed bottom-26 md:bottom-8 left-1/2 -translate-x-1/2 z-[90] flex flex-col md:flex-row items-center gap-4 bg-neutral-900 text-white p-4 md:px-8 md:py-5 rounded-[1.5rem] md:rounded-[2.5rem] shadow-2xl border border-white/10 w-[min(calc(100%-2rem),48rem)]"
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-22 md:bottom-8 left-3 right-3 md:left-1/2 md:-translate-x-1/2 z-[90] flex flex-col md:flex-row items-center gap-3 md:gap-4 bg-neutral-900 text-white p-3.5 md:px-8 md:py-5 rounded-[1.5rem] md:rounded-[2.5rem] shadow-2xl border border-white/10 md:w-[min(calc(100%-2rem),48rem)] max-w-full"
           >
             <div className="flex items-center justify-between w-full md:w-auto md:border-r md:border-white/10 md:pr-6 md:mr-2">
               <div className="flex items-center gap-3">
@@ -8632,7 +8632,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 <button 
                   onClick={() => setIsPackingModalOpen(true)}
                   disabled={selectedItems.size === 0}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-700 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-700 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Pack selected assets"
                 >
                   <Luggage className="w-4 h-4" />
@@ -8642,7 +8642,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 <button 
                   onClick={handleCreateKitFromSelection}
                   disabled={selectedItems.size === 0}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white text-neutral-900 px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-100 transition shadow-lg whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="shrink-0 flex items-center justify-center gap-2 bg-white text-neutral-900 px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-100 transition shadow-lg whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Combine selected into a bundle kit"
                 >
                   <Layers className="w-4 h-4" />
@@ -8652,7 +8652,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 <button 
                   onClick={() => setIsExportToInventoryOpen(true)}
                   disabled={selectedItems.size === 0}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="shrink-0 flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Copy/Export selected assets to other lists"
                 >
                   <Upload size={14} className="text-emerald-200" />
@@ -8672,7 +8672,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     setIsBatchAssignModalOpen(true);
                   }}
                   disabled={selectedItems.size === 0}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Bulk change organization, department or team assignment"
                 >
                   <Sliders size={14} className="text-amber-400 font-bold" />
@@ -8685,7 +8685,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     setIsMoveToRackModalOpen(true);
                   }}
                   disabled={selectedItems.size === 0}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Deploy selected equipment to rack"
                 >
                   <Server size={14} className="text-blue-400 font-bold" />
@@ -8698,7 +8698,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     setIsChangeStatusModalOpen(true);
                   }}
                   disabled={selectedItems.size === 0}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap animate-fade-in disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Change status of selected to Maintenance, etc."
                 >
                   <Sliders size={14} className="text-purple-400 font-bold" />
@@ -8708,7 +8708,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 <button 
                   onClick={() => setIsQRPrintModalOpen(true)}
                   disabled={selectedItems.size === 0}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap"
+                  className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap"
                   title="Launch Label Studio designer for selected gear items"
                 >
                   <QrCode size={14} className="text-blue-400 font-bold" />
@@ -8718,7 +8718,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 <button 
                   onClick={handleBatchDelete}
                   disabled={selectedItems.size === 0}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-950/40 text-red-400 border border-red-900/40 px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-red-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition shadow-lg whitespace-nowrap border-white/5"
+                  className="shrink-0 flex items-center justify-center gap-2 bg-red-950/40 text-red-400 border border-red-900/40 px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-red-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition shadow-lg whitespace-nowrap border-white/5"
                   title="Batch delete selected assets permanently"
                 >
                   <Trash2 size={13} className="text-red-400 shrink-0" />
@@ -8728,7 +8728,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 {selectedItems.size === 2 && (
                   <button 
                     onClick={handleCheckCompatibility}
-                    className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:brightness-110 transition shadow-lg whitespace-nowrap"
+                    className="shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:brightness-110 transition shadow-lg whitespace-nowrap"
                     title="Run compatibility diagnostic"
                   >
                     <Zap className="w-4 h-4 fill-amber-300 stroke-amber-100" />
@@ -8756,10 +8756,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       <AnimatePresence>
         {lastBulkAction && (
           <motion.div
-            initial={{ y: 100, opacity: 0, x: '-50%' }}
-            animate={{ y: 0, opacity: 1, x: '-50%' }}
-            exit={{ y: 100, opacity: 0, x: '-50%' }}
-            className="fixed bottom-26 md:bottom-6 left-1/2 -translate-x-1/2 z-[95] flex items-center justify-between gap-4 bg-neutral-900 border border-white/15 text-white rounded-2xl px-6 py-4 shadow-2xl w-[90%] max-w-md"
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-22 md:bottom-6 left-4 right-4 md:left-1/2 md:-translate-x-1/2 z-[95] flex items-center justify-between gap-4 bg-neutral-900 border border-white/15 text-white rounded-2xl px-5 py-3.5 md:px-6 md:py-4 shadow-2xl md:w-[90%] md:max-w-md max-w-full"
             id="undo-bulk-action-banner"
           >
             <div className="flex items-center gap-3">

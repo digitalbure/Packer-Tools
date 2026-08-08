@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.19.1`
+## Current Application Version: `v5.19.3`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,22 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Feature Release: v5.19.3 (Inline Project Creation & Mobile List Modal Optimization)
+*Released on: August 7, 2026*
+- **Inline Project Creation in List Setup Window**: Integrated a dedicated "+ Create New Project" option directly inside the list creation modal (`Dashboard.tsx`). Users can now provision a new project workspace on the fly while setting up a list without leaving the creation workflow.
+- **Project Link Quick Toggle**: Added an interactive mode switcher (`Existing` vs `+ New Project`) alongside the `-- No Project (Standalone List) --` dropdown option for quick project assignment.
+- **Mobile UI & Viewport Auto-Zoom Fixes**: Upgraded modal container with `max-h-[92vh] overflow-y-auto`, touch-friendly padding, custom dropdown arrow overlays, and iOS WebKit viewport zoom prevention (`text-base sm:text-sm`).
+
+---
+
+### 🚀 Maintenance Release: v5.19.2 (Mobile Selection Toolbar Centering & Responsive Alignment)
+*Released on: July 26, 2026*
+- **Floating Action Bar Mobile Centering & Alignment**: Resolved Framer Motion CSS transform conflicts (`x: '-50%'` combined with Tailwind `-translate-x-1/2`) that caused horizontal misalignment and clipping on mobile viewports across `GearLibrary` and `InventoryModule`.
+- **Responsive Padding & Safe Viewport Margins**: Updated floating action bar containers to use `left-3 right-3 md:left-1/2 md:-translate-x-1/2` with `bottom-22 md:bottom-8` spacing for mobile viewports, preventing overlap with the mobile bottom navigation bar and ensuring touch targets remain centered.
+- **Flex Child Shrink Rules**: Added `shrink-0` to toolbar action buttons inside horizontal overflow containers to preserve label readability without text squishing on small screens.
 
 ---
 

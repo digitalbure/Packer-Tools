@@ -24,9 +24,51 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.19.1',
+      version: 'v5.19.3',
       tag: 'Latest',
       tagBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-300',
+      title: 'Inline Project Creation & Mobile List Modal Optimization',
+      date: 'August 2026',
+      icon: Sparkles,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      updates: [
+        {
+          title: 'Inline Project Creation in List Setup Window',
+          desc: 'Provision new project workspaces directly inside the "Create New List" modal with automatic list linking.',
+          badge: 'Feature / Workflow'
+        },
+        {
+          title: 'Mobile Modal UI & Viewport Auto-Zoom Fixes',
+          desc: 'Enhanced list setup modal layout with custom dropdown arrows, touch-friendly targets, and iOS WebKit viewport zoom prevention.',
+          badge: 'UI / Mobile'
+        }
+      ]
+    },
+    {
+      version: 'v5.19.2',
+      tag: 'Stable',
+      tagBg: 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:bg-blue-500/20 dark:text-blue-300',
+      title: 'Mobile UI Alignment & Selection Toolbar Centering Fix',
+      date: 'July 2026',
+      icon: Sparkles,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      updates: [
+        {
+          title: 'Mobile Selection Toolbar Centering',
+          desc: 'Fixed CSS transform conflicts that caused bottom selection toolbars to displace off-center on mobile viewports.',
+          badge: 'UI / Mobile'
+        },
+        {
+          title: 'Responsive Padding & Safe Viewport Offsets',
+          desc: 'Optimized floating action bars across Gear Library and Inventory Sheets with left-3 right-3 mobile boundaries and bottom-22 spacing above tab bars.',
+          badge: 'UX / Responsive'
+        }
+      ]
+    },
+    {
+      version: 'v5.19.1',
+      tag: 'Patch',
+      tagBg: 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:bg-blue-500/20 dark:text-blue-300',
       title: 'Security Hardening: SSRF Defense, Fail-Closed Webhooks & Developer Endpoint Auth',
       date: 'July 2026',
       icon: Sparkles,
@@ -801,7 +843,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[10px] uppercase font-black tracking-wide hidden sm:inline text-neutral-400">
-                  Build v5.19.1
+                  Build v5.19.2
                 </span>
                 <button
                   type="button"
