@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.19.4`
+## Current Application Version: `v5.20.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,16 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Feature Release: v5.20.0 (Packing List Control Center & Multi-List Management Suite)
+*Released on: August 7, 2026*
+- **List Settings & Configuration Suite**: Fully built out the List Settings & Actions control panel in `PackingListDetail.tsx` providing list visibility toggles (Public vs Private with shareable links & copy triggers), custom list labels/tags with hashtag rendering, list archive/unarchive controls, and list deletion.
+- **Kit Conversion & Container Linking**: Enabled converting any packing list into a reusable Master Kit container with nested add-on equipment, or linking/unlinking existing flight cases and pelican organizers.
+- **Cross-List Merge & Item Import/Export**: Added two-way list operations allowing users to import items from any existing list directly into the current list, or export/append current items into a target list with sequence order preservation.
+- **Marketplace Publishing**: Added marketplace listing settings allowing users to set listing pricing, currency selection (USD, FJD, AUD, EUR, GBP, NZD), and marketplace pitches.
+- **Print & Customs Manifest Exports**: Integrated quick print triggers for paper packing list sheets, CSV exports, and ATA Carnet customs manifest generation.
 
 ---
 

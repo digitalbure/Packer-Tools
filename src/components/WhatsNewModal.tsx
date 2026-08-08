@@ -8,7 +8,7 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.19.4' | '5.19.3' | '5.19.2' | '5.19.1' | '5.19.0' | '5.18.6' | '5.18.5' | '5.18.4' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.20.0' | '5.19.4' | '5.19.3' | '5.19.2' | '5.19.1' | '5.19.0' | '5.18.6' | '5.18.5' | '5.18.4' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,9 +24,40 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.19.4',
+      version: 'v5.20.0',
       tag: 'Latest',
       tagBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-300',
+      title: 'Full Packing List Control Center & Multi-List Management Suite',
+      date: 'August 2026',
+      icon: Sparkles,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      updates: [
+        {
+          title: 'List Settings & Configuration Suite',
+          desc: 'Built out the full List Settings & Actions control panel with visibility toggles (public/private with shareable links), custom list labels/tags, archive/unarchive controls, and list deletion.',
+          badge: 'List Control'
+        },
+        {
+          title: 'Kit Conversion & Container Linking',
+          desc: 'Convert any packing list directly into a reusable Master Kit container with nested add-ons, or link/unlink existing flight cases and pelicans.',
+          badge: 'Kits & Hardware'
+        },
+        {
+          title: 'Cross-List Merge & Item Import/Export',
+          desc: 'Import all items from another list into current list or append current list items into target lists with automatic sequence ordering.',
+          badge: 'Operations'
+        },
+        {
+          title: 'Marketplace Publishing & Print Exports',
+          desc: 'Set pricing, currency, and pitches to publish lists on the public Marketplace, or generate ATA Carnet customs declarations and CSV sheets.',
+          badge: 'Marketplace & Print'
+        }
+      ]
+    },
+    {
+      version: 'v5.19.4',
+      tag: 'Stable',
+      tagBg: 'bg-neutral-500/10 text-neutral-600 border-neutral-500/20 dark:bg-neutral-500/20 dark:text-neutral-300',
       title: 'Universal Accidental Deletion Confirmation Dialogs & Protection',
       date: 'August 2026',
       icon: Sparkles,

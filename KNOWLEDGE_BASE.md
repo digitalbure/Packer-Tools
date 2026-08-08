@@ -4,6 +4,40 @@ Welcome to the **Packer Tools** Knowledge Base! This document provides detailed,
 
 ---
 
+## ⚙️ 0.0000. Packing List Control Center & Multi-List Management Suite (v5.20.0)
+
+Packer Tools provides a comprehensive **List Settings & Actions** control panel in the packing list dashboard (`PackingListDetail.tsx`), accessible via the `Settings & Actions` tab:
+
+1. **Privacy & Public Visibility Settings**:
+   - **Privacy Switch**: Toggle list state between `Private` (accessible only to list owner and authorized workspace members) and `Public`.
+   - **Shareable Link Resolution**: Automatically generates unique secure share tokens (`shareToken`) for public lists with a one-click `Copy Link` trigger (`/shared-list/:shareToken`).
+
+2. **Custom Labels & Hashtag Tagging**:
+   - **Categorization**: Add hashtag-formatted labels (e.g., `#CameraA`, `#Broadcast`, `#Rigging`) to group and filter lists across workspace dashboards.
+   - **Interactive Tags**: Remove or append labels with instant Firestore document state updates.
+
+3. **Kit Conversion & Container Linking**:
+   - **Convert List to Master Kit**: Automatically converts all list items into a reusable Master Kit container inside the user's `containers` collection, complete with price structures and category notes.
+   - **Link to Existing Container**: Link any packing list directly to Pelican cases or flight cases from the user's container inventory.
+
+4. **Cross-List Merge & Item Import/Export**:
+   - **Import Items From List**: Pull all items from any other user list into the active packing list with order sequence indexing.
+   - **Append Current Items To List**: Push all current list items into a chosen target list without destroying the target's existing contents.
+
+5. **Marketplace Publishing**:
+   - **List Template Marketplace**: Enable marketplace listings, set custom template pricing, select currency (USD, FJD, AUD, EUR, GBP, NZD), and write custom listing pitches for public crew cloning.
+
+6. **Print & Customs Manifest Exports**:
+   - **Paper Print Sheets**: Formatted print layouts for physical site checklists.
+   - **CSV Export**: Clean spreadsheet export with item counts, categories, and serial numbers.
+   - **ATA Carnet Manifest**: One-click switch to the international customs declaration view for cross-border logistics.
+
+7. **Archive & Danger Zone**:
+   - **Archive / Unarchive**: Archive inactive lists to keep workspace clean while preserving all historical items and signed release receipts.
+   - **Delete List**: Permanently delete the list with `ConfirmDeleteModal` protection.
+
+---
+
 ## 🛡️ 0.000. Universal Accidental Deletion Safeguards & Confirm Delete Dialogs (v5.19.4)
 
 Packer Tools implements an integrated, non-intrusive deletion confirmation engine (`ConfirmDeleteModal`) across list and equipment management interfaces to prevent accidental data loss:

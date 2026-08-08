@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { doc, getDoc, collection, query, onSnapshot, deleteDoc, updateDoc, addDoc, getDocs, writeBatch, where, orderBy, arrayUnion } from 'firebase/firestore';
-import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download, AlertTriangle, Cpu, Plane, Globe, FileSpreadsheet, Sparkles, AlertCircle, Settings, ListChecks, Check, ShieldCheck, ListPlus } from 'lucide-react';
+import { Plus, Printer, Camera, Share2, Trash2, CheckCircle2, Circle, ChevronLeft, QrCode, Copy, ExternalLink, Package, Tag, Info, Edit2, Library, Search, GripVertical, ChevronDown, ChevronRight, Layers, RotateCcw, History, LayoutList, LayoutGrid, Image as ImageIcon, Zap, Bell, Loader2, ArrowUpNarrowWide, Link2, ShoppingBag, Box, Briefcase, X, Hammer, RefreshCw, ArrowRightLeft, Shield, Download, AlertTriangle, Cpu, Plane, Globe, FileSpreadsheet, Sparkles, AlertCircle, Settings, ListChecks, Check, ShieldCheck, ListPlus, Lock, Archive, FileText } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Reorder, AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -378,6 +378,273 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     return () => window.removeEventListener('open-qr-print-modal', handleOpenQRPrint);
   }, []);
   const [showCreateKitModal, setShowCreateKitModal] = useState(false);
+
+  // --- LIST SETTINGS & MERGE STATE ---
+  const [userAllLists, setUserAllLists] = useState<PackingList[]>([]);
+  const [selectedSourceListId, setSelectedSourceListId] = useState('');
+  const [selectedTargetListId, setSelectedTargetListId] = useState('');
+  const [isMergingList, setIsMergingList] = useState(false);
+  const [newLabelInput, setNewLabelInput] = useState('');
+  const [isConvertingToKit, setIsConvertingToKit] = useState(false);
+  const [selectedKitContainerId, setSelectedKitContainerId] = useState('');
+
+  // Marketplace settings local form state
+  const [editMarketplacePrice, setEditMarketplacePrice] = useState('0');
+  const [editMarketplaceCurrency, setEditMarketplaceCurrency] = useState('USD');
+
+  useEffect(() => {
+    if (list) {
+      setEditMarketplaceEnabled(!!list.marketplaceEnabled);
+      setEditMarketplacePrice(String(list.price || list.marketplacePrice || 0));
+      setEditMarketplaceCurrency(list.currency || list.marketplaceCurrency || 'USD');
+      setEditMarketplaceDetails(list.marketplaceDetails || '');
+      setSelectedKitContainerId(list.kitId || '');
+    }
+  }, [list]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      const listData = snap.docs.map(d => ({ id: d.id, ...d.data() } as PackingList));
+      setUserAllLists(listData);
+    }, (err) => console.error("Error fetching user lists for settings:", err));
+    return () => unsub();
+  }, [user]);
+
+  // List Privacy Toggle
+  const handleTogglePrivacy = async (makePublic: boolean) => {
+    if (!id) return;
+    try {
+      let token = list?.shareToken;
+      if (makePublic && !token) {
+        token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      }
+      await updateDoc(doc(db, 'packingLists', id), {
+        isPublic: makePublic,
+        ...(token ? { shareToken: token } : {})
+      });
+      toast.success(makePublic ? "List is now publicly shareable!" : "List is now private (owner/workspace only).");
+    } catch (err) {
+      console.error("Error updating privacy:", err);
+      toast.error("Failed to update visibility settings.");
+    }
+  };
+
+  // Label Add / Remove
+  const handleAddLabelTag = async (tag: string) => {
+    if (!id || !tag.trim()) return;
+    const clean = tag.trim().replace(/^#/, '');
+    const currentLabels = list?.labels || [];
+    if (currentLabels.includes(clean)) {
+      setNewLabelInput('');
+      return;
+    }
+    const updated = [...currentLabels, clean];
+    try {
+      await updateDoc(doc(db, 'packingLists', id), { labels: updated });
+      setNewLabelInput('');
+      toast.success(`Label "${clean}" added to list!`);
+    } catch (err) {
+      console.error("Error adding label tag:", err);
+      toast.error("Failed to add label tag.");
+    }
+  };
+
+  const handleRemoveLabelTag = async (tag: string) => {
+    if (!id) return;
+    const currentLabels = list?.labels || [];
+    const updated = currentLabels.filter(l => l !== tag);
+    try {
+      await updateDoc(doc(db, 'packingLists', id), { labels: updated });
+      toast.success(`Label "${tag}" removed.`);
+    } catch (err) {
+      console.error("Error removing label tag:", err);
+      toast.error("Failed to remove label tag.");
+    }
+  };
+
+  // Toggle Archive
+  const handleToggleArchive = async () => {
+    if (!id) return;
+    const nextVal = !list?.isArchived;
+    try {
+      await updateDoc(doc(db, 'packingLists', id), { isArchived: nextVal });
+      toast.success(nextVal ? "List archived successfully!" : "List restored from archive.");
+    } catch (err) {
+      console.error("Error toggling archive:", err);
+      toast.error("Failed to update archive status.");
+    }
+  };
+
+  // Save Marketplace Settings
+  const handleSaveSettingsMarketplace = async () => {
+    if (!id) return;
+    try {
+      await updateDoc(doc(db, 'packingLists', id), {
+        marketplaceEnabled: editMarketplaceEnabled,
+        marketplacePrice: parseFloat(editMarketplacePrice) || 0,
+        marketplaceCurrency: editMarketplaceCurrency,
+        marketplaceDetails: editMarketplaceDetails.trim()
+      });
+      toast.success("Marketplace listing settings saved!");
+    } catch (err) {
+      console.error("Error saving marketplace settings:", err);
+      toast.error("Failed to save marketplace settings.");
+    }
+  };
+
+  // Convert List to Reusable Kit Container
+  const handleConvertListToKit = async () => {
+    if (!user || !list || items.length === 0) {
+      toast.error("List must have at least one item to convert into a Kit.");
+      return;
+    }
+    setIsConvertingToKit(true);
+    try {
+      const kitAddOns = items.map(item => ({
+        itemId: item.id,
+        name: item.name,
+        price: item.price || 0,
+        notes: item.notes || `Category: ${item.aiLabel || item.category || 'General'}`,
+        useDefaultPrice: true,
+        type: 'Accessory' as const
+      }));
+
+      const containerRef = await addDoc(collection(db, 'users', user.uid, 'containers'), {
+        name: `${list.name} Kit`,
+        type: 'pelican',
+        ownerId: user.uid,
+        itemIds: items.map(i => i.id),
+        addOns: kitAddOns,
+        notes: list.description || 'Converted from Packing List',
+        isKit: true,
+        createdAt: new Date().toISOString()
+      });
+
+      await updateDoc(doc(db, 'packingLists', id!), {
+        isKit: true,
+        kitId: containerRef.id
+      });
+
+      toast.success(`Converted "${list.name}" to reusable Kit container!`);
+    } catch (err) {
+      console.error("Error converting list to kit:", err);
+      toast.error("Failed to convert list to kit.");
+    } finally {
+      setIsConvertingToKit(false);
+    }
+  };
+
+  // Unlink Kit
+  const handleUnlinkKit = async () => {
+    if (!id) return;
+    try {
+      await updateDoc(doc(db, 'packingLists', id), {
+        isKit: false,
+        kitId: null
+      });
+      toast.success("List unlinked from Kit container.");
+    } catch (err) {
+      console.error("Error unlinking kit:", err);
+      toast.error("Failed to unlink kit.");
+    }
+  };
+
+  // Link to specific existing Container/Kit
+  const handleLinkContainerKit = async (containerId: string) => {
+    if (!id || !containerId) return;
+    try {
+      await updateDoc(doc(db, 'packingLists', id), {
+        isKit: true,
+        kitId: containerId
+      });
+      setSelectedKitContainerId(containerId);
+      toast.success("List linked to selected Kit container.");
+    } catch (err) {
+      console.error("Error linking kit container:", err);
+      toast.error("Failed to link kit container.");
+    }
+  };
+
+  // Import / Append items from another source list into current list
+  const handleImportFromAnotherList = async () => {
+    if (!id || !selectedSourceListId) {
+      toast.error("Please select a source list to import from.");
+      return;
+    }
+    setIsMergingList(true);
+    try {
+      const sourceSnap = await getDocs(collection(db, 'packingLists', selectedSourceListId, 'items'));
+      const sourceItems = sourceSnap.docs.map(d => d.data());
+
+      if (sourceItems.length === 0) {
+        toast.error("Selected source list has no items.");
+        setIsMergingList(false);
+        return;
+      }
+
+      const batch = writeBatch(db);
+      sourceItems.forEach((itemData, idx) => {
+        const newItemRef = doc(collection(db, 'packingLists', id, 'items'));
+        batch.set(newItemRef, {
+          ...itemData,
+          id: newItemRef.id,
+          status: 'pending',
+          containerName: null,
+          order: items.length + idx,
+          createdAt: new Date().toISOString()
+        });
+      });
+
+      await batch.commit();
+      const sourceListObj = userAllLists.find(l => l.id === selectedSourceListId);
+      toast.success(`Imported ${sourceItems.length} items from "${sourceListObj?.name || 'source list'}"!`);
+      setSelectedSourceListId('');
+    } catch (err) {
+      console.error("Error importing items from another list:", err);
+      toast.error("Failed to import items from list.");
+    } finally {
+      setIsMergingList(false);
+    }
+  };
+
+  // Export / Append current list items to another target list
+  const handleAppendToAnotherList = async () => {
+    if (!id || !selectedTargetListId || items.length === 0) {
+      toast.error("Please select a target list and ensure current list has items.");
+      return;
+    }
+    setIsMergingList(true);
+    try {
+      const targetSnap = await getDocs(collection(db, 'packingLists', selectedTargetListId, 'items'));
+      const targetCount = targetSnap.size;
+
+      const batch = writeBatch(db);
+      items.forEach((item, idx) => {
+        const newItemRef = doc(collection(db, 'packingLists', selectedTargetListId, 'items'));
+        const { id: oldId, ...restItem } = item;
+        batch.set(newItemRef, {
+          ...restItem,
+          id: newItemRef.id,
+          status: 'pending',
+          containerName: null,
+          order: targetCount + idx,
+          createdAt: new Date().toISOString()
+        });
+      });
+
+      await batch.commit();
+      const targetListObj = userAllLists.find(l => l.id === selectedTargetListId);
+      toast.success(`Appended ${items.length} items into "${targetListObj?.name || 'target list'}"!`);
+      setSelectedTargetListId('');
+    } catch (err) {
+      console.error("Error appending to target list:", err);
+      toast.error("Failed to append items to target list.");
+    } finally {
+      setIsMergingList(false);
+    }
+  };
 
   // --- POWER ONBOARDER & IMPORT MODAL STATE ---
   const [showPowerImportModal, setShowPowerImportModal] = useState(false);
@@ -4130,6 +4397,692 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       </div>
       )}
           </>
+        )}
+
+        {/* --- TAB: ORGANIZERS & CASES --- */}
+        {activeTab === 'organizers' && (
+          <div className="space-y-6 text-left">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-neutral-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-primary font-black uppercase tracking-widest text-[10px]">
+                  <Layers size={14} />
+                  <span>Case & Organizer Logistics</span>
+                </div>
+                <h2 className="text-2xl font-black uppercase tracking-tight text-neutral-900">Organizers & Flight Cases</h2>
+                <p className="text-xs text-neutral-500 font-medium max-w-xl">
+                  Organize packed items into hard cases, pelican boxes, toolkits, and soft bags for streamlined flight transit and venue deployment.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setImportTab('kits');
+                  setShowPowerImportModal(true);
+                }}
+                className="px-5 py-3.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-2xl font-bold text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-lg shrink-0 cursor-pointer"
+              >
+                <Plus size={16} />
+                <span>Add / Assign Organizer</span>
+              </button>
+            </div>
+
+            {containers.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-neutral-200 p-8 space-y-4">
+                <div className="w-16 h-16 bg-neutral-50 rounded-2xl flex items-center justify-center text-neutral-400 mx-auto">
+                  <Layers size={28} />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-black uppercase text-neutral-900">No Containers Assigned Yet</h3>
+                  <p className="text-xs text-neutral-500 max-w-md mx-auto">
+                    Grouping items into Pelican cases, rack units, or soft cases keeps your crew organized during setup.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setImportTab('kits');
+                    setShowPowerImportModal(true);
+                  }}
+                  className="px-6 py-3 bg-primary text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:opacity-90 transition shadow-md inline-flex items-center gap-2 cursor-pointer"
+                >
+                  <Plus size={16} />
+                  <span>Assign Container or Kit</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {containers.map(container => {
+                  const containerItems = items.filter(i => i.containerName === container.name || i.containerId === container.id);
+                  const packedCount = containerItems.filter(i => i.status === 'packed' || i.status === 'returned').length;
+                  const percent = containerItems.length > 0 ? Math.round((packedCount / containerItems.length) * 100) : 0;
+
+                  return (
+                    <div key={container.id} className="bg-white rounded-3xl p-6 border border-neutral-100 shadow-sm space-y-4 hover:border-primary/20 transition">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary font-black">
+                            <Package size={22} />
+                          </div>
+                          <div>
+                            <h3 className="font-black text-neutral-900 text-base leading-tight">{container.name}</h3>
+                            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-0.5">
+                              {container.type || 'Pelican Case'} • {containerItems.length} Items
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteContainer(container.id)}
+                          className="p-2 text-neutral-300 hover:text-red-500 rounded-xl hover:bg-red-50 transition cursor-pointer"
+                          title="Remove Container"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-[10px] font-bold">
+                          <span className="text-neutral-400 uppercase tracking-widest">Packing Progress</span>
+                          <span className={percent === 100 ? 'text-emerald-600' : 'text-neutral-700'}>{percent}% Packed ({packedCount}/{containerItems.length})</span>
+                        </div>
+                        <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-500 ${percent === 100 ? 'bg-emerald-500' : 'bg-primary'}`}
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-neutral-100 space-y-2">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">Case Contents</span>
+                        {containerItems.length === 0 ? (
+                          <p className="text-[11px] text-neutral-400 italic">No items assigned to this case yet.</p>
+                        ) : (
+                          <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+                            {containerItems.map(it => (
+                              <div key={it.id} className="flex items-center justify-between text-xs py-1 px-2.5 bg-neutral-50 rounded-xl font-medium">
+                                <span className="truncate max-w-[180px] text-neutral-800">{it.name}</span>
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                                  it.status === 'packed' ? 'bg-orange-100 text-orange-700' :
+                                  it.status === 'returned' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                }`}>
+                                  {it.status}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- TAB: DISPATCH & SIGNATURE --- */}
+        {activeTab === 'checkout' && (
+          <div className="space-y-6 text-left">
+            <div className="bg-gradient-to-br from-neutral-900 via-neutral-950 to-neutral-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 border border-neutral-800">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
+                  <Shield size={12} />
+                  <span>Equipment Dispatch & Verification</span>
+                </div>
+                <h2 className="text-2xl font-black uppercase tracking-tight">Rental Agreements & Signatures</h2>
+                <p className="text-xs text-neutral-400 max-w-xl leading-relaxed">
+                  Log pickup and check-in signatures, generate legally formatted dispatch release receipts, and verify return condition records with electronic hash auth.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => {
+                    setAgreementType('pickup');
+                    setShowAgreementModal(true);
+                  }}
+                  className="px-5 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider transition shadow-lg flex items-center gap-2 cursor-pointer"
+                >
+                  <CheckCircle2 size={16} />
+                  <span>Fulfill & Release Pickup</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setAgreementType('dropoff');
+                    setShowAgreementModal(true);
+                  }}
+                  className="px-5 py-3.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 rounded-2xl font-black text-xs uppercase tracking-wider transition shadow-lg flex items-center gap-2 cursor-pointer"
+                >
+                  <RotateCcw size={16} />
+                  <span>Check-In & Return</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6">
+              <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                <h3 className="font-black text-lg text-neutral-900 uppercase tracking-tight">Signed Verification Logs ({agreements.length})</h3>
+                <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest">
+                  Collection: packingLists/{id}/RentalAgreements
+                </span>
+              </div>
+
+              {agreements.length === 0 ? (
+                <div className="text-center py-12 space-y-3">
+                  <div className="w-12 h-12 bg-neutral-50 rounded-2xl flex items-center justify-center text-neutral-300 mx-auto">
+                    <Shield size={24} />
+                  </div>
+                  <p className="text-xs text-neutral-500 italic">No formal rental agreements or pickup signatures recorded yet.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {agreements.map((agr) => (
+                    <div key={agr.id} className="p-5 bg-neutral-50 rounded-2xl border border-neutral-100 space-y-3 text-left">
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider rounded-full ${
+                          agr.type === 'pickup' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {agr.type === 'pickup' ? ' Pickup Release' : ' Dropoff Return'}
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400 font-bold">
+                          {new Date(agr.signedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1 text-xs">
+                        <p className="font-bold text-neutral-900">{agr.signeeName}</p>
+                        <p className="text-neutral-500 font-mono text-[11px]">{agr.signeeEmail} {agr.signeePhone ? `• ${agr.signeePhone}` : ''}</p>
+                      </div>
+
+                      {agr.notes && (
+                        <p className="text-[11px] text-neutral-600 bg-white p-2.5 rounded-xl border border-neutral-100 italic">
+                          "{agr.notes}"
+                        </p>
+                      )}
+
+                      {agr.signatureUrl && (
+                        <div className="pt-2 border-t border-neutral-200/60 flex items-center justify-between">
+                          <div>
+                            <span className="text-[8px] font-mono text-neutral-400 uppercase block">Digital Auth Signature</span>
+                            <img src={agr.signatureUrl} alt="Signature" className="h-8 max-w-[120px] object-contain mt-1 invert" referrerPolicy="no-referrer" />
+                          </div>
+                          <span className="text-[8px] font-mono bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded font-bold">
+                            Hash Verified
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* --- TAB: SETTINGS & ACTIONS --- */}
+        {activeTab === 'settings' && list && (
+          <div className="space-y-8 text-left">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-neutral-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-primary font-black uppercase tracking-widest text-[10px]">
+                  <Settings size={14} />
+                  <span>List Configuration & Control Center</span>
+                </div>
+                <h2 className="text-2xl font-black uppercase tracking-tight text-neutral-900">List Settings & Actions</h2>
+                <p className="text-xs text-neutral-500 font-medium max-w-xl">
+                  Manage list visibility, custom labels, archive status, marketplace listings, kit conversions, list merge operations, and exports.
+                </p>
+              </div>
+
+              {list.isArchived && (
+                <div className="px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-2xl text-xs font-bold flex items-center gap-2">
+                  <Archive size={16} />
+                  <span>List is currently ARCHIVED</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* 1. VISIBILITY & PRIVACY */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2.5 rounded-2xl ${list.isPublic ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-600'}`}>
+                      {list.isPublic ? <Globe size={20} /> : <Lock size={20} />}
+                    </div>
+                    <div>
+                      <h3 className="font-black text-neutral-900 text-base uppercase tracking-tight">Privacy & Visibility</h3>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Control public access and sharing</p>
+                    </div>
+                  </div>
+                  <span className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-full ${
+                    list.isPublic ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-700'
+                  }`}>
+                    {list.isPublic ? 'Public' : 'Private'}
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-black text-neutral-900">Public Shareable Link</p>
+                      <p className="text-[11px] text-neutral-500">Anyone with the link can view and inspect this packing list.</p>
+                    </div>
+                    <button
+                      onClick={() => handleTogglePrivacy(!list.isPublic)}
+                      className={`px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition cursor-pointer shadow-sm ${
+                        list.isPublic 
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                          : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
+                      }`}
+                    >
+                      {list.isPublic ? 'Make Private' : 'Make Public'}
+                    </button>
+                  </div>
+
+                  {list.isPublic && (
+                    <div className="space-y-2 pt-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Public Share URL</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={`${window.location.origin}/shared-list/${list.shareToken || id}`}
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-mono text-neutral-700 outline-none select-all"
+                        />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/shared-list/${list.shareToken || id}`);
+                            toast.success("Public list link copied to clipboard!");
+                          }}
+                          className="px-4 py-2 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition shrink-0 flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Copy size={14} />
+                          <span>Copy</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. LIST LABELS & TAGS */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-primary/10 text-primary rounded-2xl">
+                      <Tag size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-neutral-900 text-base uppercase tracking-tight">List Labels & Tags</h3>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Categorize and label list</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Current List Labels</label>
+                    <div className="flex flex-wrap gap-2 min-h-10 p-2.5 bg-neutral-50 rounded-2xl border border-neutral-100 items-center">
+                      {(!list.labels || list.labels.length === 0) ? (
+                        <span className="text-xs text-neutral-400 italic">No custom label tags added yet.</span>
+                      ) : (
+                        list.labels.map(tag => (
+                          <span key={tag} className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-xl text-xs font-bold border border-primary/20">
+                            #{tag}
+                            <button onClick={() => handleRemoveLabelTag(tag)} className="hover:text-red-500 transition cursor-pointer">
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. Broadcast, CameraA, Rigging..."
+                      value={newLabelInput}
+                      onChange={(e) => setNewLabelInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddLabelTag(newLabelInput)}
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary transition"
+                    />
+                    <button
+                      onClick={() => handleAddLabelTag(newLabelInput)}
+                      disabled={!newLabelInput.trim()}
+                      className="px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-bold hover:opacity-90 transition disabled:opacity-50 shrink-0 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>Add Tag</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. KITS & ORGANIZERS INTEGRATION */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-purple-50 text-purple-600 rounded-2xl">
+                      <Package size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-neutral-900 text-base uppercase tracking-tight">Kits & Organizers Integration</h3>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Convert or link with master kits</p>
+                    </div>
+                  </div>
+                  {list.isKit && (
+                    <span className="px-2.5 py-1 text-[9px] font-black uppercase tracking-widest bg-purple-100 text-purple-700 rounded-full">
+                      Kit Linked
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <p className="text-xs font-black text-purple-900">Convert List to Reusable Kit</p>
+                        <p className="text-[11px] text-purple-700">Creates a master kit container with all {items.length} items for deployment across other lists.</p>
+                      </div>
+                      <button
+                        onClick={handleConvertListToKit}
+                        disabled={isConvertingToKit || items.length === 0}
+                        className="px-4 py-2.5 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition disabled:opacity-50 shrink-0 flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        {isConvertingToKit ? <Loader2 className="animate-spin" size={14} /> : <Package size={14} />}
+                        <span>Convert to Kit</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Link List to Existing Kit Container</label>
+                    <div className="flex gap-2">
+                      <select
+                        value={selectedKitContainerId}
+                        onChange={(e) => setSelectedKitContainerId(e.target.value)}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 text-xs font-bold outline-none"
+                      >
+                        <option value="">-- Select Container / Kit --</option>
+                        {containers.map(c => (
+                          <option key={c.id} value={c.id}>{c.name} ({c.type || 'Pelican'})</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => handleLinkContainerKit(selectedKitContainerId)}
+                        disabled={!selectedKitContainerId}
+                        className="px-4 py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition disabled:opacity-50 shrink-0 cursor-pointer"
+                      >
+                        Link
+                      </button>
+                      {list.isKit && (
+                        <button
+                          onClick={handleUnlinkKit}
+                          className="px-3 py-2.5 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 transition shrink-0 cursor-pointer"
+                          title="Unlink Kit"
+                        >
+                          Unlink
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. MERGE & ADD LIST TO ANOTHER LIST */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-2xl">
+                      <ArrowRightLeft size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-neutral-900 text-base uppercase tracking-tight">Merge & Append Lists</h3>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Combine items with another packing list</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Import All Items From Another List Into This List</label>
+                    <div className="flex gap-2">
+                      <select
+                        value={selectedSourceListId}
+                        onChange={(e) => setSelectedSourceListId(e.target.value)}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 text-xs font-bold outline-none"
+                      >
+                        <option value="">-- Choose Source List --</option>
+                        {userAllLists.filter(l => l.id !== id).map(l => (
+                          <option key={l.id} value={l.id}>{l.name} ({l.itemsCount || 0} items)</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleImportFromAnotherList}
+                        disabled={!selectedSourceListId || isMergingList}
+                        className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition disabled:opacity-50 shrink-0 flex items-center gap-1 cursor-pointer"
+                      >
+                        {isMergingList ? <Loader2 className="animate-spin" size={14} /> : <Plus size={14} />}
+                        <span>Import</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-neutral-100">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Append All Current Items Into Another List</label>
+                    <div className="flex gap-2">
+                      <select
+                        value={selectedTargetListId}
+                        onChange={(e) => setSelectedTargetListId(e.target.value)}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 text-xs font-bold outline-none"
+                      >
+                        <option value="">-- Choose Target List --</option>
+                        {userAllLists.filter(l => l.id !== id).map(l => (
+                          <option key={l.id} value={l.id}>{l.name} ({l.itemsCount || 0} items)</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleAppendToAnotherList}
+                        disabled={!selectedTargetListId || isMergingList || items.length === 0}
+                        className="px-4 py-2.5 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition disabled:opacity-50 shrink-0 flex items-center gap-1 cursor-pointer"
+                      >
+                        {isMergingList ? <Loader2 className="animate-spin" size={14} /> : <ArrowRightLeft size={14} />}
+                        <span>Export Items</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 5. MARKETPLACE INTEGRATION */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl">
+                      <ShoppingBag size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-neutral-900 text-base uppercase tracking-tight">Marketplace Integration</h3>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Publish list on public gear marketplace</p>
+                    </div>
+                  </div>
+                  {editMarketplaceEnabled && (
+                    <span className="px-2.5 py-1 text-[9px] font-black uppercase tracking-widest bg-amber-100 text-amber-800 rounded-full">
+                      Listed
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-amber-50/50 rounded-2xl border border-amber-100">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-black text-neutral-900">Enable Marketplace Listing</p>
+                      <p className="text-[11px] text-neutral-500">Allow other crew members and teams to clone or purchase this list template.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editMarketplaceEnabled}
+                      onChange={(e) => setEditMarketplaceEnabled(e.target.checked)}
+                      className="w-5 h-5 accent-primary cursor-pointer"
+                    />
+                  </div>
+
+                  {editMarketplaceEnabled && (
+                    <div className="space-y-3 pt-2">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Price</label>
+                          <input
+                            type="number"
+                            value={editMarketplacePrice}
+                            onChange={(e) => setEditMarketplacePrice(e.target.value)}
+                            className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold outline-none"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Currency</label>
+                          <select
+                            value={editMarketplaceCurrency}
+                            onChange={(e) => setEditMarketplaceCurrency(e.target.value)}
+                            className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold outline-none"
+                          >
+                            <option value="USD">USD ($)</option>
+                            <option value="FJD">FJD ($)</option>
+                            <option value="AUD">AUD ($)</option>
+                            <option value="EUR">EUR (€)</option>
+                            <option value="GBP">GBP (£)</option>
+                            <option value="NZD">NZD ($)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Marketplace Details / Pitch</label>
+                        <textarea
+                          rows={2}
+                          value={editMarketplaceDetails}
+                          onChange={(e) => setEditMarketplaceDetails(e.target.value)}
+                          placeholder="Describe why this packing list is optimal..."
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl p-3 text-xs font-medium outline-none resize-none"
+                        />
+                      </div>
+
+                      <button
+                        onClick={handleSaveSettingsMarketplace}
+                        className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition shadow-md cursor-pointer"
+                      >
+                        Save Marketplace Settings
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 6. PRINT & EXPORTS */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl">
+                      <Printer size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-neutral-900 text-base uppercase tracking-tight">Print & Document Exports</h3>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Print physical checklists and exports</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    onClick={() => window.print()}
+                    className="p-4 bg-neutral-50 hover:bg-neutral-100 rounded-2xl border border-neutral-100 flex items-center gap-3 transition text-left cursor-pointer"
+                  >
+                    <div className="p-2 bg-white rounded-xl shadow-sm text-neutral-800">
+                      <Printer size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-neutral-900">Print Packing List</p>
+                      <p className="text-[10px] text-neutral-500">Formatted paper sheet</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={handleExportCSV}
+                    className="p-4 bg-neutral-50 hover:bg-neutral-100 rounded-2xl border border-neutral-100 flex items-center gap-3 transition text-left cursor-pointer"
+                  >
+                    <div className="p-2 bg-white rounded-xl shadow-sm text-emerald-600">
+                      <Download size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-neutral-900">Export CSV</p>
+                      <p className="text-[10px] text-neutral-500">Excel / Spreadsheet</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setViewMode('carnet')}
+                    className="p-4 bg-neutral-50 hover:bg-neutral-100 rounded-2xl border border-neutral-100 flex items-center gap-3 transition text-left cursor-pointer sm:col-span-2"
+                  >
+                    <div className="p-2 bg-white rounded-xl shadow-sm text-amber-600">
+                      <FileText size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-neutral-900">ATA Carnet Customs Manifest</p>
+                      <p className="text-[10px] text-neutral-500">International border customs declaration document</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* 7. ARCHIVE & DANGER ZONE */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6 lg:col-span-2">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-red-50 text-red-600 rounded-2xl">
+                      <AlertTriangle size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-neutral-900 text-base uppercase tracking-tight">Archive & Danger Zone</h3>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Irreversible list actions</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-neutral-50 rounded-2xl border border-neutral-100">
+                  <div className="space-y-0.5 text-left">
+                    <p className="text-xs font-black text-neutral-900">{list.isArchived ? 'Restore List from Archive' : 'Archive Packing List'}</p>
+                    <p className="text-[11px] text-neutral-500">
+                      {list.isArchived 
+                        ? 'Unarchiving restores this list to your active dashboard.' 
+                        : 'Archiving hides this list from active views while preserving all items and history.'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleToggleArchive}
+                    className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition cursor-pointer shrink-0 ${
+                      list.isArchived ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-neutral-800 text-white hover:bg-neutral-900'
+                    }`}
+                  >
+                    {list.isArchived ? 'Restore List' : 'Archive List'}
+                  </button>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 bg-red-50/50 rounded-2xl border border-red-100">
+                  <div className="space-y-0.5 text-left">
+                    <p className="text-xs font-black text-red-900">Delete Packing List</p>
+                    <p className="text-[11px] text-red-700">Permanently delete this list, all items, versions, and signed agreements. This action cannot be undone.</p>
+                  </div>
+                  <button
+                    onClick={handleDeleteList}
+                    className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition cursor-pointer shrink-0 shadow-sm flex items-center gap-1.5"
+                  >
+                    <Trash2 size={14} />
+                    <span>Delete List</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
       {/* Add by URL Modal */}

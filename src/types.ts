@@ -298,6 +298,10 @@ export interface PackingList {
   bookingClientEmail?: string; // Email of client checking out
   bookingPaidAt?: string; // Timestamp of cleared payment
   image?: string; // Primary image for listing
+  isArchived?: boolean;
+  isKit?: boolean;
+  kitId?: string;
+  labels?: string[];
   pickupType?: 'preset' | 'custom';
   pickupLocationId?: string;
   pickupCustomAddress?: string;
@@ -599,6 +603,7 @@ export interface PackingItem {
   quantity?: number;
   condition?: string;
   containerName?: string;
+  containerId?: string;
   addOns?: { 
     itemId?: string; 
     name: string; 
