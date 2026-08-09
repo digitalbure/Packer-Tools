@@ -17,6 +17,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { db, logout } from '../firebase';
 import { IndustryProvider } from '../context/IndustryContext';
 import GroupsDrawer from '../components/GroupsDrawer';
+import GetAppOverlay from '../components/GetAppOverlay';
 
 export interface AppLayoutProps {
   children: React.ReactNode;
@@ -224,6 +225,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             onToggleSidebar={() => setIsSidebarCollapsed(prev => !prev)} 
           />
         )}
+
+        <GetAppOverlay />
 
         <AnimatePresence>
           {user && !isLayoutHidden && (

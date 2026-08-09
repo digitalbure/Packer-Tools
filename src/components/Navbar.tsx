@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LogIn, LogOut, LayoutDashboard, Settings, Package, User, Menu, X, Zap, HelpCircle, Server, Home, Truck, ShieldCheck, Briefcase, Search, Layout, CreditCard, Info } from 'lucide-react';
+import { LogIn, LogOut, LayoutDashboard, Settings, Package, User, Menu, X, Zap, HelpCircle, Server, Home, Truck, ShieldCheck, Briefcase, Search, Layout, CreditCard, Info, Smartphone } from 'lucide-react';
 import PackerLogo from './PackerLogo';
 import { signInWithGoogle, logout } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
@@ -121,6 +121,15 @@ export default function Navbar({
                 >
                   <Info size={14} className="text-primary animate-pulse" />
                   <span className="text-[9px] uppercase font-black tracking-widest text-neutral-500">What's New</span>
+                </button>
+
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-get-app-overlay'))}
+                  className="flex items-center gap-1.5 px-3 py-1.5 h-10 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 hover:text-amber-700 rounded-xl transition border border-amber-500/30 cursor-pointer text-xs font-semibold select-none active:scale-95 whitespace-nowrap"
+                  title="Install Packer Tools App"
+                >
+                  <Smartphone size={14} className="text-amber-500" />
+                  <span className="text-[9px] uppercase font-black tracking-widest text-amber-600">Get App</span>
                 </button>
 
                 {onToggleLayoutTheme && (
@@ -287,6 +296,17 @@ export default function Navbar({
                     <span>Gig Assistant</span>
                   </Link>
                 )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    window.dispatchEvent(new CustomEvent('open-get-app-overlay'));
+                  }}
+                  className="flex items-center gap-3 text-amber-500 hover:text-amber-600 font-bold uppercase text-sm tracking-widest w-full text-left cursor-pointer"
+                >
+                  <Smartphone size={20} />
+                  <span>Get Mobile App</span>
+                </button>
                 <Link 
                   to="/help" 
                   onClick={() => setIsMenuOpen(false)}

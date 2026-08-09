@@ -576,15 +576,28 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
     return { x: finalX, y: finalY, w: finalW, h: finalH, guides };
   };
 
-  // Global mouse move and mouse up listeners for smooth Drag-to-Move and Drag-to-Resize
+  // Helper to extract client coordinates from mouse or touch events
+  const getEventCoords = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
+    if ('touches' in e && e.touches.length > 0) {
+      return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY, isTouch: true };
+    }
+    if ('changedTouches' in e && e.changedTouches.length > 0) {
+      return { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY, isTouch: true };
+    }
+    const mouseEvt = e as MouseEvent | React.MouseEvent;
+    return { clientX: mouseEvt.clientX, clientY: mouseEvt.clientY, isTouch: false };
+  };
+
+  // Global mouse move and mouse up listeners for smooth Drag-to-Move and Drag-to-Resize (with Touch support)
   useEffect(() => {
     if (!dragState) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: MouseEvent | TouchEvent) => {
       if (!canvasRef.current) return;
+      const { clientX, clientY } = getEventCoords(e);
       const rect = canvasRef.current.getBoundingClientRect();
-      const currX = ((e.clientX - rect.left) / rect.width) * 100;
-      const currY = ((e.clientY - rect.top) / rect.height) * 100;
+      const currX = ((clientX - rect.left) / rect.width) * 100;
+      const currY = ((clientY - rect.top) / rect.height) * 100;
 
       const dx = currX - dragState.startX;
       const dy = currY - dragState.startY;
@@ -714,16 +727,20 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
       }
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       setDragState(null);
       setActiveGuides([]);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mouseup', handlePointerUp);
+    window.addEventListener('touchmove', handlePointerMove, { passive: false });
+    window.addEventListener('touchend', handlePointerUp);
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handlePointerMove);
+      window.removeEventListener('mouseup', handlePointerUp);
+      window.removeEventListener('touchmove', handlePointerMove);
+      window.removeEventListener('touchend', handlePointerUp);
     };
   }, [dragState, snapToGrid, magneticSnap, gridSize, shapes]);
 
@@ -738,15 +755,16 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
     return () => window.removeEventListener('click', handleClickOutside);
   }, [contextMenu.visible]);
 
-  // Global Listener for Marquee Selection Box Dragging
+  // Global Listener for Marquee Selection Box Dragging (with Touch support)
   useEffect(() => {
     if (!marqueeState) return;
 
-    const handleMarqueeMouseMove = (e: MouseEvent) => {
+    const handleMarqueePointerMove = (e: MouseEvent | TouchEvent) => {
       if (!canvasRef.current) return;
+      const { clientX, clientY } = getEventCoords(e);
       const rect = canvasRef.current.getBoundingClientRect();
-      const currX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-      const currY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+      const currX = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+      const currY = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
 
       setMarqueeState(prev => prev ? { ...prev, currX, currY } : null);
 
@@ -776,26 +794,31 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
       }
     };
 
-    const handleMarqueeMouseUp = () => {
+    const handleMarqueePointerUp = () => {
       setMarqueeState(null);
     };
 
-    window.addEventListener('mousemove', handleMarqueeMouseMove);
-    window.addEventListener('mouseup', handleMarqueeMouseUp);
+    window.addEventListener('mousemove', handleMarqueePointerMove);
+    window.addEventListener('mouseup', handleMarqueePointerUp);
+    window.addEventListener('touchmove', handleMarqueePointerMove, { passive: false });
+    window.addEventListener('touchend', handleMarqueePointerUp);
     return () => {
-      window.removeEventListener('mousemove', handleMarqueeMouseMove);
-      window.removeEventListener('mouseup', handleMarqueeMouseUp);
+      window.removeEventListener('mousemove', handleMarqueePointerMove);
+      window.removeEventListener('mouseup', handleMarqueePointerUp);
+      window.removeEventListener('touchmove', handleMarqueePointerMove);
+      window.removeEventListener('touchend', handleMarqueePointerUp);
     };
   }, [marqueeState, shapes]);
 
-  // Canvas Mouse Down - Start Drawing or Deselect / Box Select Marquee
-  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
+  // Canvas Mouse/Touch Down - Start Drawing or Deselect / Box Select Marquee
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    if ('button' in e && e.button !== 0) return;
     if (!canvasRef.current) return;
 
+    const { clientX, clientY } = getEventCoords(e);
     const rect = canvasRef.current.getBoundingClientRect();
-    const clickX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    const clickY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    const clickX = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const clickY = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
 
     if (activeTool !== 'select') {
       setIsDrawing(true);
@@ -803,7 +826,7 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
       setCurrentDrawRect({ x: snap(clickX), y: snap(clickY), width: 5, height: 5 });
       setSelectedShapeId(null);
     } else {
-      const isMulti = e.shiftKey || e.ctrlKey || e.metaKey;
+      const isMulti = 'shiftKey' in e ? (e.shiftKey || e.ctrlKey || e.metaKey) : false;
       const initialIds = isMulti ? new Set(selectedShapeIds) : new Set<string>();
 
       if (!isMulti) {
@@ -821,13 +844,14 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
     }
   };
 
-  // Canvas Mouse Move - Drawing Preview
-  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  // Canvas Mouse/Touch Move - Drawing Preview
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     if (!isDrawing || !drawStart || !canvasRef.current) return;
 
+    const { clientX, clientY } = getEventCoords(e);
     const rect = canvasRef.current.getBoundingClientRect();
-    const currX = ((e.clientX - rect.left) / rect.width) * 100;
-    const currY = ((e.clientY - rect.top) / rect.height) * 100;
+    const currX = ((clientX - rect.left) / rect.width) * 100;
+    const currY = ((clientY - rect.top) / rect.height) * 100;
 
     const startX = drawStart.x;
     const startY = drawStart.y;
@@ -855,7 +879,7 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
     });
   };
 
-  // Canvas Mouse Up - Finish Drawing Shape
+  // Canvas Mouse/Touch Up - Finish Drawing Shape
   const handleCanvasMouseUp = () => {
     if (isDrawing && currentDrawRect) {
       if (currentDrawRect.width >= 3 && currentDrawRect.height >= 3) {
@@ -881,12 +905,12 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
     }
   };
 
-  // Handle Drag Move Start on Shape
-  const handleShapeMouseDown = (e: React.MouseEvent, shape: DesignerShape) => {
-    if (e.button !== 0) return;
+  // Handle Drag Move Start on Shape (Mouse & Touch)
+  const handleShapeMouseDown = (e: React.MouseEvent | React.TouchEvent, shape: DesignerShape) => {
+    if ('button' in e && e.button !== 0) return;
     e.stopPropagation();
 
-    const isMulti = e.shiftKey || e.metaKey || e.ctrlKey;
+    const isMulti = 'shiftKey' in e ? (e.shiftKey || e.metaKey || e.ctrlKey) : false;
     let targetIds = new Set(selectedShapeIds);
 
     if (isMulti) {
@@ -919,9 +943,10 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
     if (activeTool !== 'select') return;
     if (!canvasRef.current) return;
 
+    const { clientX, clientY } = getEventCoords(e);
     const rect = canvasRef.current.getBoundingClientRect();
-    const startX = ((e.clientX - rect.left) / rect.width) * 100;
-    const startY = ((e.clientY - rect.top) / rect.height) * 100;
+    const startX = ((clientX - rect.left) / rect.width) * 100;
+    const startY = ((clientY - rect.top) / rect.height) * 100;
 
     const dragGroupShapes = shapes
       .filter(s => targetIds.has(s.id) && !s.isLocked)
@@ -946,13 +971,13 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
     });
   };
 
-  // Handle Drag Resize Start on Handle
+  // Handle Drag Resize Start on Handle (Mouse & Touch)
   const handleResizeHandleMouseDown = (
-    e: React.MouseEvent,
+    e: React.MouseEvent | React.TouchEvent,
     shape: DesignerShape,
     handle: 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w'
   ) => {
-    if (e.button !== 0) return;
+    if ('button' in e && e.button !== 0) return;
     e.stopPropagation();
 
     if (shape.isLocked) {
@@ -961,9 +986,10 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
     }
 
     if (!canvasRef.current) return;
+    const { clientX, clientY } = getEventCoords(e);
     const rect = canvasRef.current.getBoundingClientRect();
-    const startX = ((e.clientX - rect.left) / rect.width) * 100;
-    const startY = ((e.clientY - rect.top) / rect.height) * 100;
+    const startX = ((clientX - rect.left) / rect.width) * 100;
+    const startY = ((clientY - rect.top) / rect.height) * 100;
 
     const targetIds = shape.groupId
       ? new Set(shapes.filter(s => s.groupId === shape.groupId).map(s => s.id))
@@ -1372,34 +1398,64 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
   }, [showGrid, gridType]);
 
   return (
-    <div className="flex flex-col h-full bg-neutral-950 text-white rounded-3xl overflow-hidden border border-neutral-800 shadow-2xl relative select-none">
+    <div className="flex flex-col h-full bg-neutral-950 text-white rounded-2xl sm:rounded-3xl overflow-hidden border border-neutral-800 shadow-2xl relative select-none">
       {/* Top Navigation & Action Header */}
-      <div className="p-4 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between gap-4 flex-wrap z-20">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary shadow-sm">
-            <Layers size={20} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-black uppercase tracking-tight text-white">{container.name}</h2>
-              <span className="text-[9px] font-black uppercase bg-primary/20 text-primary px-2 py-0.5 rounded-full border border-primary/30 flex items-center gap-1">
-                <span>Organizer Designer</span>
-                <span className="text-[8px] opacity-75">v5.19.2</span>
-              </span>
+      <div className="p-3 sm:p-4 bg-neutral-900 border-b border-neutral-800 flex flex-col gap-2.5 z-20">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary shadow-sm shrink-0">
+              <Layers size={18} className="sm:w-5 sm:h-5" />
             </div>
-            <p className="text-[11px] text-neutral-400 font-medium">
-              Interactive 2D foam CAD, real measurements, magnetic alignment & grid controls
-            </p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-sm sm:text-base font-black uppercase tracking-tight text-white truncate">{container.name}</h2>
+                <span className="text-[8px] sm:text-[9px] font-black uppercase bg-primary/20 text-primary px-1.5 py-0.5 rounded-full border border-primary/30 shrink-0">
+                  Organizer CAD
+                </span>
+              </div>
+              <p className="text-[10px] sm:text-[11px] text-neutral-400 font-medium truncate hidden xs:block">
+                Interactive 2D foam CAD & grid controls
+              </p>
+            </div>
+          </div>
+
+          {/* Top Primary Action Buttons */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => setIsAIModalOpen(true)}
+              className="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black text-[10px] sm:text-xs rounded-xl flex items-center gap-1 shadow-md transition cursor-pointer"
+            >
+              <Sparkles size={13} className="shrink-0" />
+              <span className="hidden xs:inline">AI Layout</span>
+            </button>
+
+            <button
+              onClick={handleSaveLayout}
+              disabled={isSaving}
+              className="px-3 py-1.5 sm:px-4 sm:py-2 bg-primary hover:bg-primary/90 text-white font-black text-[10px] sm:text-xs rounded-xl flex items-center gap-1 shadow-md transition disabled:opacity-50 cursor-pointer"
+            >
+              <Save size={13} className="shrink-0" />
+              <span>{isSaving ? "Saving..." : "Save"}</span>
+            </button>
+
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-xl transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Preset Selector & Action Toolbar */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Horizontal Scrollable Controls Toolbar */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 shrink-0 -mx-1 px-1">
           {/* Preset Container Selector */}
           <select
             value={containerPreset}
             onChange={e => setContainerPreset(e.target.value)}
-            className="bg-neutral-800 text-neutral-200 border border-neutral-700 text-xs font-bold px-3 py-2 rounded-xl focus:outline-none focus:border-primary"
+            className="bg-neutral-800 text-neutral-200 border border-neutral-700 text-[10px] sm:text-xs font-bold px-2.5 py-1.5 rounded-xl focus:outline-none focus:border-primary shrink-0"
             title="Container Boundary Preset"
           >
             {PRESET_CONTAINERS.map(p => (
@@ -1410,48 +1466,48 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
           {/* Grid Toggle Button */}
           <button
             onClick={() => setShowGrid(!showGrid)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border ${
+            className={`px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold flex items-center gap-1 transition border shrink-0 cursor-pointer ${
               showGrid ? 'bg-primary/20 border-primary text-primary' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white'
             }`}
             title="Toggle Grid Background Lines"
           >
-            <Grid size={14} />
+            <Grid size={13} />
             <span>Grid {showGrid ? 'ON' : 'OFF'}</span>
           </button>
 
           {/* Snap to Grid Toggle Button */}
           <button
             onClick={() => setSnapToGrid(!snapToGrid)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border ${
+            className={`px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold flex items-center gap-1 transition border shrink-0 cursor-pointer ${
               snapToGrid ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white'
             }`}
             title="Toggle Grid Snapping"
           >
-            <Crosshair size={14} />
-            <span>Grid Snap ({gridSize}%)</span>
+            <Crosshair size={13} />
+            <span>Snap ({gridSize}%)</span>
           </button>
 
           {/* Magnetic Alignment Snap Toggle Button */}
           <button
             onClick={() => setMagneticSnap(!magneticSnap)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border ${
-              magneticSnap ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-sm' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white'
+            className={`px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold flex items-center gap-1 transition border shrink-0 cursor-pointer ${
+              magneticSnap ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-xs' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white'
             }`}
             title="Toggle Magnetic Alignment to Shape Edges & Container Boundaries"
           >
-            <Magnet size={14} className={magneticSnap ? "animate-pulse text-cyan-400" : ""} />
+            <Magnet size={13} className={magneticSnap ? "animate-pulse text-cyan-400" : ""} />
             <span>Magnet {magneticSnap ? 'ON' : 'OFF'}</span>
           </button>
 
           {/* Show Measurements Toggle */}
           <button
             onClick={() => setShowMeasurements(!showMeasurements)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border ${
+            className={`px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold flex items-center gap-1 transition border shrink-0 cursor-pointer ${
               showMeasurements ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white'
             }`}
             title="Toggle Measurements & Rulers"
           >
-            <Ruler size={14} />
+            <Ruler size={13} />
             <span>Rulers ({measurementUnit})</span>
           </button>
 
@@ -1459,12 +1515,12 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
           {selectedShape && (
             <button
               onClick={() => handleToggleLock(selectedShape.id)}
-              className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border ${
+              className={`px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold flex items-center gap-1 transition border shrink-0 cursor-pointer ${
                 selectedShape.isLocked ? 'bg-amber-500/20 border-amber-500 text-amber-400' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'
               }`}
               title={selectedShape.isLocked ? "Unlock Shape Position" : "Lock Shape Position"}
             >
-              {selectedShape.isLocked ? <Lock size={14} /> : <Unlock size={14} />}
+              {selectedShape.isLocked ? <Lock size={13} /> : <Unlock size={13} />}
               <span>{selectedShape.isLocked ? "Locked" : "Lock"}</span>
             </button>
           )}
@@ -1473,10 +1529,10 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
           {canGroup && (
             <button
               onClick={handleGroupSelectedShapes}
-              className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border bg-purple-500/20 border-purple-500/50 text-purple-300 hover:bg-purple-500/30 shadow-xs"
+              className="px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold flex items-center gap-1 transition border bg-purple-500/20 border-purple-500/50 text-purple-300 shrink-0 cursor-pointer"
               title="Group selected shapes together (Ctrl+G)"
             >
-              <Group size={14} className="text-purple-400" />
+              <Group size={13} className="text-purple-400" />
               <span>Group ({selectedShapeIds.size})</span>
             </button>
           )}
@@ -1485,33 +1541,24 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
           {canUngroup && (
             <button
               onClick={handleUngroupSelectedShapes}
-              className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border bg-neutral-800 border-purple-500/40 text-purple-300 hover:bg-neutral-700 shadow-xs"
+              className="px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold flex items-center gap-1 transition border bg-neutral-800 border-purple-500/40 text-purple-300 shrink-0 cursor-pointer"
               title="Ungroup shapes (Ctrl+Shift+G)"
             >
-              <Ungroup size={14} className="text-purple-400" />
+              <Ungroup size={13} className="text-purple-400" />
               <span>Ungroup</span>
             </button>
           )}
 
-          {/* AI Generator Button */}
-          <button
-            onClick={() => setIsAIModalOpen(true)}
-            className="px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition"
-          >
-            <Sparkles size={15} />
-            <span>AI Layout</span>
-          </button>
-
           {/* Export Dropdown Menu */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-              className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition"
+              className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 font-bold text-[10px] sm:text-xs rounded-xl flex items-center gap-1 transition cursor-pointer"
               title="Export Layout Sketch as SVG or PNG"
             >
-              <Download size={15} className="text-primary" />
+              <Download size={13} className="text-primary" />
               <span>Export</span>
-              <ChevronDown size={14} className={`transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown size={12} className={`transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
             </button>
 
             <AnimatePresence>
@@ -1520,123 +1567,103 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
                   initial={{ opacity: 0, y: 8, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                  className="absolute right-0 mt-2 w-56 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl p-2 z-50 space-y-1"
+                  className="absolute right-0 mt-2 w-52 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl p-2 z-50 space-y-1"
                 >
-                  <div className="px-2 py-1.5 border-b border-neutral-800">
-                    <p className="text-[10px] font-black uppercase text-neutral-400 tracking-wider">Export CAD Sketch</p>
-                    <p className="text-[10px] text-neutral-500 font-medium">Download vector or image file</p>
+                  <div className="px-2 py-1 border-b border-neutral-800">
+                    <p className="text-[9px] font-black uppercase text-neutral-400 tracking-wider">Export Sketch</p>
                   </div>
 
                   <button
                     onClick={handleExportSVG}
                     disabled={isExporting}
-                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-neutral-200 hover:text-white hover:bg-neutral-800 flex items-center justify-between transition group"
+                    className="w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-bold text-neutral-200 hover:bg-neutral-800 flex items-center justify-between transition"
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-blue-500" />
-                      <span>Download SVG Vector</span>
-                    </div>
-                    <span className="text-[9px] font-mono font-bold text-neutral-500 group-hover:text-primary">.SVG</span>
+                    <span>SVG Vector</span>
+                    <span className="text-[9px] font-mono font-bold text-neutral-500">.SVG</span>
                   </button>
 
                   <button
                     onClick={handleExportPNG}
                     disabled={isExporting}
-                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-neutral-200 hover:text-white hover:bg-neutral-800 flex items-center justify-between transition group"
+                    className="w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-bold text-neutral-200 hover:bg-neutral-800 flex items-center justify-between transition"
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span>Download High-Res PNG</span>
-                    </div>
-                    <span className="text-[9px] font-mono font-bold text-neutral-500 group-hover:text-emerald-400">.PNG</span>
+                    <span>High-Res PNG</span>
+                    <span className="text-[9px] font-mono font-bold text-neutral-500 text-emerald-400">.PNG</span>
                   </button>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
-
-          {/* Save Button */}
-          <button
-            onClick={handleSaveLayout}
-            disabled={isSaving}
-            className="px-4 py-2 bg-primary hover:bg-primary/90 text-white font-black text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition disabled:opacity-50"
-          >
-            <Save size={15} />
-            <span>{isSaving ? "Saving..." : "Save Layout"}</span>
-          </button>
-
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-xl transition"
-            >
-              <X size={20} />
-            </button>
-          )}
         </div>
       </div>
 
       {/* Main Designer Workspace Layout */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-        {/* Left Toolbar - Shape Creation & Selection Tools */}
-        <div className="w-full lg:w-16 bg-neutral-900 border-b lg:border-b-0 lg:border-r border-neutral-800 p-2 flex lg:flex-col items-center justify-around lg:justify-start gap-2 z-10 shrink-0">
+        {/* Left Toolbar - Shape Creation & Selection Tools (Mobile Scrollable Row / Desktop Column) */}
+        <div className="w-full lg:w-16 bg-neutral-900 border-b lg:border-b-0 lg:border-r border-neutral-800 p-1.5 sm:p-2 flex lg:flex-col items-center justify-start gap-1 overflow-x-auto no-scrollbar z-10 shrink-0">
           <p className="hidden lg:block text-[9px] font-black uppercase text-neutral-500 tracking-widest text-center my-1">Tools</p>
           
           <button
             onClick={() => setActiveTool('select')}
-            className={`p-2.5 rounded-xl transition flex flex-col items-center text-[9px] font-bold ${
-              activeTool === 'select' ? 'bg-primary text-white shadow-lg' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
+            className={`p-2 sm:p-2.5 rounded-xl transition flex flex-col items-center text-[9px] font-bold shrink-0 cursor-pointer ${
+              activeTool === 'select' ? 'bg-primary text-white shadow-md' : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
             }`}
-            title="Select, Move & Box-Select Shapes (Drag rectangle)"
+            title="Select, Move & Box-Select Shapes"
           >
             <Move size={18} />
+            <span className="text-[8px] mt-0.5 lg:hidden">Select</span>
           </button>
 
-          <div className="w-full h-px bg-neutral-800 hidden lg:block my-1" />
+          <div className="w-px lg:w-full h-5 lg:h-px bg-neutral-800 my-0.5 shrink-0" />
 
           <button
             onClick={() => handleAddPresetShape('rectangle')}
-            className="p-2.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition flex flex-col items-center text-[9px] font-bold"
+            className="p-2 sm:p-2.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition flex flex-col items-center text-[9px] font-bold shrink-0 cursor-pointer"
             title="Add Rectangle Cutout"
           >
             <Square size={18} />
+            <span className="text-[8px] mt-0.5 lg:hidden">Rect</span>
           </button>
 
           <button
             onClick={() => handleAddPresetShape('square')}
-            className="p-2.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition flex flex-col items-center text-[9px] font-bold"
+            className="p-2 sm:p-2.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition flex flex-col items-center text-[9px] font-bold shrink-0 cursor-pointer"
             title="Add Square Bay"
           >
             <div className="w-4 h-4 border-2 border-current rounded-sm" />
+            <span className="text-[8px] mt-0.5 lg:hidden">Square</span>
           </button>
 
           <button
             onClick={() => handleAddPresetShape('circle')}
-            className="p-2.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition flex flex-col items-center text-[9px] font-bold"
-            title="Add Circle / Lens Well"
+            className="p-2 sm:p-2.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition flex flex-col items-center text-[9px] font-bold shrink-0 cursor-pointer"
+            title="Add Circle Well"
           >
             <Circle size={18} />
+            <span className="text-[8px] mt-0.5 lg:hidden">Circle</span>
           </button>
 
           <button
             onClick={() => handleAddPresetShape('divider-v')}
-            className="p-2.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition flex flex-col items-center text-[9px] font-bold"
+            className="p-2 sm:p-2.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition flex flex-col items-center text-[9px] font-bold shrink-0 cursor-pointer"
             title="Add Vertical Partition"
           >
             <Sliders size={18} />
+            <span className="text-[8px] mt-0.5 lg:hidden">Vert</span>
           </button>
 
           <button
             onClick={() => handleAddPresetShape('divider-h')}
-            className="p-2.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition flex flex-col items-center text-[9px] font-bold"
+            className="p-2 sm:p-2.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition flex flex-col items-center text-[9px] font-bold shrink-0 cursor-pointer"
             title="Add Horizontal Partition"
           >
             <SlidersHorizontal size={18} />
+            <span className="text-[8px] mt-0.5 lg:hidden">Horiz</span>
           </button>
 
-          <div className="w-full h-px bg-neutral-800 hidden lg:block my-1" />
+          <div className="w-px lg:w-full h-5 lg:h-px bg-neutral-800 my-0.5 shrink-0" />
 
-          {/* Unit Switcher Button in Toolbar */}
+          {/* Unit Switcher Button */}
           <button
             onClick={() => {
               const units: ('mm' | 'in' | 'cm' | 'pct')[] = ['mm', 'in', 'cm', 'pct'];
@@ -1644,7 +1671,7 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
               setMeasurementUnit(nextUnit);
               toast.info(`Measurement unit: ${nextUnit.toUpperCase()}`);
             }}
-            className="p-2 rounded-xl bg-neutral-800 text-blue-400 hover:text-white transition text-[10px] font-black uppercase text-center w-full hidden lg:block"
+            className="px-2 py-1.5 rounded-xl bg-neutral-800 text-blue-400 hover:text-white transition text-[10px] font-black uppercase text-center shrink-0 cursor-pointer"
             title="Cycle Measurement Unit"
           >
             {measurementUnit}
@@ -1653,7 +1680,7 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
 
         {/* Center Canvas Viewport */}
         <div
-          className="flex-1 bg-neutral-950 p-4 sm:p-6 flex flex-col items-center justify-center overflow-auto relative min-h-[420px]"
+          className="flex-1 bg-neutral-950 p-2 sm:p-6 flex flex-col items-center justify-center overflow-auto relative min-h-[340px] sm:min-h-[420px]"
           onClick={() => {
             setSelectedShapeId(null);
             setContextMenu({ visible: false, x: 0, y: 0 });
@@ -1661,12 +1688,12 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
         >
           {/* Top Measurement Ruler Bar */}
           {showMeasurements && (
-            <div className="w-full max-w-4xl flex items-center justify-between text-[10px] font-mono text-neutral-400 mb-1 px-4">
+            <div className="w-full max-w-4xl flex items-center justify-between text-[9px] sm:text-[10px] font-mono text-neutral-400 mb-1 px-2">
               <span className="text-primary font-bold">◄ 0</span>
-              <div className="flex-1 mx-3 h-0.5 bg-neutral-800 relative flex items-center justify-center">
-                <span className="bg-neutral-900 px-3 text-[9px] font-mono text-neutral-300 font-black border border-neutral-800 rounded-full flex items-center gap-1 shadow-sm">
-                  <Ruler size={11} className="text-primary" />
-                  <span>Interior Width: {formatSingleLength(100, 'x')} ({(containerWidthMm / 25.4).toFixed(1)} in)</span>
+              <div className="flex-1 mx-2 sm:mx-3 h-0.5 bg-neutral-800 relative flex items-center justify-center">
+                <span className="bg-neutral-900 px-2 sm:px-3 text-[8px] sm:text-[9px] font-mono text-neutral-300 font-black border border-neutral-800 rounded-full flex items-center gap-1 shadow-xs truncate">
+                  <Ruler size={10} className="text-primary shrink-0" />
+                  <span>Width: {formatSingleLength(100, 'x')}</span>
                 </span>
               </div>
               <span className="text-primary font-bold">{formatSingleLength(100, 'x')} ►</span>
@@ -1674,12 +1701,12 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
           )}
 
           <div className="flex items-center w-full max-w-4xl">
-            {/* Left Measurement Ruler Bar */}
+            {/* Left Measurement Ruler Bar (Hidden on small mobile viewports) */}
             {showMeasurements && (
-              <div className="hidden sm:flex flex-col items-center justify-between text-[10px] font-mono text-neutral-400 mr-2 py-4 h-full min-h-[250px] shrink-0">
+              <div className="hidden md:flex flex-col items-center justify-between text-[10px] font-mono text-neutral-400 mr-2 py-4 h-full min-h-[250px] shrink-0">
                 <span className="text-primary font-bold">▲ 0</span>
                 <div className="flex-1 my-2 w-0.5 bg-neutral-800 relative flex items-center justify-center">
-                  <span className="bg-neutral-900 px-1.5 py-2 text-[9px] font-mono text-neutral-300 font-black border border-neutral-800 rounded-full [writing-mode:vertical-lr] rotate-180 shadow-sm flex items-center gap-1">
+                  <span className="bg-neutral-900 px-1.5 py-2 text-[9px] font-mono text-neutral-300 font-black border border-neutral-800 rounded-full [writing-mode:vertical-lr] rotate-180 shadow-xs flex items-center gap-1">
                     <span>Height: {formatSingleLength(100, 'y')}</span>
                   </span>
                 </div>
@@ -1691,10 +1718,13 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
             <div
               ref={canvasRef}
               onMouseDown={handleCanvasMouseDown}
+              onTouchStart={handleCanvasMouseDown}
               onMouseMove={handleCanvasMouseMove}
+              onTouchMove={handleCanvasMouseMove}
               onMouseUp={handleCanvasMouseUp}
+              onTouchEnd={handleCanvasMouseUp}
               onContextMenu={e => handleContextMenu(e)}
-              className={`w-full aspect-[1.5] bg-neutral-900/90 rounded-[2.5rem] border-4 border-neutral-800 shadow-2xl relative overflow-hidden group ${
+              className={`w-full aspect-[1.5] bg-neutral-900/90 rounded-[1.5rem] sm:rounded-[2.5rem] border-2 sm:border-4 border-neutral-800 shadow-2xl relative overflow-hidden group touch-none select-none ${
                 activeTool !== 'select' ? 'cursor-crosshair' : 'cursor-default'
               }`}
               style={{
@@ -1703,10 +1733,10 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
               }}
             >
               {/* Corner Foam Latch Highlights */}
-              <div className="absolute top-2 left-4 w-12 h-2 bg-neutral-800 rounded-full border border-neutral-700 pointer-events-none" />
-              <div className="absolute top-2 right-4 w-12 h-2 bg-neutral-800 rounded-full border border-neutral-700 pointer-events-none" />
-              <div className="absolute bottom-2 left-4 w-12 h-2 bg-neutral-800 rounded-full border border-neutral-700 pointer-events-none" />
-              <div className="absolute bottom-2 right-4 w-12 h-2 bg-neutral-800 rounded-full border border-neutral-700 pointer-events-none" />
+              <div className="absolute top-1.5 left-3 sm:top-2 sm:left-4 w-8 sm:w-12 h-1.5 sm:h-2 bg-neutral-800 rounded-full border border-neutral-700 pointer-events-none" />
+              <div className="absolute top-1.5 right-3 sm:top-2 sm:right-4 w-8 sm:w-12 h-1.5 sm:h-2 bg-neutral-800 rounded-full border border-neutral-700 pointer-events-none" />
+              <div className="absolute bottom-1.5 left-3 sm:bottom-2 sm:left-4 w-8 sm:w-12 h-1.5 sm:h-2 bg-neutral-800 rounded-full border border-neutral-700 pointer-events-none" />
+              <div className="absolute bottom-1.5 right-3 sm:bottom-2 sm:right-4 w-8 sm:w-12 h-1.5 sm:h-2 bg-neutral-800 rounded-full border border-neutral-700 pointer-events-none" />
 
               {/* Drawing Preview Overlay */}
               {isDrawing && currentDrawRect && (
@@ -1719,7 +1749,7 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
                     height: `${currentDrawRect.height}%`
                   }}
                 >
-                  <span className="px-2 py-0.5 bg-black/80 text-primary text-[9px] font-mono font-bold rounded">
+                  <span className="px-1.5 py-0.5 bg-black/80 text-primary text-[8px] sm:text-[9px] font-mono font-bold rounded">
                     {formatDimensions(currentDrawRect.width, currentDrawRect.height)}
                   </span>
                 </div>
@@ -1736,7 +1766,7 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
                     height: `${Math.abs(marqueeState.currY - marqueeState.startY)}%`
                   }}
                 >
-                  <div className="absolute -top-7 left-0 bg-neutral-950/95 text-cyan-300 border border-cyan-500/60 text-[9px] font-mono font-bold px-2.5 py-0.5 rounded-full shadow-xl flex items-center gap-1.5 whitespace-nowrap">
+                  <div className="absolute -top-7 left-0 bg-neutral-950/95 text-cyan-300 border border-cyan-500/60 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full shadow-xl flex items-center gap-1.5 whitespace-nowrap">
                     <BoxSelect size={11} className="text-cyan-400 animate-pulse shrink-0" />
                     <span>Box Select ({selectedShapeIds.size} selected)</span>
                   </div>
@@ -1805,63 +1835,67 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
                     : 'ring-4 ring-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.8)] z-30 animate-pulse'
                   : '';
 
+                const isSmallWidth = s.width < 20;
+                const isSmallHeight = s.height < 20;
+                const isTinyShape = s.width < 14 || s.height < 14;
+
                 return (
                   <div
                     key={s.id}
                     onMouseDown={(e) => handleShapeMouseDown(e, s)}
+                    onTouchStart={(e) => handleShapeMouseDown(e, s)}
                     onContextMenu={(e) => handleContextMenu(e, s.id)}
-                    className={`absolute select-none cursor-grab active:cursor-grabbing flex flex-col justify-between p-2 rounded-2xl border-2 transition-all ${targetHighlightRing} ${
+                    className={`absolute select-none cursor-grab active:cursor-grabbing flex flex-col justify-between p-1 sm:p-2 rounded-xl sm:rounded-2xl border-2 transition-all ${targetHighlightRing} ${
                       isSelected
                         ? s.isLocked
-                          ? 'ring-4 ring-amber-500/40 border-amber-500 bg-amber-500/10 shadow-2xl z-20'
-                          : 'ring-4 ring-primary/40 border-primary bg-primary/20 shadow-2xl z-20'
+                          ? 'ring-2 sm:ring-4 ring-amber-500/40 border-amber-500 bg-amber-500/10 shadow-2xl z-20'
+                          : 'ring-2 sm:ring-4 ring-primary/40 border-primary bg-primary/20 shadow-2xl z-20'
                         : isAlignedTarget
                         ? 'border-white bg-black/60'
-                        : 'border-white/20 hover:border-white/50 bg-black/40 backdrop-blur-sm'
+                        : 'border-white/20 hover:border-white/50 bg-black/40 backdrop-blur-xs'
                     }`}
                     style={{
                       left: `${s.x}%`,
                       top: `${s.y}%`,
                       width: `${s.width}%`,
                       height: `${s.height}%`,
-                      borderRadius: s.type === 'circle' ? '9999px' : '1.25rem',
+                      borderRadius: s.type === 'circle' ? '9999px' : '1rem',
                       backgroundColor: `${s.color}33`,
                       borderColor: s.color
                     }}
                   >
                     {/* Header: Label & Lock Status */}
-                    <div className="flex items-center justify-between w-full min-w-0">
+                    <div className="flex items-center justify-between w-full min-w-0 gap-0.5">
                       <span
-                        className="text-[10px] font-black uppercase tracking-wider text-white truncate drop-shadow px-1.5 py-0.5 rounded bg-black/60"
-                        style={{ color: '#ffffff' }}
+                        className="text-[8px] sm:text-[10px] font-black uppercase tracking-tight text-white truncate drop-shadow px-1 py-0.5 rounded bg-black/75 shadow-xs max-w-[85%]"
+                        title={s.label}
                       >
                         {s.label}
                       </span>
 
-                      <div className="flex items-center gap-1 shrink-0 ml-1">
-                        {/* Lock / Unlock Toggle Button on Shape */}
+                      <div className="flex items-center gap-0.5 shrink-0 ml-0.5">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleToggleLock(s.id);
                           }}
-                          className={`p-1 rounded-md transition ${
+                          className={`p-0.5 sm:p-1 rounded transition cursor-pointer ${
                             s.isLocked
                               ? 'bg-amber-500/30 text-amber-400 border border-amber-500/40'
                               : 'bg-black/40 text-neutral-400 hover:text-white'
                           }`}
                           title={s.isLocked ? "Locked - Click to unlock" : "Unlocked - Click to lock"}
                         >
-                          {s.isLocked ? <Lock size={12} /> : <Unlock size={11} />}
+                          {s.isLocked ? <Lock size={10} className="sm:w-3 sm:h-3" /> : <Unlock size={9} className="sm:w-3 sm:h-3" />}
                         </button>
                       </div>
                     </div>
 
-                    {/* Middle: Real-time Measurement Badge */}
-                    {showMeasurements && (
-                      <div className="flex items-center justify-center my-auto">
-                        <span className="text-[9px] font-mono font-bold text-white/90 bg-black/60 px-2 py-0.5 rounded-md border border-white/10 shadow-xs backdrop-blur-xs flex items-center gap-1">
-                          <Ruler size={10} className="text-primary" />
+                    {/* Middle: Real-time Measurement Badge (Only show inside if shape is large enough or selected) */}
+                    {showMeasurements && (!isSmallWidth && !isSmallHeight || isSelected) && (
+                      <div className="flex items-center justify-center my-auto pointer-events-none">
+                        <span className="text-[7px] sm:text-[9px] font-mono font-bold text-white/90 bg-black/75 px-1.5 py-0.5 rounded border border-white/10 shadow-xs backdrop-blur-xs flex items-center gap-0.5 whitespace-nowrap">
+                          <Ruler size={8} className="text-primary shrink-0 sm:w-2.5 sm:h-2.5" />
                           <span>{formatDimensions(s.width, s.height)}</span>
                         </span>
                       </div>
@@ -1869,68 +1903,85 @@ export const OrganizerDesignerWidget: React.FC<OrganizerDesignerWidgetProps> = (
 
                     {/* Bottom: Assigned Items Badge */}
                     {assignedCount > 0 && (
-                      <div className="flex items-center gap-1 flex-wrap mt-auto">
-                        <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-black/80 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                          <Package size={10} />
-                          {assignedCount} {assignedCount === 1 ? 'Item' : 'Items'}
-                        </span>
+                      <div className="flex items-center gap-1 mt-auto shrink-0 pointer-events-none">
+                        {!isTinyShape ? (
+                          <span className="text-[7px] sm:text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-black/80 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5 truncate">
+                            <Package size={8} className="shrink-0 sm:w-2.5 sm:h-2.5" />
+                            <span>{assignedCount} {assignedCount === 1 ? 'Item' : 'Items'}</span>
+                          </span>
+                        ) : (
+                          <span
+                            className="w-2.5 h-2.5 rounded-full bg-emerald-500 border border-black flex items-center justify-center text-[7px] font-black text-black shrink-0"
+                            title={`${assignedCount} gear items assigned`}
+                          >
+                            {assignedCount}
+                          </span>
+                        )}
                       </div>
                     )}
 
                     {/* Floating Tooltip during Dragging / Resizing */}
                     {isBeingDragged && (
-                      <div className="absolute -top-8 left-0 px-2.5 py-1 bg-neutral-950 text-primary border border-primary/50 rounded-lg text-[9px] font-mono font-black whitespace-nowrap shadow-xl z-40 flex items-center gap-1.5 animate-pulse">
-                        <Crosshair size={11} />
+                      <div className="absolute -top-7 left-0 px-2 py-0.5 bg-neutral-950 text-primary border border-primary/50 rounded-md text-[8px] sm:text-[9px] font-mono font-black whitespace-nowrap shadow-xl z-40 flex items-center gap-1 animate-pulse">
+                        <Crosshair size={10} />
                         <span>
-                          {formatDimensions(s.width, s.height)} | X: {formatSingleLength(s.x, 'x')}, Y: {formatSingleLength(s.y, 'y')}
+                          {formatDimensions(s.width, s.height)}
                         </span>
                       </div>
                     )}
 
-                    {/* RESIZE HANDLES (Rendered when selected & unlocked) */}
+                    {/* RESIZE HANDLES (Rendered when selected & unlocked - Touch friendly) */}
                     {isSelected && !s.isLocked && (
                       <>
                         {/* Corner Handles */}
                         <div
                           onMouseDown={(e) => handleResizeHandleMouseDown(e, s, 'nw')}
-                          className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-primary rounded-full border-2 border-white cursor-nwse-resize shadow-md hover:scale-125 transition-transform z-30"
+                          onTouchStart={(e) => handleResizeHandleMouseDown(e, s, 'nw')}
+                          className="absolute -top-2 -left-2 w-4 h-4 sm:w-3.5 sm:h-3.5 bg-primary rounded-full border-2 border-white cursor-nwse-resize shadow-md hover:scale-125 transition-transform z-30 touch-manipulation after:absolute after:-inset-2"
                           title="Resize Top-Left"
                         />
                         <div
                           onMouseDown={(e) => handleResizeHandleMouseDown(e, s, 'ne')}
-                          className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-primary rounded-full border-2 border-white cursor-nesw-resize shadow-md hover:scale-125 transition-transform z-30"
+                          onTouchStart={(e) => handleResizeHandleMouseDown(e, s, 'ne')}
+                          className="absolute -top-2 -right-2 w-4 h-4 sm:w-3.5 sm:h-3.5 bg-primary rounded-full border-2 border-white cursor-nesw-resize shadow-md hover:scale-125 transition-transform z-30 touch-manipulation after:absolute after:-inset-2"
                           title="Resize Top-Right"
                         />
                         <div
                           onMouseDown={(e) => handleResizeHandleMouseDown(e, s, 'sw')}
-                          className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-primary rounded-full border-2 border-white cursor-nesw-resize shadow-md hover:scale-125 transition-transform z-30"
+                          onTouchStart={(e) => handleResizeHandleMouseDown(e, s, 'sw')}
+                          className="absolute -bottom-2 -left-2 w-4 h-4 sm:w-3.5 sm:h-3.5 bg-primary rounded-full border-2 border-white cursor-nesw-resize shadow-md hover:scale-125 transition-transform z-30 touch-manipulation after:absolute after:-inset-2"
                           title="Resize Bottom-Left"
                         />
                         <div
                           onMouseDown={(e) => handleResizeHandleMouseDown(e, s, 'se')}
-                          className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-primary rounded-full border-2 border-white cursor-nwse-resize shadow-md hover:scale-125 transition-transform z-30"
+                          onTouchStart={(e) => handleResizeHandleMouseDown(e, s, 'se')}
+                          className="absolute -bottom-2 -right-2 w-4 h-4 sm:w-3.5 sm:h-3.5 bg-primary rounded-full border-2 border-white cursor-nwse-resize shadow-md hover:scale-125 transition-transform z-30 touch-manipulation after:absolute after:-inset-2"
                           title="Resize Bottom-Right"
                         />
 
                         {/* Edge Handles */}
                         <div
                           onMouseDown={(e) => handleResizeHandleMouseDown(e, s, 'n')}
-                          className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-primary rounded-full border-2 border-white cursor-ns-resize shadow-md hover:scale-125 transition-transform z-30"
+                          onTouchStart={(e) => handleResizeHandleMouseDown(e, s, 'n')}
+                          className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 sm:w-3.5 sm:h-3.5 bg-primary rounded-full border-2 border-white cursor-ns-resize shadow-md hover:scale-125 transition-transform z-30 touch-manipulation after:absolute after:-inset-2"
                           title="Resize Height Top"
                         />
                         <div
                           onMouseDown={(e) => handleResizeHandleMouseDown(e, s, 's')}
-                          className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-primary rounded-full border-2 border-white cursor-ns-resize shadow-md hover:scale-125 transition-transform z-30"
+                          onTouchStart={(e) => handleResizeHandleMouseDown(e, s, 's')}
+                          className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 sm:w-3.5 sm:h-3.5 bg-primary rounded-full border-2 border-white cursor-ns-resize shadow-md hover:scale-125 transition-transform z-30 touch-manipulation after:absolute after:-inset-2"
                           title="Resize Height Bottom"
                         />
                         <div
                           onMouseDown={(e) => handleResizeHandleMouseDown(e, s, 'w')}
-                          className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3.5 h-3.5 bg-primary rounded-full border-2 border-white cursor-ew-resize shadow-md hover:scale-125 transition-transform z-30"
+                          onTouchStart={(e) => handleResizeHandleMouseDown(e, s, 'w')}
+                          className="absolute top-1/2 -left-2 -translate-y-1/2 w-4 h-4 sm:w-3.5 sm:h-3.5 bg-primary rounded-full border-2 border-white cursor-ew-resize shadow-md hover:scale-125 transition-transform z-30 touch-manipulation after:absolute after:-inset-2"
                           title="Resize Width Left"
                         />
                         <div
                           onMouseDown={(e) => handleResizeHandleMouseDown(e, s, 'e')}
-                          className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3.5 h-3.5 bg-primary rounded-full border-2 border-white cursor-ew-resize shadow-md hover:scale-125 transition-transform z-30"
+                          onTouchStart={(e) => handleResizeHandleMouseDown(e, s, 'e')}
+                          className="absolute top-1/2 -right-2 -translate-y-1/2 w-4 h-4 sm:w-3.5 sm:h-3.5 bg-primary rounded-full border-2 border-white cursor-ew-resize shadow-md hover:scale-125 transition-transform z-30 touch-manipulation after:absolute after:-inset-2"
                           title="Resize Width Right"
                         />
                       </>

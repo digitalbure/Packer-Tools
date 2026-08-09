@@ -14,7 +14,8 @@ import {
   ListPlus, 
   Loader2, 
   Check, 
-  Database 
+  Database,
+  Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'motion/react';
 import { UserProfile } from '../types';
@@ -550,6 +551,30 @@ export default function MobileTabBar({ user }: MobileTabBarProps) {
                     </Link>
                   </motion.div>
                 </div>
+
+                {/* Get App button */}
+                <motion.div
+                  variants={menuItemVariants}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <button
+                    onClick={() => {
+                      triggerHaptic(15);
+                      setIsMenuOpen(false);
+                      window.dispatchEvent(new CustomEvent('open-get-app-overlay'));
+                    }}
+                    className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 transition border border-amber-500/20 w-full text-left active:scale-[0.98] touch-manipulation cursor-pointer"
+                  >
+                    <div className="w-9 h-9 bg-amber-500/20 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
+                      <Smartphone size={18} />
+                    </div>
+                    <div className="text-left font-sans">
+                      <p className="text-xs font-black uppercase tracking-wider text-amber-800 dark:text-amber-300">Get Mobile App</p>
+                      <p className="text-[9px] text-amber-700/80 dark:text-amber-400 font-semibold leading-none mt-0.5">Install PWA for fast offline gear tracking</p>
+                    </div>
+                  </button>
+                </motion.div>
               </div>
             </motion.div>
           </>
