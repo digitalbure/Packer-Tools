@@ -324,7 +324,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
                 <div className="flex items-center gap-2.5 overflow-hidden">
                   <img src={adminSettings.branding.logo} className="h-8 w-auto max-w-[120px] object-contain shrink-0 rounded-md" alt="Logo" referrerPolicy="no-referrer" />
                   <span className="font-black uppercase tracking-tight text-neutral-800 text-xs truncate max-w-[100px]">
-                    {adminSettings?.branding?.companyName || 'Packer Tools'}
+                    {adminSettings?.branding?.companyName || 'Packer.Tools'}
                   </span>
                 </div>
               ) : (

@@ -35,9 +35,9 @@ export default function Navbar({
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
   const activeCommunities = adminSettings?.communities || [
-    { id: 'fiji', name: 'Fiji Community', country: 'Fiji', countryCode: 'FJ', currency: 'FJD', flag: '🇫🇯', companyName: 'Packer Tools Fiji', isActive: true },
-    { id: 'australia', name: 'Australian Community', country: 'Australia', countryCode: 'AU', currency: 'AUD', flag: '🇦🇺', companyName: 'Packer Tools Australia', isActive: true },
-    { id: 'new_zealand', name: 'New Zealand Community', country: 'New Zealand', countryCode: 'NZ', currency: 'NZD', flag: '🇳🇿', companyName: 'Packer Tools New Zealand', isActive: true }
+    { id: 'fiji', name: 'Fiji Community', country: 'Fiji', countryCode: 'FJ', currency: 'FJD', flag: '🇫🇯', companyName: 'Packer.Tools Fiji', isActive: true },
+    { id: 'australia', name: 'Australian Community', country: 'Australia', countryCode: 'AU', currency: 'AUD', flag: '🇦🇺', companyName: 'Packer.Tools Australia', isActive: true },
+    { id: 'new_zealand', name: 'New Zealand Community', country: 'New Zealand', countryCode: 'NZ', currency: 'NZD', flag: '🇳🇿', companyName: 'Packer.Tools New Zealand', isActive: true }
   ];
 
   const currentComm = activeCommunities.find(c => c.id === selectedCommunity);
@@ -51,7 +51,7 @@ export default function Navbar({
               <div className="flex items-center gap-2 shrink-0">
                 <img src={adminSettings.branding.logo} className="h-8 sm:h-9 w-auto max-w-[100px] sm:max-w-[140px] object-contain shrink-0 rounded-md" alt="Logo" referrerPolicy="no-referrer" />
                 <span className="font-extrabold text-sm text-neutral-800 tracking-tight group-hover:text-primary transition-colors hidden sm:inline">
-                  {adminSettings?.branding?.companyName || 'Packer Tools'}
+                  {adminSettings?.branding?.companyName || 'Packer.Tools'}
                 </span>
               </div>
             ) : (
@@ -117,7 +117,7 @@ export default function Navbar({
                 <button
                   onClick={() => setIsWhatsNewOpen(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 h-10 bg-neutral-50 hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900 rounded-xl transition border border-neutral-200/50 cursor-pointer text-xs font-semibold select-none active:scale-95 whitespace-nowrap"
-                  title="What's New in Packer Tools"
+                  title="What's New in Packer.Tools"
                 >
                   <Info size={14} className="text-primary animate-pulse" />
                   <span className="text-[9px] uppercase font-black tracking-widest text-neutral-500">What's New</span>
@@ -126,7 +126,7 @@ export default function Navbar({
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('open-get-app-overlay'))}
                   className="flex items-center gap-1.5 px-3 py-1.5 h-10 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 hover:text-amber-700 rounded-xl transition border border-amber-500/30 cursor-pointer text-xs font-semibold select-none active:scale-95 whitespace-nowrap"
-                  title="Install Packer Tools App"
+                  title="Install Packer.Tools App"
                 >
                   <Smartphone size={14} className="text-amber-500" />
                   <span className="text-[9px] uppercase font-black tracking-widest text-amber-600">Get App</span>

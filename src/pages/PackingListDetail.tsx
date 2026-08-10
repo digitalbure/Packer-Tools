@@ -668,6 +668,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
   const [isScanningImage, setIsScanningImage] = useState(false);
   const [barcodeQuery, setBarcodeQuery] = useState('');
   const [isBatchImporting, setIsBatchImporting] = useState(false);
+  const [mobileImportView, setMobileImportView] = useState<'browse' | 'basket'>('browse');
 
   // Confirmation Modal State for Deletions
   const [deleteConfirmState, setDeleteConfirmState] = useState<{
@@ -3667,101 +3668,141 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-neutral-50 pt-6">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar flex-1">
-              {(['all', 'pending', 'packed', 'returned'] as const).map((status) => (
+          <div className="space-y-3 border-t border-neutral-50 pt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar flex-1">
+                {/* 1. All Items Tab */}
                 <button
-                  key={status}
-                  onClick={() => setStatusFilter(status)}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                    statusFilter === status
-                      ? 'bg-accent text-white shadow-lg shadow-accent/20'
-                      : 'bg-neutral-50 text-neutral-400 border border-neutral-100 hover:bg-white hover:border-neutral-200'
+                  onClick={() => setStatusFilter('all')}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap min-h-[44px] flex items-center justify-center cursor-pointer touch-manipulation active:scale-95 ${
+                    statusFilter === 'all'
+                      ? 'bg-neutral-900 text-white shadow-lg'
+                      : 'bg-neutral-50 text-neutral-500 border border-neutral-100 hover:bg-white hover:border-neutral-200'
                   }`}
                 >
-                  {status}
+                  All ({items.length})
                 </button>
-              ))}
 
-              {isOwner && (
+                {/* 2. Primary Navigation Item: Add Item / Kit (Positioned directly after All) */}
+                {isOwner && (
+                  <button
+                    onClick={() => {
+                      triggerHaptic('scan');
+                      setShowPowerImportModal(true);
+                    }}
+                    className="px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-primary/90 transition-all shadow-md shadow-primary/20 flex items-center gap-2 whitespace-nowrap cursor-pointer touch-manipulation active:scale-95 shrink-0 min-h-[44px]"
+                  >
+                    <Plus size={16} strokeWidth={3} />
+                    <span>Add Item / Kit</span>
+                  </button>
+                )}
+
+                {/* 3. Status Filters: Pending, Packed, Returned */}
+                {(['pending', 'packed', 'returned'] as const).map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setStatusFilter(status)}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap min-h-[44px] flex items-center justify-center cursor-pointer touch-manipulation active:scale-95 ${
+                      statusFilter === status
+                        ? 'bg-accent text-white shadow-lg shadow-accent/20'
+                        : 'bg-neutral-50 text-neutral-500 border border-neutral-100 hover:bg-white hover:border-neutral-200'
+                    }`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+
+              {/* View Modes & Sorting Controls */}
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center bg-neutral-100 p-1 rounded-xl">
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2.5 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg transition-all cursor-pointer ${
+                      viewMode === 'list' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
+                    }`}
+                    title="List View"
+                  >
+                    <LayoutList size={18} />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2.5 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg transition-all cursor-pointer ${
+                      viewMode === 'grid' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
+                    }`}
+                    title="Grid View"
+                  >
+                    <LayoutGrid size={18} />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('gallery')}
+                    className={`p-2.5 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg transition-all cursor-pointer ${
+                      viewMode === 'gallery' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
+                    }`}
+                    title="Gallery View"
+                  >
+                    <ImageIcon size={18} />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('carnet')}
+                    className={`p-2.5 min-h-[40px] rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                      viewMode === 'carnet' ? 'bg-white text-primary shadow-sm animate-pulse' : 'text-neutral-400 hover:text-neutral-600'
+                    }`}
+                    title="ATA Carnet Travel Manifest"
+                  >
+                    <Plane size={16} className="rotate-45 text-[#F27D26]" />
+                    <span className="text-[9px] font-black uppercase tracking-wider hidden md:inline">Carnet</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center bg-neutral-100 p-1 rounded-xl">
+                  <button
+                    onClick={() => setSortBy('order')}
+                    className={`px-3 py-2 min-h-[40px] rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      sortBy === 'order' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
+                    }`}
+                  >
+                    Default
+                  </button>
+                  <button
+                    onClick={() => setSortBy('priority')}
+                    className={`px-3 py-2 min-h-[40px] rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      sortBy === 'priority' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
+                    }`}
+                  >
+                    Priority
+                  </button>
+                  <button
+                    onClick={() => setSortBy('name')}
+                    className={`px-3 py-2 min-h-[40px] rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      sortBy === 'name' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
+                    }`}
+                  >
+                    Name
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Native Mobile-Responsive Manifest Search Input Bar */}
+            <div className="relative w-full pt-1">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search list items by name, brand, model, serial number, category..."
+                className="w-full min-h-[48px] pl-11 pr-10 py-3 bg-white border border-neutral-200/90 rounded-2xl text-xs sm:text-sm font-semibold text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition shadow-xs"
+              />
+              {searchQuery && (
                 <button
-                  onClick={() => {
-                    triggerHaptic('scan');
-                    setShowPowerImportModal(true);
-                  }}
-                  className="ml-auto px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-primary/90 transition-all shadow-md shadow-primary/20 flex items-center gap-1.5 whitespace-nowrap cursor-pointer touch-manipulation active:scale-95 shrink-0"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 hover:bg-neutral-100 rounded-xl text-neutral-400 hover:text-neutral-700 transition cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center"
+                  aria-label="Clear search"
                 >
-                  <Plus size={14} strokeWidth={3} />
-                  <span>Add Item / Kit</span>
+                  <X size={16} />
                 </button>
               )}
-            </div>
-
-            <div className="flex items-center bg-neutral-100 p-1 rounded-xl">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-all ${
-                  viewMode === 'list' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
-                }`}
-                title="List View"
-              >
-                <LayoutList size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg transition-all ${
-                  viewMode === 'grid' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
-                }`}
-                title="Grid View"
-              >
-                <LayoutGrid size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode('gallery')}
-                className={`p-2 rounded-lg transition-all ${
-                  viewMode === 'gallery' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
-                }`}
-                title="Gallery View"
-              >
-                <ImageIcon size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode('carnet')}
-                className={`p-2 rounded-lg transition-all flex items-center gap-1.5 ${
-                  viewMode === 'carnet' ? 'bg-white text-primary shadow-sm animate-pulse' : 'text-neutral-400 hover:text-neutral-600'
-                }`}
-                title="ATA Carnet Travel Manifest"
-              >
-                <Plane size={16} className="rotate-45 text-[#F27D26]" />
-                <span className="text-[9px] font-black uppercase tracking-wider hidden md:inline">Carnet</span>
-              </button>
-            </div>
-
-            <div className="flex items-center bg-neutral-100 p-1 rounded-xl">
-              <button
-                onClick={() => setSortBy('order')}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                  sortBy === 'order' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
-                }`}
-              >
-                Default
-              </button>
-              <button
-                onClick={() => setSortBy('priority')}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                  sortBy === 'priority' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
-                }`}
-              >
-                Priority
-              </button>
-              <button
-                onClick={() => setSortBy('name')}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                  sortBy === 'name' ? 'bg-white text-primary shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
-                }`}
-              >
-                Name
-              </button>
             </div>
           </div>
         </div>
@@ -4620,24 +4661,64 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         {/* --- TAB: SETTINGS & ACTIONS --- */}
         {activeTab === 'settings' && list && (
           <div className="space-y-8 text-left">
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-neutral-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-primary font-black uppercase tracking-widest text-[10px]">
-                  <Settings size={14} />
-                  <span>List Configuration & Control Center</span>
+            {/* Top Overview Banner & Quick Metrics */}
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-neutral-100 shadow-sm space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-primary font-black uppercase tracking-widest text-[10px]">
+                    <Settings size={14} />
+                    <span>List Configuration & Control Center</span>
+                  </div>
+                  <h2 className="text-2xl font-black uppercase tracking-tight text-neutral-900">List Settings & Actions</h2>
+                  <p className="text-xs text-neutral-500 font-medium max-w-2xl">
+                    Manage list visibility, custom labels, version iteration history, archive status, marketplace template listings, kit conversions, cross-list merges, and document exports.
+                  </p>
                 </div>
-                <h2 className="text-2xl font-black uppercase tracking-tight text-neutral-900">List Settings & Actions</h2>
-                <p className="text-xs text-neutral-500 font-medium max-w-xl">
-                  Manage list visibility, custom labels, archive status, marketplace listings, kit conversions, list merge operations, and exports.
-                </p>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <span className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 border ${
+                    list.isPublic ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-neutral-100 text-neutral-700 border-neutral-200'
+                  }`}>
+                    {list.isPublic ? <Globe size={14} /> : <Lock size={14} />}
+                    <span>{list.isPublic ? 'Public List' : 'Private List'}</span>
+                  </span>
+
+                  <span className="px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1.5">
+                    <History size={14} />
+                    <span>v{list.version || 1}</span>
+                  </span>
+
+                  {list.isArchived && (
+                    <span className="px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5">
+                      <Archive size={14} />
+                      <span>Archived</span>
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {list.isArchived && (
-                <div className="px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-2xl text-xs font-bold flex items-center gap-2">
-                  <Archive size={16} />
-                  <span>List is currently ARCHIVED</span>
+              {/* Status Pills Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-neutral-100">
+                <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-100/80">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Total Items</span>
+                  <span className="text-base font-black text-neutral-900">{items.length} items</span>
                 </div>
-              )}
+
+                <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-100/80">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Version Iteration</span>
+                  <span className="text-base font-black text-neutral-900">Iteration v{list.version || 1}</span>
+                </div>
+
+                <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-100/80">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Master Kit Container</span>
+                  <span className="text-base font-black text-purple-700">{list.isKit ? 'Kit Linked' : 'Standard List'}</span>
+                </div>
+
+                <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-100/80">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block">Marketplace Status</span>
+                  <span className="text-base font-black text-amber-600">{editMarketplaceEnabled ? 'Published' : 'Unlisted'}</span>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -4650,7 +4731,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     </div>
                     <div>
                       <h3 className="font-black text-neutral-900 text-base uppercase tracking-tight">Privacy & Visibility</h3>
-                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Control public access and sharing</p>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Control public access and sharing links</p>
                     </div>
                   </div>
                   <span className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-full ${
@@ -4662,16 +4743,16 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 pr-2">
                       <p className="text-xs font-black text-neutral-900">Public Shareable Link</p>
-                      <p className="text-[11px] text-neutral-500">Anyone with the link can view and inspect this packing list.</p>
+                      <p className="text-[11px] text-neutral-500">Anyone with the unique token link can view and inspect this packing list.</p>
                     </div>
                     <button
                       onClick={() => handleTogglePrivacy(!list.isPublic)}
-                      className={`px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition cursor-pointer shadow-sm ${
+                      className={`px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition cursor-pointer shadow-sm shrink-0 ${
                         list.isPublic 
                           ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
-                          : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
+                          : 'bg-neutral-900 text-white hover:bg-neutral-800'
                       }`}
                     >
                       {list.isPublic ? 'Make Private' : 'Make Public'}
@@ -4686,7 +4767,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                           type="text"
                           readOnly
                           value={`${window.location.origin}/shared-list/${list.shareToken || id}`}
-                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-mono text-neutral-700 outline-none select-all"
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-mono text-neutral-700 outline-none select-all"
                         />
                         <button
                           onClick={() => {
@@ -4713,7 +4794,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     </div>
                     <div>
                       <h3 className="font-black text-neutral-900 text-base uppercase tracking-tight">List Labels & Tags</h3>
-                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Categorize and label list</p>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Categorize and label packing lists</p>
                     </div>
                   </div>
                 </div>
@@ -4721,14 +4802,14 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Current List Labels</label>
-                    <div className="flex flex-wrap gap-2 min-h-10 p-2.5 bg-neutral-50 rounded-2xl border border-neutral-100 items-center">
+                    <div className="flex flex-wrap gap-2 min-h-12 p-3 bg-neutral-50 rounded-2xl border border-neutral-100 items-center">
                       {(!list.labels || list.labels.length === 0) ? (
                         <span className="text-xs text-neutral-400 italic">No custom label tags added yet.</span>
                       ) : (
                         list.labels.map(tag => (
-                          <span key={tag} className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-xl text-xs font-bold border border-primary/20">
+                          <span key={tag} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-xl text-xs font-bold border border-primary/20">
                             #{tag}
-                            <button onClick={() => handleRemoveLabelTag(tag)} className="hover:text-red-500 transition cursor-pointer">
+                            <button onClick={() => handleRemoveLabelTag(tag)} className="hover:text-red-500 transition cursor-pointer p-0.5">
                               <X size={12} />
                             </button>
                           </span>
@@ -4737,28 +4818,136 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="e.g. Broadcast, CameraA, Rigging..."
-                      value={newLabelInput}
-                      onChange={(e) => setNewLabelInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddLabelTag(newLabelInput)}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary transition"
-                    />
-                    <button
-                      onClick={() => handleAddLabelTag(newLabelInput)}
-                      disabled={!newLabelInput.trim()}
-                      className="px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-bold hover:opacity-90 transition disabled:opacity-50 shrink-0 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus size={14} />
-                      <span>Add Tag</span>
-                    </button>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Add Custom Tag</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. Broadcast, CameraA, Rigging..."
+                        value={newLabelInput}
+                        onChange={(e) => setNewLabelInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddLabelTag(newLabelInput)}
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+                      />
+                      <button
+                        onClick={() => handleAddLabelTag(newLabelInput)}
+                        disabled={!newLabelInput.trim()}
+                        className="px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-bold hover:opacity-90 transition disabled:opacity-50 shrink-0 flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <Plus size={14} />
+                        <span>Add Tag</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Preset Quick Badges */}
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Suggested Quick Labels:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {['CameraA', 'Broadcast', 'AudioKit', 'FieldDeploy', 'EmergencyBackup', 'VIPClient', 'Rigging', 'DroneSet', 'B-Roll'].map(preset => {
+                        const isAdded = (list.labels || []).includes(preset);
+                        return (
+                          <button
+                            key={preset}
+                            onClick={() => !isAdded && handleAddLabelTag(preset)}
+                            disabled={isAdded}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${
+                              isAdded 
+                                ? 'bg-neutral-100 text-neutral-400 cursor-default line-through' 
+                                : 'bg-neutral-100 hover:bg-primary/10 hover:text-primary text-neutral-600 border border-neutral-200/60 cursor-pointer'
+                            }`}
+                          >
+                            <span>#{preset}</span>
+                            {!isAdded && <Plus size={10} />}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* 3. KITS & ORGANIZERS INTEGRATION */}
+              {/* 3. VERSION HISTORY & REVISION SNAPSHOT LOGS */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6 lg:col-span-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl">
+                      <History size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-neutral-900 text-base uppercase tracking-tight">Version Control & Revision Snapshots</h3>
+                      <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider">Track iteration releases, create point-in-time snapshots, and revert states</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={iterateVersion}
+                      className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl font-bold text-xs uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Plus size={14} />
+                      <span>Iterate Version (v{(list.version || 1) + 1})</span>
+                    </button>
+
+                    <button
+                      onClick={() => setShowSaveVersionModal(true)}
+                      className="px-4 py-2.5 bg-primary text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:opacity-90 transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Camera size={14} />
+                      <span>Save Snapshot Log</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-xs font-black text-blue-900 uppercase">Current List Revision: v{list.version || 1}</h4>
+                      <p className="text-[11px] text-blue-700">
+                        {versions.length > 0 
+                          ? `${versions.length} point-in-time version snapshot logs stored for this list.` 
+                          : 'No snapshot logs captured yet. Click "Save Snapshot Log" to log the current list items.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Version Logs List */}
+                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                    {versions.length > 0 ? (
+                      versions.map((v) => (
+                        <div key={v.id} className="p-4 bg-neutral-50 hover:bg-white rounded-2xl border border-neutral-200/80 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-[10px] font-black uppercase">
+                                Snapshot Log
+                              </span>
+                              <h5 className="font-bold text-xs text-neutral-900 truncate">{v.name}</h5>
+                            </div>
+                            <p className="text-[11px] text-neutral-500 font-medium">
+                              {v.items?.length || 0} items • Captured on {new Date(v.createdAt).toLocaleString()}
+                            </p>
+                            {v.description && <p className="text-[10px] text-neutral-400 italic">"{v.description}"</p>}
+                          </div>
+
+                          <button
+                            onClick={() => setShowRevertConfirm(v)}
+                            className="px-4 py-2 bg-white text-neutral-900 rounded-xl font-bold text-xs border border-neutral-200 hover:bg-neutral-900 hover:text-white transition shadow-xs shrink-0 cursor-pointer self-start sm:self-auto"
+                          >
+                            Revert to Snapshot
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 bg-neutral-50 rounded-2xl border border-dashed border-neutral-200 space-y-2">
+                        <History size={28} className="mx-auto text-neutral-300" />
+                        <p className="text-xs text-neutral-400 font-medium">No saved version logs yet. Save a snapshot to enable point-in-time rollbacks.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. KITS & ORGANIZERS INTEGRATION */}
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
                   <div className="flex items-center gap-3">
@@ -4779,9 +4968,9 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
                 <div className="space-y-4">
                   <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <div className="space-y-0.5">
-                        <p className="text-xs font-black text-purple-900">Convert List to Reusable Kit</p>
+                        <p className="text-xs font-black text-purple-900">Convert List to Reusable Kit Container</p>
                         <p className="text-[11px] text-purple-700">Creates a master kit container with all {items.length} items for deployment across other lists.</p>
                       </div>
                       <button
@@ -4801,7 +4990,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       <select
                         value={selectedKitContainerId}
                         onChange={(e) => setSelectedKitContainerId(e.target.value)}
-                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 text-xs font-bold outline-none"
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold outline-none"
                       >
                         <option value="">-- Select Container / Kit --</option>
                         {containers.map(c => (
@@ -4829,7 +5018,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                 </div>
               </div>
 
-              {/* 4. MERGE & ADD LIST TO ANOTHER LIST */}
+              {/* 5. MERGE & ADD LIST TO ANOTHER LIST */}
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
                   <div className="flex items-center gap-3">
@@ -4850,7 +5039,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       <select
                         value={selectedSourceListId}
                         onChange={(e) => setSelectedSourceListId(e.target.value)}
-                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 text-xs font-bold outline-none"
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold outline-none"
                       >
                         <option value="">-- Choose Source List --</option>
                         {userAllLists.filter(l => l.id !== id).map(l => (
@@ -4874,7 +5063,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       <select
                         value={selectedTargetListId}
                         onChange={(e) => setSelectedTargetListId(e.target.value)}
-                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 text-xs font-bold outline-none"
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold outline-none"
                       >
                         <option value="">-- Choose Target List --</option>
                         {userAllLists.filter(l => l.id !== id).map(l => (
@@ -4894,7 +5083,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                 </div>
               </div>
 
-              {/* 5. MARKETPLACE INTEGRATION */}
+              {/* 6. MARKETPLACE INTEGRATION */}
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
                   <div className="flex items-center gap-3">
@@ -4936,7 +5125,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             type="number"
                             value={editMarketplacePrice}
                             onChange={(e) => setEditMarketplacePrice(e.target.value)}
-                            className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold outline-none"
+                            className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-bold outline-none"
                           />
                         </div>
                         <div className="space-y-1">
@@ -4944,7 +5133,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                           <select
                             value={editMarketplaceCurrency}
                             onChange={(e) => setEditMarketplaceCurrency(e.target.value)}
-                            className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold outline-none"
+                            className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-bold outline-none"
                           >
                             <option value="USD">USD ($)</option>
                             <option value="FJD">FJD ($)</option>
@@ -4978,7 +5167,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                 </div>
               </div>
 
-              {/* 6. PRINT & EXPORTS */}
+              {/* 7. PRINT & EXPORTS */}
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
                   <div className="flex items-center gap-3">
@@ -5034,7 +5223,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                 </div>
               </div>
 
-              {/* 7. ARCHIVE & DANGER ZONE */}
+              {/* 8. ARCHIVE & DANGER ZONE */}
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-100 shadow-sm space-y-6 lg:col-span-2">
                 <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
                   <div className="flex items-center gap-3">
@@ -8367,140 +8556,183 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
       {/* --- POWER IMPORT MODAL --- */}
       <AnimatePresence>
         {showPowerImportModal && (
-          <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-md flex items-center justify-center z-50 p-2 sm:p-4">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-[2rem] overflow-hidden shadow-2xl w-full max-w-6xl h-[85vh] flex flex-col border border-neutral-100 text-neutral-900"
+              className="bg-white rounded-3xl md:rounded-[2rem] overflow-hidden shadow-2xl w-full max-w-6xl h-[92vh] md:h-[85vh] flex flex-col border border-neutral-100 text-neutral-900"
             >
               {/* Modal Header */}
-              <div className="p-6 border-b border-neutral-100 flex items-center justify-between bg-neutral-50">
+              <div className="px-4 py-3 sm:p-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                  <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary shrink-0">
                     <Zap size={22} className="fill-primary/20" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-black uppercase tracking-tight text-neutral-900 leading-none">⚡ Power Onboarder & Importer</h2>
-                    <p className="text-xs text-neutral-500 font-medium mt-1">Multi-method, bulk selection system from all workspace sources.</p>
+                    <h2 className="text-base sm:text-xl font-black uppercase tracking-tight text-neutral-900 leading-none">⚡ Power Onboarder & Importer</h2>
+                    <p className="text-[10px] sm:text-xs text-neutral-500 font-medium mt-1">Multi-method, bulk selection system from all workspace sources.</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowPowerImportModal(false)}
-                  className="p-2 hover:bg-neutral-200 rounded-xl transition text-neutral-400 hover:text-neutral-600"
+                  className="p-2 hover:bg-neutral-200 rounded-xl transition text-neutral-400 hover:text-neutral-600 shrink-0"
                 >
                   <X size={20} />
                 </button>
               </div>
 
+              {/* Mobile View Switcher (Segmented Toggle for Mobile Screens) */}
+              <div className="flex md:hidden border-b border-neutral-200 bg-neutral-100 p-1 gap-1 shrink-0">
+                <button
+                  onClick={() => setMobileImportView('browse')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
+                    mobileImportView === 'browse' ? 'bg-white text-neutral-900 shadow-sm border border-neutral-200/80' : 'text-neutral-500 hover:text-neutral-700'
+                  }`}
+                >
+                  <Package size={15} />
+                  <span>Browse Sources</span>
+                </button>
+                <button
+                  onClick={() => setMobileImportView('basket')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 relative ${
+                    mobileImportView === 'basket' ? 'bg-white text-neutral-900 shadow-sm border border-neutral-200/80' : 'text-neutral-500 hover:text-neutral-700'
+                  }`}
+                >
+                  <ShoppingBag size={15} />
+                  <span>Basket ({stagedItems.length})</span>
+                  {stagedItems.length > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  )}
+                </button>
+              </div>
+
               {/* Main Workspace Body */}
-              <div className="flex-1 flex overflow-hidden">
-                {/* Left Panel: Navigation & Active Sources (70% width) */}
-                <div className="w-full md:w-3/5 flex flex-col border-r border-neutral-100 overflow-hidden">
+              <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+                {/* Left Panel: Navigation & Active Sources (Full width on mobile browse, 60% on desktop) */}
+                <div className={`w-full md:w-3/5 flex flex-col border-b md:border-b-0 md:border-r border-neutral-100 overflow-hidden flex-1 ${mobileImportView === 'basket' ? 'hidden md:flex' : 'flex'}`}>
                   {/* Tabs Selection Bar */}
-                  <div className="flex border-b border-neutral-100 bg-neutral-50/50 p-1.5 overflow-x-auto no-scrollbar gap-1">
+                  <div className="flex border-b border-neutral-100 bg-neutral-50/50 p-2 overflow-x-auto no-scrollbar gap-1.5 shrink-0">
+                    {/* Tab 1: Gear Library (All Gear) */}
                     <button
                       onClick={() => {
                         setImportTab('gear');
                         setImportSearchQuery('');
                       }}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
-                        importTab === 'gear' ? 'bg-white text-primary shadow-sm border border-neutral-200' : 'text-neutral-500 hover:text-neutral-800'
+                      className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'gear' ? 'bg-primary text-white shadow-md' : 'bg-white text-neutral-600 hover:text-neutral-900 border border-neutral-200/80'
                       }`}
                     >
-                      <Package size={14} />
+                      <Package size={15} />
                       <span>Gear Library</span>
                     </button>
 
+                    {/* Tab 2: + Add Custom Item (Repositioned right after Gear Library) */}
                     <button
-                      onClick={() => {
-                        setImportTab('inventories');
-                        setImportSearchQuery('');
-                      }}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
-                        importTab === 'inventories' ? 'bg-white text-primary shadow-sm border border-neutral-200' : 'text-neutral-500 hover:text-neutral-800'
+                      onClick={() => setImportTab('scan')}
+                      className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'scan' ? 'bg-emerald-600 text-white shadow-md' : 'bg-white text-emerald-700 hover:text-emerald-900 border border-emerald-200/80'
                       }`}
                     >
-                      <Layers size={14} />
-                      <span>Inventories</span>
+                      <Plus size={15} />
+                      <span>+ Add Item / Custom</span>
                     </button>
 
+                    {/* Tab 3: Kits & Bundles */}
                     <button
                       onClick={() => {
                         setImportTab('kits');
                         setImportSearchQuery('');
                       }}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
-                        importTab === 'kits' ? 'bg-white text-amber-600 shadow-sm border border-amber-200' : 'text-neutral-500 hover:text-neutral-800'
+                      className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'kits' ? 'bg-amber-600 text-white shadow-md' : 'bg-white text-amber-700 hover:text-amber-900 border border-amber-200/80'
                       }`}
                     >
-                      <Box size={14} />
+                      <Box size={15} />
                       <span>Kits & Bundles</span>
                     </button>
 
+                    {/* Tab 4: Inventories */}
                     <button
-                      onClick={() => setImportTab('url')}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
-                        importTab === 'url' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-200' : 'text-neutral-500 hover:text-neutral-800'
+                      onClick={() => {
+                        setImportTab('inventories');
+                        setImportSearchQuery('');
+                      }}
+                      className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'inventories' ? 'bg-neutral-900 text-white shadow-md' : 'bg-white text-neutral-600 hover:text-neutral-900 border border-neutral-200/80'
                       }`}
                     >
-                      <Globe size={14} />
+                      <Layers size={15} />
+                      <span>Inventories</span>
+                    </button>
+
+                    {/* Tab 5: Online Specs */}
+                    <button
+                      onClick={() => setImportTab('url')}
+                      className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'url' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-indigo-700 hover:text-indigo-900 border border-indigo-200/80'
+                      }`}
+                    >
+                      <Globe size={15} />
                       <span>Online Specs</span>
                     </button>
 
-                    <button
-                      onClick={() => setImportTab('scan')}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
-                        importTab === 'scan' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-200' : 'text-neutral-500 hover:text-neutral-800'
-                      }`}
-                    >
-                      <Plus size={14} />
-                      <span>Create Custom</span>
-                    </button>
-
+                    {/* Tab 6: Barcode Scan */}
                     <button
                       onClick={() => setImportTab('barcode')}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
-                        importTab === 'barcode' ? 'bg-white text-primary shadow-sm border border-neutral-200' : 'text-neutral-500 hover:text-neutral-800'
+                      className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'barcode' ? 'bg-purple-600 text-white shadow-md' : 'bg-white text-purple-700 hover:text-purple-900 border border-purple-200/80'
                       }`}
                     >
-                      <QrCode size={14} />
+                      <QrCode size={15} />
                       <span>Barcode Scan</span>
                     </button>
 
+                    {/* Tab 7: Clone List */}
                     <button
                       onClick={() => {
                         setImportTab('lists');
                         setImportSearchQuery('');
                       }}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
-                        importTab === 'lists' ? 'bg-white text-primary shadow-sm border border-neutral-200' : 'text-neutral-500 hover:text-neutral-800'
+                      className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 ${
+                        importTab === 'lists' ? 'bg-primary text-white shadow-md' : 'bg-white text-neutral-600 hover:text-neutral-900 border border-neutral-200/80'
                       }`}
                     >
-                      <ListPlus size={14} />
+                      <ListPlus size={15} />
                       <span>Clone List</span>
                     </button>
                   </div>
 
-                  {/* Sub-search Bar (Only for Lists, Inventories, Gear Library) */}
+                  {/* Sub-search Bar (Only for Lists, Inventories, Gear Library, Kits) */}
                   {importTab !== 'scan' && importTab !== 'barcode' && (
-                    <div className="p-4 border-b border-neutral-100 bg-neutral-50/20 flex gap-2">
+                    <div className="p-3 sm:p-4 border-b border-neutral-100 bg-neutral-50/40 flex flex-col sm:flex-row gap-2 shrink-0">
                       <div className="relative flex-1">
                         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
                         <input
                           type="text"
                           value={importSearchQuery}
                           onChange={(e) => setImportSearchQuery(e.target.value)}
-                          placeholder="Filter visible items..."
-                          className="w-full pl-10 pr-4 py-2 bg-neutral-100 border-none rounded-xl text-xs font-medium focus:bg-neutral-50 focus:ring-1 focus:ring-primary outline-none transition"
+                          placeholder={`Search ${
+                            importTab === 'gear' ? 'Gear Library' : importTab === 'inventories' ? 'Inventory items' : importTab === 'kits' ? 'Kits & Bundles' : 'items'
+                          } by name, brand, category...`}
+                          className="w-full pl-10 pr-9 py-2.5 bg-white border border-neutral-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition shadow-sm placeholder:text-neutral-400"
                         />
+                        {importSearchQuery && (
+                          <button
+                            onClick={() => setImportSearchQuery('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-neutral-400 hover:text-neutral-600 rounded-full"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
                       </div>
                       
                       {importTab === 'lists' && (
                         <button
                           onClick={() => {
+                            const q = importSearchQuery.toLowerCase().trim();
                             const visible = browseListItems.filter(item => 
-                              item.name.toLowerCase().includes(importSearchQuery.toLowerCase())
+                              !q || item.name.toLowerCase().includes(q) || (item.category && item.category.toLowerCase().includes(q))
                             );
                             visible.forEach(item => {
                               const alreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'list');
@@ -8527,7 +8759,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             });
                             toast.success(`Staged all ${visible.length} visible items!`);
                           }}
-                          className="px-3 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition"
+                          className="px-4 py-2.5 bg-neutral-900 text-white hover:bg-black rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 shadow-sm active:scale-95"
                         >
                           Select All
                         </button>
@@ -8536,8 +8768,9 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       {importTab === 'inventories' && (
                         <button
                           onClick={() => {
+                            const q = importSearchQuery.toLowerCase().trim();
                             const visible = browseInventoryItems.filter(item => 
-                              item.name.toLowerCase().includes(importSearchQuery.toLowerCase())
+                              !q || item.name.toLowerCase().includes(q) || (item.category && item.category.toLowerCase().includes(q)) || (item.primaryCategory && item.primaryCategory.toLowerCase().includes(q))
                             );
                             visible.forEach(item => {
                               const alreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'inventory');
@@ -8564,7 +8797,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             });
                             toast.success(`Staged all ${visible.length} visible items!`);
                           }}
-                          className="px-3 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition"
+                          className="px-4 py-2.5 bg-neutral-900 text-white hover:bg-black rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 shadow-sm active:scale-95"
                         >
                           Select All
                         </button>
@@ -8573,8 +8806,9 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                       {importTab === 'gear' && (
                         <button
                           onClick={() => {
+                            const q = importSearchQuery.toLowerCase().trim();
                             const visible = bgGearItems.filter(item => 
-                              item.name.toLowerCase().includes(importSearchQuery.toLowerCase())
+                              !q || item.name.toLowerCase().includes(q) || (item.category && item.category.toLowerCase().includes(q)) || (item.primaryCategory && item.primaryCategory.toLowerCase().includes(q)) || (item.brand && item.brand.toLowerCase().includes(q))
                             );
                             visible.forEach(item => {
                               const alreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'gear');
@@ -8601,7 +8835,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             });
                             toast.success(`Staged all ${visible.length} visible items!`);
                           }}
-                          className="px-3 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition"
+                          className="px-4 py-2.5 bg-neutral-900 text-white hover:bg-black rounded-xl text-xs font-black uppercase tracking-wider transition shrink-0 shadow-sm active:scale-95"
                         >
                           Select All
                         </button>
@@ -8934,21 +9168,29 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     {/* KITS & BUNDLES TAB */}
                     {importTab === 'kits' && (
                       <div className="space-y-4">
-                        <div className="p-4 bg-amber-50/50 border border-amber-200/50 rounded-2xl flex items-center justify-between gap-3">
+                        <div className="p-3.5 sm:p-4 bg-amber-50/70 border border-amber-200/60 rounded-2xl flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-amber-500/10 text-amber-600 rounded-xl flex items-center justify-center shrink-0">
                               <Box size={22} />
                             </div>
                             <div>
-                              <h4 className="text-xs font-black uppercase text-neutral-900">Equipment Kits & Bundles</h4>
-                              <p className="text-[10px] text-neutral-500 font-medium">Stage complete pre-packaged gear kits and nested accessories with a single tap.</p>
+                              <h4 className="text-xs sm:text-sm font-black uppercase text-neutral-900">Equipment Kits & Bundles</h4>
+                              <p className="text-[10px] sm:text-xs text-neutral-500 font-medium">Stage complete pre-packaged gear kits and nested accessories with a single tap.</p>
                             </div>
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-16 md:pb-4">
                           {bgGearItems.filter(item => item.isKit || (item.addOns && item.addOns.length > 0))
-                            .filter(item => item.name.toLowerCase().includes(importSearchQuery.toLowerCase()))
+                            .filter(item => {
+                              if (!importSearchQuery.trim()) return true;
+                              const q = importSearchQuery.toLowerCase().trim();
+                              return (
+                                item.name.toLowerCase().includes(q) ||
+                                (item.category && item.category.toLowerCase().includes(q)) ||
+                                (item.brand && item.brand.toLowerCase().includes(q))
+                              );
+                            })
                             .map(item => {
                               const staged = stagedItems.some(st => st.sourceId === item.id && st.source === 'gear');
                               return (
@@ -8979,25 +9221,27 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                       toast.success(`Staged ${item.name} kit package!`);
                                     }
                                   }}
-                                  className={`p-4 rounded-2xl border transition flex items-center justify-between cursor-pointer ${
-                                    staged ? 'border-amber-500 bg-amber-50/20 ring-2 ring-amber-500/30' : 'border-neutral-200 bg-white hover:border-neutral-300'
+                                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex items-center justify-between cursor-pointer touch-manipulation active:scale-[0.99] ${
+                                    staged ? 'border-amber-500 bg-amber-50/30 ring-2 ring-amber-500/20 shadow-md' : 'border-neutral-200/80 bg-white hover:border-neutral-300 hover:shadow-sm'
                                   }`}
                                 >
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-amber-100/80 rounded-xl flex items-center justify-center text-amber-700 font-bold shrink-0">
+                                  <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                                    <div className="w-11 h-11 sm:w-12 sm:h-12 bg-amber-100/80 rounded-xl flex items-center justify-center text-amber-700 font-bold shrink-0 border border-amber-200/60">
                                       <Box size={20} />
                                     </div>
-                                    <div className="min-w-0">
-                                      <h5 className="text-xs font-black text-neutral-900 truncate">{item.name}</h5>
-                                      <p className="text-[10px] text-neutral-400 font-medium mt-0.5">
-                                        {item.addOns && item.addOns.length > 0 ? `${item.addOns.length} Bundled Accessories` : 'Kit Package'}
-                                      </p>
+                                    <div className="min-w-0 flex-1">
+                                      <h5 className="text-xs sm:text-sm font-black text-neutral-900 leading-snug line-clamp-2">{item.name}</h5>
+                                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                                        <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200/60">
+                                          {item.addOns && item.addOns.length > 0 ? `${item.addOns.length} Bundled Accessories` : 'Kit Package'}
+                                        </span>
+                                      </div>
                                     </div>
                                   </div>
-                                  <button className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase shrink-0 transition ${
-                                    staged ? 'bg-amber-600 text-white' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                                  <button className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition flex items-center gap-1 ${
+                                    staged ? 'bg-amber-600 text-white shadow-sm' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                                   }`}>
-                                    {staged ? 'Staged' : '+ Stage Kit'}
+                                    {staged ? <><Check size={14} /> Staged</> : '+ Stage Kit'}
                                   </button>
                                 </div>
                               );
@@ -9115,12 +9359,12 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     {/* 3. FROM EXISTING LISTS */}
                     {importTab === 'lists' && (
                       <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block shrink-0">Source List:</label>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <label className="text-xs font-black uppercase tracking-wider text-neutral-500 shrink-0">Source List:</label>
                           <select
                             value={browseListId}
                             onChange={(e) => setBrowseListId(e.target.value)}
-                            className="flex-1 bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                            className="flex-1 bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm"
                           >
                             <option value="">-- Select Source Packing List --</option>
                             {allUserPackingLists.filter(l => l.id !== id).map(l => (
@@ -9139,10 +9383,16 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             No items found in selected list.
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[45vh] overflow-y-auto pr-1">
-                            {browseListItems.filter(item => 
-                              item.name.toLowerCase().includes(importSearchQuery.toLowerCase())
-                            ).map(item => {
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-16 md:pb-4">
+                            {browseListItems.filter(item => {
+                              if (!importSearchQuery.trim()) return true;
+                              const q = importSearchQuery.toLowerCase().trim();
+                              return (
+                                item.name.toLowerCase().includes(q) ||
+                                (item.category && item.category.toLowerCase().includes(q)) ||
+                                (item.aiLabel && item.aiLabel.toLowerCase().includes(q))
+                              );
+                            }).map(item => {
                               const staged = stagedItems.some(st => st.sourceId === item.id && st.source === 'list');
                               return (
                                 <div
@@ -9172,29 +9422,32 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                       setStagedItems(prev => [...prev, stageData]);
                                     }
                                   }}
-                                  className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                                    staged ? 'bg-primary/5 border-primary shadow-sm' : 'bg-white border-neutral-100 hover:bg-neutral-50'
+                                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex items-center justify-between cursor-pointer touch-manipulation active:scale-[0.99] ${
+                                    staged ? 'bg-primary/5 border-primary ring-2 ring-primary/20 shadow-md' : 'bg-white border-neutral-200/80 hover:border-neutral-300 hover:shadow-sm'
                                   }`}
                                 >
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center text-neutral-500 overflow-hidden shrink-0">
+                                  <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                                    <div className="w-11 h-11 sm:w-12 sm:h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-neutral-500 overflow-hidden shrink-0 border border-neutral-200/60">
                                       {item.photoUrls && item.photoUrls.length > 0 ? (
                                         <img src={item.photoUrls[0]} className="w-full h-full object-cover" alt="" />
                                       ) : (
-                                        <Package size={14} />
+                                        <Package size={18} className="text-neutral-400" />
                                       )}
                                     </div>
-                                    <div className="text-left">
-                                      <h6 className="text-[11px] font-black text-neutral-900 truncate max-w-[150px]">{item.name}</h6>
-                                      <p className="text-[9px] text-neutral-400 uppercase tracking-widest mt-0.5">{item.category || item.aiLabel || 'Other'}</p>
+                                    <div className="min-w-0 flex-1">
+                                      <h6 className="text-xs sm:text-sm font-black text-neutral-900 leading-snug line-clamp-2">{item.name}</h6>
+                                      <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-neutral-100 px-2 py-0.5 rounded-md border border-neutral-200/60 mt-1 inline-block">
+                                        {item.category || item.aiLabel || 'Other'}
+                                      </p>
                                     </div>
                                   </div>
-                                  <input
-                                    type="checkbox"
-                                    checked={staged}
-                                    onChange={() => {}} // handled by row click
-                                    className="accent-primary w-4 h-4 rounded border-neutral-300"
-                                  />
+                                  <div className="shrink-0">
+                                    <span className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                                      staged ? 'bg-primary text-white shadow-sm' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                                    }`}>
+                                      {staged ? <><Check size={14} /> Staged</> : '+ Stage'}
+                                    </span>
+                                  </div>
                                 </div>
                               );
                             })}
@@ -9206,12 +9459,12 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     {/* 4. FROM CUSTOM INVENTORIES */}
                     {importTab === 'inventories' && (
                       <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block shrink-0">Inventory Sheet:</label>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <label className="text-xs font-black uppercase tracking-wider text-neutral-500 shrink-0">Inventory Sheet:</label>
                           <select
                             value={browseInventoryId}
                             onChange={(e) => setBrowseInventoryId(e.target.value)}
-                            className="flex-1 bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                            className="flex-1 bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm"
                           >
                             <option value="">-- Select Inventory Sheet --</option>
                             {userInventories.map(inv => (
@@ -9230,10 +9483,16 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             No items found in selected inventory sheet.
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[45vh] overflow-y-auto pr-1">
-                            {browseInventoryItems.filter(item => 
-                              item.name.toLowerCase().includes(importSearchQuery.toLowerCase())
-                            ).map(item => {
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-16 md:pb-4">
+                            {browseInventoryItems.filter(item => {
+                              if (!importSearchQuery.trim()) return true;
+                              const q = importSearchQuery.toLowerCase().trim();
+                              return (
+                                item.name.toLowerCase().includes(q) ||
+                                (item.category && item.category.toLowerCase().includes(q)) ||
+                                (item.primaryCategory && item.primaryCategory.toLowerCase().includes(q))
+                              );
+                            }).map(item => {
                               const staged = stagedItems.some(st => st.sourceId === item.id && st.source === 'inventory');
                               return (
                                 <div
@@ -9263,29 +9522,32 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                       setStagedItems(prev => [...prev, stageData]);
                                     }
                                   }}
-                                  className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                                    staged ? 'bg-primary/5 border-primary shadow-sm' : 'bg-white border-neutral-100 hover:bg-neutral-50'
+                                  className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex items-center justify-between cursor-pointer touch-manipulation active:scale-[0.99] ${
+                                    staged ? 'bg-primary/5 border-primary ring-2 ring-primary/20 shadow-md' : 'bg-white border-neutral-200/80 hover:border-neutral-300 hover:shadow-sm'
                                   }`}
                                 >
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center text-neutral-500 overflow-hidden shrink-0">
+                                  <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                                    <div className="w-11 h-11 sm:w-12 sm:h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-neutral-500 overflow-hidden shrink-0 border border-neutral-200/60">
                                       {item.photoUrls && item.photoUrls.length > 0 ? (
                                         <img src={item.photoUrls[0]} className="w-full h-full object-cover" alt="" />
                                       ) : (
-                                        <Package size={14} />
+                                        <Package size={18} className="text-neutral-400" />
                                       )}
                                     </div>
-                                    <div className="text-left">
-                                      <h6 className="text-[11px] font-black text-neutral-900 truncate max-w-[150px]">{item.name}</h6>
-                                      <p className="text-[9px] text-neutral-400 uppercase tracking-widest mt-0.5">{item.category || item.primaryCategory || 'Other'}</p>
+                                    <div className="min-w-0 flex-1">
+                                      <h6 className="text-xs sm:text-sm font-black text-neutral-900 leading-snug line-clamp-2">{item.name}</h6>
+                                      <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-neutral-100 px-2 py-0.5 rounded-md border border-neutral-200/60 mt-1 inline-block">
+                                        {item.category || item.primaryCategory || 'Other'}
+                                      </p>
                                     </div>
                                   </div>
-                                  <input
-                                    type="checkbox"
-                                    checked={staged}
-                                    onChange={() => {}} // handled by row click
-                                    className="accent-primary w-4 h-4 rounded border-neutral-300"
-                                  />
+                                  <div className="shrink-0">
+                                    <span className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                                      staged ? 'bg-primary text-white shadow-sm' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                                    }`}>
+                                      {staged ? <><Check size={14} /> Staged</> : '+ Stage'}
+                                    </span>
+                                  </div>
                                 </div>
                               );
                             })}
@@ -9302,82 +9564,133 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                             No items found in master gear library. Create items inside Gear Library first.
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-1">
-                            {bgGearItems.filter(item => 
-                              item.name.toLowerCase().includes(importSearchQuery.toLowerCase())
-                            ).map(item => {
-                              const staged = stagedItems.some(st => st.sourceId === item.id && st.source === 'gear');
-                              return (
-                                <div
-                                  key={item.id}
-                                  onClick={() => {
-                                    const isAlreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'gear');
-                                    if (isAlreadyStaged) {
-                                      setStagedItems(prev => prev.filter(st => !(st.sourceId === item.id && st.source === 'gear')));
-                                    } else {
-                                      const stageData = {
-                                        id: `gear-${item.id}`,
-                                        sourceId: item.id,
-                                        source: 'gear',
-                                        name: item.name || '',
-                                        category: item.category || item.primaryCategory || 'Other',
-                                        brand: item.brand || '',
-                                        quantity: 1,
-                                        weight: item.weight || 0,
-                                        weightUnit: 'kg',
-                                        price: item.price || 0,
-                                        notes: item.description || '',
-                                        photoUrls: item.photoUrls || [],
-                                        isKit: item.isKit || false,
-                                        childItemIds: item.childItemIds || [],
-                                        addOns: item.addOns || []
-                                      };
-                                      setStagedItems(prev => [...prev, stageData]);
-                                    }
-                                  }}
-                                  className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                                    staged ? 'bg-primary/5 border-primary shadow-sm' : 'bg-white border-neutral-100 hover:bg-neutral-50'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center text-neutral-500 overflow-hidden shrink-0">
-                                      {item.photoUrls && item.photoUrls.length > 0 ? (
-                                        <img src={item.photoUrls[0]} className="w-full h-full object-cover" alt="" />
-                                      ) : (
-                                        <Package size={14} />
-                                      )}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-16 md:pb-4">
+                            {bgGearItems
+                              .filter(item => {
+                                if (!importSearchQuery.trim()) return true;
+                                const q = importSearchQuery.toLowerCase().trim();
+                                return (
+                                  (item.name && item.name.toLowerCase().includes(q)) ||
+                                  (item.category && item.category.toLowerCase().includes(q)) ||
+                                  (item.primaryCategory && item.primaryCategory.toLowerCase().includes(q)) ||
+                                  (item.brand && item.brand.toLowerCase().includes(q))
+                                );
+                              })
+                              .map(item => {
+                                const staged = stagedItems.some(st => st.sourceId === item.id && st.source === 'gear');
+                                return (
+                                  <div
+                                    key={item.id}
+                                    onClick={() => {
+                                      const isAlreadyStaged = stagedItems.some(st => st.sourceId === item.id && st.source === 'gear');
+                                      if (isAlreadyStaged) {
+                                        setStagedItems(prev => prev.filter(st => !(st.sourceId === item.id && st.source === 'gear')));
+                                      } else {
+                                        const stageData = {
+                                          id: `gear-${item.id}`,
+                                          sourceId: item.id,
+                                          source: 'gear',
+                                          name: item.name || '',
+                                          category: item.category || item.primaryCategory || 'Other',
+                                          brand: item.brand || '',
+                                          quantity: 1,
+                                          weight: item.weight || 0,
+                                          weightUnit: 'kg',
+                                          price: item.price || 0,
+                                          notes: item.description || '',
+                                          photoUrls: item.photoUrls || [],
+                                          isKit: item.isKit || false,
+                                          childItemIds: item.childItemIds || [],
+                                          addOns: item.addOns || []
+                                        };
+                                        setStagedItems(prev => [...prev, stageData]);
+                                      }
+                                    }}
+                                    className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex items-center justify-between cursor-pointer touch-manipulation active:scale-[0.99] ${
+                                      staged ? 'bg-primary/5 border-primary ring-2 ring-primary/20 shadow-md' : 'bg-white border-neutral-200/80 hover:border-neutral-300 hover:shadow-sm'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                                      <div className="w-11 h-11 sm:w-12 sm:h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-neutral-500 overflow-hidden shrink-0 border border-neutral-200/60">
+                                        {item.photoUrls && item.photoUrls.length > 0 ? (
+                                          <img src={item.photoUrls[0]} className="w-full h-full object-cover" alt="" />
+                                        ) : (
+                                          <Package size={18} className="text-neutral-400" />
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <h6 className="text-xs sm:text-sm font-black text-neutral-900 leading-snug line-clamp-2">{item.name}</h6>
+                                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                                          <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-neutral-100 px-2 py-0.5 rounded-md border border-neutral-200/60">
+                                            {item.category || item.primaryCategory || 'Other'}
+                                          </span>
+                                          {item.brand && (
+                                            <span className="text-[10px] text-neutral-400 font-semibold">{item.brand}</span>
+                                          )}
+                                          {item.weight ? (
+                                            <span className="text-[10px] text-neutral-400 font-mono">{item.weight} kg</span>
+                                          ) : null}
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div className="text-left">
-                                      <h6 className="text-[11px] font-black text-neutral-900 truncate max-w-[150px]">{item.name}</h6>
-                                      <p className="text-[9px] text-neutral-400 uppercase tracking-widest mt-0.5">{item.category || item.primaryCategory || 'Other'}</p>
+                                    <div className="shrink-0">
+                                      <span className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                                        staged ? 'bg-primary text-white shadow-sm' : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                                      }`}>
+                                        {staged ? <><Check size={14} /> Staged</> : '+ Stage'}
+                                      </span>
                                     </div>
                                   </div>
-                                  <input
-                                    type="checkbox"
-                                    checked={staged}
-                                    onChange={() => {}} // handled by row click
-                                    className="accent-primary w-4 h-4 rounded border-neutral-300"
-                                  />
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
                           </div>
                         )}
                       </div>
                     )}
                   </div>
+
+                  {/* Mobile Floating Bottom Action Sheet */}
+                  {stagedItems.length > 0 && (
+                    <div className="md:hidden p-3 bg-neutral-950 text-white border-t border-neutral-800 flex items-center justify-between shadow-2xl shrink-0">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-primary/20 text-primary flex items-center justify-center font-black text-sm">
+                          {stagedItems.length}
+                        </div>
+                        <div>
+                          <p className="text-xs font-black leading-tight text-white">{stagedItems.reduce((acc, current) => acc + (current.quantity || 1), 0)} items staged</p>
+                          <p className="text-[10px] text-neutral-400 font-medium">Ready in basket</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setMobileImportView('basket')}
+                        className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-black uppercase tracking-wider hover:brightness-110 transition shadow-lg flex items-center gap-1.5 active:scale-95"
+                      >
+                        <span>View Basket ({stagedItems.length}) →</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* Right Panel: Staging Basket & Final Actions (40% width) */}
-                <div className="w-full md:w-2/5 bg-neutral-50 flex flex-col overflow-hidden">
-                  <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
-                    <span className="text-xs font-black uppercase tracking-wider text-neutral-500">Staging Basket</span>
-                    <button
-                      onClick={() => setStagedItems([])}
-                      className="text-[10px] font-black uppercase text-red-500 hover:text-red-700 transition"
-                    >
-                      Clear All
-                    </button>
+                {/* Right Panel: Staging Basket & Final Actions (Full width on mobile basket view, 40% on desktop) */}
+                <div className={`w-full md:w-2/5 bg-neutral-50 flex flex-col overflow-hidden flex-1 ${mobileImportView === 'browse' ? 'hidden md:flex' : 'flex'}`}>
+                  <div className="p-3.5 sm:p-4 border-b border-neutral-200 flex items-center justify-between bg-white shrink-0">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setMobileImportView('browse')}
+                        className="md:hidden p-1.5 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-neutral-700 text-xs font-bold transition flex items-center gap-1 mr-1"
+                      >
+                        ← Back
+                      </button>
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-neutral-900">Staging Basket ({stagedItems.length})</span>
+                    </div>
+                    {stagedItems.length > 0 && (
+                      <button
+                        onClick={() => setStagedItems([])}
+                        className="text-[11px] font-black uppercase text-red-500 hover:text-red-700 transition bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg"
+                      >
+                        Clear All
+                      </button>
+                    )}
                   </div>
 
                   {/* Staged Items List */}

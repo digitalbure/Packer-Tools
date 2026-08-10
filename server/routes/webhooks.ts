@@ -1,8 +1,52 @@
 import express from "express";
+import crypto from "crypto";
 import { dbAdmin } from "../firebaseAdmin";
 import { verifyPaddleSignature } from "../utils/paddle";
 
 const router = express.Router();
+
+function safeTimingCompare(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
+function verifyDodoSignature(req: express.Request, rawBody: string, secret: string): boolean {
+  const signatureHeader = (req.headers['dodo-signature'] || req.headers['x-dodo-signature'] || req.headers['webhook-signature']) as string || '';
+  if (!signatureHeader) return false;
+
+  let timestamp = '';
+  let signature = '';
+
+  if (signatureHeader.includes('=')) {
+    const parts = signatureHeader.split(/[,;]/);
+    for (const part of parts) {
+      const [k, v] = part.trim().split('=');
+      if (k === 't') timestamp = v;
+      if (k === 'v1' || k === 'sig' || k === 'signature') signature = v;
+    }
+  } else {
+    signature = signatureHeader.trim();
+  }
+
+  if (!signature) return false;
+
+  const payloadToSign = timestamp ? `${timestamp}.${rawBody}` : rawBody;
+  const computedHex = crypto.createHmac('sha256', secret).update(payloadToSign).digest('hex');
+  const computedBase64 = crypto.createHmac('sha256', secret).update(payloadToSign).digest('base64');
+  const computedHexRaw = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+
+  return (
+    safeTimingCompare(computedHex, signature) ||
+    safeTimingCompare(computedBase64, signature) ||
+    safeTimingCompare(computedHexRaw, signature)
+  );
+}
 
 // Paddle webhook signature buffer capture
 router.post(["/api/webhook", "/api/webhooks/paddle"], express.raw({ type: 'application/json' }), async (req, res) => {
@@ -110,10 +154,11 @@ router.post("/api/webhooks/dodopayments", express.raw({ type: 'application/json'
       console.error("[Dodo Webhook] ERROR: DODO_WEBHOOK_SECRET is not configured. Webhook request rejected (fail-closed security rule).");
       return res.status(500).json({ error: "Webhook secret is not configured on the server." });
     }
-    const dodoSignature = req.headers['dodo-signature'] || req.headers['x-dodo-signature'];
-    if (!dodoSignature) {
-      console.warn("[Dodo Webhook] Cryptographic signature header is missing.");
-      return res.status(401).json({ error: "Missing webhook signature header." });
+    
+    const isValid = verifyDodoSignature(req, rawBody, secret);
+    if (!isValid) {
+      console.warn("[Dodo Webhook] Cryptographic signature check FAILED.");
+      return res.status(401).json({ error: "Invalid webhook signature." });
     }
 
     const payload = JSON.parse(rawBody);

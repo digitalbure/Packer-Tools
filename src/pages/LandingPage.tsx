@@ -213,6 +213,16 @@ const AIRecognitionDisplay = ({ config }: { config?: AdminSettings['aiRecognitio
 
   const [index, setIndex] = useState(0);
 
+  // Preload all slideshow images into browser memory to eliminate network fetch delays & flashes
+  useEffect(() => {
+    items.forEach((item) => {
+      if (item && item.image) {
+        const img = new Image();
+        img.src = item.image;
+      }
+    });
+  }, [items]);
+
   useEffect(() => {
     if (!isEnabled || items.length <= 1) return;
     const timer = setInterval(() => {
@@ -226,30 +236,31 @@ const AIRecognitionDisplay = ({ config }: { config?: AdminSettings['aiRecognitio
   const currentItem = items[index] || items[0] || defaultItems[0];
 
   return (
-    <div className="flex-1 relative bg-neutral-200 overflow-hidden min-h-[400px] lg:min-h-full">
-      <AnimatePresence mode="wait">
+    <div className="flex-1 relative bg-neutral-900 overflow-hidden min-h-[400px] lg:min-h-full">
+      <AnimatePresence initial={false}>
         <motion.img
-          key={`img-${index}`}
-          initial={{ scale: 1.1, opacity: 0 }}
+          key={`img-${currentItem.id || currentItem.name || index}`}
+          initial={{ scale: 1.08, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          transition={{ duration: 1.5, ease: "easeInOut" }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
           src={currentItem.image}
           alt={currentItem.name}
-          className="absolute inset-0 w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-1000"
+          className="absolute inset-0 w-full h-full object-cover grayscale hover:grayscale-0 transition-[filter] duration-500"
           referrerPolicy="no-referrer"
         />
       </AnimatePresence>
-      <div className="absolute inset-0 bg-gradient-to-t from-paper/40 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-paper/40 via-transparent to-black/20 pointer-events-none z-10" />
       
       <div className="absolute bottom-8 left-8 right-8 glass p-6 rounded-2xl flex items-center justify-between z-20">
         <div className="flex items-center gap-4">
           <AnimatePresence mode="wait">
             <motion.div
-              key={`icon-${index}`}
+              key={`icon-${currentItem.id || index}`}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ duration: 0.3 }}
               className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-white"
             >
               {iconMap[currentItem.icon] || <Package size={24} />}
@@ -262,10 +273,11 @@ const AIRecognitionDisplay = ({ config }: { config?: AdminSettings['aiRecognitio
             </div>
             <AnimatePresence mode="wait">
               <motion.div
-                key={`text-${index}`}
+                key={`text-${currentItem.id || index}`}
                 initial={{ y: 5, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: -5, opacity: 0 }}
+                transition={{ duration: 0.3 }}
                 className="text-xs text-neutral-500"
               >
                 <span className="font-bold text-primary">{currentItem.name}</span> {currentItem.details || ''}

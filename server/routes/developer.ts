@@ -1,13 +1,37 @@
 import express from "express";
+import crypto from "crypto";
 import { authenticateUser } from "../middleware/auth";
 
 const router = express.Router();
 
+function safeCompare(a: string, b: string): boolean {
+  try {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
+function escapeHtml(str: string): string {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function requireDevApiKey(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const apiKey = req.headers["x-api-key"] || req.query.apiKey;
+  const apiKeyHeader = req.headers["x-api-key"];
+  const apiKeyQuery = req.query.apiKey;
+  const rawKey = apiKeyHeader || apiKeyQuery;
+  const apiKey = typeof rawKey === "string" ? rawKey : (Array.isArray(rawKey) ? String(rawKey[0]) : (rawKey ? String(rawKey) : ""));
   const expectedKey = process.env.DEVELOPER_API_KEY || process.env.ADMIN_API_KEY || "pt_sec_packertools_2026_mcp";
   
-  if (!apiKey || apiKey !== expectedKey) {
+  if (!apiKey || !safeCompare(apiKey, expectedKey)) {
     return res.status(401).json({
       error: "Unauthorized. Valid 'x-api-key' header or 'apiKey' query parameter is required to access developer API endpoints."
     });
@@ -59,7 +83,7 @@ router.get("/api/developer/lists", requireDevApiKey, async (req, res) => {
 
   return res.json({
     status: "success",
-    info: "Packer Tools Developer API v1.0.2",
+    info: "Packer.Tools Developer API v1.0.3",
     authenticated: !!apiKey,
     totalCount: demoLists.length,
     lists: demoLists
@@ -108,7 +132,7 @@ router.get("/api/developer/gear", requireDevApiKey, async (req, res) => {
 
   return res.json({
     status: "success",
-    info: "Packer Tools Developer API v1.0.2",
+    info: "Packer.Tools Developer API v1.0.3",
     authenticated: !!apiKey,
     totalCount: demoGear.length,
     gear: demoGear
@@ -118,14 +142,20 @@ router.get("/api/developer/gear", requireDevApiKey, async (req, res) => {
 router.post("/api/developer/embed", authenticateUser, (req, res) => {
   const { theme, layout, listId, primaryColor, companyName } = req.body;
   
-  const iframeUrl = `https://packer.tools/embed/${listId || 'all'}?theme=${theme || 'dark'}&color=${encodeURIComponent(primaryColor || '#ff4f3a')}&company=${encodeURIComponent(companyName || 'Packer Partner')}`;
-  const embedCode = `<iframe src="${iframeUrl}" width="100%" height="600" style="border: 1px solid #eaeaea; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);" allow="payment; camera" title="Powered by Packer Tools Rental Shop"></iframe>`;
+  const safeListId = encodeURIComponent(String(listId || 'all').replace(/[^a-zA-Z0-9_-]/g, ''));
+  const safeTheme = encodeURIComponent(String(theme || 'dark').replace(/[^a-zA-Z0-9_-]/g, ''));
+  const safeColor = encodeURIComponent(String(primaryColor || '#ff4f3a'));
+  const safeCompany = encodeURIComponent(String(companyName || 'Packer Partner'));
+  const safeCompanyNameHtml = escapeHtml(companyName || 'Packer Partner');
+
+  const iframeUrl = `https://packer.tools/embed/${safeListId}?theme=${safeTheme}&color=${safeColor}&company=${safeCompany}`;
+  const embedCode = `<iframe src="${iframeUrl}" width="100%" height="600" style="border: 1px solid #eaeaea; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);" allow="payment; camera" title="Powered by Packer.Tools Rental Shop (${safeCompanyNameHtml})"></iframe>`;
 
   return res.json({
     status: "success",
     iframeUrl,
     embedCode,
-    scriptTag: `<script src="https://cdn.jsdelivr.net/npm/@packer-tools/embed-sdk@1/dist/embed.js" data-list-id="${listId || 'all'}" data-theme="${theme || 'dark'}" data-color="${primaryColor || '#ff4f3a'}"></script>`
+    scriptTag: `<script src="https://cdn.jsdelivr.net/npm/@packer-tools/embed-sdk@1/dist/embed.js" data-list-id="${safeListId}" data-theme="${safeTheme}" data-color="${safeColor}"></script>`
   });
 });
 

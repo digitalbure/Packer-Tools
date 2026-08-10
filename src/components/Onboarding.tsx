@@ -201,30 +201,30 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
   ][currentStep];
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-md">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-neutral-950/80 backdrop-blur-md">
       <motion.div 
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-2xl bg-white text-neutral-900 rounded-[2.5rem] shadow-2xl border border-neutral-100 flex flex-col overflow-hidden relative"
+        className="w-full max-w-2xl bg-white text-neutral-900 rounded-2xl sm:rounded-[2.5rem] shadow-2xl border border-neutral-100 flex flex-col overflow-hidden relative max-h-[92vh] sm:max-h-[88vh]"
       >
         {/* Top Branding Header */}
-        <div className="px-8 pt-8 pb-3 border-b border-neutral-100 flex justify-between items-center bg-neutral-50">
+        <div className="px-4 sm:px-8 pt-5 sm:pt-8 pb-3 border-b border-neutral-100 flex justify-between items-center bg-neutral-50 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-neutral-900 flex items-center justify-center text-white">
+            <div className="w-8 h-8 rounded-xl bg-neutral-900 flex items-center justify-center text-white shrink-0">
               <Sliders size={15} className="text-[#ff4f3a]" />
             </div>
             <div>
               <p className="text-[10px] font-mono tracking-widest text-neutral-400 font-extrabold uppercase leading-none">Config Onboarder</p>
-              <h2 className="text-sm font-black tracking-tight text-neutral-800 uppercase mt-0.5">Workspace Setup Calibration</h2>
+              <h2 className="text-xs sm:text-sm font-black tracking-tight text-neutral-800 uppercase mt-0.5">Workspace Setup Calibration</h2>
             </div>
           </div>
-          <div className="text-[10px] font-mono font-black uppercase text-neutral-400">
-            Step {currentStep + 1} of 5
+          <div className="text-[10px] font-mono font-black uppercase text-neutral-400 bg-neutral-200/60 px-2 py-1 rounded-md shrink-0">
+            Step {currentStep + 1} / 5
           </div>
         </div>
 
         {/* Progress Timeline Header Accent */}
-        <div className="w-full bg-neutral-100 h-1 relative">
+        <div className="w-full bg-neutral-100 h-1 relative shrink-0">
           <motion.div 
             className="absolute left-0 top-0 bottom-0 bg-[#ff4f3a]"
             initial={{ width: '0%' }}
@@ -234,13 +234,13 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
         </div>
 
         {/* Scrollable Setup Body */}
-        <div className="p-8 md:p-10 flex-1 overflow-y-auto max-h-[60vh]">
-          <div className="space-y-6">
+        <div className="p-4 sm:p-8 md:p-10 flex-1 overflow-y-auto">
+          <div className="space-y-4 sm:space-y-6">
             <div className="space-y-1">
               <span className="text-[9px] font-extrabold uppercase tracking-widest text-[#ff4f3a] bg-rose-50 px-2 py-0.5 rounded-md">
                 SETUP ENGINE
               </span>
-              <h3 className="text-xl font-black tracking-tight text-neutral-800 leading-tight">
+              <h3 className="text-lg sm:text-xl font-black tracking-tight text-neutral-800 leading-tight">
                 {currentStepData.title}
               </h3>
               <p className="text-xs font-semibold text-neutral-400 leading-relaxed">
@@ -255,18 +255,18 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.2 }}
-                className="pt-2"
+                className="pt-1"
               >
                 {/* STEP 1: Focus Industry Selector */}
                 {currentStep === 0 && (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[250px] overflow-y-auto pr-1">
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 max-h-[260px] overflow-y-auto pr-1">
                       {INDUSTRIES.map((ind) => (
                         <button
                           key={ind.id}
                           type="button"
                           onClick={() => handleIndustrySelect(ind.id)}
-                          className={`p-4 rounded-2xl border text-left transition-all flex gap-3 ${
+                          className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all flex gap-3 items-center min-h-[52px] cursor-pointer touch-manipulation active:scale-[0.99] ${
                             selectedIndustryId === ind.id
                               ? 'border-[#ff4f3a] bg-rose-50/10 ring-2 ring-[#ff4f3a]/10'
                               : 'border-neutral-150 hover:bg-neutral-50 hover:border-neutral-300'
@@ -285,7 +285,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
                       ))}
                     </div>
 
-                    <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-150 space-y-3">
+                    <div className="p-4 sm:p-5 bg-neutral-50 rounded-2xl border border-neutral-150 space-y-2">
                       <label className="block text-[9px] font-black uppercase tracking-widest text-neutral-400">
                         Create Sandbox Workspace Name
                       </label>
@@ -294,7 +294,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
                         value={workspaceName}
                         onChange={(e) => setWorkspaceName(e.target.value)}
                         placeholder="e.g. Primary Operations Depot..."
-                        className="w-full px-4 py-3 bg-white border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#ff4f3a]/10 focus:border-[#ff4f3a]"
+                        className="w-full min-h-[48px] px-4 py-3 bg-white border border-neutral-200 rounded-xl text-xs sm:text-sm font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#ff4f3a]/10 focus:border-[#ff4f3a]"
                       />
                     </div>
                   </div>
@@ -302,7 +302,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
 
                 {/* STEP 2: Role and Intended Activities Setup */}
                 {currentStep === 1 && (
-                  <div className="space-y-6">
+                  <div className="space-y-5">
                     <div className="space-y-2">
                       <label className="block text-[9px] font-black uppercase tracking-widest text-[#ff4f3a]">
                         What is your team role / core duty?
@@ -312,15 +312,15 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
                         value={userRole}
                         onChange={(e) => setUserRole(e.target.value)}
                         placeholder="e.g. Flight Rig Manager, Lead Technician, Site Coordinator"
-                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#ff4f3a]/10 focus:bg-white"
+                        className="w-full min-h-[48px] px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs sm:text-sm font-semibold text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#ff4f3a]/10 focus:bg-white"
                       />
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-2.5">
                       <label className="block text-[9px] font-black uppercase tracking-widest text-neutral-400">
                         How do you plan to use Packer Tools? (Workspace Goal)
                       </label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5">
                         {[
                           { id: 'packing', label: 'Packing & Checklist Prep', desc: 'Synthesize packing templates, logistics case lists and loadouts.' },
                           { id: 'inventory', label: 'Inventory & Operations', desc: 'Manage master hardware catalogs, supplier assets, and maintenance.' },
@@ -331,7 +331,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
                             key={goal.id}
                             type="button"
                             onClick={() => setUseGoal(goal.id as any)}
-                            className={`p-4 rounded-2xl border text-left transition-all space-y-1.5 ${
+                            className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all space-y-1 min-h-[52px] cursor-pointer touch-manipulation active:scale-[0.99] ${
                               useGoal === goal.id
                                 ? 'border-[#ff4f3a] bg-rose-50/10 ring-2 ring-[#ff4f3a]/10'
                                 : 'border-neutral-150 hover:bg-neutral-50 hover:border-neutral-300'
@@ -348,12 +348,12 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
 
                 {/* STEP 3: Lite Version vs Full Version Toggle */}
                 {currentStep === 2 && (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
                       <button
                         type="button"
                         onClick={() => setIsLiteMode(true)}
-                        className={`p-5 rounded-[2.5rem] border text-left transition-all space-y-3 relative ${
+                        className={`p-4 sm:p-5 rounded-2xl sm:rounded-[2.5rem] border text-left transition-all space-y-2.5 sm:space-y-3 relative cursor-pointer touch-manipulation active:scale-[0.99] ${
                           isLiteMode
                             ? 'border-[#ff4f3a] bg-rose-50/10 ring-2 ring-[#ff4f3a]/15'
                             : 'border-neutral-150 hover:bg-neutral-50 hover:border-neutral-300'
@@ -378,7 +378,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
                       <button
                         type="button"
                         onClick={() => setIsLiteMode(false)}
-                        className={`p-5 rounded-[2.5rem] border text-left transition-all space-y-3 relative ${
+                        className={`p-4 sm:p-5 rounded-2xl sm:rounded-[2.5rem] border text-left transition-all space-y-2.5 sm:space-y-3 relative cursor-pointer touch-manipulation active:scale-[0.99] ${
                           !isLiteMode
                             ? 'border-[#ff4f3a] bg-rose-50/10 ring-2 ring-[#ff4f3a]/15'
                             : 'border-neutral-150 hover:bg-neutral-50 hover:border-neutral-300'
@@ -401,7 +401,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
                       </button>
                     </div>
 
-                    <div className="p-4 bg-yellow-50/50 rounded-2xl border border-yellow-100 flex gap-3 text-[10px] text-yellow-800 leading-relaxed">
+                    <div className="p-3.5 sm:p-4 bg-yellow-50/50 rounded-2xl border border-yellow-100 flex gap-3 text-[10px] text-yellow-800 leading-relaxed">
                       <HelpCircle size={16} className="shrink-0 mt-0.5 text-yellow-600" />
                       <p>
                         <strong>Note on presentation:</strong> Setting the Lite layout is fully dynamic. If selected, other widgets are hidden, but you can always change this, add custom features, or build presets using the Quick Access button at any time.
@@ -412,19 +412,19 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
 
                 {/* STEP 4: Features Fine Tuning Selector Grid */}
                 {currentStep === 3 && (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-neutral-50 px-4 py-3 rounded-xl border border-neutral-150">
+                  <div className="space-y-3 sm:space-y-4">
+                    <div className="flex justify-between items-center bg-neutral-50 px-3.5 py-2.5 rounded-xl border border-neutral-150">
                       <span className="text-[10px] font-mono uppercase tracking-widest text-neutral-400">Curated plan modules</span>
                       <button 
                         type="button"
                         onClick={() => setEnabledFeatures(new Set(AVAILABLE_FEATURES.map(f => f.key)))}
-                        className="text-[9px] font-black uppercase text-neutral-500 hover:text-[#ff4f3a]"
+                        className="text-[9px] font-black uppercase text-neutral-500 hover:text-[#ff4f3a] p-1 cursor-pointer min-h-[36px] flex items-center"
                       >
                         Reset / Enable All
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[220px] overflow-y-auto pr-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 max-h-[220px] overflow-y-auto pr-1">
                       {AVAILABLE_FEATURES.map((feature) => {
                         const active = enabledFeatures.has(feature.key);
                         return (
@@ -432,7 +432,7 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
                             key={feature.key}
                             type="button"
                             onClick={() => toggleFeature(feature.key)}
-                            className={`p-3 rounded-xl border text-left transition-all flex justify-between items-center ${
+                            className={`p-3 rounded-xl border text-left transition-all flex justify-between items-center min-h-[48px] cursor-pointer touch-manipulation ${
                               active
                                 ? 'border-neutral-900 bg-neutral-950 text-white ring-1 ring-neutral-900'
                                 : 'border-neutral-200 bg-white hover:bg-neutral-50'
@@ -467,28 +467,28 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
 
                 {/* STEP 5: Congratulations & Setup Deployment */}
                 {currentStep === 4 && (
-                  <div className="text-center py-4 space-y-6">
-                    <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto shadow-inner text-emerald-600">
-                      <CheckCircle2 size={36} />
+                  <div className="text-center py-2 sm:py-4 space-y-4 sm:space-y-6">
+                    <div className="w-16 sm:w-20 h-16 sm:h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto shadow-inner text-emerald-600">
+                      <CheckCircle2 size={32} className="sm:w-9 sm:h-9" />
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <p className="text-[10px] font-mono uppercase tracking-widest text-[#ff4f3a] font-extrabold">Calibration Ready</p>
-                      <h4 className="text-2xl font-black text-neutral-900 tracking-tight">Constructing personalized workspace...</h4>
+                      <h4 className="text-xl sm:text-2xl font-black text-neutral-900 tracking-tight">Constructing personalized workspace...</h4>
                       <p className="text-xs text-neutral-400 leading-relaxed max-w-sm mx-auto">
                         We have customized the interface modules based on your role <strong>({userRole || 'Operator'})</strong>, targeting focus area <strong>({useGoal.toUpperCase()})</strong>.
                       </p>
                     </div>
 
-                    <div className="max-w-md mx-auto grid grid-cols-2 gap-3 pb-3">
-                      <div className="bg-neutral-50 p-3.5 rounded-2xl border border-neutral-150 text-left">
+                    <div className="max-w-md mx-auto grid grid-cols-2 gap-2.5 sm:gap-3 pb-2">
+                      <div className="bg-neutral-50 p-3 sm:p-3.5 rounded-2xl border border-neutral-150 text-left">
                         <span className="text-[8px] font-black uppercase text-neutral-400 tracking-wider">INDUSTRY HUB</span>
                         <p className="text-xs font-black truncate mt-0.5 text-neutral-800">
                           {INDUSTRIES.find(it => it.id === selectedIndustryId)?.name || 'General Operations'}
                         </p>
                       </div>
 
-                      <div className="bg-neutral-50 p-3.5 rounded-2xl border border-neutral-150 text-left">
+                      <div className="bg-neutral-50 p-3 sm:p-3.5 rounded-2xl border border-neutral-150 text-left">
                         <span className="text-[8px] font-black uppercase text-neutral-400 tracking-wider">ACTIVE MODULES</span>
                         <p className="text-xs font-black mt-0.5 text-neutral-800">
                           {enabledFeatures.size} of {AVAILABLE_FEATURES.length} Enabled
@@ -503,13 +503,13 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
         </div>
 
         {/* Action Controls Footer */}
-        <div className="px-8 py-6 border-t border-neutral-100 flex justify-between items-center bg-neutral-50 rounded-b-[2.5rem]">
+        <div className="px-4 sm:px-8 py-4 sm:py-6 border-t border-neutral-100 flex justify-between items-center bg-neutral-50 rounded-b-2xl sm:rounded-b-[2.5rem] shrink-0 gap-3">
           <div>
             {currentStep > 0 ? (
               <button
                 type="button"
                 onClick={handlePrev}
-                className="px-5 py-3 hover:bg-neutral-200 border border-neutral-200 bg-white text-neutral-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition"
+                className="px-4 sm:px-5 py-3 hover:bg-neutral-200 border border-neutral-200 bg-white text-neutral-600 rounded-xl text-xs font-black uppercase tracking-widest transition min-h-[48px] cursor-pointer touch-manipulation active:scale-95"
               >
                 Go Back
               </button>
@@ -522,10 +522,10 @@ export default function Onboarding({ user, onComplete }: OnboardingProps) {
             type="button"
             onClick={handleNext}
             id="btn-onboarding-next"
-            className="px-6 py-3 bg-neutral-900 hover:bg-neutral-850 hover:scale-[1.02] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition shadow-xl flex items-center gap-1.5"
+            className="px-5 sm:px-6 py-3 bg-neutral-900 hover:bg-neutral-850 hover:scale-[1.02] text-white rounded-xl text-xs font-black uppercase tracking-widest transition shadow-xl flex items-center gap-2 min-h-[48px] cursor-pointer touch-manipulation active:scale-95"
           >
-            {currentStep === 4 ? 'Build Custom Workspace' : 'Continue Setting Up'}
-            <ArrowRight size={14} />
+            <span>{currentStep === 4 ? 'Build Custom Workspace' : 'Continue Setting Up'}</span>
+            <ArrowRight size={15} />
           </button>
         </div>
       </motion.div>

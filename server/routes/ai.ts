@@ -4,7 +4,7 @@ import axios from "axios";
 import { ai } from "../services/gemini";
 import { authenticateUser } from "../middleware/auth";
 import { isQuotaError, extractSpecsFromText } from "../utils/ai";
-import { isSafeUrl } from "../utils/ssrf";
+import { isSafeUrl, isAllowlistedImageSource } from "../utils/ssrf";
 
 const router = express.Router();
 
@@ -2038,34 +2038,58 @@ Return a JSON object containing a "shapes" array of section cutout shapes.`;
   }
 });
 
-// Convert image URL to Base64 string with SSRF validation
-router.post("/api/url-to-base64", authenticateUser, async (req, res) => {
+// Convert image URL to Base64 string with strict SSRF validation, allow-listing, and auth gating
+router.post("/api/url-to-base64", authenticateUser, async (req: any, res) => {
+  // Server-side authentication gating check
+  if (!req.user || !req.user.uid) {
+    return res.status(401).json({ error: "Unauthorized access. Valid authenticated user session required." });
+  }
+
   const { url } = req.body;
   if (!url || typeof url !== "string") {
     return res.status(400).json({ error: "Missing or invalid URL parameter." });
   }
 
+  // SSRF Check (Protocol, IP Ranges, Metadata, Localhost, Port Restrictions)
   const urlCheck = isSafeUrl(url);
-  if (!urlCheck.safe) {
+  if (!urlCheck.safe || !urlCheck.url) {
     return res.status(400).json({ error: urlCheck.reason || "Forbidden URL address." });
   }
 
+  const parsedUrl = urlCheck.url;
+
+  // Strict Domain and Image Format Allow-Listing Check
+  const isAllowlisted = isAllowlistedImageSource(parsedUrl);
+  if (!isAllowlisted) {
+    return res.status(400).json({
+      error: "URL rejected. Only secure public image URLs from approved CDNs or with valid image file extensions (.jpg, .png, .webp, .svg, .avif, .gif) are permitted."
+    });
+  }
+
   try {
-    const fetchRes = await axios.get(urlCheck.url!.toString(), {
+    const fetchRes = await axios.get(parsedUrl.toString(), {
       responseType: "arraybuffer",
       timeout: 10000,
       maxContentLength: 10 * 1024 * 1024,
+      maxRedirects: 0,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "image/*,*/*;q=0.8"
+        "Accept": "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
       }
     });
 
-    const contentType = fetchRes.headers["content-type"] || "image/jpeg";
-    const base64Data = Buffer.from(fetchRes.data, "binary").toString("base64");
-    const dataUri = `data:${contentType};base64,${base64Data}`;
+    const contentType = String(fetchRes.headers["content-type"] || "").toLowerCase();
+    if (!contentType.startsWith("image/") && !contentType.includes("octet-stream")) {
+      return res.status(400).json({
+        error: `Invalid resource type (${contentType || 'unknown'}). Only image files are permitted.`
+      });
+    }
 
-    return res.json({ base64: dataUri, mimeType: contentType });
+    const safeMime = contentType.startsWith("image/") ? contentType : "image/jpeg";
+    const base64Data = Buffer.from(fetchRes.data, "binary").toString("base64");
+    const dataUri = `data:${safeMime};base64,${base64Data}`;
+
+    return res.json({ base64: dataUri, mimeType: safeMime });
   } catch (err: any) {
     console.error("[URL-to-Base64 Error]", err.message);
     return res.status(500).json({ error: `Failed to download image from link: ${err.message}` });

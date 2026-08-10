@@ -1,5 +1,5 @@
 {
-  "name": "Packer Tools",
+  "name": "Packer.Tools",
   "description": "Production operations and equipment packing platform for broadcast, film, AV and event teams.",
   "requestFramePermissions": [
     "camera"

@@ -8,7 +8,7 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.20.0' | '5.19.4' | '5.19.3' | '5.19.2' | '5.19.1' | '5.19.0' | '5.18.6' | '5.18.5' | '5.18.4' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.20.1' | '5.20.0' | '5.19.4' | '5.19.3' | '5.19.2' | '5.19.1' | '5.19.0' | '5.18.6' | '5.18.5' | '5.18.4' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,9 +24,40 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.20.0',
+      version: 'v5.20.1',
       tag: 'Latest',
       tagBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-300',
+      title: 'Security Audit & Hardening: Developer Endpoints, SSRF Mitigation, Cryptographic Webhooks & Brand Standardization',
+      date: 'August 2026',
+      icon: Sparkles,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      updates: [
+        {
+          title: 'Developer Endpoints Security Audit',
+          desc: 'Hardened /api/developer/* endpoints with crypto.timingSafeEqual for timing-attack-proof API key authentication, and enforced strict HTML input escaping for embed configurations.',
+          badge: 'Security Audit'
+        },
+        {
+          title: 'SSRF Defense & URL Allow-Listing on /api/url-to-base64',
+          desc: 'Refactored /api/url-to-base64 to enforce strict server-side authentication gating (req.user.uid check), explicit CDN domain & image extension allow-listing, zero redirects (maxRedirects: 0), Content-Type MIME validation, and blocking of internal IP/metadata ranges.',
+          badge: 'SSRF Hardening'
+        },
+        {
+          title: 'Cryptographic Webhook Signature Validation',
+          desc: 'Enforced timing-safe HMAC SHA-256 signature check verification across Dodo Payments and Paddle webhook handlers (/api/webhooks/dodopayments & /api/webhooks/paddle) with fail-closed security.',
+          badge: 'Webhook Token Validation'
+        },
+        {
+          title: 'Brand Standardization to Packer.Tools',
+          desc: 'Standardized all user-visible brand references to "Packer.Tools" across UI headers, modals, email dispatches, and marketing assets to match the canonical brand logo.',
+          badge: 'Branding'
+        }
+      ]
+    },
+    {
+      version: 'v5.20.0',
+      tag: 'Stable',
+      tagBg: 'bg-neutral-500/10 text-neutral-600 border-neutral-500/20 dark:bg-neutral-500/20 dark:text-neutral-300',
       title: 'Full Packing List Control Center & Multi-List Management Suite',
       date: 'August 2026',
       icon: Sparkles,
@@ -798,7 +829,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                   <span className="text-[10px] uppercase font-black tracking-widest text-neutral-400 truncate">Changelog Hub</span>
                 </div>
                 <h3 className="text-lg sm:text-2xl font-black text-neutral-950 uppercase tracking-tight">
-                  What's New in Packer Tools
+                  What's New in Packer.Tools
                 </h3>
               </div>
               <button
@@ -900,7 +931,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[10px] uppercase font-black tracking-wide hidden sm:inline text-neutral-400">
-                  Build v5.19.2
+                  Build v5.20.1
                 </span>
                 <button
                   type="button"

@@ -103,9 +103,9 @@ export function getDefaultAdminSettings(): AdminSettings {
     plans: defaultPlans,
     globalFeatures: {},
     communities: [
-      { id: 'fiji', name: 'Fiji Community', country: 'Fiji', countryCode: 'FJ', currency: 'FJD', flag: '🇫🇯', companyName: 'Packer Tools Fiji', isActive: true },
-      { id: 'australia', name: 'Australian Community', country: 'Australia', countryCode: 'AU', currency: 'AUD', flag: '🇦🇺', companyName: 'Packer Tools Australia', isActive: true },
-      { id: 'new_zealand', name: 'New Zealand Community', country: 'New Zealand', countryCode: 'NZ', currency: 'NZD', flag: '🇳🇿', companyName: 'Packer Tools New Zealand', isActive: true }
+      { id: 'fiji', name: 'Fiji Community', country: 'Fiji', countryCode: 'FJ', currency: 'FJD', flag: '🇫🇯', companyName: 'Packer.Tools Fiji', isActive: true },
+      { id: 'australia', name: 'Australian Community', country: 'Australia', countryCode: 'AU', currency: 'AUD', flag: '🇦🇺', companyName: 'Packer.Tools Australia', isActive: true },
+      { id: 'new_zealand', name: 'New Zealand Community', country: 'New Zealand', countryCode: 'NZ', currency: 'NZD', flag: '🇳🇿', companyName: 'Packer.Tools New Zealand', isActive: true }
     ],
     branding: {
       primaryColor: '#F27D26',
@@ -113,7 +113,7 @@ export function getDefaultAdminSettings(): AdminSettings {
     },
     frontPageCopy: 'Professional Gear Management for the Modern Pro.',
     landingPage: {
-      header: { logoText: 'Packer Tools', links: [] },
+      header: { logoText: 'Packer.Tools', links: [] },
       hero: {
         title: 'Visual Inventory. Smarter Logistics.',
         subtitle: 'Industrial Grade Gear Tracking',
@@ -149,7 +149,7 @@ export function getDefaultAdminSettings(): AdminSettings {
       },
       scenarios: {
         title: 'The Standard Across Industries',
-        subtitle: 'From independent creators to global logistics teams, Packer Tools provides the infrastructure for visual gear management and versioned workflows.',
+        subtitle: 'From independent creators to global logistics teams, Packer.Tools provides the infrastructure for visual gear management and versioned workflows.',
         items: [
           { title: "Film Production", image: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=800" },
           { title: "Alpine Expeditions", image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800" },
@@ -170,11 +170,11 @@ export function getDefaultAdminSettings(): AdminSettings {
       faq: { title: 'FAQ', subtitle: 'Frequently Asked Questions', items: [], isEnabled: false },
       cta: {
         title: 'Ready to Streamline Your Workflow?',
-        description: 'Join thousands of professionals who trust Packer Tools for their critical equipment management.',
+        description: 'Join thousands of professionals who trust Packer.Tools for their critical equipment management.',
         buttonText: 'Get Started Now',
         isEnabled: true
       },
-      footer: { copyright: '© 2026 Packer Tools', links: [] }
+      footer: { copyright: '© 2026 Packer.Tools', links: [] }
     },
     billingEnabled: false,
     aiConfig: {

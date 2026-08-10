@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -10,6 +10,18 @@ interface SwipeableImageGalleryProps {
 export const SwipeableImageGallery: React.FC<SwipeableImageGalleryProps> = ({ photoUrls, itemName }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dragStartX, setDragStartX] = useState<number | null>(null);
+
+  // Preload all gallery images into browser cache
+  useEffect(() => {
+    if (Array.isArray(photoUrls)) {
+      photoUrls.forEach((url) => {
+        if (url) {
+          const img = new Image();
+          img.src = url;
+        }
+      });
+    }
+  }, [photoUrls]);
 
   if (!photoUrls || photoUrls.length === 0) return null;
 
@@ -72,16 +84,16 @@ export const SwipeableImageGallery: React.FC<SwipeableImageGalleryProps> = ({ ph
       >
         {/* Images with transition */}
         <div className="w-full h-full relative overflow-hidden">
-          <AnimatePresence initial={false} mode="wait">
+          <AnimatePresence initial={false}>
             <motion.img
               key={currentIndex}
               src={photoUrls[currentIndex]}
               alt={`${itemName} ${currentIndex + 1}`}
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.05 }}
-              transition={{ duration: 0.25, ease: 'easeInOut' }}
-              className="w-full h-full object-cover pointer-events-none"
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
               referrerPolicy="no-referrer"
             />
           </AnimatePresence>

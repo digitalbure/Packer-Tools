@@ -143,7 +143,7 @@ export default function GetAppOverlay({ forceOpen, onClose }: GetAppOverlayProps
                   </span>
                 </div>
                 <h3 className="text-xl font-black uppercase tracking-tight text-white">
-                  Get Packer Tools
+                  Get Packer.Tools
                 </h3>
                 <p className="text-xs text-neutral-400 font-medium mt-1 max-w-xs leading-relaxed">
                   Install the native web app on your home screen for instant gear management, offline mode, and camera barcode scanning.
