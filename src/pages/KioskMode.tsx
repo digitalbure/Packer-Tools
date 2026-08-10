@@ -309,6 +309,9 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
 
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
       if (type === 'success') {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -524,6 +527,16 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
           const rawTagSnap = await getDocs(qRawTag);
           if (!rawTagSnap.empty) {
             foundItem = { id: rawTagSnap.docs[0].id, ...rawTagSnap.docs[0].data() } as GearItem;
+          } else {
+            const qUpperTag = query(
+              collection(db, 'users', targetUid, 'gearLibrary'),
+              where('assetTag', '==', decodedValue.toUpperCase()),
+              limit(1)
+            );
+            const upperTagSnap = await getDocs(qUpperTag);
+            if (!upperTagSnap.empty) {
+              foundItem = { id: upperTagSnap.docs[0].id, ...upperTagSnap.docs[0].data() } as GearItem;
+            }
           }
         }
       }
@@ -740,6 +753,16 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
           const rawTagSnap = await getDocs(qRawTag);
           if (!rawTagSnap.empty) {
             foundItem = { id: rawTagSnap.docs[0].id, ...rawTagSnap.docs[0].data() } as GearItem;
+          } else {
+            const qUpperTag = query(
+              collection(db, 'users', targetUid, 'gearLibrary'),
+              where('assetTag', '==', decodedValue.toUpperCase()),
+              limit(1)
+            );
+            const upperTagSnap = await getDocs(qUpperTag);
+            if (!upperTagSnap.empty) {
+              foundItem = { id: upperTagSnap.docs[0].id, ...upperTagSnap.docs[0].data() } as GearItem;
+            }
           }
         }
       }
@@ -1709,6 +1732,34 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
               } as unknown as GearItem;
             } else {
               foundItem = { id: rawTagSnap.docs[0].id, ...dData } as GearItem;
+            }
+          } else {
+            // 4. Uppercase Tag Fallback
+            const qUpperTag = query(
+              colRef,
+              where('assetTag', '==', decodedValue.toUpperCase()),
+              limit(1)
+            );
+            const upperTagSnap = await getDocs(qUpperTag);
+            if (!upperTagSnap.empty) {
+              const dData = upperTagSnap.docs[0].data();
+              if (activeSourceType === 'customInventory') {
+                foundItem = {
+                  id: upperTagSnap.docs[0].id,
+                  name: dData.name,
+                  brand: dData.brand || '',
+                  model: dData.model || '',
+                  category: dData.category || 'Gear',
+                  assetTag: dData.assetTag || dData.id || upperTagSnap.docs[0].id,
+                  status: dData.status || 'available',
+                  condition: dData.condition || 'good',
+                  isSale: dData.isSale || false,
+                  price: dData.price || 0,
+                  quantity: dData.quantity || 1
+                } as unknown as GearItem;
+              } else {
+                foundItem = { id: upperTagSnap.docs[0].id, ...dData } as GearItem;
+              }
             }
           }
         }

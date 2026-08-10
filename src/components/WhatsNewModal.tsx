@@ -8,7 +8,7 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.20.1' | '5.20.0' | '5.19.4' | '5.19.3' | '5.19.2' | '5.19.1' | '5.19.0' | '5.18.6' | '5.18.5' | '5.18.4' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | '5.21.0' | '5.20.1' | '5.20.0' | '5.19.4' | '5.19.3' | '5.19.2' | '5.19.1' | '5.19.0' | '5.18.6' | '5.18.5' | '5.18.4' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,8 +24,34 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.20.1',
+      version: 'v5.21.0',
       tag: 'Latest',
+      tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Smart Intent-Driven User Onboarder & Dynamic Use-Case Auto-Configuration Engine',
+      date: 'August 2026',
+      icon: Sparkles,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Interactive Multi-Step Intent Onboarder',
+          desc: 'Added a 5-step smart onboarding wizard on initial sign-in and on-demand recalibration. Asks users for their exact intentions (Kit Building, Gear Asset Registry, Multi-Warehouse Inventory, Asset Labeling & Barcodes, Field Kiosk Checkouts, Safety Inspections, B2B Rentals).',
+          badge: 'Smart Onboarding'
+        },
+        {
+          title: 'Dynamic AI Module Layout Auto-Configuration',
+          desc: 'Intelligent AI recommendation engine maps selected intents to ideal platform modules, giving users a single click to auto-configure their workspace layout and hide unneeded navigation clutter.',
+          badge: 'Auto-Config Engine'
+        },
+        {
+          title: 'On-Demand Workspace Recalibration',
+          desc: 'Integrated one-click workspace setup recalibration across the Quick Actions Drawer, Profile Settings, and Command Palette.',
+          badge: 'Workspace Calibration'
+        }
+      ]
+    },
+    {
+      version: 'v5.20.1',
+      tag: 'Stable',
       tagBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-300',
       title: 'Security Audit & Hardening: Developer Endpoints, SSRF Mitigation, Cryptographic Webhooks & Brand Standardization',
       date: 'August 2026',
@@ -931,7 +957,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[10px] uppercase font-black tracking-wide hidden sm:inline text-neutral-400">
-                  Build v5.20.1
+                  Build v5.21.0
                 </span>
                 <button
                   type="button"

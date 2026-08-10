@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import { motion } from 'motion/react';
 import { useIndustry } from '../context/IndustryContext';
-import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award, Sun, Moon, Smartphone, Download, Layout, LayoutDashboard } from 'lucide-react';
+import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Sparkles, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award, Sun, Moon, Smartphone, Download, Layout, LayoutDashboard } from 'lucide-react';
 import { getUsage } from '../lib/limitUtils';
 import PaymentModal from '../components/PaymentModal';
 import UpgradeNowModal from '../components/UpgradeNowModal';
@@ -1239,6 +1239,32 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                     })}
                   </div>
                 </div>
+
+                {/* Re-Calibrate Smart Use-Case Onboarding Banner */}
+                <div className="p-5 bg-gradient-to-r from-neutral-900 to-neutral-950 text-white rounded-3xl border border-neutral-800 space-y-3 shadow-xl mt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={18} className="text-[#ff4f3a]" />
+                      <span className="text-xs font-mono font-black uppercase tracking-wider text-amber-400">
+                        Smart Intent Onboarding Wizard
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-black bg-[#ff4f3a]/20 text-[#ff4f3a] px-2 py-0.5 rounded-md uppercase">
+                      v5.21.0
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-300 font-medium leading-relaxed">
+                    Need to re-configure Packer.Tools for a new project, team, or specific use case? Re-run the interactive onboarding calibrator to select your goals and let AI optimize your layout.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-onboarding'))}
+                    className="px-5 py-2.5 bg-[#ff4f3a] hover:bg-[#e04532] text-white rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center gap-2 shadow-md active:scale-95 cursor-pointer"
+                  >
+                    <Sparkles size={14} />
+                    <span>Launch Smart Use-Case Onboarder</span>
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -1436,7 +1462,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
             {/* Active Beta Notifications Desk */}
             <section className="bg-white p-5 sm:p-10 rounded-2xl sm:rounded-[3rem] border border-primary/5 shadow-sm space-y-6 sm:space-y-8">
             <header className="space-y-1">
-              <span className="micro-label bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded-full inline-block font-black">Release Build v5.19.2</span>
+              <span className="micro-label bg-green-50 text-green-600 border border-green-200 px-2 py-0.5 rounded-full inline-block font-black">Release Build v5.21.0</span>
               <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
                 <Mail className="text-primary shrink-0" />
                 <span>Notification Testing Desk</span>
@@ -1654,7 +1680,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
             <div className="space-y-2 relative">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] bg-primary/20 text-primary border border-primary/30 font-black px-2.5 py-1 rounded-xl uppercase tracking-widest animate-pulse">
-                  App PWA v5.19.2
+                  App PWA v5.21.0
                 </span>
                 {isInstalled && (
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black px-2.5 py-1 rounded-xl uppercase tracking-widest">

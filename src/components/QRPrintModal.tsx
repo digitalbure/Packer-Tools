@@ -708,6 +708,115 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
     window.addEventListener('touchend', handlePointerUp);
   };
 
+  // Corner Touch Resize Handler for Elements
+  const handleResizeMouseDown = (e: React.MouseEvent | React.TouchEvent, elementId: string, corner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => {
+    e.stopPropagation();
+    hapticMedium();
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    const el = canvasElements.find(item => item.id === elementId);
+    if (!el) return;
+
+    const initialX = el.x;
+    const initialY = el.y;
+    const initialW = el.width;
+    const initialH = el.height;
+    let hasMoved = false;
+
+    const canvasEl = document.getElementById('studio-canvas-container');
+    if (!canvasEl) return;
+    const rect = canvasEl.getBoundingClientRect();
+    const canvasPxWidth = rect.width || 1;
+    const canvasPxHeight = rect.height || 1;
+
+    const handlePointerMove = (moveEvent: MouseEvent | TouchEvent) => {
+      const curX = 'touches' in moveEvent ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const curY = 'touches' in moveEvent ? moveEvent.touches[0].clientY : moveEvent.clientY;
+      const deltaX = curX - clientX;
+      const deltaY = curY - clientY;
+
+      if (!hasMoved && (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2)) {
+        saveStateToUndo(canvasElements);
+        hasMoved = true;
+      }
+
+      const deltaPctX = (deltaX / canvasPxWidth) * 100;
+      const deltaPctY = (deltaY / canvasPxHeight) * 100;
+
+      let newX = initialX;
+      let newY = initialY;
+      let newW = initialW;
+      let newH = initialH;
+
+      if (corner.includes('right')) {
+        newW = Math.max(5, Math.min(100 - initialX, initialW + deltaPctX));
+      }
+      if (corner.includes('left')) {
+        const maxDeltaX = initialW - 5;
+        const actualDeltaX = Math.min(deltaPctX, maxDeltaX);
+        newX = Math.max(0, initialX + actualDeltaX);
+        newW = initialW - (newX - initialX);
+      }
+      if (corner.includes('bottom')) {
+        newH = Math.max(5, Math.min(100 - initialY, initialH + deltaPctY));
+      }
+      if (corner.includes('top')) {
+        const maxDeltaY = initialH - 5;
+        const actualDeltaY = Math.min(deltaPctY, maxDeltaY);
+        newY = Math.max(0, initialY + actualDeltaY);
+        newH = initialH - (newY - initialY);
+      }
+
+      setCanvasElements(prev => prev.map(item => {
+        if (item.id === elementId) {
+          return {
+            ...item,
+            x: Number(newX.toFixed(2)),
+            y: Number(newY.toFixed(2)),
+            width: Number(newW.toFixed(2)),
+            height: Number(newH.toFixed(2))
+          };
+        }
+        return item;
+      }));
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener('mousemove', handlePointerMove as any);
+      window.removeEventListener('mouseup', handlePointerUp);
+      window.removeEventListener('touchmove', handlePointerMove as any);
+      window.removeEventListener('touchend', handlePointerUp);
+    };
+
+    window.addEventListener('mousemove', handlePointerMove as any);
+    window.addEventListener('mouseup', handlePointerUp);
+    window.addEventListener('touchmove', handlePointerMove as any, { passive: false });
+    window.addEventListener('touchend', handlePointerUp);
+  };
+
+  // Auto-fit canvas to container width on mobile
+  const handleAutoFitZoom = () => {
+    const container = document.getElementById('design-editor-center-panel');
+    const availableWidth = container ? (container.getBoundingClientRect().width - 48) : (typeof window !== 'undefined' ? window.innerWidth - 32 : 300);
+    if (availableWidth > 0 && canvasWidth > 0) {
+      const requiredPx = canvasWidth * 3.78;
+      const fitZoom = Math.min(2.0, Math.max(0.25, Math.floor((availableWidth / requiredPx) * 100) / 100));
+      setCanvasZoom(fitZoom);
+      hapticLight();
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && typeof window !== 'undefined' && window.innerWidth < 1024) {
+      const timer = setTimeout(() => {
+        handleAutoFitZoom();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, canvasWidth, canvasHeight]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const targets = selectedElementIds.length > 0 ? selectedElementIds : (selectedElementId ? [selectedElementId] : []);
@@ -1400,18 +1509,18 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
         {/* =========================================================
             HEADER & ACTIONS PANEL
             ========================================================= */}
-        <div className="p-3 sm:p-5 bg-[#1a1a1e] border-b border-neutral-800 flex flex-row items-center justify-between gap-2 sm:gap-4 print:hidden select-none shrink-0">
+        <div className="p-2.5 sm:p-5 bg-[#1a1a1e] border-b border-neutral-800 flex flex-row items-center justify-between gap-2 sm:gap-4 print:hidden select-none shrink-0">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div className="bg-[#0066cc] p-2 sm:p-2.5 rounded-xl text-white shrink-0">
               <QrCode size={18} className="animate-pulse sm:w-[22px] sm:h-[22px]" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <h2 className="text-sm sm:text-lg font-black tracking-tight uppercase font-sans truncate">
+                <h2 className="text-xs sm:text-lg font-black tracking-tight uppercase font-sans truncate text-white">
                   Label Studio
                 </h2>
-                <span className="text-[8px] sm:text-[9px] uppercase font-black tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 sm:px-2 py-0.5 rounded shrink-0">
-                  v5.19.2
+                <span className="text-[8px] sm:text-[9px] uppercase font-black tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 sm:px-2 py-0.5 rounded shrink-0 hidden sm:inline-block">
+                  v5.21.0
                 </span>
               </div>
               <p className="text-xs text-neutral-400 hidden sm:block truncate">
@@ -1421,19 +1530,19 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 justify-end">
-            <div className="flex bg-neutral-800 p-0.5 rounded-lg border border-neutral-700 text-xs">
+            <div className="flex bg-neutral-800 p-0.5 rounded-lg border border-neutral-700 text-xs shrink-0">
               <button 
                 onClick={() => setSheetMode(false)}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-md font-bold transition flex items-center gap-1 text-[11px] sm:text-xs ${!sheetMode ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+                className={`px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-md font-bold transition flex items-center gap-1 text-[10px] sm:text-xs ${!sheetMode ? 'bg-neutral-700 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'}`}
               >
-                <Tv size={12} className="sm:w-[13px] sm:h-[13px]" />
+                <Tv size={11} className="sm:w-[13px] sm:h-[13px]" />
                 <span><span className="hidden sm:inline">Continuous </span>Roll</span>
               </button>
               <button 
                 onClick={() => setSheetMode(true)}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-md font-bold transition flex items-center gap-1 text-[11px] sm:text-xs ${sheetMode ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+                className={`px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-md font-bold transition flex items-center gap-1 text-[10px] sm:text-xs ${sheetMode ? 'bg-neutral-700 text-white shadow-sm' : 'text-neutral-400 hover:text-neutral-200'}`}
               >
-                <Layout size={12} className="sm:w-[13px] sm:h-[13px]" />
+                <Layout size={11} className="sm:w-[13px] sm:h-[13px]" />
                 <span><span className="hidden sm:inline">Avery </span>Sheets</span>
               </button>
             </div>
@@ -1441,12 +1550,12 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
             <button
               onClick={handleSystemPrint}
               disabled={selectedIds.size === 0}
-              className="flex items-center gap-1 sm:gap-1.5 px-3 sm:px-5 py-1.5 sm:py-2.5 bg-[#0066cc] text-white rounded-xl text-[11px] sm:text-xs font-black uppercase hover:bg-opacity-95 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-[#0066cc]/20 shrink-0"
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-5 py-1.5 sm:py-2.5 bg-[#0066cc] text-white rounded-xl text-[10px] sm:text-xs font-black uppercase hover:bg-opacity-95 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-lg shadow-[#0066cc]/20 shrink-0"
               type="button"
             >
-              <Printer size={14} className="sm:w-[15px] sm:h-[15px]" />
+              <Printer size={13} className="sm:w-[15px] sm:h-[15px]" />
               <span className="hidden sm:inline">Print {selectedIds.size > 0 ? `(${selectedIds.size})` : ''} Labels</span>
-              <span className="sm:hidden">Print ({selectedIds.size})</span>
+              <span className="inline sm:hidden">Print ({selectedIds.size})</span>
             </button>
             
             <button 
@@ -1462,46 +1571,55 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
         {/* =========================================================
             MOBILE VIEW SWITCHER (Visible on < lg screens)
             ========================================================= */}
-        <div className="lg:hidden flex bg-[#131316] border-b border-neutral-800 p-1.5 gap-1 shrink-0 select-none">
+        <div className="lg:hidden flex bg-[#131316] border-b border-neutral-800 p-1.5 gap-1 shrink-0 select-none z-30">
           <button
             type="button"
-            onClick={() => setMobilePanel('canvas')}
-            className={`flex-1 py-2 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition ${
+            onClick={() => {
+              hapticLight();
+              setMobilePanel('canvas');
+            }}
+            className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition ${
               mobilePanel === 'canvas'
                 ? 'bg-[#0066cc] text-white shadow-md'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
             }`}
           >
-            <QrCode size={13} />
-            <span>Canvas</span>
+            <QrCode size={12} />
+            <span>Canvas View</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setMobilePanel('tools')}
-            className={`flex-1 py-2 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition ${
+            onClick={() => {
+              hapticLight();
+              setMobilePanel(mobilePanel === 'tools' ? 'canvas' : 'tools');
+            }}
+            className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition ${
               mobilePanel === 'tools'
                 ? 'bg-[#ff4f3a] text-white shadow-md'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
             }`}
           >
-            <Paintbrush size={13} />
+            <Paintbrush size={12} />
             <span>Studio Tools</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setMobilePanel('inspector')}
-            className={`flex-1 py-2 px-2 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition relative ${
+            onClick={() => {
+              hapticLight();
+              setMobilePanel(mobilePanel === 'inspector' ? 'canvas' : 'inspector');
+            }}
+            className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition relative ${
               mobilePanel === 'inspector'
-                ? 'bg-neutral-700 text-white shadow-md'
+                ? 'bg-[#0066cc] text-white shadow-md'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
             }`}
           >
-            <SlidersHorizontal size={13} />
+            <SlidersHorizontal size={12} />
             <span>Inspector</span>
             {selectedElementId && (
-              <span className="w-2 h-2 rounded-full bg-[#0066cc] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             )}
           </button>
         </div>
@@ -1509,15 +1627,31 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
         {/* =========================================================
             MAIN WORKSPACE: SPLIT PANEL LAYOUT
             ========================================================= */}
-        <div className="flex-1 overflow-hidden flex flex-col lg:flex-row print:block">
+        <div className="flex-1 overflow-hidden flex flex-col lg:flex-row print:block relative">
           
-          {/* 1. LEFT PANEL: TOOLBOX (Width: Resizable on desktop) */}
+          {/* 1. LEFT PANEL: TOOLBOX (Width: Resizable on desktop / Slide-up Sheet on Mobile) */}
           <div 
-            className={`w-full border-r border-neutral-800 flex-col lg:flex shrink-0 bg-[#16161a] overflow-hidden print:hidden select-none ${
-              mobilePanel === 'tools' ? 'flex flex-1' : 'hidden'
+            className={`w-full border-r border-neutral-800 flex-col shrink-0 bg-[#16161a] overflow-hidden print:hidden select-none transition-all duration-200 ${
+              mobilePanel === 'tools' 
+                ? 'absolute inset-x-0 bottom-0 z-40 h-[65vh] rounded-t-3xl border-t-2 border-[#ff4f3a] shadow-2xl flex lg:relative lg:inset-auto lg:h-auto lg:rounded-none lg:border-t-0 lg:shadow-none lg:flex' 
+                : 'hidden lg:flex'
             }`}
             style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${leftPanelWidth}px` : undefined }}
           >
+            {/* Mobile Bottom Sheet Header */}
+            <div className="lg:hidden p-2.5 bg-[#111114] border-b border-neutral-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-1 bg-neutral-600 rounded-full mx-auto" />
+                <span className="text-xs font-black uppercase text-white tracking-wider">Studio Tools</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobilePanel('canvas')}
+                className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-xs font-bold transition"
+              >
+                Done
+              </button>
+            </div>
             {/* HORIZONTAL TAB BAR FOR MOBILE */}
             <div className="lg:hidden flex bg-[#101012] border-b border-neutral-800 p-2 gap-1.5 overflow-x-auto no-scrollbar shrink-0">
               {[
@@ -2320,9 +2454,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
           {/* =========================================================
               2. CENTER PANEL: LIVE DESIGN CANVAS (Width: Dynamic / Flexible)
               ========================================================= */}
-          <div className={`flex-1 bg-[#1a1a1e] flex-col overflow-hidden relative ${
-            mobilePanel === 'canvas' ? 'flex' : 'hidden lg:flex'
-          }`} id="design-editor-center-panel">
+          <div className="flex-1 bg-[#1a1a1e] flex flex-col overflow-hidden relative min-h-[300px]" id="design-editor-center-panel">
             
             {/* Visual Editor Action Toolbar */}
             <div className="p-2 sm:p-3 bg-[#131316] border-b border-neutral-800 flex items-center justify-between text-neutral-400 text-xs select-none shrink-0 print:hidden overflow-x-auto no-scrollbar gap-2">
@@ -2496,6 +2628,14 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
 
               <div className="flex items-center gap-2">
                 {/* Zoom tools */}
+                <button
+                  type="button"
+                  onClick={handleAutoFitZoom}
+                  className="px-2 py-0.5 bg-[#0066cc]/20 border border-[#0066cc]/40 text-[#0066cc] hover:bg-[#0066cc]/30 rounded text-[10px] font-black uppercase transition shrink-0"
+                  title="Auto-Fit Canvas to Screen Width"
+                >
+                  Fit
+                </button>
                 <button
                   onClick={() => setCanvasZoom(z => Math.max(z - 0.25, 0.25))}
                   disabled={canvasZoom <= 0.25}
@@ -2885,13 +3025,37 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                               />
                             )}
 
-                            {/* Selection Grips */}
+                            {/* Touch Resize Corner Handles */}
                             {isSelected && (
                               <>
-                                <span className="absolute -top-1 -left-1 w-2 h-2 bg-[#0066cc] rounded-full pointer-events-none" />
-                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#0066cc] rounded-full pointer-events-none" />
-                                <span className="absolute -bottom-1 -left-1 w-2 h-2 bg-[#0066cc] rounded-full pointer-events-none" />
-                                <span className="absolute -bottom-1 -right-1 w-2 h-2 bg-[#0066cc] rounded-full pointer-events-none" />
+                                <div
+                                  onMouseDown={(e) => handleResizeMouseDown(e, el.id, 'top-left')}
+                                  onTouchStart={(e) => handleResizeMouseDown(e, el.id, 'top-left')}
+                                  className="absolute -top-3 -left-3 w-6 h-6 flex items-center justify-center cursor-nwse-resize z-30 touch-none"
+                                >
+                                  <span className="w-2.5 h-2.5 bg-[#0066cc] border-2 border-white rounded-full shadow-md" />
+                                </div>
+                                <div
+                                  onMouseDown={(e) => handleResizeMouseDown(e, el.id, 'top-right')}
+                                  onTouchStart={(e) => handleResizeMouseDown(e, el.id, 'top-right')}
+                                  className="absolute -top-3 -right-3 w-6 h-6 flex items-center justify-center cursor-nesw-resize z-30 touch-none"
+                                >
+                                  <span className="w-2.5 h-2.5 bg-[#0066cc] border-2 border-white rounded-full shadow-md" />
+                                </div>
+                                <div
+                                  onMouseDown={(e) => handleResizeMouseDown(e, el.id, 'bottom-left')}
+                                  onTouchStart={(e) => handleResizeMouseDown(e, el.id, 'bottom-left')}
+                                  className="absolute -bottom-3 -left-3 w-6 h-6 flex items-center justify-center cursor-nesw-resize z-30 touch-none"
+                                >
+                                  <span className="w-2.5 h-2.5 bg-[#0066cc] border-2 border-white rounded-full shadow-md" />
+                                </div>
+                                <div
+                                  onMouseDown={(e) => handleResizeMouseDown(e, el.id, 'bottom-right')}
+                                  onTouchStart={(e) => handleResizeMouseDown(e, el.id, 'bottom-right')}
+                                  className="absolute -bottom-3 -right-3 w-6 h-6 flex items-center justify-center cursor-nwse-resize z-30 touch-none"
+                                >
+                                  <span className="w-2.5 h-2.5 bg-[#0066cc] border-2 border-white rounded-full shadow-md" />
+                                </div>
                               </>
                             )}
                           </div>
@@ -2901,15 +3065,94 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                   </div>
                 </div>
               )}
+
+              {/* Mobile Floating Quick Action Toolbar for Selected Element */}
+              <AnimatePresence>
+                {selectedElementId && (
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 20, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="lg:hidden absolute bottom-3 left-3 right-3 bg-[#111115]/95 backdrop-blur-md border border-neutral-700/80 p-2 rounded-2xl shadow-2xl flex items-center justify-around gap-1 z-30 select-none"
+                  >
+                    {/* Quick Edit */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticLight();
+                        setMobilePanel('inspector');
+                      }}
+                      className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl bg-neutral-800 text-white hover:bg-neutral-700 text-[9px] font-bold gap-0.5 active:scale-95 transition"
+                    >
+                      <Edit3 size={15} className="text-[#0066cc]" />
+                      <span>Edit</span>
+                    </button>
+
+                    {/* Duplicate */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticLight();
+                        if (selectedElementId) duplicateElement(selectedElementId);
+                      }}
+                      className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl bg-neutral-800 text-white hover:bg-neutral-700 text-[9px] font-bold gap-0.5 active:scale-95 transition"
+                    >
+                      <Copy size={15} className="text-emerald-400" />
+                      <span>Duplicate</span>
+                    </button>
+
+                    {/* Center */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticLight();
+                        handleCanvasAlign('center');
+                        handleCanvasAlign('middle');
+                      }}
+                      className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl bg-neutral-800 text-white hover:bg-neutral-700 text-[9px] font-bold gap-0.5 active:scale-95 transition"
+                    >
+                      <AlignCenterHorizontal size={15} className="text-amber-400" />
+                      <span>Center</span>
+                    </button>
+
+                    {/* Front */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticLight();
+                        handleLayerOrder('front');
+                      }}
+                      className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl bg-neutral-800 text-white hover:bg-neutral-700 text-[9px] font-bold gap-0.5 active:scale-95 transition"
+                    >
+                      <Layers size={15} className="text-purple-400" />
+                      <span>Front</span>
+                    </button>
+
+                    {/* Delete */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        hapticMedium();
+                        if (selectedElementId) deleteElement(selectedElementId);
+                      }}
+                      className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 text-[9px] font-bold gap-0.5 active:scale-95 transition"
+                    >
+                      <Trash2 size={15} />
+                      <span>Delete</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* =========================================================
                 3. BOTTOM PANEL: LIVE PREVIEW SWITCHER (Height: 140px)
                 ========================================================= */}
-            <div className="h-32 border-t border-neutral-800 bg-[#16161a] p-4 flex flex-col shrink-0 print:hidden select-none">
-              <div className="flex items-center justify-between pb-2">
+            <div className="h-28 sm:h-32 border-t border-neutral-800 bg-[#16161a] p-2.5 sm:p-4 flex flex-col shrink-0 print:hidden select-none">
+              <div className="flex items-center justify-between pb-1.5 sm:pb-2">
                 <span className="text-[10px] font-black uppercase text-neutral-400 tracking-wider">Live Preview Context Binding</span>
-                <span className="text-[10px] text-neutral-500">Pick any asset to map dynamic variables in real-time</span>
+                <span className="text-[10px] text-neutral-500 hidden sm:inline">Pick any asset to map dynamic variables in real-time</span>
               </div>
               <div className="flex-1 overflow-x-auto flex items-center gap-2.5 pb-1">
                 {items.slice(0, 8).map((item, idx) => {
@@ -2955,14 +3198,30 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
           </div>
 
           {/* =========================================================
-              4. RIGHT PANEL: PROPERTIES INSPECTOR (Width: Resizable on desktop)
+              4. RIGHT PANEL: PROPERTIES INSPECTOR (Width: Resizable on desktop / Slide-up Sheet on Mobile)
               ========================================================= */}
           <div 
-            className={`w-full border-l border-neutral-800 flex-col lg:flex shrink-0 bg-[#16161a] overflow-hidden print:hidden select-none ${
-              mobilePanel === 'inspector' ? 'flex flex-1' : 'hidden'
+            className={`w-full border-l border-neutral-800 flex-col shrink-0 bg-[#16161a] overflow-hidden print:hidden select-none transition-all duration-200 ${
+              mobilePanel === 'inspector' 
+                ? 'absolute inset-x-0 bottom-0 z-40 h-[65vh] rounded-t-3xl border-t-2 border-[#0066cc] shadow-2xl flex lg:relative lg:inset-auto lg:h-auto lg:rounded-none lg:border-t-0 lg:shadow-none lg:flex' 
+                : 'hidden lg:flex'
             }`}
             style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${rightPanelWidth}px` : undefined }}
           >
+            {/* Mobile Bottom Sheet Header */}
+            <div className="lg:hidden p-2.5 bg-[#111114] border-b border-neutral-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-1 bg-neutral-600 rounded-full mx-auto" />
+                <span className="text-xs font-black uppercase text-white tracking-wider">Properties Inspector</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobilePanel('canvas')}
+                className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-xs font-bold transition"
+              >
+                Done
+              </button>
+            </div>
             <div className="p-4 bg-[#111114] border-b border-neutral-800 flex items-center gap-2 text-neutral-400">
               <SlidersHorizontal size={14} className="text-[#0066cc]" />
               <span className="text-[11px] font-black uppercase tracking-wider">Properties Inspector</span>

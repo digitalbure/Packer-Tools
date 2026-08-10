@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Zap, 
+  Sparkles,
   X, 
   Download, 
   Printer, 
@@ -710,6 +711,31 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
                   </>
                 ) : (
                   <div className="space-y-5 animate-fade-in">
+                    {/* Launch Smart Use-Case Onboarder Card */}
+                    <div className="p-4 bg-gradient-to-r from-neutral-900 to-neutral-950 text-white rounded-2xl border border-neutral-800 space-y-2.5 shadow-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Sparkles size={16} className="text-[#ff4f3a]" />
+                          <span className="text-[10px] font-mono font-black uppercase tracking-wider text-amber-400">Smart Onboarding Calibrator</span>
+                        </div>
+                        <span className="text-[8px] font-bold bg-[#ff4f3a]/20 text-[#ff4f3a] px-1.5 py-0.5 rounded uppercase">v5.21.0</span>
+                      </div>
+                      <p className="text-[10px] text-neutral-300 font-medium leading-relaxed">
+                        Re-run intent wizard to auto-configure workspace modules, industry terminology & UI density for your exact use case.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.dispatchEvent(new CustomEvent('open-onboarding'));
+                          setIsOpen(false);
+                        }}
+                        className="w-full py-2.5 bg-[#ff4f3a] hover:bg-[#e04532] text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition flex items-center justify-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
+                      >
+                        <Sparkles size={12} />
+                        Launch Smart Use-Case Onboarder
+                      </button>
+                    </div>
+
                     {/* Calibration Presets Section */}
                     <div className="space-y-2.5">
                       <h4 className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Layout Preset Presets</h4>

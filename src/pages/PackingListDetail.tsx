@@ -5742,16 +5742,17 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
               </button>
             </header>
 
-            <div className="flex-1 relative flex items-center justify-center p-4 md:p-12 overflow-hidden">
-              <AnimatePresence mode="wait">
+            <div className="flex-1 relative flex items-center justify-center p-4 md:p-12 overflow-hidden bg-black/60">
+              <AnimatePresence initial={false}>
                 <motion.img
                   key={activePhotoIndex}
                   src={viewingGalleryItem.photoUrls[activePhotoIndex]}
                   alt={`${viewingGalleryItem.name} ${activePhotoIndex + 1}`}
-                  initial={{ opacity: 0, scale: 0.9, x: 20 }}
-                  animate={{ opacity: 1, scale: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 1.1, x: -20 }}
-                  className="max-w-full max-h-full object-contain rounded-3xl shadow-2xl"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.02 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  className="max-w-full max-h-full object-contain rounded-3xl shadow-2xl absolute"
                   referrerPolicy="no-referrer"
                 />
               </AnimatePresence>

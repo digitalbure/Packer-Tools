@@ -237,16 +237,23 @@ const AIRecognitionDisplay = ({ config }: { config?: AdminSettings['aiRecognitio
 
   return (
     <div className="flex-1 relative bg-neutral-900 overflow-hidden min-h-[400px] lg:min-h-full">
+      {/* Underlying steady image to prevent background flash/glitch during slide cross-fades */}
+      <img
+        src={currentItem.image}
+        alt={currentItem.name}
+        className="absolute inset-0 w-full h-full object-cover grayscale opacity-90 pointer-events-none"
+        referrerPolicy="no-referrer"
+      />
       <AnimatePresence initial={false}>
         <motion.img
           key={`img-${currentItem.id || currentItem.name || index}`}
-          initial={{ scale: 1.08, opacity: 0 }}
+          initial={{ scale: 1.05, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
+          transition={{ duration: 0.9, ease: [0.25, 1, 0.5, 1] }}
           src={currentItem.image}
           alt={currentItem.name}
-          className="absolute inset-0 w-full h-full object-cover grayscale hover:grayscale-0 transition-[filter] duration-500"
+          className="absolute inset-0 w-full h-full object-cover grayscale hover:grayscale-0 transition-[filter] duration-500 z-10"
           referrerPolicy="no-referrer"
         />
       </AnimatePresence>

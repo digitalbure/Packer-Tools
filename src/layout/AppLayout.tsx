@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
@@ -53,6 +53,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     isLayoutHidden,
     showScrollTop
   } = useAuth();
+
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpenOnboarding = () => setIsOnboardingOpen(true);
+    window.addEventListener('open-onboarding', handleOpenOnboarding);
+    return () => window.removeEventListener('open-onboarding', handleOpenOnboarding);
+  }, []);
 
   const isLandingPage = !user && (
     currentHash === '' || 
@@ -204,11 +212,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           isDismissible={selectedCommunity !== null}
         />
 
-        {user && !user.onboardingCompleted && (
+        {user && (!user.onboardingCompleted || isOnboardingOpen) && (
           <Onboarding 
             user={user} 
+            onClose={() => setIsOnboardingOpen(false)}
             onComplete={() => {
-              setUser({ ...user, onboardingCompleted: true });
+              setIsOnboardingOpen(false);
+              setUser(prev => prev ? { ...prev, onboardingCompleted: true } : null);
               if (!selectedCommunity) {
                 setIsCommunitySelectorOpen(true);
               }

@@ -82,18 +82,25 @@ export const SwipeableImageGallery: React.FC<SwipeableImageGalleryProps> = ({ ph
         onMouseUp={handleMouseUp}
         onMouseLeave={() => setDragStartX(null)}
       >
-        {/* Images with transition */}
-        <div className="w-full h-full relative overflow-hidden">
+        {/* Images with smooth seamless cross-fade transition */}
+        <div className="w-full h-full relative overflow-hidden bg-neutral-900">
+          {/* Backdrop fallback image to prevent background flash/glitch during cross-fade */}
+          <img
+            src={photoUrls[currentIndex]}
+            alt={`${itemName} base`}
+            className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80"
+            referrerPolicy="no-referrer"
+          />
           <AnimatePresence initial={false}>
             <motion.img
               key={currentIndex}
               src={photoUrls[currentIndex]}
               alt={`${itemName} ${currentIndex + 1}`}
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+              transition={{ duration: 0.35, ease: 'easeInOut' }}
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none z-10"
               referrerPolicy="no-referrer"
             />
           </AnimatePresence>
