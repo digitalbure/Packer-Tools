@@ -219,5 +219,14 @@ To ensure ultra-crisp physical barcode scanning and flexible asset tagging acros
 - Supports PNG, JPG, PDF, and SVG formats with physical mm scale conversion (3.78px per mm) and resolution scales from 1x (72 DPI) to 4x (600 DPI).
 - Supports transparent PNG outputs and multi-label batch PDF generation for bulk asset tags.
 
+### 5. Asset Navigator & QR Label Library Drawer (`isAssetDrawerOpen`):
+- Replaces cramped bottom preview bindings with a full modal drawer overlay featuring instant multi-field fuzzy search (Name, Tag, Brand, Model, Serial, Category) and Category/Status filter pills.
+- Supports both Card Grid and Compact List views.
+- Provides one-click **"Live Preview"** canvas binding and **"Queue for Label Printing"** multi-select options with haptic feedback.
+
+### 6. Expanded Live Preview Context Dock & Native Mobile UX:
+- **Desktop Dock**: Features an active asset card, horizontal fast-switcher carousel, and an expansion button (`isDockExpanded`) to reveal a multi-row asset grid directly beneath the canvas.
+- **Native Mobile Experience**: Features touch-optimized bottom sheets with tactile drag handles, sticky mobile search inputs, swipeable category chips, and floating mobile CTA action bars.
+
 
 

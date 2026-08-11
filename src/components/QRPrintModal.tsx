@@ -2,15 +2,15 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  X, Printer, Check, Search, Tag, QrCode, Settings2, Layout, Maximize2, 
+  X, Printer, Check, Search, Tag, QrCode, Settings2, Layout, Maximize2, Minimize2,
   Type, Eye, EyeOff, Info, Sparkles, Sliders, Edit3, Paintbrush, Save, 
-  Layers, Cable, Tv, ShieldAlert, ArrowRightLeft, ZoomIn, ZoomOut, Grid, 
+  Layers, Cable, Tv, ShieldAlert, ArrowRightLeft, ZoomIn, ZoomOut, Grid, List,
   Plus, Copy, Trash2, AlignLeft, AlignCenter, AlignRight, FileText, 
-  SlidersHorizontal, Download, Upload, Heart, Share2, HelpCircle, 
+  SlidersHorizontal, Download, Upload, Heart, Share2, HelpCircle, Filter, ArrowUpDown,
   ChevronRight, RefreshCw, FolderOpen, AlertCircle, Sparkle, Smartphone, Cpu, History as HistoryIcon,
   AlignCenterHorizontal, AlignCenterVertical, AlignStartHorizontal, AlignEndHorizontal,
   AlignStartVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
-  Undo2, Redo2
+  Undo2, Redo2, CheckSquare, Square, Package, Box, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { GearItem, UserProfile } from '../types';
@@ -615,6 +615,15 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   // Search parameters for batch printing
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [batchCategory, setBatchCategory] = useState<string>('all');
+
+  // Asset Navigator Drawer & Enhanced Dock States
+  const [isAssetDrawerOpen, setIsAssetDrawerOpen] = useState<boolean>(false);
+  const [isDockExpanded, setIsDockExpanded] = useState<boolean>(false);
+  const [drawerSearchQuery, setDrawerSearchQuery] = useState<string>('');
+  const [drawerCategory, setDrawerCategory] = useState<string>('all');
+  const [drawerStatusFilter, setDrawerStatusFilter] = useState<string>('all');
+  const [drawerSortOrder, setDrawerSortOrder] = useState<'name' | 'tag' | 'category'>('name');
+  const [drawerLayoutView, setDrawerLayoutView] = useState<'grid' | 'list'>('grid');
 
   // Custom User Saved templates in Firestore / Local state
   const [userTemplates, setUserTemplates] = useState<StudioTemplate[]>([]);
@@ -1376,6 +1385,32 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
     items.forEach(i => { if (i.category) set.add(i.category); });
     return Array.from(set);
   }, [items]);
+
+  // Asset Navigator Drawer Filtered Items
+  const drawerFilteredItems = useMemo(() => {
+    return items.filter(item => {
+      const q = drawerSearchQuery.toLowerCase();
+      const matchesSearch = !q || 
+        item.name.toLowerCase().includes(q) ||
+        (item.brand && item.brand.toLowerCase().includes(q)) ||
+        (item.assetTag && item.assetTag.toLowerCase().includes(q)) ||
+        (item.model && item.model.toLowerCase().includes(q)) ||
+        (item.serial && item.serial.toLowerCase().includes(q)) ||
+        (item.category && item.category.toLowerCase().includes(q));
+
+      const matchesCategory = drawerCategory === 'all' || item.category === drawerCategory;
+      const matchesStatus = drawerStatusFilter === 'all' || 
+        (drawerStatusFilter === 'available' && (item.status === 'Available' || item.status === 'in_use' || !item.status)) ||
+        (drawerStatusFilter === 'maintenance' && item.status === 'Maintenance') ||
+        (drawerStatusFilter === 'checked_out' && item.status === 'Checked Out');
+
+      return matchesSearch && matchesCategory && matchesStatus;
+    }).sort((a, b) => {
+      if (drawerSortOrder === 'tag') return (a.assetTag || '').localeCompare(b.assetTag || '');
+      if (drawerSortOrder === 'category') return (a.category || '').localeCompare(b.category || '');
+      return a.name.localeCompare(b.name);
+    });
+  }, [items, drawerSearchQuery, drawerCategory, drawerStatusFilter, drawerSortOrder]);
 
   const toggleSelectAll = () => {
     if (selectedIds.size === printableItemsList.length) {
@@ -3333,36 +3368,182 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
             </div>
 
             {/* =========================================================
-                3. BOTTOM PANEL: LIVE PREVIEW SWITCHER (Height: 140px)
+                3. BOTTOM PANEL: LIVE PREVIEW SWITCHER & ASSET DOCK
                 ========================================================= */}
-            <div className="h-28 sm:h-32 border-t border-neutral-800 bg-[#16161a] p-2.5 sm:p-4 flex flex-col shrink-0 print:hidden select-none">
-              <div className="flex items-center justify-between pb-1.5 sm:pb-2">
-                <span className="text-[10px] font-black uppercase text-neutral-400 tracking-wider">Live Preview Context Binding</span>
-                <span className="text-[10px] text-neutral-500 hidden sm:inline">Pick any asset to map dynamic variables in real-time</span>
+            <div className={`border-t border-neutral-800 bg-[#16161a] p-2.5 sm:p-3.5 flex flex-col shrink-0 print:hidden select-none transition-all duration-300 ${
+              isDockExpanded ? 'h-64 sm:h-72' : 'h-32 sm:h-36'
+            }`}>
+              {/* Dock Header */}
+              <div className="flex items-center justify-between pb-2 border-b border-neutral-800/80">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-[#0066cc] animate-ping" />
+                  <span className="text-[10px] font-black uppercase text-white tracking-wider">Live Preview Context & Asset Dock</span>
+                  {(() => {
+                    const activeItem = items.find(i => i.id === previewItemId);
+                    if (!activeItem) return null;
+                    return (
+                      <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#0066cc]/15 border border-[#0066cc]/30 text-[#0066cc] text-[9px] font-bold">
+                        <Check size={10} /> Active Context: {activeItem.name} [{activeItem.assetTag || 'TAG-PENDING'}]
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hapticLight();
+                      setIsAssetDrawerOpen(true);
+                    }}
+                    className="px-3 py-1 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition flex items-center gap-1.5 shadow-md shadow-[#0066cc]/20"
+                  >
+                    <Search size={12} />
+                    <span>Search & Asset Navigator</span>
+                    <span className="px-1.5 py-0.2 bg-white/20 rounded-full text-[9px] font-mono">
+                      {selectedIds.size} Queued
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hapticLight();
+                      setIsDockExpanded(!isDockExpanded);
+                    }}
+                    className="p-1.5 text-neutral-400 hover:text-white bg-neutral-800/80 hover:bg-neutral-700 rounded-lg transition"
+                    title={isDockExpanded ? 'Collapse Asset Dock' : 'Expand Asset Dock'}
+                  >
+                    {isDockExpanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 overflow-x-auto flex items-center gap-2.5 pb-1">
-                {items.slice(0, 8).map((item, idx) => {
-                  const isCurrent = previewItemId === item.id;
-                  return (
-                    <button
-                      key={`${item.id}-${idx}`}
-                      onClick={() => setPreviewItemId(item.id)}
-                      className={`px-4 py-2.5 rounded-xl border text-left transition duration-150 shrink-0 flex items-center gap-3 ${
-                        isCurrent 
-                          ? 'bg-[#0066cc]/15 border-[#0066cc] text-white' 
-                          : 'bg-[#1e1e24] border-neutral-800/80 text-neutral-400 hover:bg-[#25252d]'
-                      }`}
-                    >
-                      <div className={`p-1.5 rounded-lg ${isCurrent ? 'bg-[#0066cc] text-white' : 'bg-neutral-800 text-neutral-500'}`}>
-                        <Tag size={12} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-extrabold text-[11px] truncate w-28 text-white">{item.name}</p>
-                        <p className="text-[9px] font-mono mt-0.5">{item.assetTag || 'TAG-PENDING'}</p>
-                      </div>
-                    </button>
-                  );
-                })}
+
+              {/* Dock Body: Assets Carousel or Expanded Grid */}
+              <div className="flex-1 overflow-hidden pt-2">
+                {!isDockExpanded ? (
+                  /* Horizontal Scroll Carousel */
+                  <div className="h-full overflow-x-auto flex items-center gap-2.5 pb-1 no-scrollbar">
+                    {/* Active Asset Featured Card */}
+                    {(() => {
+                      const activeItem = items.find(i => i.id === previewItemId);
+                      if (!activeItem) return null;
+                      return (
+                        <div className="px-3 py-2 rounded-xl bg-[#0066cc]/15 border-2 border-[#0066cc] text-white shrink-0 flex items-center gap-2.5 shadow-lg shadow-[#0066cc]/10 max-w-[200px]">
+                          <div className="p-2 rounded-lg bg-[#0066cc] text-white shrink-0">
+                            <Tag size={14} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-[#0066cc] block">Active Preview</span>
+                            <p className="font-extrabold text-[11px] truncate text-white">{activeItem.name}</p>
+                            <p className="text-[9px] text-neutral-300 font-mono truncate">{activeItem.assetTag || 'TAG-PENDING'}</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    <div className="h-8 w-px bg-neutral-800 shrink-0 my-auto" />
+
+                    {/* Fast Switcher Cards */}
+                    {items.map((item, idx) => {
+                      const isCurrent = previewItemId === item.id;
+                      const isQueued = selectedIds.has(item.id);
+                      return (
+                        <div
+                          key={`${item.id}-${idx}`}
+                          className={`px-3 py-2 rounded-xl border transition duration-150 shrink-0 flex items-center gap-2.5 ${
+                            isCurrent 
+                              ? 'bg-[#0066cc]/10 border-[#0066cc] text-white' 
+                              : 'bg-[#1e1e24] border-neutral-800/80 text-neutral-400 hover:bg-[#25252d] hover:border-neutral-700'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              hapticLight();
+                              setPreviewItemId(item.id);
+                            }}
+                            className="flex items-center gap-2 text-left min-w-0"
+                          >
+                            <div className={`p-1.5 rounded-lg shrink-0 ${isCurrent ? 'bg-[#0066cc] text-white' : 'bg-neutral-800 text-neutral-400'}`}>
+                              <Box size={12} />
+                            </div>
+                            <div className="min-w-0 w-28">
+                              <p className={`font-extrabold text-[11px] truncate ${isCurrent ? 'text-white' : 'text-neutral-200'}`}>{item.name}</p>
+                              <p className="text-[9px] font-mono text-neutral-400 truncate mt-0.5">{item.brand || 'General'} • {item.assetTag || 'TAG-PENDING'}</p>
+                            </div>
+                          </button>
+
+                          {/* Quick Queue Toggle Checkbox */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              hapticLight();
+                              toggleSelectId(item.id);
+                            }}
+                            className={`p-1.5 rounded-lg border transition shrink-0 ${
+                              isQueued ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-neutral-700 bg-neutral-900 text-neutral-500 hover:text-white'
+                            }`}
+                            title={isQueued ? 'In Batch Print Queue' : 'Add to Batch Print Queue'}
+                          >
+                            {isQueued ? <CheckSquare size={12} /> : <Square size={12} />}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Expanded Fast Grid View */
+                  <div className="h-full overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {items.map((item, idx) => {
+                      const isCurrent = previewItemId === item.id;
+                      const isQueued = selectedIds.has(item.id);
+                      return (
+                        <div
+                          key={`expanded-${item.id}-${idx}`}
+                          className={`p-2.5 rounded-xl border text-left transition flex items-center justify-between ${
+                            isCurrent
+                              ? 'bg-[#0066cc]/15 border-[#0066cc] text-white'
+                              : 'bg-[#1e1e24] border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                          }`}
+                        >
+                          <div className="min-w-0 pr-2">
+                            <p className="font-extrabold text-[11px] truncate text-white">{item.name}</p>
+                            <p className="text-[9px] text-neutral-400 truncate mt-0.5">{item.brand || 'General'} • {item.assetTag || 'NO-TAG'}</p>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                hapticLight();
+                                setPreviewItemId(item.id);
+                              }}
+                              className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase transition ${
+                                isCurrent ? 'bg-[#0066cc] text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                              }`}
+                            >
+                              {isCurrent ? 'Active' : 'Preview'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                hapticLight();
+                                toggleSelectId(item.id);
+                              }}
+                              className={`p-1 rounded-lg border transition ${
+                                isQueued ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-neutral-700 bg-neutral-900 text-neutral-500'
+                              }`}
+                            >
+                              {isQueued ? <CheckSquare size={12} /> : <Square size={12} />}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -4319,6 +4500,375 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                   </>
                 )}
               </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* =========================================================
+          ASSET NAVIGATOR & QR LABEL LIBRARY DRAWER MODAL
+          ========================================================= */}
+      {isAssetDrawerOpen && (
+        <div className="fixed inset-0 z-[999999] bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.98 }}
+            className="bg-[#141417] border border-neutral-800 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-5xl h-[88vh] flex flex-col overflow-hidden text-neutral-200"
+          >
+            {/* Drawer Header */}
+            <div className="p-4 sm:p-5 bg-[#18181c] border-b border-neutral-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-[#0066cc] text-white rounded-2xl shadow-lg shadow-[#0066cc]/20 shrink-0">
+                  <Package size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-white uppercase tracking-tight">Asset Navigator & QR Label Library</h3>
+                    <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                      {drawerFilteredItems.length} Available
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-400 hidden sm:block">
+                    Search and select inventory equipment records to bind live QR label canvases or assemble print queues.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleSelectAll}
+                  className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-xl text-xs font-extrabold transition hidden sm:inline-flex items-center gap-1.5"
+                >
+                  <CheckSquare size={13} />
+                  <span>{selectedIds.size === printableItemsList.length ? 'Deselect All' : 'Select All Filtered'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAssetDrawerOpen(false)}
+                  className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-xl transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Filter & Search Toolbar */}
+            <div className="p-3 sm:p-4 bg-[#111114] border-b border-neutral-800/80 space-y-3 shrink-0">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                {/* Search Bar */}
+                <div className="relative flex-1">
+                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+                  <input
+                    type="text"
+                    placeholder="Search by asset name, tag number, brand, model, or serial..."
+                    value={drawerSearchQuery}
+                    onChange={(e) => setDrawerSearchQuery(e.target.value)}
+                    className="w-full bg-[#1c1c22] border border-neutral-800 rounded-2xl py-2.5 pl-10 pr-10 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#0066cc] transition shadow-inner"
+                  />
+                  {drawerSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setDrawerSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white p-1"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Status Filter */}
+                <div className="flex items-center gap-1.5 bg-[#1c1c22] border border-neutral-800 p-1 rounded-2xl text-xs">
+                  {[
+                    { id: 'all', label: 'All Status' },
+                    { id: 'available', label: 'Available' },
+                    { id: 'checked_out', label: 'Out' },
+                    { id: 'maintenance', label: 'Repair' },
+                  ].map((st) => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => setDrawerStatusFilter(st.id)}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition ${
+                        drawerStatusFilter === st.id
+                          ? 'bg-[#0066cc] text-white shadow-sm'
+                          : 'text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* View Switcher */}
+                <div className="hidden sm:flex items-center gap-1 bg-[#1c1c22] border border-neutral-800 p-1 rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={() => setDrawerLayoutView('grid')}
+                    className={`p-1.5 rounded-xl transition ${drawerLayoutView === 'grid' ? 'bg-neutral-800 text-white' : 'text-neutral-500'}`}
+                    title="Grid View"
+                  >
+                    <Grid size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDrawerLayoutView('list')}
+                    className={`p-1.5 rounded-xl transition ${drawerLayoutView === 'list' ? 'bg-neutral-800 text-white' : 'text-neutral-500'}`}
+                    title="Compact List View"
+                  >
+                    <List size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Category Pills Bar */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[10px] font-extrabold no-scrollbar">
+                <button
+                  type="button"
+                  onClick={() => setDrawerCategory('all')}
+                  className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition ${
+                    drawerCategory === 'all'
+                      ? 'bg-neutral-200 text-black shadow-sm'
+                      : 'bg-[#1c1c22] text-neutral-400 hover:bg-neutral-800'
+                  }`}
+                >
+                  All Categories ({items.length})
+                </button>
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setDrawerCategory(cat)}
+                    className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition ${
+                      drawerCategory === cat
+                        ? 'bg-neutral-200 text-black shadow-sm'
+                        : 'bg-[#1c1c22] text-neutral-400 hover:bg-neutral-800'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Asset Items Display Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {drawerFilteredItems.length === 0 ? (
+                <div className="h-64 flex flex-col items-center justify-center text-center space-y-3">
+                  <div className="p-4 bg-neutral-900 rounded-full border border-neutral-800 text-neutral-500">
+                    <Search size={28} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">No Assets Match Your Search</h4>
+                    <p className="text-xs text-neutral-500 mt-1">Try adjusting search keywords or clearing filter categories.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDrawerSearchQuery('');
+                      setDrawerCategory('all');
+                      setDrawerStatusFilter('all');
+                    }}
+                    className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold rounded-xl transition"
+                  >
+                    Reset Search Filters
+                  </button>
+                </div>
+              ) : drawerLayoutView === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {drawerFilteredItems.map((item) => {
+                    const isPreview = previewItemId === item.id;
+                    const isQueued = selectedIds.has(item.id);
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-3.5 rounded-2xl border transition duration-200 flex flex-col justify-between space-y-3 relative overflow-hidden group ${
+                          isPreview 
+                            ? 'bg-[#0066cc]/15 border-[#0066cc] shadow-lg shadow-[#0066cc]/10' 
+                            : isQueued 
+                              ? 'bg-emerald-500/10 border-emerald-500/40' 
+                              : 'bg-[#18181c] border-neutral-800 hover:border-neutral-700'
+                        }`}
+                      >
+                        {/* Top Badges */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-neutral-800 text-neutral-300">
+                            {item.category || 'Gear Asset'}
+                          </span>
+                          
+                          <div className="flex items-center gap-1">
+                            {isPreview && (
+                              <span className="text-[8px] font-black uppercase tracking-wider bg-[#0066cc] text-white px-2 py-0.5 rounded-md">
+                                Live Preview
+                              </span>
+                            )}
+                            {item.status === 'Maintenance' ? (
+                              <span className="text-[8px] font-black uppercase bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-md">
+                                Repair
+                              </span>
+                            ) : item.status === 'Checked Out' ? (
+                              <span className="text-[8px] font-black uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-md">
+                                Out
+                              </span>
+                            ) : (
+                              <span className="text-[8px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-md">
+                                Ready
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Body Details */}
+                        <div>
+                          <h4 className="font-black text-xs text-white truncate leading-snug">{item.name}</h4>
+                          <p className="text-[10px] text-neutral-400 truncate mt-0.5">
+                            {item.brand || 'General'} {item.model ? `• ${item.model}` : ''}
+                          </p>
+                          <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-neutral-900 border border-neutral-800 text-[9px] font-mono text-neutral-300">
+                            <Tag size={10} className="text-[#0066cc]" />
+                            <span>{item.assetTag || 'TAG-PENDING'}</span>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="pt-2 border-t border-neutral-800/80 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              hapticLight();
+                              setPreviewItemId(item.id);
+                              toast.success(`Active live preview bound to: ${item.name}`);
+                            }}
+                            className={`flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition flex items-center justify-center gap-1 ${
+                              isPreview 
+                                ? 'bg-[#0066cc] text-white' 
+                                : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200'
+                            }`}
+                          >
+                            <Eye size={12} />
+                            <span>{isPreview ? 'Active' : 'Preview'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              hapticLight();
+                              toggleSelectId(item.id);
+                            }}
+                            className={`p-1.5 rounded-xl border transition flex items-center justify-center ${
+                              isQueued 
+                                ? 'bg-emerald-500 text-neutral-950 border-emerald-500' 
+                                : 'border-neutral-700 bg-neutral-900 text-neutral-400 hover:text-white'
+                            }`}
+                            title={isQueued ? 'Remove from Print Queue' : 'Queue for Printing'}
+                          >
+                            <CheckSquare size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Compact List View */
+                <div className="space-y-1.5">
+                  {drawerFilteredItems.map((item) => {
+                    const isPreview = previewItemId === item.id;
+                    const isQueued = selectedIds.has(item.id);
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-3 rounded-2xl border transition flex items-center justify-between ${
+                          isPreview
+                            ? 'bg-[#0066cc]/15 border-[#0066cc] text-white'
+                            : isQueued
+                              ? 'bg-emerald-500/10 border-emerald-500/40 text-white'
+                              : 'bg-[#18181c] border-neutral-800 hover:border-neutral-700 text-neutral-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 pr-3">
+                          <div className={`p-2 rounded-xl shrink-0 ${isPreview ? 'bg-[#0066cc] text-white' : 'bg-neutral-800 text-neutral-400'}`}>
+                            <Box size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-extrabold text-xs text-white truncate">{item.name}</p>
+                              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-neutral-900 text-neutral-400 border border-neutral-800">
+                                {item.assetTag || 'NO-TAG'}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-neutral-400 truncate mt-0.5">
+                              {item.brand || 'General'} • {item.category || 'Gear'} {item.serial ? `• S/N: ${item.serial}` : ''}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              hapticLight();
+                              setPreviewItemId(item.id);
+                              toast.success(`Live preview updated: ${item.name}`);
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition ${
+                              isPreview ? 'bg-[#0066cc] text-white' : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300'
+                            }`}
+                          >
+                            {isPreview ? 'Active Context' : 'Preview'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              hapticLight();
+                              toggleSelectId(item.id);
+                            }}
+                            className={`p-2 rounded-xl border transition ${
+                              isQueued ? 'bg-emerald-500 text-neutral-950 border-emerald-500' : 'bg-neutral-900 border-neutral-700 text-neutral-400'
+                            }`}
+                          >
+                            {isQueued ? <CheckSquare size={14} /> : <Square size={14} />}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Drawer Footer */}
+            <div className="p-4 bg-[#18181c] border-t border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2 text-xs text-neutral-400">
+                <span className="font-bold text-white">{selectedIds.size}</span> Assets Queued for Printing
+              </div>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsAssetDrawerOpen(false)}
+                  className="flex-1 sm:flex-none px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold transition"
+                >
+                  Return to Canvas
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAssetDrawerOpen(false);
+                    setActiveTab('print');
+                    toast.info(`Proceeding to print ${selectedIds.size} queued asset labels`);
+                  }}
+                  disabled={selectedIds.size === 0}
+                  className="flex-1 sm:flex-none px-6 py-2 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-2 shadow-lg shadow-[#0066cc]/20 disabled:opacity-40"
+                >
+                  <Printer size={14} />
+                  <span>Print {selectedIds.size} Queued Labels</span>
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>
