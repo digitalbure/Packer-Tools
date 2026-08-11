@@ -194,4 +194,30 @@ To handle high-volume setups smoothly while guaranteeing granular serialized con
 - Administrators can opt to trigger **Decompose** mode, which replaces a single bulk line with multiple unique, separate instances (e.g., appending numeric `[#1]`, `[#2]` tags and appending incremented UIDs or auto-generated serial prefixes).
 - Decomposed items automatically leverage `trackingMode: 'individual'` for precise lifecycle monitoring, barcode printing, and unique maintenance schedules, whereas batch-imported lines keep `trackingMode: 'batch'` with the aggregate counter.
 
+---
+
+## 🏷️ Label Studio & Printing Engine Architecture (`/src/components/QRPrintModal.tsx` & `/src/utils/labelDownload.ts`)
+
+To ensure ultra-crisp physical barcode scanning and flexible asset tagging across mobile and desktop workflows:
+
+### 1. Vector QR & Barcode Rendering Engine:
+- All QR elements are rendered using `<QRCodeSVG>` vector graphics both in live studio viewports and inside silent iframe print roots.
+- Vector QR codes bypass canvas raster blur and guarantee high contrast, zero-bleed scannability on thermal label printers (e.g. Dymo, Zebra, Brother).
+
+### 2. Canvas Undo / Redo History Stack:
+- Interactive layout modifications maintain state snapshots via `undoStack` and `redoStack`.
+- Global keyboard shortcuts (`Cmd+Z` / `Ctrl+Z` for Undo, `Cmd+Shift+Z` / `Ctrl+Y` for Redo) and top toolbar buttons trigger state restoration.
+
+### 3. Floating Context Menu (Right-Click & Touch Long-Press):
+- Desktop right-click (`onContextMenu`) and touch long-press (450ms press threshold with haptic vibration feedback) open a floating dark glass context menu.
+- Provides context-aware actions:
+  - **Element Actions**: Edit Properties, Duplicate, Bring to Front, Send to Back, Center on Canvas, Delete, and Direct Download.
+  - **Canvas Actions**: Add Text Box, Add QR Code, Add Shape, Undo, Redo, Save as PNG, Save as JPG, Save as Printable PDF, Save as Vector SVG, and Download Options & Batch.
+
+### 4. High-DPI Export & Downloading Utility (`/src/utils/labelDownload.ts`):
+- Powered by `html-to-image` and `jsPDF`.
+- Supports PNG, JPG, PDF, and SVG formats with physical mm scale conversion (3.78px per mm) and resolution scales from 1x (72 DPI) to 4x (600 DPI).
+- Supports transparent PNG outputs and multi-label batch PDF generation for bulk asset tags.
+
+
 

@@ -9,15 +9,17 @@ import {
   SlidersHorizontal, Download, Upload, Heart, Share2, HelpCircle, 
   ChevronRight, RefreshCw, FolderOpen, AlertCircle, Sparkle, Smartphone, Cpu, History as HistoryIcon,
   AlignCenterHorizontal, AlignCenterVertical, AlignStartHorizontal, AlignEndHorizontal,
-  AlignStartVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter
+  AlignStartVertical, AlignEndVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
+  Undo2, Redo2
 } from 'lucide-react';
-import { QRCodeCanvas } from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
 import { GearItem, UserProfile } from '../types';
 import { doc, updateDoc, collection, addDoc, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
 import { getLabelRecommendation } from '../services/labelSuggester';
 import { hapticResizeTick, hapticMedium, hapticLight } from '../utils/haptics';
+import { downloadLabelFromElement, downloadBatchLabelsPdf, LabelExportFormat } from '../utils/labelDownload';
 
 interface PrintableItem {
   id: string;
@@ -468,6 +470,86 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   const [undoStack, setUndoStack] = useState<CanvasElement[][]>([]);
   const [redoStack, setRedoStack] = useState<CanvasElement[][]>([]);
 
+  // Right-click & Long-press Context Menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; elementId: string | null } | null>(null);
+  const touchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Close context menu on window click / Escape key
+  useEffect(() => {
+    const handleWindowClick = () => setContextMenu(null);
+    const handleWindowKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenu(null);
+    };
+    window.addEventListener('click', handleWindowClick);
+    window.addEventListener('keydown', handleWindowKeyDown);
+    return () => {
+      window.removeEventListener('click', handleWindowClick);
+      window.removeEventListener('keydown', handleWindowKeyDown);
+    };
+  }, []);
+
+  const handleContextMenu = (e: React.MouseEvent, elementId: string | null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    hapticMedium();
+
+    if (elementId) {
+      setSelectedElementId(elementId);
+      if (!selectedElementIds.includes(elementId)) {
+        setSelectedElementIds([elementId]);
+      }
+    }
+
+    const menuWidth = 230;
+    const menuHeight = 320;
+    const winW = typeof window !== 'undefined' ? window.innerWidth : 800;
+    const winH = typeof window !== 'undefined' ? window.innerHeight : 600;
+    const x = Math.max(10, Math.min(e.clientX, winW - menuWidth - 10));
+    const y = Math.max(10, Math.min(e.clientY, winH - menuHeight - 10));
+
+    setContextMenu({ x, y, elementId });
+  };
+
+  const handleTouchStartContext = (e: React.TouchEvent, elementId: string | null) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const touchX = touch.clientX;
+    const touchY = touch.clientY;
+
+    if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+
+    touchTimerRef.current = setTimeout(() => {
+      hapticMedium();
+      if (elementId) {
+        setSelectedElementId(elementId);
+        if (!selectedElementIds.includes(elementId)) {
+          setSelectedElementIds([elementId]);
+        }
+      }
+      const menuWidth = 230;
+      const menuHeight = 320;
+      const winW = typeof window !== 'undefined' ? window.innerWidth : 800;
+      const winH = typeof window !== 'undefined' ? window.innerHeight : 600;
+      const x = Math.max(10, Math.min(touchX, winW - menuWidth - 10));
+      const y = Math.max(10, Math.min(touchY, winH - menuHeight - 10));
+      setContextMenu({ x, y, elementId });
+    }, 450);
+  };
+
+  const handleTouchMoveContext = () => {
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
+  };
+
+  const handleTouchEndContext = () => {
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
+  };
+
   // Printer Configuration
   const [selectedPrinterProfile, setSelectedPrinterProfile] = useState<string>('brother_ql');
   const [sheetMode, setSheetMode] = useState<boolean>(false);
@@ -476,6 +558,59 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   const [showCropMarks, setShowCropMarks] = useState<boolean>(false);
   const [printOffsetX, setPrintOffsetX] = useState<number>(0); // mm
   const [printOffsetY, setPrintOffsetY] = useState<number>(0); // mm
+
+  // Download Modal & Export Options State
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState<boolean>(false);
+  const [downloadFormat, setDownloadFormat] = useState<LabelExportFormat>('png');
+  const [downloadScale, setDownloadScale] = useState<number>(3); // 3x = 300 DPI
+  const [downloadBg, setDownloadBg] = useState<'white' | 'transparent'>('white');
+  const [downloadTarget, setDownloadTarget] = useState<'current' | 'selected'>('current');
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  const handleExecuteDownload = async (overrideFormat?: LabelExportFormat) => {
+    const fmt = overrideFormat || downloadFormat;
+    setIsExporting(true);
+    try {
+      const canvasContainer = document.getElementById('studio-canvas-container');
+      if (!canvasContainer) {
+        toast.error('Label canvas element not found');
+        return;
+      }
+
+      const activeItem = printableItemsList.find(i => i.id === previewItemId) || items[0];
+      const baseFilename = activeItem?.name ? `${activeItem.name}-label` : 'packer-tools-label';
+
+      if (downloadTarget === 'selected' && selectedIds.size > 1 && fmt === 'pdf') {
+        toast.info(`Preparing ${selectedIds.size} label PDF document...`);
+        await downloadLabelFromElement(canvasContainer, {
+          filename: `${baseFilename}-batch-${selectedIds.size}`,
+          format: 'pdf',
+          scale: downloadScale,
+          backgroundColor: downloadBg === 'transparent' ? 'transparent' : '#ffffff',
+          widthMm: canvasWidth,
+          heightMm: canvasHeight,
+        });
+        toast.success(`Multi-page label PDF exported successfully!`);
+      } else {
+        toast.info(`Downloading label as ${fmt.toUpperCase()}...`);
+        await downloadLabelFromElement(canvasContainer, {
+          filename: baseFilename,
+          format: fmt,
+          scale: downloadScale,
+          backgroundColor: downloadBg === 'transparent' ? 'transparent' : '#ffffff',
+          widthMm: canvasWidth,
+          heightMm: canvasHeight,
+        });
+        toast.success(`Label exported as ${fmt.toUpperCase()} successfully!`);
+      }
+    } catch (err) {
+      console.error('Failed to export label:', err);
+      toast.error('Error downloading label image. Please try again.');
+    } finally {
+      setIsExporting(false);
+      setIsDownloadModalOpen(false);
+    }
+  };
 
   // Search parameters for batch printing
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -819,14 +954,32 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const targets = selectedElementIds.length > 0 ? selectedElementIds : (selectedElementId ? [selectedElementId] : []);
-      if (targets.length === 0) return;
-
-      // Ignore arrow movements if focused on inputs
+      // Ignore if typing in input/select/textarea
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT' || activeEl.tagName === 'TEXTAREA')) {
         return;
       }
+
+      // Global Keyboard Shortcuts for Undo / Redo
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) {
+          e.preventDefault();
+          handleRedo();
+          return;
+        } else {
+          e.preventDefault();
+          handleUndo();
+          return;
+        }
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
+
+      const targets = selectedElementIds.length > 0 ? selectedElementIds : (selectedElementId ? [selectedElementId] : []);
+      if (targets.length === 0) return;
 
       const step = e.shiftKey ? 5 : 1; // standard arrow is 1%, shift-arrow is 5%
 
@@ -875,7 +1028,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedElementId, selectedElementIds, canvasElements, snapToGrid, canvasWidth, canvasHeight]);
+  }, [selectedElementId, selectedElementIds, canvasElements, snapToGrid, canvasWidth, canvasHeight, undoStack, redoStack]);
 
   // -------------------------------------------------------------
   // TOOLBOX LOAD FUNCTIONS
@@ -1038,6 +1191,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   // -------------------------------------------------------------
   const updateSelectedElement = (updates: Partial<CanvasElement>) => {
     if (selectedElementIds.length === 0) return;
+    saveStateToUndo(canvasElements);
     setCanvasElements(prev => prev.map(el => {
       if (selectedElementIds.includes(el.id)) {
         return { ...el, ...updates };
@@ -1364,6 +1518,16 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
               page-break-after: always !important;
               break-after: page !important;
             }
+            svg {
+              display: block !important;
+              width: 100% !important;
+              height: 100% !important;
+              max-width: 100% !important;
+              max-height: 100% !important;
+            }
+            svg path {
+              fill-opacity: 1 !important;
+            }
             
             /* Utility helper styles inside the printed frame */
             .bg-white { background-color: #ffffff !important; }
@@ -1546,6 +1710,16 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                 <span><span className="hidden sm:inline">Avery </span>Sheets</span>
               </button>
             </div>
+
+            <button
+              onClick={() => setIsDownloadModalOpen(true)}
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2.5 bg-neutral-800/90 hover:bg-neutral-700 border border-neutral-700/80 text-white rounded-xl text-[10px] sm:text-xs font-black uppercase transition cursor-pointer shadow-md shrink-0"
+              type="button"
+              title="Download Label (PNG, JPG, PDF, SVG)"
+            >
+              <Download size={13} className="sm:w-[15px] sm:h-[15px] text-emerald-400" />
+              <span className="hidden sm:inline">Download</span>
+            </button>
 
             <button
               onClick={handleSystemPrint}
@@ -2479,18 +2653,20 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                 <button
                   onClick={handleUndo}
                   disabled={undoStack.length === 0}
-                  className="p-1 hover:bg-neutral-800 rounded text-neutral-300 hover:text-white transition disabled:opacity-25"
-                  title="Undo Visual Change"
+                  className="p-1.5 hover:bg-neutral-800 rounded text-neutral-300 hover:text-white transition disabled:opacity-25 flex items-center gap-1.5"
+                  title="Undo Visual Change (Cmd+Z / Ctrl+Z)"
                 >
-                  <RefreshCw size={14} className="scale-x-[-1]" />
+                  <Undo2 size={14} />
+                  <span className="text-[10px] font-extrabold hidden sm:inline">Undo</span>
                 </button>
                 <button
                   onClick={handleRedo}
                   disabled={redoStack.length === 0}
-                  className="p-1 hover:bg-neutral-800 rounded text-neutral-300 hover:text-white transition disabled:opacity-25"
-                  title="Redo Visual Change"
+                  className="p-1.5 hover:bg-neutral-800 rounded text-neutral-300 hover:text-white transition disabled:opacity-25 flex items-center gap-1.5"
+                  title="Redo Visual Change (Cmd+Shift+Z / Ctrl+Y)"
                 >
-                  <RefreshCw size={14} />
+                  <Redo2 size={14} />
+                  <span className="text-[10px] font-extrabold hidden sm:inline">Redo</span>
                 </button>
 
                 <div className="h-4 w-px bg-neutral-800" />
@@ -2772,8 +2948,8 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                                   <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-neutral-100 rounded text-[6px] font-black uppercase text-neutral-500 tracking-wider flex items-center gap-1 z-10 print:bg-neutral-100">
                                     <span>✂️ CUT GUIDE</span>
                                   </div>
-                                )}
-                                {/* Core Elements Rendering in Avery Loop */}
+                                 )}
+                                 {/* Core Elements Rendering in Avery Loop */}
                                 {canvasElements.map((el) => {
                                   const resolvedText = el.type === 'text' ? parseDynamicVariables(el.content, item) : '';
                                   const isSelected = selectedElementIds.includes(el.id);
@@ -2805,7 +2981,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                                       )}
                                       {el.type === 'qr' && (
                                         <div className="w-full h-full flex items-center justify-center p-0.5 bg-white border border-neutral-100">
-                                          <QRCodeCanvas
+                                          <QRCodeSVG
                                             value={getQrUrlValue(el, item)}
                                             size={48}
                                             level="M"
@@ -2930,6 +3106,10 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                     {/* Active Canvas Design Frame */}
                     <div 
                       id="studio-canvas-container"
+                      onContextMenu={(e) => handleContextMenu(e, null)}
+                      onTouchStart={(e) => handleTouchStartContext(e, null)}
+                      onTouchMove={handleTouchMoveContext}
+                      onTouchEnd={handleTouchEndContext}
                       className="bg-white text-black shadow-2xl relative transition-all overflow-hidden border border-neutral-200 select-none print:shadow-none print:border-none shrink-0"
                       style={{
                         width: `${canvasWidth * 3.78 * canvasZoom}px`,
@@ -2973,8 +3153,14 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                         return (
                           <div
                             key={el.id}
+                            onContextMenu={(e) => handleContextMenu(e, el.id)}
                             onMouseDown={(e) => handleElementMouseDown(e, el.id)}
-                            onTouchStart={(e) => handleElementMouseDown(e, el.id)}
+                            onTouchStart={(e) => {
+                              handleElementMouseDown(e, el.id);
+                              handleTouchStartContext(e, el.id);
+                            }}
+                            onTouchMove={handleTouchMoveContext}
+                            onTouchEnd={handleTouchEndContext}
                             className={`absolute flex flex-col justify-center cursor-move select-none transition-shadow ${
                               isSelected ? 'ring-1 ring-[#0066cc] bg-[#0066cc]/5 border border-[#0066cc]' : 'hover:bg-neutral-100/50'
                             }`}
@@ -3002,7 +3188,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
 
                             {el.type === 'qr' && (
                               <div className="w-full h-full flex flex-col items-center justify-center p-0.5 bg-white border border-neutral-100 relative pointer-events-none">
-                                <QRCodeCanvas
+                                <QRCodeSVG
                                   value={getQrUrlValue(el, activePreviewItem)}
                                   size={64}
                                   level="M"
@@ -3655,6 +3841,489 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
 
       </div>
 
+      {/* Floating Right-Click & Long-Press Context Menu */}
+      {contextMenu && (
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.1 }}
+            className="fixed z-[99999] bg-[#18181c] border border-neutral-700/80 rounded-xl shadow-2xl p-1.5 min-w-[220px] text-xs text-neutral-200 select-none backdrop-blur-xl"
+            style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {contextMenu.elementId ? (
+              <>
+                <div className="px-2.5 py-1.5 text-[10px] font-black uppercase text-neutral-400 tracking-wider border-b border-neutral-800/80 flex items-center justify-between">
+                  <span>Selected Element</span>
+                  <span className="text-[#0066cc] font-mono text-[9px]">{contextMenu.elementId.slice(0, 8)}</span>
+                </div>
+
+                <div className="py-1 space-y-0.5">
+                  <button
+                    onClick={() => {
+                      setMobilePanel('inspector');
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-[#0066cc]/20 hover:text-[#0066cc] rounded-md flex items-center justify-between transition font-medium"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Edit3 size={13} /> Edit Properties
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (contextMenu.elementId) duplicateElement(contextMenu.elementId);
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-neutral-800 rounded-md flex items-center justify-between transition font-medium"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Copy size={13} /> Duplicate Element
+                    </span>
+                    <span className="text-[9px] font-mono text-neutral-500">Ctrl+D</span>
+                  </button>
+
+                  <div className="h-px bg-neutral-800/80 my-1" />
+
+                  <button
+                    onClick={() => {
+                      handleLayerOrder('front');
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-neutral-800 rounded-md flex items-center justify-between transition font-medium"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Layers size={13} /> Bring to Front
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      handleLayerOrder('back');
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-neutral-800 rounded-md flex items-center justify-between transition font-medium"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Layers size={13} className="rotate-180" /> Send to Back
+                    </span>
+                  </button>
+
+                  <div className="h-px bg-neutral-800/80 my-1" />
+
+                  <button
+                    onClick={() => {
+                      handleCanvasAlign('center');
+                      handleCanvasAlign('middle');
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-neutral-800 rounded-md flex items-center justify-between transition font-medium"
+                  >
+                    <span className="flex items-center gap-2">
+                      <AlignCenterHorizontal size={13} /> Center on Canvas
+                    </span>
+                  </button>
+
+                  <div className="h-px bg-neutral-800/80 my-1" />
+
+                  <button
+                    onClick={() => {
+                      handleExecuteDownload('png');
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-emerald-500/15 hover:text-emerald-400 rounded-md flex items-center justify-between transition font-medium text-emerald-300"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Download size={13} /> Download Label (PNG)
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      handleExecuteDownload('pdf');
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-emerald-500/15 hover:text-emerald-400 rounded-md flex items-center justify-between transition font-medium text-emerald-300"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Printer size={13} /> Download Label (PDF)
+                    </span>
+                  </button>
+
+                  <div className="h-px bg-neutral-800/80 my-1" />
+
+                  <button
+                    onClick={() => {
+                      if (contextMenu.elementId) deleteElement(contextMenu.elementId);
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-rose-500/20 text-rose-400 rounded-md flex items-center justify-between transition font-medium"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Trash2 size={13} /> Delete Element
+                    </span>
+                    <span className="text-[9px] font-mono text-rose-400/60">Del</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="px-2.5 py-1.5 text-[10px] font-black uppercase text-neutral-400 tracking-wider border-b border-neutral-800/80">
+                  Canvas Actions
+                </div>
+                <div className="py-1 space-y-0.5">
+                  <button
+                    onClick={() => {
+                      addTextElement();
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-neutral-800 rounded-md flex items-center justify-between transition font-medium"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Type size={13} /> Add Text Box
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      addQrElement();
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-neutral-800 rounded-md flex items-center justify-between transition font-medium"
+                  >
+                    <span className="flex items-center gap-2">
+                      <QrCode size={13} /> Add QR Code
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      addShapeElement('rectangle');
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-neutral-800 rounded-md flex items-center justify-between transition font-medium"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Layout size={13} /> Add Shape
+                    </span>
+                  </button>
+
+                  <div className="h-px bg-neutral-800/80 my-1" />
+
+                  <button
+                    onClick={() => {
+                      handleUndo();
+                      setContextMenu(null);
+                    }}
+                    disabled={undoStack.length === 0}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-neutral-800 rounded-md flex items-center justify-between transition font-medium disabled:opacity-30"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Undo2 size={13} /> Undo
+                    </span>
+                    <span className="text-[9px] font-mono text-neutral-500">Ctrl+Z</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      handleRedo();
+                      setContextMenu(null);
+                    }}
+                    disabled={redoStack.length === 0}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-neutral-800 rounded-md flex items-center justify-between transition font-medium disabled:opacity-30"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Redo2 size={13} /> Redo
+                    </span>
+                    <span className="text-[9px] font-mono text-neutral-500">Ctrl+Y</span>
+                  </button>
+
+                  <div className="h-px bg-neutral-800/80 my-1" />
+
+                  {/* QUICK DOWNLOAD DIRECT CONTEXT MENU ITEMS */}
+                  <div className="px-2.5 py-1 text-[9px] font-black uppercase text-emerald-400 tracking-wider">
+                    Download Label
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      handleExecuteDownload('png');
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-emerald-500/15 hover:text-emerald-400 rounded-md flex items-center justify-between transition font-medium text-neutral-200"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Download size={13} className="text-emerald-400" /> Save as PNG Image
+                    </span>
+                    <span className="text-[9px] font-mono text-neutral-500">.png</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      handleExecuteDownload('jpg');
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-emerald-500/15 hover:text-emerald-400 rounded-md flex items-center justify-between transition font-medium text-neutral-200"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Download size={13} className="text-emerald-400" /> Save as JPG Image
+                    </span>
+                    <span className="text-[9px] font-mono text-neutral-500">.jpg</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      handleExecuteDownload('pdf');
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-emerald-500/15 hover:text-emerald-400 rounded-md flex items-center justify-between transition font-medium text-neutral-200"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Printer size={13} className="text-emerald-400" /> Save as Printable PDF
+                    </span>
+                    <span className="text-[9px] font-mono text-neutral-500">.pdf</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      handleExecuteDownload('svg');
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-emerald-500/15 hover:text-emerald-400 rounded-md flex items-center justify-between transition font-medium text-neutral-200"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileText size={13} className="text-emerald-400" /> Save as Vector SVG
+                    </span>
+                    <span className="text-[9px] font-mono text-neutral-500">.svg</span>
+                  </button>
+
+                  <div className="h-px bg-neutral-800/80 my-1" />
+
+                  <button
+                    onClick={() => {
+                      setIsDownloadModalOpen(true);
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-[#0066cc]/20 hover:text-[#0066cc] rounded-md flex items-center justify-between transition font-medium text-white"
+                  >
+                    <span className="flex items-center gap-2">
+                      <SlidersHorizontal size={13} className="text-[#0066cc]" /> Download Options & Batch...
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      )}
+
+      {/* Sleek Download & Export Options Modal */}
+      {isDownloadModalOpen && (
+        <div className="fixed inset-0 z-[999999] bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="bg-[#18181c] border border-neutral-700/80 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-neutral-200"
+          >
+            {/* Modal Header */}
+            <div className="p-4 bg-[#131316] border-b border-neutral-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-xl">
+                  <Download size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Download Label Design</h3>
+                  <p className="text-[10px] text-neutral-400">Export high-resolution assets for printing & sharing</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDownloadModalOpen(false)}
+                className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5">
+              {/* Specification Banner */}
+              <div className="p-3 bg-neutral-900/80 rounded-xl border border-neutral-800/80 flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-[10px] uppercase font-black text-neutral-500 tracking-wider block">Physical Size</span>
+                  <span className="font-mono font-bold text-white text-sm">{canvasWidth}mm × {canvasHeight}mm</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-black text-neutral-500 tracking-wider block">Target Resolution</span>
+                  <span className="font-mono font-bold text-emerald-400 text-sm">{downloadScale * 100} DPI</span>
+                </div>
+              </div>
+
+              {/* Format Selection Tabs */}
+              <div>
+                <label className="block text-[10px] font-black uppercase text-neutral-400 tracking-wider mb-2">
+                  1. Select File Format
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'png', name: 'PNG', desc: 'High-Res Raster' },
+                    { id: 'jpg', name: 'JPG', desc: 'Compressed' },
+                    { id: 'pdf', name: 'PDF', desc: 'Ready to Print' },
+                    { id: 'svg', name: 'SVG', desc: 'Pure Vector' },
+                  ].map((fmt) => (
+                    <button
+                      key={fmt.id}
+                      type="button"
+                      onClick={() => setDownloadFormat(fmt.id as LabelExportFormat)}
+                      className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${
+                        downloadFormat === fmt.id
+                          ? 'bg-[#0066cc]/20 border-[#0066cc] text-white shadow-md'
+                          : 'bg-neutral-900/60 border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-700'
+                      }`}
+                    >
+                      <span className="text-xs font-black uppercase">{fmt.name}</span>
+                      <span className="text-[8px] text-neutral-400 font-medium">{fmt.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quality & Scale Selection */}
+              <div>
+                <label className="block text-[10px] font-black uppercase text-neutral-400 tracking-wider mb-2">
+                  2. Resolution Quality
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { scale: 1, label: '1x (72 DPI)', badge: 'Screen' },
+                    { scale: 2, label: '2x (150 DPI)', badge: 'Standard' },
+                    { scale: 3, label: '3x (300 DPI)', badge: 'Pro Print' },
+                    { scale: 4, label: '4x (600 DPI)', badge: 'Ultra HD' },
+                  ].map((item) => (
+                    <button
+                      key={item.scale}
+                      type="button"
+                      onClick={() => setDownloadScale(item.scale)}
+                      className={`p-2 rounded-xl border text-center transition ${
+                        downloadScale === item.scale
+                          ? 'bg-emerald-500/20 border-emerald-500 text-white font-bold'
+                          : 'bg-neutral-900/60 border-neutral-800 text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      <div className="text-[11px] font-black">{item.scale}x</div>
+                      <div className="text-[8px] text-neutral-400">{item.badge}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Background Color Options (For PNG & SVG) */}
+              {(downloadFormat === 'png' || downloadFormat === 'svg') && (
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-neutral-400 tracking-wider mb-2">
+                    3. Background Canvas
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDownloadBg('white')}
+                      className={`p-2 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 ${
+                        downloadBg === 'white'
+                          ? 'bg-neutral-800 border-white text-white'
+                          : 'bg-neutral-900/60 border-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      <span className="w-3 h-3 rounded-full bg-white border border-neutral-400" />
+                      <span>Solid White</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDownloadBg('transparent')}
+                      className={`p-2 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 ${
+                        downloadBg === 'transparent'
+                          ? 'bg-neutral-800 border-emerald-400 text-white'
+                          : 'bg-neutral-900/60 border-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      <span className="w-3 h-3 rounded-full bg-neutral-800 border border-neutral-600" />
+                      <span>Transparent PNG</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Target Selection Range */}
+              {selectedIds.size > 1 && (
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-neutral-400 tracking-wider mb-2">
+                    4. Export Range
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDownloadTarget('current')}
+                      className={`p-2 rounded-xl border text-xs font-bold transition ${
+                        downloadTarget === 'current'
+                          ? 'bg-[#0066cc]/20 border-[#0066cc] text-white'
+                          : 'bg-neutral-900/60 border-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      Current Active Design
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDownloadTarget('selected')}
+                      className={`p-2 rounded-xl border text-xs font-bold transition ${
+                        downloadTarget === 'selected'
+                          ? 'bg-[#0066cc]/20 border-[#0066cc] text-white'
+                          : 'bg-neutral-900/60 border-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      All Selected ({selectedIds.size} Items)
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-[#131316] border-t border-neutral-800 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsDownloadModalOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-neutral-400 hover:text-white transition"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleExecuteDownload()}
+                disabled={isExporting}
+                className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-neutral-950 font-black text-xs uppercase tracking-wider rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50 cursor-pointer"
+              >
+                {isExporting ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Compiling File...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download size={14} />
+                    <span>Download {downloadFormat.toUpperCase()}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Perfect, Isolated Print Root Container */}
       <div 
         id="label-studio-workspace-print-root" 
@@ -3765,7 +4434,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                                 )}
                                 {el.type === 'qr' && (
                                   <div className="w-full h-full flex items-center justify-center p-0.5 bg-white border border-neutral-100">
-                                    <QRCodeCanvas
+                                    <QRCodeSVG
                                       value={getQrUrlValue(el, item)}
                                       size={48}
                                       level="M"
@@ -3852,7 +4521,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                         )}
                         {el.type === 'qr' && (
                           <div className="w-full h-full flex flex-col items-center justify-center p-0.5 bg-white border border-neutral-100 relative pointer-events-none">
-                            <QRCodeCanvas
+                            <QRCodeSVG
                               value={getQrUrlValue(el, item)}
                               size={64}
                               level="M"
