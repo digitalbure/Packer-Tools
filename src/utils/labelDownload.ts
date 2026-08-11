@@ -103,14 +103,15 @@ export async function downloadLabelFromElement(
 }
 
 /**
- * Creates a multi-page PDF containing all label elements
+ * Creates a multi-page PDF containing all label or sheet page elements
  */
 export async function downloadBatchLabelsPdf(
   elements: HTMLElement[],
   filename = 'batch-labels',
   widthMm = 50,
   heightMm = 50,
-  scale = 3
+  scale = 3,
+  onProgress?: (current: number, total: number) => void
 ): Promise<void> {
   if (elements.length === 0) return;
 
@@ -122,14 +123,42 @@ export async function downloadBatchLabelsPdf(
   });
 
   const sanitizeName = filename.replace(/[^a-z0-9_-]/gi, '_');
+  const targetPxWidth = Math.round(widthMm * 3.78);
+  const targetPxHeight = Math.round(heightMm * 3.78);
 
   for (let i = 0; i < elements.length; i++) {
     const el = elements[i];
+    if (onProgress) {
+      onProgress(i + 1, elements.length);
+    }
+
     const dataUrl = await toPng(el, {
       pixelRatio: scale,
       backgroundColor: '#ffffff',
       quality: 0.95,
       cacheBust: true,
+      width: targetPxWidth,
+      height: targetPxHeight,
+      style: {
+        width: `${targetPxWidth}px`,
+        height: `${targetPxHeight}px`,
+        transform: 'scale(1)',
+        transformOrigin: 'top left',
+        boxShadow: 'none',
+        border: 'none',
+      },
+      filter: (node: HTMLElement) => {
+        if (node.classList) {
+          if (
+            node.classList.contains('editor-grid-overlay') ||
+            node.classList.contains('selection-handle') ||
+            node.classList.contains('cut-guide-indicator')
+          ) {
+            return false;
+          }
+        }
+        return true;
+      },
     });
 
     if (i > 0) {

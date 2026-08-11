@@ -228,5 +228,40 @@ To ensure ultra-crisp physical barcode scanning and flexible asset tagging acros
 - **Desktop Dock**: Features an active asset card, horizontal fast-switcher carousel, and an expansion button (`isDockExpanded`) to reveal a multi-row asset grid directly beneath the canvas.
 - **Native Mobile Experience**: Features touch-optimized bottom sheets with tactile drag handles, sticky mobile search inputs, swipeable category chips, and floating mobile CTA action bars.
 
+---
+
+## 🔁 Intelligent Asset Duplication Engine (`/src/utils/duplicateUtils.ts` & `/src/components/DuplicateItemModal.tsx`)
+
+To support multi-item equipment setups where users purchase or register multiple similar assets:
+1. **Intelligent Name & Asset Tag Sequence Generation**:
+   - Detects existing numeric suffix patterns (`[#N]` or `(Copy N)`) and increments them automatically (e.g. `Sony FX3 [#1]` -> `Sony FX3 [#2]`).
+   - Ensures asset tags (`assetTag`) remain strictly unique by auto-generating incremented suffixes or sequence formats.
+2. **Duplication Configuration Modal**:
+   - Allows setting duplication quantity (1 to 100 copies).
+   - Provides options to reset status to `available`, clear serial numbers (`serialNumber`), and customize name/tag template patterns.
+   - Live preview panel displays generated names and asset tags before confirmation.
+3. **Multi-Select & Bulk Operations**:
+   - Integrated into item cards, table rows, compact grids, mobile lists, item detail drawers, and the multi-select floating action bar in `GearLibrary.tsx`.
+   - Writes are partitioned into Firestore `WriteBatch` chunks of max 500 items.
+
+---
+
+## 🚪 Kiosk Mode Item Released Gate Workflow (`/src/pages/KioskMode.tsx`)
+
+To prevent unverified checkouts and enforce accountability before gear leaves the depot:
+1. **Four-Step Checkout State Machine (`KioskStep`)**:
+   - **Step 1 (`scan`/`search`)**: Select items into checkout cart.
+   - **Step 2 (`user_details`)**: Assign holder name, email, and expected return date.
+   - **Step 3 (`sign`)**: Capture digital authorization signature on canvas. Clicking submit saves signature data to state (`savedSignatureData`) and transitions to `item_released`.
+   - **Step 4 (`item_released`)**: The **Item Release Authorization Gate**.
+2. **Release Authorization Gate**:
+   - Displays accountability record: equipment item manifest, recipient details, and verified signature preview.
+   - Prompts for **Release Officer / Inspector Name** verification.
+   - Action **"Approve & Release Equipment"**: Executes Firestore status updates (setting items to `in_use` and assigning holder), creates checkout records, triggers notifications, and transitions to the released dispatch banner.
+3. **Dispatch & Handover Receipts**:
+   - Renders **Equipment Released & Dispatched** confirmation badge with release reference ID and timestamp.
+   - Provides 1-click actions: **Packing Slip** modal, **Email Handover Copy**, and **Finish & Close Terminal**.
+
+
 
 

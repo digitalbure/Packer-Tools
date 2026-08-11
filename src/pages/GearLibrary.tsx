@@ -43,7 +43,8 @@ import {
   Share2,
   ArrowRightLeft,
   CheckSquare,
-  Cpu
+  Cpu,
+  Copy
 } from 'lucide-react';
 import ShareModal from '../components/ShareModal';
 import ManualCheckoutModal from '../components/ManualCheckoutModal';
@@ -70,6 +71,8 @@ const triggerHaptic = () => {
 };
 import { Camera, Sparkles, Wand2, Lightbulb, Check, Layers, Luggage, Box, Briefcase, QrCode, Loader2, RefreshCw, Server, HelpCircle, ClipboardCheck } from 'lucide-react';
 import QRPrintModal from '../components/QRPrintModal';
+import DuplicateItemModal, { DuplicateModalResult } from '../components/DuplicateItemModal';
+import { cloneGearItemData } from '../utils/duplicateUtils';
 import LazyImage from '../components/LazyImage';
 import { suggestItemMetadata, identifyItem } from '../services/geminiService';
 import { checkLimit, canUseAI, trackAIUsage } from '../lib/limitUtils';
@@ -93,6 +96,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const { formatCurrency } = useAuth();
   const { getAdjustedLabel, customTerms } = useIndustry();
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [itemToDuplicate, setItemToDuplicate] = useState<GearItem | null>(null);
+  const [batchDuplicateItems, setBatchDuplicateItems] = useState<GearItem[]>([]);
   const [dbBrands, setDbBrands] = useState<any[]>([]);
   const [dbCategories, setDbCategories] = useState<any[]>([]);
 
@@ -117,6 +123,56 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       unsubCategories();
     };
   }, []);
+
+  const handleDuplicateConfirm = async (result: DuplicateModalResult) => {
+    try {
+      const existingTags = gear.map(g => g.assetTag).filter(Boolean) as string[];
+      const totalToCreate = result.items.length * result.quantity;
+      const toastId = toast.loading(`Duplicating ${totalToCreate > 1 ? totalToCreate + ' items' : 'item'}...`);
+
+      const newGearItems: Partial<GearItem>[] = [];
+
+      result.items.forEach(sourceItem => {
+        for (let i = 0; i < result.quantity; i++) {
+          const cloned = cloneGearItemData(sourceItem, {
+            resetStatus: result.resetStatus,
+            clearSerials: result.clearSerials,
+            existingTags,
+            sequenceIndex: i,
+            totalCount: result.quantity,
+            customNamePattern: result.quantity === 1 ? result.customNamePattern : undefined,
+            customTagPattern: result.quantity === 1 ? result.customTagPattern : undefined,
+          });
+          cloned.ownerId = user.uid;
+          if (sourceItem.orgId) cloned.orgId = sourceItem.orgId;
+          if (sourceItem.deptId) cloned.deptId = sourceItem.deptId;
+          if (sourceItem.teamId) cloned.teamId = sourceItem.teamId;
+
+          if (cloned.assetTag) existingTags.push(cloned.assetTag);
+          newGearItems.push(cloned);
+        }
+      });
+
+      // Chunk writes into batch operations of max 500
+      for (let i = 0; i < newGearItems.length; i += 500) {
+        const chunk = newGearItems.slice(i, i + 500);
+        const batch = writeBatch(db);
+        chunk.forEach(itemData => {
+          const docRef = doc(collection(db, 'users', user.uid, 'gearLibrary'));
+          batch.set(docRef, { ...itemData, id: docRef.id });
+        });
+        await batch.commit();
+      }
+
+      toast.success(`Successfully duplicated ${newGearItems.length} ${newGearItems.length === 1 ? 'item' : 'items'}!`, { id: toastId });
+      setDuplicateModalOpen(false);
+      setItemToDuplicate(null);
+      setBatchDuplicateItems([]);
+    } catch (err) {
+      console.error('Failed to duplicate item:', err);
+      toast.error('Failed to create duplicates. Please try again.');
+    }
+  };
 
   const resolvedCategories = useMemo(() => {
     if (dbCategories.length > 0) {
@@ -4098,6 +4154,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             <Share2 size={9} strokeWidth={2.5} />
             <span>Share</span>
           </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setItemToDuplicate(item);
+              setDuplicateModalOpen(true);
+            }}
+            className="px-1.5 py-0.5 md:px-2 md:py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 hover:text-neutral-900 transition rounded-lg text-[8.5px] font-black uppercase tracking-wider flex items-center gap-0.5 shrink-0"
+            title="Duplicate Asset"
+          >
+            <Copy size={9} strokeWidth={2.5} />
+            <span>Duplicate</span>
+          </button>
           <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full shrink-0 ${
             getHealthScore(item) > 70 ? 'bg-green-500' :
             getHealthScore(item) > 40 ? 'bg-amber-500' : 'bg-red-500'
@@ -4189,6 +4258,17 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             className="p-1.5 bg-white rounded-lg text-neutral-900 hover:text-primary transition"
           >
             <Edit2 size={14} />
+          </button>
+          <button 
+            type="button"
+            onClick={() => {
+              setItemToDuplicate(item);
+              setDuplicateModalOpen(true);
+            }}
+            className="p-1.5 bg-white rounded-lg text-neutral-900 hover:text-primary transition"
+            title="Duplicate"
+          >
+            <Copy size={14} />
           </button>
           <button 
             type="button"
@@ -4356,6 +4436,18 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           >
             <Share2 size={16} />
           </button>
+          <button 
+            type="button" 
+            onClick={(e) => {
+              e.stopPropagation();
+              setItemToDuplicate(item);
+              setDuplicateModalOpen(true);
+            }} 
+            className="p-2 text-neutral-400 hover:text-primary transition"
+            title="Duplicate Asset"
+          >
+            <Copy size={16} />
+          </button>
           <button type="button" onClick={() => setEditingItem(item)} className="p-2 text-neutral-400 hover:text-primary transition"><Edit2 size={16} /></button>
           <button type="button" onClick={() => handleDelete(item.id)} className="p-2 text-neutral-400 hover:text-accent transition"><Trash2 size={16} /></button>
         </div>
@@ -4448,6 +4540,17 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           title="Share"
         >
           <Share2 size={18} />
+        </button>
+        <button 
+          type="button" 
+          onClick={() => {
+            setItemToDuplicate(item);
+            setDuplicateModalOpen(true);
+          }} 
+          className="min-w-[48px] min-h-[48px] bg-neutral-50 rounded-xl text-neutral-500 hover:text-primary hover:bg-neutral-100 active:bg-neutral-200 transition flex items-center justify-center touch-manipulation cursor-pointer"
+          title="Duplicate"
+        >
+          <Copy size={18} />
         </button>
         <button 
           type="button" 
@@ -5337,6 +5440,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 >
                   <Trash2 size={14} />
                   <span>Retire</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const itemToDup = selectedGearItemView;
+                    setSelectedGearItemView(null);
+                    setItemToDuplicate(itemToDup);
+                    setDuplicateModalOpen(true);
+                  }}
+                  className="px-4 py-3.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 transition rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  title="Duplicate Asset"
+                >
+                  <Copy size={14} />
+                  <span>Duplicate</span>
                 </button>
                 <button
                   onClick={() => setSelectedGearItemView(null)}
@@ -8681,6 +8797,23 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
                 <button 
                   onClick={() => {
+                    const selectedList = gear.filter(g => selectedItems.has(g.id));
+                    if (selectedList.length > 0) {
+                      setBatchDuplicateItems(selectedList);
+                      setItemToDuplicate(null);
+                      setDuplicateModalOpen(true);
+                    }
+                  }}
+                  disabled={selectedItems.size === 0}
+                  className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Duplicate selected items"
+                >
+                  <Copy size={14} className="text-cyan-400 font-bold" />
+                  <span>Duplicate</span>
+                </button>
+
+                <button 
+                  onClick={() => {
                     setSelectedRackId('');
                     setIsMoveToRackModalOpen(true);
                   }}
@@ -10304,6 +10437,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           }
         }}
         onSearchSuccess={handleNfcSearchSuccess}
+      />
+
+      <DuplicateItemModal
+        isOpen={duplicateModalOpen}
+        itemToDuplicate={itemToDuplicate}
+        batchItems={batchDuplicateItems}
+        existingTags={gear.map(g => g.assetTag).filter(Boolean) as string[]}
+        onClose={() => {
+          setDuplicateModalOpen(false);
+          setItemToDuplicate(null);
+          setBatchDuplicateItems([]);
+        }}
+        onConfirm={handleDuplicateConfirm}
       />
 
       {/* Floating Action Button (FAB) for Quick Add */}

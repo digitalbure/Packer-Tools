@@ -558,6 +558,8 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   const [showCropMarks, setShowCropMarks] = useState<boolean>(false);
   const [printOffsetX, setPrintOffsetX] = useState<number>(0); // mm
   const [printOffsetY, setPrintOffsetY] = useState<number>(0); // mm
+  const [copiesPerItem, setCopiesPerItem] = useState<number>(1);
+  const [batchPdfProgress, setBatchPdfProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Download Modal & Export Options State
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState<boolean>(false);
@@ -567,8 +569,95 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   const [downloadTarget, setDownloadTarget] = useState<'current' | 'selected'>('current');
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
+  // Dedicated Multi-Page Batch PDF Generation Engine
+  const handleBatchPdfDownload = async () => {
+    if (selectedIds.size === 0) {
+      toast.error("Please select at least one asset to include in the batch PDF.");
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const offscreenRoot = document.getElementById('label-studio-workspace-print-root');
+      if (!offscreenRoot) {
+        toast.error("Batch print DOM node not found.");
+        return;
+      }
+
+      const origStyle = offscreenRoot.getAttribute('style') || '';
+      const origClass = offscreenRoot.className;
+
+      // Temporarily render in offscreen fixed container for accurate capture
+      offscreenRoot.className = "block bg-white text-black p-0 m-0";
+      offscreenRoot.style.position = 'fixed';
+      offscreenRoot.style.left = '-9999px';
+      offscreenRoot.style.top = '-9999px';
+      offscreenRoot.style.zIndex = '-9999';
+      offscreenRoot.style.visibility = 'visible';
+
+      await new Promise(res => setTimeout(res, 250));
+
+      let pageElements: HTMLElement[] = [];
+      let pdfPageWidthMm = canvasWidth;
+      let pdfPageHeightMm = canvasHeight;
+
+      if (sheetMode) {
+        const template = AVERY_TEMPLATES.find(t => t.id === selectedAveryTemplateId) || AVERY_TEMPLATES[0];
+        pdfPageWidthMm = template.pageSize === 'letter' ? 215.9 : 210;
+        pdfPageHeightMm = template.pageSize === 'letter' ? 279.4 : 297;
+
+        const pages = offscreenRoot.querySelectorAll('[id^="print-avery-page-"]');
+        pageElements = Array.from(pages) as HTMLElement[];
+      } else {
+        pdfPageWidthMm = canvasWidth;
+        pdfPageHeightMm = canvasHeight;
+
+        const labels = offscreenRoot.querySelectorAll('[id^="print-roll-label-"]');
+        pageElements = Array.from(labels) as HTMLElement[];
+      }
+
+      if (pageElements.length === 0) {
+        toast.error("No printable pages generated for batch export.");
+        offscreenRoot.className = origClass;
+        offscreenRoot.setAttribute('style', origStyle);
+        return;
+      }
+
+      toast.info(`Compiling ${pageElements.length}-page PDF document for ${selectedItemsToPrint.length} label(s)...`);
+
+      await downloadBatchLabelsPdf(
+        pageElements,
+        `packer-batch-labels-${selectedIds.size}-assets`,
+        pdfPageWidthMm,
+        pdfPageHeightMm,
+        downloadScale,
+        (current, total) => {
+          setBatchPdfProgress({ current, total });
+        }
+      );
+
+      offscreenRoot.className = origClass;
+      offscreenRoot.setAttribute('style', origStyle);
+
+      toast.success(`Successfully generated and downloaded ${pageElements.length}-page PDF document!`);
+    } catch (err) {
+      console.error("Batch PDF generation failed:", err);
+      toast.error("Failed to compile multi-page batch PDF. Please try again.");
+    } finally {
+      setIsExporting(false);
+      setBatchPdfProgress(null);
+      setIsDownloadModalOpen(false);
+    }
+  };
+
   const handleExecuteDownload = async (overrideFormat?: LabelExportFormat) => {
     const fmt = overrideFormat || downloadFormat;
+
+    if ((downloadTarget === 'selected' || fmt === 'pdf') && selectedIds.size > 1) {
+      await handleBatchPdfDownload();
+      return;
+    }
+
     setIsExporting(true);
     try {
       const canvasContainer = document.getElementById('studio-canvas-container');
@@ -580,29 +669,16 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
       const activeItem = printableItemsList.find(i => i.id === previewItemId) || items[0];
       const baseFilename = activeItem?.name ? `${activeItem.name}-label` : 'packer-tools-label';
 
-      if (downloadTarget === 'selected' && selectedIds.size > 1 && fmt === 'pdf') {
-        toast.info(`Preparing ${selectedIds.size} label PDF document...`);
-        await downloadLabelFromElement(canvasContainer, {
-          filename: `${baseFilename}-batch-${selectedIds.size}`,
-          format: 'pdf',
-          scale: downloadScale,
-          backgroundColor: downloadBg === 'transparent' ? 'transparent' : '#ffffff',
-          widthMm: canvasWidth,
-          heightMm: canvasHeight,
-        });
-        toast.success(`Multi-page label PDF exported successfully!`);
-      } else {
-        toast.info(`Downloading label as ${fmt.toUpperCase()}...`);
-        await downloadLabelFromElement(canvasContainer, {
-          filename: baseFilename,
-          format: fmt,
-          scale: downloadScale,
-          backgroundColor: downloadBg === 'transparent' ? 'transparent' : '#ffffff',
-          widthMm: canvasWidth,
-          heightMm: canvasHeight,
-        });
-        toast.success(`Label exported as ${fmt.toUpperCase()} successfully!`);
-      }
+      toast.info(`Downloading label as ${fmt.toUpperCase()}...`);
+      await downloadLabelFromElement(canvasContainer, {
+        filename: baseFilename,
+        format: fmt,
+        scale: downloadScale,
+        backgroundColor: downloadBg === 'transparent' ? 'transparent' : '#ffffff',
+        widthMm: canvasWidth,
+        heightMm: canvasHeight,
+      });
+      toast.success(`Label exported as ${fmt.toUpperCase()} successfully!`);
     } catch (err) {
       console.error('Failed to export label:', err);
       toast.error('Error downloading label image. Please try again.');
@@ -1433,8 +1509,16 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
   // DYNAMIC SIZING CALCULATIONS FOR SHEETS & ROLLS
   // -------------------------------------------------------------
   const selectedItemsToPrint = useMemo(() => {
-    return items.filter(i => selectedIds.has(i.id));
-  }, [items, selectedIds]);
+    const rawSelected = items.filter(i => selectedIds.has(i.id));
+    if (copiesPerItem <= 1) return rawSelected;
+    const expanded: PrintableItem[] = [];
+    for (const item of rawSelected) {
+      for (let c = 0; c < copiesPerItem; c++) {
+        expanded.push(item);
+      }
+    }
+    return expanded;
+  }, [items, selectedIds, copiesPerItem]);
 
   const sheetPages = useMemo(() => {
     if (!sheetMode) return [];
@@ -2423,29 +2507,198 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                 </div>
               )}
 
-              {/* TAB CONTENT: BATCH SELECTION */}
+              {/* TAB CONTENT: BATCH SELECTION & MULTI-PAGE PDF */}
               {activeTab === 'batch' && (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-black uppercase text-neutral-400 tracking-wider">Batch Print Queue</h3>
-                    <span className="text-[10px] font-mono text-emerald-400">{selectedIds.size} Selected</span>
+                  {/* Top Stats & Summary Card */}
+                  <div className="p-3 bg-[#131316] border border-neutral-800 rounded-2xl space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Layers size={14} className="text-[#ff4f3a]" />
+                        <h3 className="text-xs font-black uppercase text-white tracking-wider">Batch Print Queue</h3>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">
+                        {selectedIds.size} Assets Selected
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5 text-center">
+                      <div className="bg-[#1c1c22] p-2 rounded-xl border border-neutral-800">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-neutral-500 block">Queue Assets</span>
+                        <span className="text-sm font-black text-white font-mono">{selectedIds.size}</span>
+                      </div>
+                      <div className="bg-[#1c1c22] p-2 rounded-xl border border-neutral-800">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-neutral-500 block">Copies / Item</span>
+                        <span className="text-sm font-black text-amber-400 font-mono">{copiesPerItem}x</span>
+                      </div>
+                      <div className="bg-[#1c1c22] p-2 rounded-xl border border-neutral-800">
+                        <span className="text-[8px] font-black uppercase tracking-wider text-neutral-500 block">Total Labels</span>
+                        <span className="text-sm font-black text-emerald-400 font-mono">{selectedItemsToPrint.length}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400 pt-1 border-t border-neutral-800/60 font-semibold">
+                      <span>Layout Mode:</span>
+                      <span className="text-neutral-200 font-bold">
+                        {sheetMode 
+                          ? `Avery Sheet (${AVERY_TEMPLATES.find(t => t.id === selectedAveryTemplateId)?.name || 'Sheet'}, ${sheetPages.length} Page${sheetPages.length > 1 ? 's' : ''})` 
+                          : `Continuous Roll (${selectedItemsToPrint.length} Page${selectedItemsToPrint.length > 1 ? 's' : ''})`}
+                      </span>
+                    </div>
                   </div>
 
+                  {/* Layout & Stock Optimization Panel */}
+                  <div className="p-3 bg-[#131316] border border-neutral-800 rounded-2xl space-y-3">
+                    <h4 className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Stock & Output Optimization</h4>
+
+                    {/* Stock Mode Toggle */}
+                    <div className="grid grid-cols-2 gap-1 bg-[#1a1a1f] p-1 rounded-xl border border-neutral-800">
+                      <button
+                        type="button"
+                        onClick={() => setSheetMode(false)}
+                        className={`py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition ${!sheetMode ? 'bg-[#ff4f3a] text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                      >
+                        Continuous Roll
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSheetMode(true)}
+                        className={`py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition ${sheetMode ? 'bg-[#ff4f3a] text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                      >
+                        Avery Sheet Stock
+                      </button>
+                    </div>
+
+                    {sheetMode && (
+                      <div className="space-y-2 pt-1">
+                        <div>
+                          <label className="text-[9px] text-neutral-500 font-black uppercase tracking-wider block mb-1">Standard Avery Template Stock</label>
+                          <select
+                            value={selectedAveryTemplateId}
+                            onChange={(e) => setSelectedAveryTemplateId(e.target.value)}
+                            className="w-full bg-[#1e1e24] border border-neutral-800 rounded-xl p-2 text-xs font-semibold text-white focus:outline-none focus:border-neutral-700"
+                          >
+                            {AVERY_TEMPLATES.map(t => (
+                              <option key={t.id} value={t.id}>
+                                {t.name} ({t.columns * t.rows} / sheet, {t.pageSize.toUpperCase()})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[9px] text-neutral-500 font-black uppercase tracking-wider block mb-1">Sheet #1 Start Slot Offset (Avoid waste)</label>
+                          <select
+                            value={sheetStartIndex}
+                            onChange={(e) => setSheetStartIndex(parseInt(e.target.value) || 1)}
+                            className="w-full bg-[#1e1e24] border border-neutral-800 rounded-xl p-2 text-xs font-semibold text-white focus:outline-none focus:border-neutral-700 font-mono"
+                          >
+                            {Array.from({ length: (AVERY_TEMPLATES.find(t => t.id === selectedAveryTemplateId)?.columns || 3) * (AVERY_TEMPLATES.find(t => t.id === selectedAveryTemplateId)?.rows || 10) }, (_, i) => i + 1).map(slot => (
+                              <option key={slot} value={slot}>
+                                Slot #{slot} {slot === 1 ? '(Top Left / First Slot)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Copies Multiplier & Resolution */}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div>
+                        <label className="text-[9px] text-neutral-500 font-black uppercase tracking-wider block mb-1">Copies Per Asset</label>
+                        <select
+                          value={copiesPerItem}
+                          onChange={(e) => setCopiesPerItem(parseInt(e.target.value) || 1)}
+                          className="w-full bg-[#1e1e24] border border-neutral-800 rounded-xl p-2 text-xs font-semibold text-white focus:outline-none focus:border-neutral-700"
+                        >
+                          <option value={1}>1 Copy Each</option>
+                          <option value={2}>2 Copies Each</option>
+                          <option value={3}>3 Copies Each</option>
+                          <option value={5}>5 Copies Each</option>
+                          <option value={10}>10 Copies Each</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[9px] text-neutral-500 font-black uppercase tracking-wider block mb-1">DPI Resolution</label>
+                        <select
+                          value={downloadScale}
+                          onChange={(e) => setDownloadScale(parseInt(e.target.value) || 3)}
+                          className="w-full bg-[#1e1e24] border border-neutral-800 rounded-xl p-2 text-xs font-semibold text-white focus:outline-none focus:border-neutral-700"
+                        >
+                          <option value={1.5}>150 DPI (Fast)</option>
+                          <option value={3}>300 DPI (Standard Thermal)</option>
+                          <option value={6}>600 DPI (Ultra Crisp Vector)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Primary Batch Export Buttons */}
+                    <div className="space-y-2 pt-2">
+                      <button
+                        type="button"
+                        disabled={isExporting || selectedIds.size === 0}
+                        onClick={handleBatchPdfDownload}
+                        className="w-full py-2.5 bg-gradient-to-r from-[#ff4f3a] to-amber-600 hover:from-[#ff3a21] hover:to-amber-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isExporting ? (
+                          <>
+                            <RefreshCw size={14} className="animate-spin" />
+                            <span>
+                              {batchPdfProgress 
+                                ? `Rendering Page ${batchPdfProgress.current} / ${batchPdfProgress.total}...` 
+                                : 'Compiling Multi-Page PDF...'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Download size={14} />
+                            <span>Generate Batch PDF ({selectedItemsToPrint.length} Labels)</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={selectedIds.size === 0}
+                        onClick={handleSystemPrint}
+                        className="w-full py-2 bg-[#1e1e24] hover:bg-[#25252d] border border-neutral-800 text-neutral-300 hover:text-white font-black text-xs uppercase tracking-wider rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        <Printer size={13} />
+                        <span>System Print / AirPrint Queue</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Asset Selection Queue */}
                   <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Select Assets For Printing</h4>
+                      <button
+                        type="button"
+                        onClick={() => setIsAssetDrawerOpen(true)}
+                        className="text-[9px] font-bold text-[#ff4f3a] hover:underline flex items-center gap-1"
+                      >
+                        <FolderOpen size={10} />
+                        <span>Full Library Drawer</span>
+                      </button>
+                    </div>
+
                     {/* Search Field */}
                     <div className="relative">
                       <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
                       <input
                         type="text"
-                        placeholder="Search assets to print..."
+                        placeholder="Search assets by tag, name, brand..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full bg-[#1e1e24] border border-neutral-800 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold focus:outline-none focus:border-neutral-700 placeholder-neutral-500"
                       />
                     </div>
 
-                    {/* Category Filter */}
-                    <div className="flex gap-1 overflow-x-auto pb-1 text-[9px] font-bold">
+                    {/* Category Filter Pills */}
+                    <div className="flex gap-1 overflow-x-auto pb-1 text-[9px] font-bold no-scrollbar">
                       <button
                         type="button"
                         onClick={() => setBatchCategory('all')}
@@ -2465,18 +2718,18 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                       ))}
                     </div>
 
-                    <div className="pt-1">
+                    <div className="pt-0.5">
                       <button
                         type="button"
                         onClick={toggleSelectAll}
-                        className="w-full py-1.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 rounded-xl text-[9px] font-black uppercase tracking-wider transition mb-2"
+                        className="w-full py-1.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 rounded-xl text-[9px] font-black uppercase tracking-wider transition mb-1"
                       >
                         {selectedIds.size === printableItemsList.length ? 'Deselect All' : 'Select All Filtered'}
                       </button>
                     </div>
 
                     {/* Printable list items */}
-                    <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                    <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1 no-scrollbar">
                       {printableItemsList.map((item, idx) => {
                         const isSelected = selectedIds.has(item.id);
                         return (
@@ -4859,8 +5112,8 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                   type="button"
                   onClick={() => {
                     setIsAssetDrawerOpen(false);
-                    setActiveTab('print');
-                    toast.info(`Proceeding to print ${selectedIds.size} queued asset labels`);
+                    setActiveTab('batch');
+                    toast.info(`Proceeding to batch print ${selectedIds.size} queued asset labels`);
                   }}
                   disabled={selectedIds.size === 0}
                   className="flex-1 sm:flex-none px-6 py-2 bg-[#0066cc] hover:bg-[#0052a3] text-white rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-2 shadow-lg shadow-[#0066cc]/20 disabled:opacity-40"
@@ -4891,6 +5144,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
               return (
                 <div
                   key={`print-avery-page-${pageIdx}`}
+                  id={`print-avery-page-${pageIdx}`}
                   className="bg-white print:m-0 print:border-none relative flex flex-col justify-start page-break-after-always overflow-hidden shrink-0"
                   style={{
                     width: template.pageSize === 'letter' ? '215.9mm' : '210mm',
@@ -5023,6 +5277,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
               return (
                 <div
                   key={`print-roll-label-${item.id}-${idx}`}
+                  id={`print-roll-label-${item.id}-${idx}`}
                   className="bg-white text-black relative overflow-hidden flex flex-col justify-stretch page-break-after-always shrink-0"
                   style={{
                     width: `${canvasWidth}mm`,

@@ -54,7 +54,7 @@ interface KioskModeProps {
   adminSettings: AdminSettings | null;
 }
 
-type KioskStep = 'welcome' | 'activate' | 'scan' | 'search' | 'confirm' | 'user_details' | 'sign' | 'complete' | 'case_explorer' | 'case_pack' | 'create_case' | 'review' | 'receipt' | 'order_view' | 'configure';
+type KioskStep = 'welcome' | 'activate' | 'scan' | 'search' | 'confirm' | 'user_details' | 'sign' | 'complete' | 'case_explorer' | 'case_pack' | 'create_case' | 'review' | 'receipt' | 'order_view' | 'configure' | 'item_released';
 type KioskAction = 'checkout' | 'checkin' | 'pack' | 'order';
 
 const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings }) => {
@@ -1007,6 +1007,8 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   const [newCaseType, setNewCaseType] = useState('Case');
   const [guestInfo, setGuestInfo] = useState({ name: '', email: '', expectedReturnDate: '' });
   const [signature, setSignature] = useState<string | null>(null);
+  const [savedSignatureData, setSavedSignatureData] = useState<string | null>(null);
+  const [releaseOfficerName, setReleaseOfficerName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   
@@ -1796,7 +1798,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     setIsLoading(true);
     try {
       const checkoutItems: any[] = [];
-      const sigData = sigCanvas.current?.toDataURL() || undefined;
+      const sigData = savedSignatureData || sigCanvas.current?.toDataURL() || undefined;
       const nowMs = Date.now();
 
       for (const { item, qty } of cart) {
@@ -1918,9 +1920,11 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
 
       if (!isOnline) {
         toast.success(`✓ Bulk check-out queued offline. ${checkoutItems.length} items set to In Use.`);
+      } else {
+        toast.success(`✓ Equipment approved and released! ${checkoutItems.length} item(s) dismounted to ${guestInfo.name || 'Holder'}`);
       }
 
-      setStep('receipt');
+      setStep('item_released');
     } catch (error) {
       console.error(error);
       toast.error("Bulk check-out failed. Please try again.");
@@ -2207,6 +2211,8 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     setScannedAsset(null);
     setGuestInfo({ name: '', email: '', expectedReturnDate: '' });
     setSignature(null);
+    setSavedSignatureData(null);
+    setReleaseOfficerName('');
     setCart([]);
     setLastOrderReceipt(null);
   };
@@ -4780,19 +4786,286 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                 </button>
                 <button 
                   disabled={!signature}
-                  onClick={action === 'checkout' ? handleCheckout : handleCheckin}
-                  className="py-8 bg-emerald-500 text-white rounded-[2rem] text-2xl font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-2xl shadow-emerald-500/20 tabular-nums flex items-center justify-center gap-4"
+                  onClick={() => {
+                    if (action === 'checkout') {
+                      const sigData = sigCanvas.current?.toDataURL() || null;
+                      setSavedSignatureData(sigData);
+                      setStep('item_released');
+                    } else {
+                      handleCheckin();
+                    }
+                  }}
+                  className="py-8 bg-emerald-500 text-white rounded-[2rem] text-2xl font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-2xl shadow-emerald-500/20 tabular-nums flex items-center justify-center gap-4 cursor-pointer"
                 >
                   {isLoading ? (
                     <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
                     <>
                       <CheckCircle2 size={32} />
-                      <span>{action === 'checkout' ? 'Authorize Move' : 'Log Return'}</span>
+                      <span>{action === 'checkout' ? 'Submit Signature & Proceed to Release' : 'Log Return'}</span>
                     </>
                   )}
                 </button>
               </div>
+            </motion.div>
+          )}
+
+          {step === 'item_released' && (
+            <motion.div 
+              key="item_released"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white text-black rounded-[3rem] p-8 md:p-12 w-full max-w-5xl space-y-8 shadow-2xl overflow-hidden"
+            >
+              {!lastOrderReceipt ? (
+                /* Phase 1: Release Authorization & Gate Approval */
+                <div className="space-y-8">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-100 pb-6">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 bg-amber-500/10 text-amber-600 font-mono font-black text-[10px] uppercase tracking-widest rounded-full border border-amber-500/20 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                          Step 4/4 • Pending Dispatch Approval
+                        </span>
+                      </div>
+                      <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-neutral-900 leading-none mt-2">
+                        Item Release Gate
+                      </h2>
+                      <p className="text-xs md:text-sm text-neutral-500 font-bold uppercase tracking-widest">
+                        Review accountability record and authorize equipment dispatch release
+                      </p>
+                    </div>
+
+                    <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-150 flex items-center gap-3 shrink-0">
+                      <ShieldCheck size={28} className="text-emerald-500 shrink-0" />
+                      <div className="text-left font-mono">
+                        <p className="text-[9px] text-neutral-400 font-black uppercase tracking-wider">SECURE AUTHORIZATION</p>
+                        <p className="text-xs font-black text-neutral-800 uppercase">{guestInfo.name || 'Terminal Guest'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Main Grid Split */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    {/* Left Column: Equipment Items Manifest */}
+                    <div className="lg:col-span-7 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-mono font-black text-xs uppercase tracking-wider text-neutral-500 flex items-center gap-2">
+                          <Package size={16} className="text-[#F27D26]" />
+                          Equipment Manifest ({cart.reduce((sum, c) => sum + c.qty, 0)} Items)
+                        </h3>
+                        <span className="text-[10px] font-mono bg-neutral-100 px-2.5 py-0.5 rounded-full font-bold text-neutral-600 uppercase">
+                          Status Transition ➔ IN USE
+                        </span>
+                      </div>
+
+                      <div className="space-y-3 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar">
+                        {cart.map(({ item, qty }) => (
+                          <div 
+                            key={item.id}
+                            className="p-4 bg-neutral-50 rounded-2xl border border-neutral-150 flex items-center justify-between gap-4"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-14 h-14 bg-white rounded-xl overflow-hidden shrink-0 border border-neutral-200 relative">
+                                {item.photoUrls?.[0] ? (
+                                  <img src={item.photoUrls[0]} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-neutral-300">
+                                    <Package size={20} />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 text-left">
+                                <h4 className="font-black text-neutral-900 text-base uppercase leading-tight truncate">{item.name}</h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-[9px] font-mono text-neutral-400 font-bold uppercase flex items-center gap-1">
+                                    <Tag size={10} />
+                                    {item.assetTag || 'NO-TAG'}
+                                  </span>
+                                  <span className="px-2 py-0.5 bg-neutral-200 text-neutral-700 rounded text-[8px] font-black uppercase tracking-wider">
+                                    {item.category || 'Gear'}
+                                  </span>
+                                  {item.isKit && (
+                                    <span className="px-2 py-0.5 bg-[#F27D26]/20 text-[#F27D26] rounded text-[8px] font-black uppercase tracking-wider">
+                                      KIT
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0 font-mono">
+                              <span className="px-3 py-1 bg-neutral-900 text-white font-black rounded-lg text-xs">
+                                QTY: {qty}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Right Column: Authorization Signature & Release Dispatch Officer */}
+                    <div className="lg:col-span-5 space-y-6">
+                      <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-150 space-y-5">
+                        <h3 className="font-mono font-black text-xs uppercase tracking-wider text-neutral-500">
+                          Verified Digital Authorization
+                        </h3>
+
+                        {/* Recipient Summary */}
+                        <div className="space-y-2 text-xs font-mono border-b border-neutral-200 pb-4">
+                          <div className="flex justify-between">
+                            <span className="text-neutral-400">HOLDER:</span>
+                            <span className="font-black text-neutral-900 uppercase">{guestInfo.name}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-neutral-400">EMAIL:</span>
+                            <span className="font-bold text-neutral-800 lowercase">{guestInfo.email}</span>
+                          </div>
+                          {guestInfo.expectedReturnDate && (
+                            <div className="flex justify-between text-rose-600 font-bold">
+                              <span>EXPECTED RETURN:</span>
+                              <span className="font-black uppercase">{guestInfo.expectedReturnDate}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Signature Preview */}
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">
+                            Captured User Signature
+                          </label>
+                          <div className="bg-white rounded-2xl border-2 border-neutral-200 p-3 h-28 flex items-center justify-center overflow-hidden relative shadow-inner">
+                            {savedSignatureData ? (
+                              <img src={savedSignatureData} className="max-h-full max-w-full object-contain" alt="User Signature" />
+                            ) : (
+                              <span className="text-[10px] font-mono text-neutral-400 italic">Signature Recorded</span>
+                            )}
+                            <div className="absolute bottom-1 right-2 bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded text-[8px] font-mono font-black uppercase">
+                              ✓ Verified
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Release Officer Verification */}
+                        <div className="space-y-2 pt-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-neutral-500 block">
+                            Release Officer / Inspector Name
+                          </label>
+                          <input 
+                            type="text"
+                            value={releaseOfficerName}
+                            onChange={(e) => setReleaseOfficerName(e.target.value)}
+                            placeholder={initialUser?.displayName || "Authorized Dispatch Officer"}
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold uppercase text-neutral-900 outline-none focus:border-[#F27D26]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer CTAs */}
+                  <div className="pt-4 border-t border-neutral-100 flex flex-col sm:flex-row gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setStep('sign')}
+                      className="flex-1 py-5 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-2xl text-xs font-black uppercase tracking-widest transition cursor-pointer"
+                    >
+                      Back to Signature
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => handleCheckout()}
+                      className="flex-[2] py-5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest transition shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50"
+                    >
+                      {isLoading ? (
+                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <CheckCircle2 size={20} />
+                          <span>Approve & Release Equipment</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Phase 2: Released & Dispatched Success Banner */
+                <div className="text-center space-y-8 py-4">
+                  <div className="w-24 h-24 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto shadow-2xl shadow-emerald-500/30 animate-bounce">
+                    <CheckCircle2 size={56} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="px-4 py-1.5 bg-emerald-500/10 text-emerald-600 font-mono font-black text-xs uppercase tracking-widest rounded-full border border-emerald-500/20 inline-block">
+                      ✓ DISPATCH APPROVED & RECORDED
+                    </span>
+                    <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-neutral-900 leading-none">
+                      Equipment Released
+                    </h2>
+                    <p className="text-xs md:text-base text-neutral-500 font-bold uppercase tracking-widest max-w-xl mx-auto">
+                      All items officially set to <span className="text-neutral-900 font-black">IN USE</span> under custody of <span className="text-[#F27D26] font-black">{lastOrderReceipt.userName}</span>
+                    </p>
+                  </div>
+
+                  {/* Summary Card */}
+                  <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-200 max-w-2xl mx-auto space-y-4 text-left">
+                    <div className="flex justify-between items-center font-mono text-xs border-b border-neutral-200 pb-3">
+                      <div>
+                        <span className="text-neutral-400 block text-[9px]">RELEASE ORDER REF:</span>
+                        <span className="font-black text-neutral-900 text-base">{lastOrderReceipt.orderNumber}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-neutral-400 block text-[9px]">TIMESTAMP:</span>
+                        <span className="font-bold text-neutral-800">{lastOrderReceipt.createdAt.toLocaleTimeString()}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
+                      {lastOrderReceipt.items.map((it: any, idx: number) => (
+                        <div key={idx} className="p-3 bg-white rounded-xl border border-neutral-150 flex justify-between items-center font-mono text-xs">
+                          <div>
+                            <span className="font-black text-neutral-900 uppercase block">{it.name}</span>
+                            <span className="text-[9px] text-neutral-400 font-bold">TAG: {it.assetTag}</span>
+                          </div>
+                          <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-600 font-black rounded-lg text-[10px] uppercase">
+                            STATUS: IN USE
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
+                    <button
+                      type="button"
+                      onClick={() => setStep('receipt')}
+                      className="py-4 bg-neutral-900 hover:bg-neutral-800 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+                    >
+                      <Printer size={16} />
+                      <span>Packing Slip</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSendingEmail}
+                      onClick={() => handleSendEmail()}
+                      className="py-4 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+                    >
+                      <Mail size={16} className={isSendingEmail ? "animate-spin" : ""} />
+                      <span>{isSendingEmail ? 'Sending...' : 'Email Copy'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => resetKiosk()}
+                      className="py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg transition cursor-pointer"
+                    >
+                      <CheckCircle2 size={16} />
+                      <span>Done & Close</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 
