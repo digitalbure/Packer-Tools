@@ -14,6 +14,73 @@ export interface LabelExportOptions {
 }
 
 /**
+ * Clears printer-specific dynamic CSS stylesheets, removes lingering print iframes,
+ * purges printer cache storage keys, and forces a layout reflow on print elements.
+ */
+export function clearPrinterCssCache(): { success: boolean; clearedCount: number } {
+  let clearedCount = 0;
+
+  try {
+    // 1. Remove dynamically injected print style elements
+    const dynamicStyles = document.querySelectorAll(
+      'style[data-printer-cache], style[id*="print"], style[data-vite-dev-id*="print"], link[rel="stylesheet"][href*="print"]'
+    );
+    dynamicStyles.forEach(style => {
+      style.remove();
+      clearedCount++;
+    });
+
+    // 2. Remove lingering hidden print iframes or orphan print portals
+    const orphanIframes = document.querySelectorAll(
+      'iframe[id*="print"], iframe[name*="print"], iframe[src*="about:blank"]'
+    );
+    orphanIframes.forEach(iframe => {
+      iframe.remove();
+      clearedCount++;
+    });
+
+    // 3. Purge printer-specific CSS cache keys from localStorage / sessionStorage
+    const storageKeys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('printer') || key.includes('print_css') || key.includes('avery_cache') || key.includes('label_studio_css'))) {
+        storageKeys.push(key);
+      }
+    }
+    storageKeys.forEach(key => {
+      localStorage.removeItem(key);
+      clearedCount++;
+    });
+
+    // 4. Force browser DOM layout reflow on print workspace containers
+    const printNodes = document.querySelectorAll<HTMLElement>(
+      '#studio-canvas-container, #label-studio-workspace-print-root, [id^="print-avery-page-"], [id^="print-roll-label-"]'
+    );
+    printNodes.forEach(node => {
+      // Accessing offsetHeight forces synchronous DOM style & layout re-calculation
+      void node.offsetHeight;
+      node.style.transform = 'translateZ(0)';
+      setTimeout(() => {
+        node.style.transform = '';
+      }, 30);
+      clearedCount++;
+    });
+
+    // 5. Reset document print media override sheet if present
+    const overrideSheet = document.getElementById('packer-printer-css-override-sheet');
+    if (overrideSheet) {
+      overrideSheet.remove();
+      clearedCount++;
+    }
+
+    return { success: true, clearedCount };
+  } catch (err) {
+    console.warn('Printer CSS cache cleanup warning:', err);
+    return { success: false, clearedCount };
+  }
+}
+
+/**
  * Downloads a DOM element (label container) in PNG, JPG, PDF, or SVG format.
  */
 export async function downloadLabelFromElement(
@@ -67,38 +134,50 @@ export async function downloadLabelFromElement(
     },
   };
 
-  if (format === 'svg') {
-    const dataUrl = await toSvg(element, captureOptions);
-    triggerDownload(dataUrl, `${sanitizeName}.svg`);
-    return;
-  }
+  const captureFn = async () => {
+    if (format === 'svg') {
+      const dataUrl = await toSvg(element, captureOptions);
+      triggerDownload(dataUrl, `${sanitizeName}.svg`);
+      return;
+    }
 
-  if (format === 'png') {
-    const dataUrl = await toPng(element, captureOptions);
-    triggerDownload(dataUrl, `${sanitizeName}.png`);
-    return;
-  }
+    if (format === 'png') {
+      const dataUrl = await toPng(element, captureOptions);
+      triggerDownload(dataUrl, `${sanitizeName}.png`);
+      return;
+    }
 
-  if (format === 'jpg') {
-    const dataUrl = await toJpeg(element, captureOptions);
-    triggerDownload(dataUrl, `${sanitizeName}.jpg`);
-    return;
-  }
+    if (format === 'jpg') {
+      const dataUrl = await toJpeg(element, captureOptions);
+      triggerDownload(dataUrl, `${sanitizeName}.jpg`);
+      return;
+    }
 
-  if (format === 'pdf') {
-    // Generate high resolution PNG data URL for embedding into PDF
-    const dataUrl = await toPng(element, captureOptions);
+    if (format === 'pdf') {
+      // Generate high resolution PNG data URL for embedding into PDF
+      const dataUrl = await toPng(element, captureOptions);
 
-    const orientation = widthMm >= heightMm ? 'landscape' : 'portrait';
-    const pdf = new jsPDF({
-      orientation,
-      unit: 'mm',
-      format: [widthMm, heightMm],
-    });
+      const orientation = widthMm >= heightMm ? 'landscape' : 'portrait';
+      const pdf = new jsPDF({
+        orientation,
+        unit: 'mm',
+        format: [widthMm, heightMm],
+      });
 
-    pdf.addImage(dataUrl, 'PNG', 0, 0, widthMm, heightMm, undefined, 'FAST');
-    pdf.save(`${sanitizeName}.pdf`);
-    return;
+      pdf.addImage(dataUrl, 'PNG', 0, 0, widthMm, heightMm, undefined, 'FAST');
+      pdf.save(`${sanitizeName}.pdf`);
+      return;
+    }
+  };
+
+  try {
+    await captureFn();
+  } catch (err) {
+    console.warn('Initial label export failed. Automatically clearing printer CSS cache and retrying layout render...', err);
+    clearPrinterCssCache();
+    await new Promise(res => setTimeout(res, 150));
+    // Retry once after cache purge & layout reflow
+    await captureFn();
   }
 }
 
@@ -126,49 +205,59 @@ export async function downloadBatchLabelsPdf(
   const targetPxWidth = Math.round(widthMm * 3.78);
   const targetPxHeight = Math.round(heightMm * 3.78);
 
-  for (let i = 0; i < elements.length; i++) {
-    const el = elements[i];
-    if (onProgress) {
-      onProgress(i + 1, elements.length);
-    }
+  const processPages = async () => {
+    for (let i = 0; i < elements.length; i++) {
+      const el = elements[i];
+      if (onProgress) {
+        onProgress(i + 1, elements.length);
+      }
 
-    const dataUrl = await toPng(el, {
-      pixelRatio: scale,
-      backgroundColor: '#ffffff',
-      quality: 0.95,
-      cacheBust: true,
-      width: targetPxWidth,
-      height: targetPxHeight,
-      style: {
-        width: `${targetPxWidth}px`,
-        height: `${targetPxHeight}px`,
-        transform: 'scale(1)',
-        transformOrigin: 'top left',
-        boxShadow: 'none',
-        border: 'none',
-      },
-      filter: (node: HTMLElement) => {
-        if (node.classList) {
-          if (
-            node.classList.contains('editor-grid-overlay') ||
-            node.classList.contains('selection-handle') ||
-            node.classList.contains('cut-guide-indicator')
-          ) {
-            return false;
+      const dataUrl = await toPng(el, {
+        pixelRatio: scale,
+        backgroundColor: '#ffffff',
+        quality: 0.95,
+        cacheBust: true,
+        width: targetPxWidth,
+        height: targetPxHeight,
+        style: {
+          width: `${targetPxWidth}px`,
+          height: `${targetPxHeight}px`,
+          transform: 'scale(1)',
+          transformOrigin: 'top left',
+          boxShadow: 'none',
+          border: 'none',
+        },
+        filter: (node: HTMLElement) => {
+          if (node.classList) {
+            if (
+              node.classList.contains('editor-grid-overlay') ||
+              node.classList.contains('selection-handle') ||
+              node.classList.contains('cut-guide-indicator')
+            ) {
+              return false;
+            }
           }
-        }
-        return true;
-      },
-    });
+          return true;
+        },
+      });
 
-    if (i > 0) {
-      pdf.addPage([widthMm, heightMm], orientation);
+      if (i > 0) {
+        pdf.addPage([widthMm, heightMm], orientation);
+      }
+
+      pdf.addImage(dataUrl, 'PNG', 0, 0, widthMm, heightMm, undefined, 'FAST');
     }
+    pdf.save(`${sanitizeName}.pdf`);
+  };
 
-    pdf.addImage(dataUrl, 'PNG', 0, 0, widthMm, heightMm, undefined, 'FAST');
+  try {
+    await processPages();
+  } catch (err) {
+    console.warn('Batch PDF capture failed. Clearing printer CSS cache and retrying layout render...', err);
+    clearPrinterCssCache();
+    await new Promise(res => setTimeout(res, 200));
+    await processPages();
   }
-
-  pdf.save(`${sanitizeName}.pdf`);
 }
 
 /**

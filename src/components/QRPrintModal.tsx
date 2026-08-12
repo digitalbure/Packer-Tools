@@ -19,7 +19,7 @@ import { db } from '../firebase';
 import { toast } from 'sonner';
 import { getLabelRecommendation } from '../services/labelSuggester';
 import { hapticResizeTick, hapticMedium, hapticLight } from '../utils/haptics';
-import { downloadLabelFromElement, downloadBatchLabelsPdf, LabelExportFormat } from '../utils/labelDownload';
+import { downloadLabelFromElement, downloadBatchLabelsPdf, clearPrinterCssCache, LabelExportFormat } from '../utils/labelDownload';
 
 interface PrintableItem {
   id: string;
@@ -642,11 +642,22 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
       toast.success(`Successfully generated and downloaded ${pageElements.length}-page PDF document!`);
     } catch (err) {
       console.error("Batch PDF generation failed:", err);
-      toast.error("Failed to compile multi-page batch PDF. Please try again.");
+      clearPrinterCssCache();
+      toast.error("Failed to compile multi-page batch PDF. Printer CSS cache cleared; please retry.");
     } finally {
       setIsExporting(false);
       setBatchPdfProgress(null);
       setIsDownloadModalOpen(false);
+    }
+  };
+
+  const handleClearPrinterCache = () => {
+    hapticMedium();
+    const result = clearPrinterCssCache();
+    if (result.success) {
+      toast.success(`Printer CSS Cache Cleared! (${result.clearedCount} style node(s) purged and layout reflowed)`);
+    } else {
+      toast.error('Encountered an issue resetting printer CSS cache.');
     }
   };
 
@@ -2667,6 +2678,16 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                       >
                         <Printer size={13} />
                         <span>System Print / AirPrint Queue</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleClearPrinterCache}
+                        title="Resets printer dynamic CSS cache, purges orphan print stylesheets and forces a DOM layout reflow if print layout renders incorrectly"
+                        className="w-full py-1.5 bg-[#18181c] hover:bg-[#202028] border border-neutral-800/80 text-neutral-400 hover:text-amber-400 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition flex items-center justify-center gap-1.5"
+                      >
+                        <RefreshCw size={12} className="text-amber-500" />
+                        <span>Clear Printer CSS Cache & Reflow Layout</span>
                       </button>
                     </div>
                   </div>

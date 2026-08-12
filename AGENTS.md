@@ -218,6 +218,7 @@ To ensure ultra-crisp physical barcode scanning and flexible asset tagging acros
 - Powered by `html-to-image` and `jsPDF`.
 - Supports PNG, JPG, PDF, and SVG formats with physical mm scale conversion (3.78px per mm) and resolution scales from 1x (72 DPI) to 4x (600 DPI).
 - Supports transparent PNG outputs and multi-label batch PDF generation for bulk asset tags.
+- Includes `clearPrinterCssCache()` utility to automatically purge dynamic print stylesheets, clear orphan print iframes, reset printer CSS storage keys, and force a synchronous DOM layout reflow if print layouts fail or misalign.
 
 ### 5. Asset Navigator & QR Label Library Drawer (`isAssetDrawerOpen`):
 - Replaces cramped bottom preview bindings with a full modal drawer overlay featuring instant multi-field fuzzy search (Name, Tag, Brand, Model, Serial, Category) and Category/Status filter pills.
