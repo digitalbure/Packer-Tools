@@ -51,7 +51,8 @@ import {
   Bug,
   MapPin,
   Printer,
-  Sliders
+  Sliders,
+  ArrowRightLeft
 } from 'lucide-react';
 import { getButtonStyleClasses, DEFAULT_QUICK_ACCESS_ITEMS } from '../lib/leftPanelUtils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -208,6 +209,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/organizer', label: 'Organizer', icon: <Layers size={20} />, feature: 'organizer' as FeatureKey },
     { to: '/travel-cases', label: 'Travel Cases', icon: <Briefcase size={20} />, feature: 'travelCases' as FeatureKey },
     { to: '/rfid', label: 'RFID Logistics', icon: <Cpu size={20} />, feature: 'rfidTracking' as FeatureKey },
+    { to: '/transfer', label: 'Asset Transfer', icon: <ArrowRightLeft size={20} />, feature: 'assetTransfer' as FeatureKey },
     { to: '#label-studio', label: 'Label Studio', icon: <Printer size={20} /> },
   ];
 

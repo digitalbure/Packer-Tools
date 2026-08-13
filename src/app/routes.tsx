@@ -86,6 +86,7 @@ const OrganizerIOPage = lazyWithRetry(() => import('../pages/OrganizerIOPage'));
 const RFIDModule = lazyWithRetry(() => import('../pages/RFIDModule'));
 const GroupsModule = lazyWithRetry(() => import('../pages/GroupsModule'));
 const IdResolutionPage = lazyWithRetry(() => import('../pages/IdResolutionPage'));
+const AssetTransferModule = lazyWithRetry(() => import('../pages/AssetTransferModule'));
 
 // Component AuthGate (replaces inline Gate component)
 const AuthGate = lazyWithRetry(() => import('../components/AuthGate'));
@@ -185,6 +186,7 @@ export function AnimatedRoutes() {
         <Route path="/travel-cases" element={isFeatureEnabled('travelCases', user, adminSettings) ? <TravelCaseModule user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
         <Route path="/rfid" element={<AuthGuard><RFIDModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
         <Route path="/groups" element={<AuthGuard><GroupsModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
+        <Route path="/transfer" element={<AuthGuard><AssetTransferModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
 
         {/* SuperAdmin Routes */}
         <Route path="/admin" element={<AdminGuard><AdminPanel user={user!} onMenuClick={onMenuClick} /></AdminGuard>} />

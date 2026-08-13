@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Code, Key, Terminal, Copy, Check, ExternalLink, Globe, RefreshCw, Play, Layout, Paintbrush, Shield, HelpCircle, Sparkles } from 'lucide-react';
+import { Code, Key, Terminal, Copy, Check, ExternalLink, Globe, RefreshCw, Play, Layout, Paintbrush, Shield, HelpCircle, Sparkles, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -9,6 +9,7 @@ interface DeveloperTabProps {
     uid: string;
     email: string;
     plan?: string;
+    apiKey?: string;
   };
   lists: any[];
 }
@@ -26,29 +27,40 @@ export default function DeveloperTab({ user, lists }: DeveloperTabProps) {
   const [iframeUrl, setIframeUrl] = useState<string>('');
   const [copiedType, setCopiedType] = useState<'iframe' | 'script' | 'key' | 'endpoint' | null>(null);
 
-  // API credentials simulation
+  // API credentials management & visibility
   const [apiKey, setApiKey] = useState<string>('');
+  const [showApiKey, setShowApiKey] = useState(false);
   const [isGeneratingKey, setIsGeneratingKey] = useState(false);
 
   // Sandbox testing
-  const [sandboxEndpoint, setSandboxEndpoint] = useState<'lists' | 'gear'>('lists');
+  const [sandboxEndpoint, setSandboxEndpoint] = useState<'ping' | 'lists' | 'gear' | 'webhooks/test'>('ping');
   const [sandboxResponse, setSandboxResponse] = useState<any>(null);
+  const [sandboxMeta, setSandboxMeta] = useState<{ status: number; latencyMs: number; timestamp: string } | null>(null);
   const [isSandboxRunning, setIsSandboxRunning] = useState(false);
 
   // Active code snippet tab inside sandbox API docs
   const [activeSnippetTab, setActiveSnippetTab] = useState<'javascript' | 'curl' | 'python' | 'react'>('javascript');
 
   useEffect(() => {
-    // Load or generate a fake persistent-styled API key based on user credentials
-    const cachedKey = localStorage.getItem(`packer_api_key_${user.uid}`);
-    if (cachedKey) {
-      setApiKey(cachedKey);
+    // Load existing API key from user prop, localStorage, or auto-generate initial key
+    if (user.apiKey) {
+      setApiKey(user.apiKey);
+      localStorage.setItem(`packer_api_key_${user.uid}`, user.apiKey);
     } else {
-      const generated = `pk_live_packer_${user.uid.slice(0, 8)}_${Math.random().toString(36).substring(2, 10)}`;
-      localStorage.setItem(`packer_api_key_${user.uid}`, generated);
-      setApiKey(generated);
+      const cachedKey = localStorage.getItem(`packer_api_key_${user.uid}`);
+      if (cachedKey) {
+        setApiKey(cachedKey);
+      } else {
+        const generated = `pk_live_packer_${user.uid.slice(0, 8)}_${Math.random().toString(36).substring(2, 10)}`;
+        localStorage.setItem(`packer_api_key_${user.uid}`, generated);
+        setApiKey(generated);
+        // Persist to user doc in background
+        if (user.uid) {
+          updateDoc(doc(db, 'users', user.uid), { apiKey: generated }).catch(() => {});
+        }
+      }
     }
-  }, [user.uid]);
+  }, [user.uid, user.apiKey]);
 
   // Regenerate Embed Code when options change
   useEffect(() => {
@@ -77,15 +89,23 @@ export default function DeveloperTab({ user, lists }: DeveloperTabProps) {
     fetchEmbed();
   }, [selectedListId, embedTheme, embedColor, companyName]);
 
-  const handleRegenerateKey = () => {
+  const handleRegenerateKey = async () => {
     setIsGeneratingKey(true);
-    setTimeout(() => {
-      const newKey = `pk_live_packer_${user.uid.slice(0, 8)}_${Math.random().toString(36).substring(2, 12)}`;
+    const newKey = `pk_live_packer_${user.uid.slice(0, 8)}_${Math.random().toString(36).substring(2, 12)}`;
+    try {
+      localStorage.setItem(`packer_api_key_${user.uid}`, newKey);
+      if (user.uid) {
+        await updateDoc(doc(db, 'users', user.uid), { apiKey: newKey });
+      }
+      setApiKey(newKey);
+      toast.success('Successfully provisioned new production API credentials.');
+    } catch (e) {
       localStorage.setItem(`packer_api_key_${user.uid}`, newKey);
       setApiKey(newKey);
+      toast.success('Provisioned new API key locally.');
+    } finally {
       setIsGeneratingKey(false);
-      toast.success('Successfully provisioned new production API credentials.');
-    }, 850);
+    }
   };
 
   const handleCopy = (text: string, type: 'iframe' | 'script' | 'key' | 'endpoint') => {
@@ -98,12 +118,46 @@ export default function DeveloperTab({ user, lists }: DeveloperTabProps) {
   const handleRunSandbox = async () => {
     setIsSandboxRunning(true);
     setSandboxResponse(null);
+    setSandboxMeta(null);
+    const startTime = performance.now();
     try {
-      const endpoint = sandboxEndpoint === 'lists' ? '/api/developer/lists' : '/api/developer/gear';
-      const res = await fetch(`${endpoint}?apiKey=${apiKey}`);
+      let endpointPath = '/api/developer/ping';
+      let method = 'GET';
+      let body: any = null;
+
+      if (sandboxEndpoint === 'lists') {
+        endpointPath = '/api/developer/lists';
+      } else if (sandboxEndpoint === 'gear') {
+        endpointPath = '/api/developer/gear';
+      } else if (sandboxEndpoint === 'webhooks/test') {
+        endpointPath = '/api/developer/webhooks/test';
+        method = 'POST';
+        body = JSON.stringify({ eventType: 'gear.checked_out', payload: { gearId: 'gear-1', holder: user.email } });
+      }
+
+      const res = await fetch(endpointPath, {
+        method,
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json'
+        },
+        body
+      });
+
+      const latencyMs = Math.round(performance.now() - startTime);
       const data = await res.json();
       setSandboxResponse(data);
-      toast.success('Sandbox returned live server context.');
+      setSandboxMeta({
+        status: res.status,
+        latencyMs,
+        timestamp: new Date().toLocaleTimeString()
+      });
+
+      if (res.ok) {
+        toast.success(`API request succeeded (HTTP ${res.status} - ${latencyMs}ms)`);
+      } else {
+        toast.error(`API returned error (HTTP ${res.status})`);
+      }
     } catch (err) {
       console.error(err);
       toast.error('Sandbox execution failure.');
@@ -115,18 +169,25 @@ export default function DeveloperTab({ user, lists }: DeveloperTabProps) {
   // Build the snippet text
   const getCodeSnippet = () => {
     const host = window.location.origin;
-    const endpointPath = sandboxEndpoint === 'lists' ? '/api/developer/lists' : '/api/developer/gear';
+    const endpointPath = sandboxEndpoint === 'ping'
+      ? '/api/developer/ping'
+      : sandboxEndpoint === 'lists'
+      ? '/api/developer/lists'
+      : sandboxEndpoint === 'gear'
+      ? '/api/developer/gear'
+      : '/api/developer/webhooks/test';
+
     const fullUrl = `${host}${endpointPath}`;
 
     switch (activeSnippetTab) {
       case 'curl':
         return `curl -X GET "${fullUrl}" \\\n  -H "Authorization: Bearer ${apiKey}" \\\n  -H "Content-Type: application/json"`;
       case 'javascript':
-        return `// Query Packer Tools from your website domain\nfetch("${fullUrl}", {\n  method: "GET",\n  headers: {\n    "x-api-key": "${apiKey}",\n    "Content-Type": "application/json"\n  }\n})\n.then(res => res.json())\n.then(data => console.log("Packer Goods:", data))\n.catch(err => console.error("API Error:", err));`;
+        return `// Query Packer Tools API from your server or frontend\nfetch("${fullUrl}", {\n  method: "GET",\n  headers: {\n    "x-api-key": "${apiKey}",\n    "Content-Type": "application/json"\n  }\n})\n.then(res => res.json())\n.then(data => console.log("Packer Response:", data))\n.catch(err => console.error("API Error:", err));`;
       case 'python':
         return `# Python Requests script\nimport requests\n\nurl = "${fullUrl}"\nheaders = {\n    "x-api-key": "${apiKey}",\n    "Content-Type": "application/json"\n}\n\nresponse = requests.get(url, headers=headers)\nprint(response.json())`;
       case 'react':
-        return `import React, { useEffect, useState } from 'react';\n\nexport default function RentalDisplay() {\n  const [items, setItems] = useState([]);\n\n  useEffect(() => {\n    fetch("${fullUrl}", {\n      headers: { "x-api-key": "${apiKey}" }\n    })\n    .then(res => res.json())\n    .then(data => setItems(data.${sandboxEndpoint}))\n  }, []);\n\n  return (\n    <div>\n      {items.map(item => (\n        <p key={item.id}>{item.name} - $\{item.rentalPrice}/day</p>\n      ))}\n    </div>\n  );\n}`;
+        return `import React, { useEffect, useState } from 'react';\n\nexport default function RentalDisplay() {\n  const [data, setData] = useState(null);\n\n  useEffect(() => {\n    fetch("${fullUrl}", {\n      headers: { "x-api-key": "${apiKey}" }\n    })\n    .then(res => res.json())\n    .then(resData => setData(resData))\n  }, []);\n\n  return (\n    <div>\n      <h3>Packer Tools API Response</h3>\n      <pre>{JSON.stringify(data, null, 2)}</pre>\n    </div>\n  );\n}`;
       default:
         return '';
     }
@@ -290,10 +351,18 @@ export default function DeveloperTab({ user, lists }: DeveloperTabProps) {
                 </h3>
                 <p className="text-xs text-neutral-400">Trigger standard query fetches against the app container endpoint with live returned results.</p>
               </div>
-              <div className="flex items-center gap-2 shrink-0 bg-neutral-100 p-1 rounded-xl">
+              <div className="flex flex-wrap items-center gap-1.5 shrink-0 bg-neutral-100 p-1 rounded-xl">
+                <button
+                  onClick={() => setSandboxEndpoint('ping')}
+                  className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                    sandboxEndpoint === 'ping' ? 'bg-white shadow text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'
+                  }`}
+                >
+                  GET /ping
+                </button>
                 <button
                   onClick={() => setSandboxEndpoint('lists')}
-                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                     sandboxEndpoint === 'lists' ? 'bg-white shadow text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'
                   }`}
                 >
@@ -301,11 +370,19 @@ export default function DeveloperTab({ user, lists }: DeveloperTabProps) {
                 </button>
                 <button
                   onClick={() => setSandboxEndpoint('gear')}
-                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                     sandboxEndpoint === 'gear' ? 'bg-white shadow text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'
                   }`}
                 >
                   GET /gear
+                </button>
+                <button
+                  onClick={() => setSandboxEndpoint('webhooks/test')}
+                  className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                    sandboxEndpoint === 'webhooks/test' ? 'bg-white shadow text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'
+                  }`}
+                >
+                  POST /webhooks/test
                 </button>
               </div>
             </div>
@@ -345,7 +422,7 @@ export default function DeveloperTab({ user, lists }: DeveloperTabProps) {
               <div className="space-y-1 text-left">
                 <span className="text-[8px] bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-bold uppercase font-mono">SANDBOX UPLINK</span>
                 <p className="text-sm font-bold text-neutral-800 font-sans">Verify endpoint connection with active credentials</p>
-                <p className="text-xs text-neutral-500 font-medium">Runs fetch on `GET /api/developer/{sandboxEndpoint}` relative to this container domain.</p>
+                <p className="text-xs text-neutral-500 font-medium">Runs fetch on `{sandboxEndpoint === 'webhooks/test' ? 'POST' : 'GET'} /api/developer/{sandboxEndpoint}` using your active API key.</p>
               </div>
               <button
                 onClick={handleRunSandbox}
@@ -363,8 +440,23 @@ export default function DeveloperTab({ user, lists }: DeveloperTabProps) {
 
             {/* Sandbox Response Output */}
             {sandboxResponse && (
-              <div className="space-y-2 animate-fadeIn">
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#ff4f3a] block font-mono">Live HTTP Server Response:</span>
+              <div className="space-y-3 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#ff4f3a] font-mono">Live HTTP Server Response</span>
+                  {sandboxMeta && (
+                    <div className="flex items-center gap-2 text-[10px] font-mono font-bold">
+                      <span className={`px-2 py-0.5 rounded-full ${sandboxMeta.status >= 200 && sandboxMeta.status < 300 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>
+                        HTTP {sandboxMeta.status} {sandboxMeta.status === 200 ? 'OK' : sandboxMeta.status === 401 ? 'Unauthorized' : ''}
+                      </span>
+                      <span className="bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full border border-neutral-200">
+                        {sandboxMeta.latencyMs}ms
+                      </span>
+                      <span className="text-neutral-400">
+                        {sandboxMeta.timestamp}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <pre className="p-6 bg-neutral-950 text-emerald-400 rounded-2xl text-[11px] font-mono overflow-x-auto border border-neutral-900 leading-normal max-h-[350px] scrollbar-hide text-left">
                   {JSON.stringify(sandboxResponse, null, 2)}
                 </pre>
@@ -387,20 +479,39 @@ export default function DeveloperTab({ user, lists }: DeveloperTabProps) {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest block">Live Private Secret Key</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest block">Live Private Secret Key</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="text-[10px] font-bold text-neutral-500 hover:text-primary flex items-center gap-1 transition cursor-pointer"
+                  >
+                    {showApiKey ? <EyeOff size={12} /> : <Eye size={12} />}
+                    <span>{showApiKey ? 'Hide' : 'Reveal'}</span>
+                  </button>
+                </div>
                 <div className="flex bg-neutral-50 rounded-xl overflow-hidden border border-neutral-200">
                   <input
-                    type="password"
+                    type={showApiKey ? "text" : "password"}
                     readOnly
                     value={apiKey}
-                    className="flex-1 bg-transparent px-4 py-2.5 text-xs font-mono outline-none"
+                    className="flex-1 bg-transparent px-4 py-2.5 text-xs font-mono outline-none text-neutral-900"
                   />
                   <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="px-3 hover:bg-neutral-100 transition border-l border-neutral-200 text-neutral-500 hover:text-neutral-800"
+                    title={showApiKey ? "Hide Secret Key" : "Reveal Secret Key"}
+                  >
+                    {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleCopy(apiKey, 'key')}
-                    className="px-4 hover:bg-neutral-100 transition border-l border-neutral-100"
+                    className="px-3 hover:bg-neutral-100 transition border-l border-neutral-200 text-neutral-500 hover:text-neutral-800"
                     title="Copy Secret Key"
                   >
-                    {copiedType === 'key' ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} className="text-neutral-500" />}
+                    {copiedType === 'key' ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
                   </button>
                 </div>
               </div>

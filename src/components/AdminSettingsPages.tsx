@@ -2461,6 +2461,7 @@ export function EmailBrandingSettingsTab({ settings, setSettings }: SettingsTabP
           testRecipientEmail.trim(),
           "524389",
           "Verification Tester",
+          'en',
           settings
         );
       } else if (previewTemplate === 'admin_notification') {
@@ -2473,6 +2474,7 @@ export function EmailBrandingSettingsTab({ settings, setSettings }: SettingsTabP
             "Dispatched By": "Workspace Admin Operator",
             "Security Level": "SECURE"
           },
+          'en',
           settings
         );
       } else {
@@ -2483,6 +2485,7 @@ export function EmailBrandingSettingsTab({ settings, setSettings }: SettingsTabP
           "Success! If you see this message, your automated email system is successfully compiling customized styles, custom colors, and footer layout configuration settings in real-time. Feel free to use this system to send branded alerts, list handovers, or verification logins!",
           window.location.origin + "/admin",
           "Review Settings Dashboard",
+          'en',
           settings
         );
       }
@@ -2923,6 +2926,7 @@ export function SmtpSettingsTab({ settings, setSettings }: SettingsTabProps) {
         "Congratulations! Your custom SMTP transmission settings have been compiled successfully inside the Packer Tools communications engine. Transactions are now routing properly.",
         window.location.origin + "/admin",
         "Return to Admin Panel",
+        'en',
         settings
       );
 

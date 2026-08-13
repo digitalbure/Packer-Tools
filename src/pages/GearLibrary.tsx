@@ -126,22 +126,22 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
   const handleDuplicateConfirm = async (result: DuplicateModalResult) => {
     try {
+      const itemsToDup = batchDuplicateItems.length > 0 ? batchDuplicateItems : (itemToDuplicate ? [itemToDuplicate] : []);
+      if (itemsToDup.length === 0) return;
+
       const existingTags = gear.map(g => g.assetTag).filter(Boolean) as string[];
-      const totalToCreate = result.items.length * result.quantity;
+      const totalToCreate = itemsToDup.length * result.copyCount;
       const toastId = toast.loading(`Duplicating ${totalToCreate > 1 ? totalToCreate + ' items' : 'item'}...`);
 
       const newGearItems: Partial<GearItem>[] = [];
 
-      result.items.forEach(sourceItem => {
-        for (let i = 0; i < result.quantity; i++) {
+      itemsToDup.forEach(sourceItem => {
+        for (let i = 0; i < result.copyCount; i++) {
           const cloned = cloneGearItemData(sourceItem, {
             resetStatus: result.resetStatus,
-            clearSerials: result.clearSerials,
+            clearSerial: result.clearSerial,
             existingTags,
-            sequenceIndex: i,
-            totalCount: result.quantity,
-            customNamePattern: result.quantity === 1 ? result.customNamePattern : undefined,
-            customTagPattern: result.quantity === 1 ? result.customTagPattern : undefined,
+            copyIndex: i + 2,
           });
           cloned.ownerId = user.uid;
           if (sourceItem.orgId) cloned.orgId = sourceItem.orgId;
@@ -158,7 +158,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         const chunk = newGearItems.slice(i, i + 500);
         const batch = writeBatch(db);
         chunk.forEach(itemData => {
-          const docRef = doc(collection(db, 'users', user.uid, 'gearLibrary'));
+          const docRef = doc(collection(db, 'gear'));
           batch.set(docRef, { ...itemData, id: docRef.id });
         });
         await batch.commit();
@@ -10441,8 +10441,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
       <DuplicateItemModal
         isOpen={duplicateModalOpen}
-        itemToDuplicate={itemToDuplicate}
-        batchItems={batchDuplicateItems}
+        item={itemToDuplicate || (batchDuplicateItems.length > 0 ? batchDuplicateItems[0] : null)}
+        batchCount={batchDuplicateItems.length}
         existingTags={gear.map(g => g.assetTag).filter(Boolean) as string[]}
         onClose={() => {
           setDuplicateModalOpen(false);

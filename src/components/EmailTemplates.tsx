@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { 
   Mail, Laptop, Smartphone, Send, Eye, Code, RefreshCw, 
   CheckCircle2, Trash2, Plus, ExternalLink, ShieldCheck, 
-  AlertTriangle, CreditCard, ShoppingBag, List, Check
+  AlertTriangle, CreditCard, ShoppingBag, List, Check,
+  Globe, Megaphone, Bell, Sparkles, Sliders, Users, FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AdminSettings } from '../types';
 import { emailService } from '../services/emailService';
+import { EMAIL_TRANSLATIONS, EmailLocale, getEmailTranslation } from '../lib/emailTranslations';
 
 interface EmailTemplatesProps {
   settings: AdminSettings | null;
@@ -14,21 +16,27 @@ interface EmailTemplatesProps {
 }
 
 export default function EmailTemplates({ settings, onUpdateSettings }: EmailTemplatesProps) {
-  // Current templates list
+  // Navigation Tabs
+  const [activeMainTab, setActiveMainTab] = useState<'templates' | 'newsletter' | 'autotriggers' | 'branding'>('templates');
+
+  // Available Templates
   const templates = [
     { id: 'verification', name: '🔑 Security Token Verification', category: 'Transactional' },
+    { id: 'welcome', name: '👋 Onboarding Welcome Email', category: 'Transactional' },
     { id: 'checkout', name: '📦 Dynamic Logistics Checkout Receipt', category: 'Operational' },
+    { id: 'overdue', name: '🚨 Overdue Gear Return Notice', category: 'Auto Trigger' },
+    { id: 'low_stock', name: '⚠️ Low Stock Inventory Alert', category: 'Auto Trigger' },
     { id: 'admin_notification', name: '🚨 System Infrastructure Telemetry Alert', category: 'System Alert' },
-    { id: 'listing_approved', name: '🌍 Fiji Marketplace Listing Published', category: 'Marketing & Comm' },
-    { id: 'invoice', name: '💳 Subscription Invoice & Deposit Receipt', category: 'Billing' }
+    { id: 'invoice', name: '💳 Subscription Invoice Statement', category: 'Billing' }
   ];
 
   const [selectedTemplate, setSelectedTemplate] = useState<string>('verification');
+  const [selectedLocale, setSelectedLocale] = useState<EmailLocale>('en');
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [activeSubTab, setActiveSubTab] = useState<'preview' | 'html'>('preview');
 
-  // Shared Brand Controls - Local override state
-  const [companyName, setCompanyName] = useState('');
+  // Shared Brand Controls
+  const [companyName, setCompanyName] = useState('Packer Tools');
   const [logoUrl, setLogoUrl] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#FF5500');
   const [footerText, setFooterText] = useState('');
@@ -36,51 +44,56 @@ export default function EmailTemplates({ settings, onUpdateSettings }: EmailTemp
 
   // Local state helper inputs for WYSIWYG parameters
   const [recipientName, setRecipientName] = useState('John Operator');
-  const [recipientEmail, setRecipientEmail] = useState('recipient@example.com');
-  const [customSubject, setCustomSubject] = useState('');
-
-  // 1. Verification OTP Preset States
+  const [recipientEmail, setRecipientEmail] = useState('operator@packer.tools');
   const [otpCode, setOtpCode] = useState('524389');
-  
-  // 2. Logistics Checkout Preset States
+
+  // Logistics Checkout Preset States
   const [checkoutItems, setCheckoutItems] = useState([
-    { id: '1', name: 'Subaru Dual-Band RF Walkie-Talkie', serial: 'SN-RF-9923', condition: 'Excellent', returnDate: '2026-06-30' },
-    { id: '2', name: 'Sony Alpha FX3 Cinema Camera Frame', serial: 'SN-CAM-1004', condition: 'Good', returnDate: '2026-06-25' },
-    { id: '3', name: 'Rigid Heavy Transit Water Case 2L', serial: 'SN-CS-4830', condition: 'Fair', returnDate: '2026-07-15' }
+    { id: '1', name: 'Subaru Dual-Band RF Walkie-Talkie', serial: 'SN-RF-9923', category: 'Communications', qty: 2 },
+    { id: '2', name: 'Sony Alpha FX3 Cinema Camera Frame', serial: 'SN-CAM-1004', category: 'Camera Kits', qty: 1 },
+    { id: '3', name: 'Rigid Heavy Transit Water Case 2L', serial: 'SN-CS-4830', category: 'Containers', qty: 1 }
   ]);
   const [newItemName, setNewItemName] = useState('');
   const [newItemSerial, setNewItemSerial] = useState('');
-  const [newItemCondition, setNewItemCondition] = useState('Excellent');
-  const [newItemReturnDate, setNewItemReturnDate] = useState('2026-06-30');
+  const [newItemCategory, setNewItemCategory] = useState('Gear');
 
-  // 3. Technical System Alerts States
+  // Technical System Alerts States
   const [alertTitle, setAlertTitle] = useState('Cluster Node CPU Threshold Violation');
   const [alertMessage, setAlertMessage] = useState('Express instance container (Port 3000) generated rapid telemetry alerts resulting in automated heap garbage dump.');
   const [alertDetails, setAlertDetails] = useState<Array<{ key: string; value: string }>>([
     { key: 'Cluster Host', value: 'asia-east1-docker-run-pod' },
     { key: 'Resource Overhead', value: '94.8% CPU (Threshold 85%)' },
-    { key: 'Process ID', value: 'PID_994032_VITE' },
-    { key: 'Deployment Ingress', value: 'nginx-ingress-rev-proxy' }
+    { key: 'Process ID', value: 'PID_994032_VITE' }
   ]);
-  const [newDetailKey, setNewDetailKey] = useState('');
-  const [newDetailValue, setNewDetailValue] = useState('');
 
-  // 4. Marketplace Published Announcement States
-  const [listingTitle, setListingTitle] = useState('Husqvarna heavy duty petrol generator');
-  const [listingPrice, setListingPrice] = useState('$1,250 FJD');
-  const [listingLocation, setListingLocation] = useState('Nadi Town, Ba');
-  const [listingCtaText, setListingCtaText] = useState('Explore Listing Now');
+  // Newsletter Broadcast States
+  const [newsletterSubject, setNewsletterSubject] = useState('🚀 Packer Tools Monthly Equipment & Operations Briefing');
+  const [newsletterTitle, setNewsletterTitle] = useState('Logistics Engine v4.2 Release & Equipment Updates');
+  const [newsletterBodyHtml, setNewsletterBodyHtml] = useState(`
+    <p style="margin-bottom: 16px;">Hello Operations Team,</p>
+    <p style="margin-bottom: 16px;">We are excited to announce major performance updates to the Packer Tools platform! You can now track asset maintenance cycles, trigger localized handover receipts, and manage multi-tenant workspaces with sub-second synchronization.</p>
+    <h3 style="color: #0f172a; margin-top: 24px; margin-bottom: 12px; font-size: 16px;">Key Highlights This Month:</h3>
+    <ul style="padding-left: 20px; margin-bottom: 24px; line-height: 1.8;">
+      <li><strong>Multilingual Email System:</strong> Full translation support across 6 regional languages.</li>
+      <li><strong>Label Studio Printing Engine:</strong> Crisp vector barcode and QR tag generation.</li>
+      <li><strong>Enterprise Asset Transfer:</strong> Secure PIN-authorized ownership transfers.</li>
+    </ul>
+    <p>Thank you for keeping your operations running smoothly with Packer Tools.</p>
+  `);
+  const [newsletterCtaText, setNewsletterCtaText] = useState('Launch Operations Portal');
+  const [newsletterCtaUrl, setNewsletterCtaUrl] = useState('https://packer.tools');
+  const [newsletterBannerUrl, setNewsletterBannerUrl] = useState('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=1200&auto=format&fit=crop');
+  const [newsletterRecipientsText, setNewsletterRecipientsText] = useState('jnakasamai@gmail.com, team@packer.tools');
+  const [isBroadcastingNewsletter, setIsBroadcastingNewsletter] = useState(false);
 
-  // 5. Subscription Invoice Statement States
-  const [invoiceNumber, setInvoiceNumber] = useState('PT-2026-88301');
-  const [invoicePlan, setInvoicePlan] = useState('Enterprise Tier Hub');
-  const [invoiceSubtotal, setInvoiceSubtotal] = useState('$189.00 USD');
-  const [invoiceVat, setInvoiceVat] = useState('$28.35 FJD (VAT 15%)');
-  const [invoiceTotal, setInvoiceTotal] = useState('$217.35 USD');
+  // Automated Email Triggers States
+  const [overdueTriggerEnabled, setOverdueTriggerEnabled] = useState(true);
+  const [lowStockTriggerEnabled, setLowStockTriggerEnabled] = useState(true);
+  const [overdueThresholdDays, setOverdueThresholdDays] = useState(1);
+  const [lowStockMinQty, setLowStockMinQty] = useState(2);
 
   // Test send state
-  const [testEmailAddress, setTestEmailAddress] = useState('');
-  const [testSubjectLine, setTestSubjectLine] = useState('');
+  const [testEmailAddress, setTestEmailAddress] = useState('jnakasamai@gmail.com');
   const [isSendingTest, setIsSendingTest] = useState(false);
 
   // Sync settings whenever global settings reload
@@ -90,7 +103,7 @@ export default function EmailTemplates({ settings, onUpdateSettings }: EmailTemp
     setCompanyName(brand?.companyName || globalBrand?.companyName || 'Packer Tools');
     setLogoUrl(brand?.logoUrl || globalBrand?.logo || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop');
     setPrimaryColor(brand?.primaryColor || globalBrand?.primaryColor || '#FF5500');
-    setFooterText(brand?.footerText || 'You received this notification because you are a registered manager of the Packer Tools workspace network.');
+    setFooterText(brand?.footerText || 'You received this notification because you are a registered user of the Packer Tools workspace network.');
     setFooterLinks(brand?.footerLinks || [
       { label: 'Security Center', href: '/help' },
       { label: 'Platform Portal', href: '/admin' }
@@ -115,1124 +128,900 @@ export default function EmailTemplates({ settings, onUpdateSettings }: EmailTemp
       }
     };
     onUpdateSettings(updated);
-    toast.success('Branded specs saved securely inside temporary configuration registers. Click "Save System Settings" in Settings tab to persist forever.');
+    toast.success('Branded specs saved securely in admin settings!');
   };
 
-  // Helper template layouts for WYSIWYG Previews
-  const getSubject = () => {
-    if (customSubject) return customSubject;
-    switch (selectedTemplate) {
-      case 'verification':
-        return `🔑 ${otpCode} is your Packer Tools login token`;
-      case 'checkout':
-        return `📦 Gear Transfer Confirmation List - Checked Out Items`;
-      case 'admin_notification':
-        return `⚠️ [CRITICAL] Cloud Run Alert: ${alertTitle}`;
-      case 'listing_approved':
-        return `🎉 Fiji Regional Listing Approved: "${listingTitle}"`;
-      case 'invoice':
-        return `💳 Invoice Statement #${invoiceNumber} from ${companyName}`;
-      default:
-        return 'System Alert Dispatch Notice';
-    }
-  };
-
-  // Generate Email HTML string
-  const generateEmailHTML = () => {
-    const styles = {
-      primaryColor,
-      companyName,
-      logoUrl,
-      footerText,
-      footerLinks
-    };
-
-    let contentHTML = '';
-
-    if (selectedTemplate === 'verification') {
-      contentHTML = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 24px; text-align: center;">
-          <p style="font-size: 15px; color: #4b5563; font-weight: 600; margin-top: 0;">Bula Vinaka, <strong>${recipientName}</strong>,</p>
-          <p style="font-size: 13px; color: #6b7280; line-height: 20px; max-width: 400px; margin: 12px auto 24px auto;">
-            Use the following temporary security verification sequence token to access your secure device login panel:
-          </p>
-          <div style="font-family: monospace; font-size: 28px; font-weight: 900; letter-spacing: 6px; padding: 18px 24px; border-radius: 12px; background-color: #fcf8f5; border: 1px dashed ${primaryColor}40; display: inline-block; color: ${primaryColor}; margin-bottom: 24px;">
-            ${otpCode}
-          </div>
-          <p style="font-size: 11px; color: #a3a3a3; font-style: italic; max-width: 360px; margin: 0 auto;">
-            This security code sequence decays inside 15 minutes. Log in attempt initiated from external secure telemetry console. If you did not command this, please ignore.
-          </p>
-        </div>
-      `;
-    } else if (selectedTemplate === 'checkout') {
-      const rows = checkoutItems.map(item => `
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 10px 8px; font-size: 12px; color: #1f2937; font-weight: 700;">${item.name}</td>
-          <td style="padding: 10px 8px; font-size: 11px; font-family: monospace; color: #6b7280;">${item.serial}</td>
-          <td style="padding: 10px 8px; font-size: 11px; color: #374151; text-align: center;">
-            <span style="padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; background-color: ${item.condition === 'Excellent' ? '#ecfdf5' : item.condition === 'Good' ? '#f0f9ff' : '#fffbeb'}; color: ${item.condition === 'Excellent' ? '#047857' : item.condition === 'Good' ? '#0369a1' : '#b45309'}; text-transform: uppercase;">
-              ${item.condition}
-            </span>
-          </td>
-          <td style="padding: 10px 8px; font-size: 11px; color: #ef4444; font-weight: 700; text-align: right;">${item.returnDate}</td>
-        </tr>
-      `).join('');
-
-      contentHTML = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 24px;">
-          <h4 style="margin: 0 0 4px 0; color: #111827; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: -0.5px;">Bula Vinaka, ${recipientName}</h4>
-          <p style="font-size: 13px; color: #6b7280; margin: 0 0 16px 0; line-height: 18px;">
-            You have successfully processed an automated equipment logistical handover on this device. Below are the registered items assigned to your profile record:
-          </p>
-          
-          <table style="width: 100%; border-collapse: collapse; margin: 16px 0; border: 1px solid #f3f4f6;">
-            <thead>
-              <tr style="background-color: #f9fafb; border-bottom: 2px solid #e5e7eb;">
-                <th style="padding: 8px; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #4b5563; text-align: left;">Equipment Name</th>
-                <th style="padding: 8px; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #4b5563; text-align: left;">Serial ID</th>
-                <th style="padding: 8px; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #4b5563; text-align: center;">Condition</th>
-                <th style="padding: 8px; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #4b5563; text-align: right;">Return Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows}
-            </tbody>
-          </table>
-
-          <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 12px; margin-top: 16px;">
-            <p style="font-size: 11px; font-weight: 700; color: #991b1b; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px;">
-              ⚠️ RETROACTIVE MAINTENANCE TERM
-            </p>
-            <p style="font-size: 10.5px; color: #7f1d1d; margin: 0; line-height: 15px; font-weight: 500;">
-              Please return all listed gear immediately prior on or before the designated Return Date. Outstanding items will automatically flag audits under structural team protocols.
-            </p>
-          </div>
-        </div>
-      `;
-    } else if (selectedTemplate === 'admin_notification') {
-      const rows = alertDetails.map(detail => `
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #9ca3af; width: 120px;">${detail.key}:</td>
-          <td style="padding: 6px; font-size: 11px; font-family: monospace; color: #f3f4f6; font-weight: bold;">${detail.value}</td>
-        </tr>
-      `).join('');
-
-      contentHTML = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 24px; background-color: #171d2b; color: #f3f4f6;">
-          <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 900; color: #ef4444; border-bottom: 1px solid #1e293b; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-            🚨 ${alertTitle}
-          </h4>
-          <p style="font-size: 11.5px; color: #9ca3af; margin: 0 0 16px 0; line-height: 17px;">
-            An automated administrative anomaly detector alert was triggered in the logistics cluster infrastructure. Check metrics specs below:
-          </p>
-          
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px; background-color: #0f172a; border-radius: 8px;">
-            <tbody>
-              ${rows}
-            </tbody>
-          </table>
-
-          <p style="font-size: 11px; color: #ffedd5; background-color: #7c2d12; border: 1px solid #9a3412; border-radius: 8px; padding: 10px; margin: 12px 0 0 0; line-height: 15px;">
-            <strong>System Summary Message:</strong> ${alertMessage}
-          </p>
-        </div>
-      `;
-    } else if (selectedTemplate === 'listing_approved') {
-      contentHTML = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 24px; text-align: center;">
-          <h3 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 900; tracking: -0.5px; text-transform: uppercase;">YOUR LISTING IS LIVE! 🎉</h3>
-          <p style="font-size: 13.5px; color: #4b5563; font-weight: bold; margin-bottom: 16px;">Bula Vinaka, ${recipientName}</p>
-          
-          <p style="font-size: 13px; color: #6b7280; line-height: 20px; max-width: 420px; margin: 12px auto;">
-            Our Fiji regional moderation board has successfully verified and published your marketplace listing! Users can now explore, rent, or purchase this gear.
-          </p>
-
-          <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; max-width: 320px; margin: 18px auto; text-align: left;">
-            <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #9ca3af; letter-spacing: 0.5px; margin-bottom: 2px;">Listing Item</div>
-            <div style="font-size: 13px; font-weight: 900; color: #111827; line-height: 16px;">${listingTitle}</div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; border-t: 1px solid #f3f4f6; padding-top: 8px;">
-              <div>
-                <span style="font-size: 9px; uppercase; color: #9ca3af; block; font-weight: bold;">Price Spec</span>
-                <span style="font-size: 12px; font-weight: 900; color: ${primaryColor}; block;">${listingPrice}</span>
-              </div>
-              <div style="text-align: right;">
-                <span style="font-size: 9px; uppercase; color: #9ca3af; block; font-weight: bold;">Municipality</span>
-                <span style="font-size: 11px; font-weight: 700; color: #4b5563; block;">${listingLocation}</span>
-              </div>
-            </div>
-          </div>
-
-          <div style="margin: 24px 0 12px 0;">
-            <a href="#" style="background-color: ${primaryColor}; color: #ffffff; padding: 10px 24px; border-radius: 12px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; text-decoration: none; display: inline-block;">
-              ${listingCtaText}
-            </a>
-          </div>
-        </div>
-      `;
-    } else {
-      contentHTML = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 24px;">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px;">
-            <div>
-              <span style="font-size: 10px; uppercase; color: #9cb3af; font-weight: bold; display: block;">INVOICE BILL SENT</span>
-              <span style="font-size: 14px; font-weight: 900; color: #111827;">Num: #${invoiceNumber}</span>
-            </div>
-            <div style="text-align: right;">
-              <span style="font-size: 10px; uppercase; color: #9cb3af; font-weight: bold; display: block;">DATE ISSUED</span>
-              <span style="font-size: 11px; font-weight: 700; color: #4b5563;">${new Date().toLocaleDateString()}</span>
-            </div>
-          </div>
-
-          <p style="font-size: 13.5px; color: #4b5563; font-weight: bold; margin: 0 0 12px 0;">Hi ${recipientName},</p>
-          <p style="font-size: 12px; color: #6b7280; margin: 0 0 16px 0; line-height: 18px;">
-            A safe digital deposit receipt statement was created automatically following subscription upgrades on your secure organization profile:
-          </p>
-
-          <div style="background-color: #f9fafb; border-radius: 12px; padding: 12px; border: 1px solid #e5e7eb;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 11.5px;">
-              <tbody>
-                <tr style="border-bottom: 1px solid #f3f4f6;">
-                  <td style="padding: 6px 0; color: #4b5563; font-weight: 600;">Service Plan:</td>
-                  <td style="padding: 6px 0; font-weight: bold; text-align: right; color: #111827;">${invoicePlan}</td>
-                </tr>
-                <tr style="border-bottom: 1px solid #f3f4f6;">
-                  <td style="padding: 6px 0; color: #4b5563;">Net Subtotal:</td>
-                  <td style="padding: 6px 0; text-align: right; color: #4b5563;">${invoiceSubtotal}</td>
-                </tr>
-                <tr style="border-bottom: 1px solid #f3f4f6;">
-                  <td style="padding: 6px 0; color: #8b5cf6;">Fiji VAT Surcharges:</td>
-                  <td style="padding: 6px 0; text-align: right; color: #8b5cf6; font-weight: 650;">${invoiceVat}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0 0 0; color: #111827; font-weight: 900; font-size: 13px;">Total Charged:</td>
-                  <td style="padding: 8px 0 0 0; text-align: right; font-weight: 900; color: ${primaryColor}; font-size: 13px;">${invoiceTotal}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <p style="font-size: 10px; color: #a3a3a3; text-align: center; margin-top: 18px;">
-            Thank you for building alongside us. Secure charges will reflect under standard terms of service.
-          </p>
-        </div>
-      `;
-    }
-
-    const previewHeaderHTML = selectedTemplate === 'verification' 
-      ? `
-        <div style="padding: 24px; text-align: center; color: #ffffff; background-color: ${primaryColor};">
-          <div style="width: 48px; height: 48px; background-color: rgba(255,255,255,0.1); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-            <img src="${logoUrl}" alt="Corporate Logo" style="max-height: 32px; max-width: 100%; object-fit: contain; border-radius: 4px;" />
-          </div>
-          <h2 style="margin: 0; font-size: 15px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px;">Verification Bureau</h2>
-        </div>
-      `
-      : selectedTemplate === 'admin_notification'
-      ? `
-        <div style="background-color: #0d131f; padding: 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #1e293b;">
-          <span style="font-weight: 900; font-size: 10px; text-transform: uppercase; color: #ef4444; letter-spacing: 1px;">🚨 ${companyName} Node Monitor</span>
-          <img src="${logoUrl}" alt="Branded Logo" style="max-height: 20px; max-width: 80px; object-fit: contain;" />
-        </div>
-      `
-      : `
-        <div style="padding: 32px; text-align: center; background-color: #1e293b; color: #ffffff;">
-          <img src="${logoUrl}" alt="Branded Logo" style="max-height: 44px; max-width: 140px; object-fit: contain; display: block; margin: 0 auto 12px auto; border-radius: 6px;" />
-          <h1 style="margin: 0; font-size: 17px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px; color: #f9fafb;">${companyName} LOGISTICS</h1>
-        </div>
-      `;
-
-    // Dynamic Footer layout
-    const footerAnchors = footerLinks.map((link, idx) => `
-      ${idx > 0 ? `<span style="color: #e5e7eb;"> | </span>` : ''}
-      <a href="${link.href}" style="color: ${primaryColor}; font-weight: bold; text-decoration: none;">${link.label}</a>
-    `).join('');
-
-    const templateHTML = `
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${getSubject()}</title>
-  </head>
-  <body style="margin: 0; padding: 0; background-color: #f3f4f6; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
-    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f3f4f6; padding: 32px 10px 48px 10px;">
-      <tr>
-        <td align="center">
-          <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; background-color: #ffffff; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e5e7eb;">
-            <!-- Live Branded Header -->
-            <tr>
-              <td>
-                ${previewHeaderHTML}
-              </td>
-            </tr>
-            <!-- Dynamic Content -->
-            <tr>
-              <td style="background-color: #ffffff;">
-                ${contentHTML}
-              </td>
-            </tr>
-            <!-- Live Footer Configuration Map -->
-            <tr>
-              <td style="padding: 24px; background-color: #f9fafb; border-top: 1px solid #f3f4f6; text-align: center; font-size: 10px; color: #9ca3af; line-height: 1.6;">
-                <p style="margin: 0 0 6px 0; font-size: 9.5px; font-weight: 600; color: #4b5563;">© ${new Date().getFullYear()} ${companyName} Workspace Registry System.</p>
-                
-                ${footerLinks.length > 0 ? `
-                  <div style="margin-bottom: 8px;">
-                    ${footerAnchors}
-                  </div>
-                ` : ''}
-
-                ${footerText ? `
-                  <p style="margin: 8px 0 0 0; font-size: 9px; line-height: 14px; font-style: italic; max-width: 400px; margin-left: auto; margin-right: auto; padding-top: 8px; border-top: 1px dashed #e5e7eb;">
-                    ${footerText}
-                  </p>
-                ` : ''}
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
-    `.trim();
-
-    return templateHTML;
-  };
-
-  // Dispatch live transactional email preview using API route
-  const handleSendLiveTest = async () => {
-    if (!testEmailAddress.trim() || !testEmailAddress.includes('@')) {
-      toast.error('Please enter a valid target email address.');
+  // Dispatch Test Email
+  const handleSendTestEmail = async () => {
+    if (!testEmailAddress) {
+      toast.error('Please specify a target test recipient email address.');
       return;
     }
-
     setIsSendingTest(true);
     try {
       let res;
       if (selectedTemplate === 'verification') {
-        res = await emailService.sendVerificationEmail(
-          testEmailAddress.trim(),
-          otpCode,
-          recipientName,
-          settings
-        );
+        res = await emailService.sendVerificationEmail(testEmailAddress, otpCode, recipientName, selectedLocale, settings);
+      } else if (selectedTemplate === 'welcome') {
+        res = await emailService.sendWelcomeEmail(testEmailAddress, recipientName, 'Enterprise Tier', selectedLocale, settings);
+      } else if (selectedTemplate === 'checkout') {
+        res = await emailService.sendHandoverReceipt(testEmailAddress, 'ORD-2026-99', 'checkout', recipientName, checkoutItems, selectedLocale, settings);
+      } else if (selectedTemplate === 'overdue') {
+        res = await emailService.sendOverdueReminder(testEmailAddress, recipientName, [
+          { name: 'Sony FX3 Cinema Camera', serial: 'SN-CAM-1004', returnDate: '2026-08-10', daysOverdue: 2 }
+        ], selectedLocale, settings);
+      } else if (selectedTemplate === 'low_stock') {
+        res = await emailService.sendLowStockWarning(testEmailAddress, [
+          { name: 'Dual-Band RF Walkie-Talkies', sku: 'RF-9923', quantity: 1, threshold: 5 }
+        ], selectedLocale, settings);
       } else if (selectedTemplate === 'admin_notification') {
-        const detailsMap: Record<string, string> = {};
-        alertDetails.forEach(d => {
-          if (d.key && d.value) detailsMap[d.key] = d.value;
-        });
-
-        res = await emailService.sendAdminNotification(
-          testEmailAddress.trim(),
-          alertTitle,
-          alertMessage,
-          detailsMap,
-          settings
-        );
+        res = await emailService.sendAdminNotification(testEmailAddress, alertTitle, alertMessage, {
+          'Cluster Host': 'asia-east1-docker-run-pod',
+          'Resource Overhead': '94.8% CPU'
+        }, selectedLocale, settings);
       } else {
-        // Compose generalized notice including table items or listings description
-        let dynamicMsg = '';
-        if (selectedTemplate === 'checkout') {
-          dynamicMsg = `Equipment Check-out validation finalized. Handed over key assets: ${checkoutItems.map(i => `${i.name} (${i.serial})`).join(', ')}. Outstanding return date is set.`;
-        } else if (selectedTemplate === 'listing_approved') {
-          dynamicMsg = `Your marketplace item named "${listingTitle}" has been verified under structural Fijian policies for price tier ${listingPrice}. Use controls instantly to preview details.`;
-        } else {
-          dynamicMsg = `Billing statement issued successfully. Statement ID #${invoiceNumber}. Service Tier selected corresponds to "${invoicePlan}". Total amount cleared: ${invoiceTotal}.`;
-        }
-
         res = await emailService.sendNotification(
-          testEmailAddress.trim(),
-          getSubject(),
-          `Branded Notice Alert`,
-          dynamicMsg,
-          window.location.origin + "/admin",
-          "Check Admin Settings Panel",
+          testEmailAddress,
+          'Test Notification Statement',
+          'System Operational Notice',
+          'This is a localized test email from the Packer Tools Email Management Studio.',
+          'https://packer.tools',
+          'Review Workspace',
+          selectedLocale,
           settings
         );
       }
 
-      if (res && res.simulated) {
-        toast.info(`Sandbox simulator dispatch success (unconfigured SMTP block). Simulation targets: ${testEmailAddress}`);
+      if (res?.simulated) {
+        toast.info(`Test Email Simulated (${selectedLocale.toUpperCase()}): ${res.notice || 'Dispatched in sandbox mode'}`);
       } else {
-        toast.success(`Active email dispatch cleared successfully to ${testEmailAddress}!`);
+        toast.success(`Localized Test Email (${selectedLocale.toUpperCase()}) dispatched to ${testEmailAddress}!`);
       }
     } catch (err: any) {
-      toast.error(`Email dispatch execution error: ${err.message || err}`);
+      toast.error(`Test dispatch failed: ${err.message}`);
     } finally {
       setIsSendingTest(false);
     }
   };
 
-  // Live item lists modifiers handlers
-  const handleAddCheckoutItem = () => {
-    if (!newItemName.trim() || !newItemSerial.trim()) {
-      toast.error('Add both equipment label and corresponding SKU/serial code.');
+  // Broadcast Newsletter Campaign
+  const handleBroadcastNewsletter = async () => {
+    const recipientsList = newsletterRecipientsText
+      .split(',')
+      .map(e => e.trim())
+      .filter(e => e.length > 3 && e.includes('@'));
+
+    if (recipientsList.length === 0) {
+      toast.error('Please enter at least one valid recipient email address for the newsletter broadcast.');
       return;
     }
-    const newlyAdded = {
-      id: Date.now().toString(),
-      name: newItemName.trim(),
-      serial: newItemSerial.trim(),
-      condition: newItemCondition,
-      returnDate: newItemReturnDate
-    };
-    setCheckoutItems([...checkoutItems, newlyAdded]);
-    setNewItemName('');
-    setNewItemSerial('');
-    toast.success('Appended gear item row to checkout preview receipts.');
-  };
 
-  const handleRemoveCheckoutItem = (pId: string) => {
-    setCheckoutItems(checkoutItems.filter(i => i.id !== pId));
-    toast.success('Removed item row from invoice database preview table.');
-  };
+    setIsBroadcastingNewsletter(true);
+    try {
+      const res = await emailService.sendNewsletterBroadcast(
+        recipientsList,
+        newsletterSubject,
+        newsletterTitle,
+        newsletterBodyHtml,
+        newsletterCtaText,
+        newsletterCtaUrl,
+        newsletterBannerUrl,
+        selectedLocale,
+        settings
+      );
 
-  // Live admin parameters modifiers handlers
-  const handleAddDetail = () => {
-    if (!newDetailKey.trim() || !newDetailValue.trim()) {
-      toast.error('Keys and Values are required.');
-      return;
+      toast.success(`Newsletter broadcast dispatched to ${res.recipientsCount} recipient(s) in ${selectedLocale.toUpperCase()}!`);
+    } catch (err: any) {
+      toast.error(`Newsletter broadcast failed: ${err.message}`);
+    } finally {
+      setIsBroadcastingNewsletter(false);
     }
-    setAlertDetails([...alertDetails, { key: newDetailKey.trim(), value: newDetailValue.trim() }]);
-    setNewDetailKey('');
-    setNewDetailValue('');
-    toast.success('Appended telemetry alert key pair.');
   };
 
-  const handleRemoveDetail = (idx: number) => {
-    setAlertDetails(alertDetails.filter((_, i) => i !== idx));
-    toast.success('Removed telemetry detail.');
-  };
+  // Generate Rendered HTML string for Live Preview
+  const renderTemplateHtml = () => {
+    const t = getEmailTranslation(selectedLocale);
+    const footerLinksHtml = footerLinks.length > 0
+      ? `<div style="margin-top: 14px; margin-bottom: 12px; font-weight: 600;">
+          ${footerLinks.map(link => `<a href="${link.href}" style="color: ${primaryColor}; text-decoration: none; margin: 0 8px; font-size: 11px;">${link.label}</a>`).join('&nbsp;&nbsp;|&nbsp;&nbsp;')}
+         </div>`
+      : '';
+    const footerCustomTextHtml = footerText
+      ? `<p style="margin: 8px 0 0 0; line-height: 1.5; font-size: 11.5px; color: #94a3b8;">${footerText}</p>`
+      : '';
 
-  const computedHTML = generateEmailHTML();
+    if (selectedTemplate === 'verification') {
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>Verification Token</title></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #fafafa; padding: 40px 10px; margin: 0; color: #1e293b;">
+          <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; overflow: hidden;">
+            <div style="background-color: ${primaryColor}; padding: 30px; text-align: center; color: #ffffff;">
+              <img src="${logoUrl}" alt="${companyName}" style="max-height: 48px; max-width: 140px; border-radius: 8px; margin-bottom: 12px;" />
+              <h2 style="margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase;">Security Bureau</h2>
+            </div>
+            <div style="padding: 35px 24px; text-align: center;">
+              <p style="font-size: 15px; color: #475569; margin: 0 0 24px 0;">${t.verification.greeting.replace('{name}', recipientName)}</p>
+              <p style="font-size: 14px; color: #475569; margin: 0 0 24px 0;">${t.verification.body}</p>
+              <div style="font-family: monospace; font-size: 32px; font-weight: 900; color: ${primaryColor}; letter-spacing: 4px; background-color: #faf5f0; display: inline-block; padding: 16px 32px; border-radius: 16px; border: 1px solid #ffedd5; margin-bottom: 24px;">
+                ${otpCode}
+              </div>
+              <p style="font-size: 11px; color: #94a3b8; line-height: 1.6; margin: 0;">${t.verification.expireNotice}</p>
+            </div>
+            <div style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8;">
+              © ${new Date().getFullYear()} ${companyName}
+              ${footerLinksHtml}
+              ${footerCustomTextHtml}
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    } else if (selectedTemplate === 'welcome') {
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>Welcome to ${companyName}</title></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #fafafa; padding: 40px 10px; margin: 0; color: #1e293b;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 28px; box-shadow: 0 15px 35px -10px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; overflow: hidden;">
+            <div style="background-color: #0f172a; padding: 40px 30px; text-align: center; color: #ffffff;">
+              <img src="${logoUrl}" alt="${companyName}" style="max-height: 48px; max-width: 140px; border-radius: 8px; margin-bottom: 16px;" />
+              <h1 style="margin: 0; font-size: 26px; font-weight: 900;">${t.welcome.greeting.replace('{name}', recipientName)}</h1>
+            </div>
+            <div style="padding: 35px 30px;">
+              <p style="font-size: 15px; color: #334155; line-height: 1.7; margin: 0 0 24px 0;">${t.welcome.body}</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="https://packer.tools" style="background-color: ${primaryColor}; color: #ffffff; font-weight: bold; padding: 14px 28px; border-radius: 12px; text-decoration: none; display: inline-block; font-size: 14px; text-transform: uppercase;">
+                  ${t.welcome.cta}
+                </a>
+              </div>
+            </div>
+            <div style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8;">
+              © ${new Date().getFullYear()} ${companyName}
+              ${footerLinksHtml}
+              ${footerCustomTextHtml}
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    } else if (selectedTemplate === 'checkout') {
+      const rowsHtml = checkoutItems.map(it => `
+        <tr style="border-bottom: 1px solid #f1f5f9;">
+          <td style="padding: 10px 8px; font-weight: bold; color: #0f172a;">${it.name}</td>
+          <td style="padding: 10px 8px; font-family: monospace; color: #64748b;">${it.serial}</td>
+          <td style="padding: 10px 8px; color: #64748b;">${it.category}</td>
+          <td style="padding: 10px 8px; text-align: right; font-weight: bold; color: #0f172a;">${it.qty}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>Handover Slip</title></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #fafafa; padding: 40px 10px; margin: 0; color: #1e293b;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; overflow: hidden;">
+            <div style="background-color: ${primaryColor}; padding: 28px; text-align: center; color: #ffffff;">
+              <h2 style="margin: 0; font-size: 22px; font-weight: 900; text-transform: uppercase;">${t.checkout.title}</h2>
+            </div>
+            <div style="padding: 32px 24px;">
+              <p style="font-size: 15px; color: #0f172a; font-weight: bold; margin: 0 0 12px 0;">${t.checkout.greeting.replace('{name}', recipientName)}</p>
+              <p style="font-size: 13.5px; color: #475569; line-height: 1.6; margin: 0 0 24px 0;">${t.checkout.body}</p>
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 24px;">
+                <thead>
+                  <tr style="border-bottom: 2px solid #e2e8f0; font-size: 11px; text-transform: uppercase; color: #94a3b8;">
+                    <th style="padding-bottom: 8px; text-align: left;">Item</th>
+                    <th style="padding-bottom: 8px; text-align: left;">Serial/Tag</th>
+                    <th style="padding-bottom: 8px; text-align: left;">Category</th>
+                    <th style="padding-bottom: 8px; text-align: right;">Qty</th>
+                  </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+              </table>
+              <div style="background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 14px;">
+                <p style="font-size: 11.5px; color: #991b1b; font-weight: bold; margin: 0;">⚠️ ${t.checkout.returnNotice}</p>
+              </div>
+            </div>
+            <div style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8;">
+              © ${new Date().getFullYear()} ${companyName}
+              ${footerLinksHtml}
+              ${footerCustomTextHtml}
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    } else if (selectedTemplate === 'overdue') {
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>Overdue Gear Notice</title></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #fef2f2; padding: 40px 10px; margin: 0; color: #1e293b;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; box-shadow: 0 10px 30px -5px rgba(220,38,38,0.1); border: 1px solid #fecaca; overflow: hidden;">
+            <div style="background-color: #dc2626; padding: 28px; text-align: center; color: #ffffff;">
+              <h2 style="margin: 0; font-size: 22px; font-weight: 900; text-transform: uppercase;">${t.overdue.title}</h2>
+            </div>
+            <div style="padding: 32px 24px;">
+              <p style="font-size: 15px; color: #0f172a; font-weight: bold; margin: 0 0 12px 0;">${t.overdue.greeting.replace('{name}', recipientName)}</p>
+              <p style="font-size: 13.5px; color: #475569; line-height: 1.6; margin: 0 0 24px 0;">${t.overdue.body}</p>
+              <div style="text-align: center; margin-top: 24px;">
+                <a href="https://packer.tools/gear" style="background-color: #dc2626; color: #ffffff; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; display: inline-block; font-size: 13px; text-transform: uppercase;">
+                  ${t.overdue.cta}
+                </a>
+              </div>
+            </div>
+            <div style="background-color: #fff5f5; padding: 20px; text-align: center; border-top: 1px solid #fecaca; font-size: 11px; color: #991b1b;">
+              © ${new Date().getFullYear()} ${companyName}
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    } else if (selectedTemplate === 'low_stock') {
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>Low Stock Warning</title></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #fffbeb; padding: 40px 10px; margin: 0; color: #1e293b;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; box-shadow: 0 10px 30px -5px rgba(217,119,6,0.1); border: 1px solid #fde68a; overflow: hidden;">
+            <div style="background-color: #d97706; padding: 28px; text-align: center; color: #ffffff;">
+              <h2 style="margin: 0; font-size: 22px; font-weight: 900; text-transform: uppercase;">${t.lowStock.title}</h2>
+            </div>
+            <div style="padding: 32px 24px;">
+              <p style="font-size: 13.5px; color: #475569; line-height: 1.6; margin: 0 0 24px 0;">${t.lowStock.body}</p>
+              <div style="text-align: center; margin-top: 24px;">
+                <a href="https://packer.tools/inventory" style="background-color: #d97706; color: #ffffff; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; display: inline-block; font-size: 13px; text-transform: uppercase;">
+                  ${t.lowStock.cta}
+                </a>
+              </div>
+            </div>
+            <div style="background-color: #fffbeb; padding: 20px; text-align: center; border-top: 1px solid #fde68a; font-size: 11px; color: #92400e;">
+              © ${new Date().getFullYear()} ${companyName}
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    } else if (selectedTemplate === 'admin_notification') {
+      const detailsHtml = alertDetails.map(d => `
+        <tr style="border-bottom: 1px solid #f1f5f9;">
+          <td style="padding: 8px 6px; font-weight: bold; color: #475569; width: 35%; font-size: 11px; text-transform: uppercase;">${d.key}:</td>
+          <td style="padding: 8px 6px; color: #0f172a; font-family: monospace; font-size: 12px;">${d.value}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>Admin Alert</title></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc; padding: 40px 10px; margin: 0; color: #0f172a;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 20px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow: hidden;">
+            <div style="background-color: #0f172a; padding: 24px; color: #ffffff;">
+              <h3 style="margin: 0; font-size: 16px; font-weight: 800; text-transform: uppercase;">🚨 ${companyName} Admin Console</h3>
+            </div>
+            <div style="padding: 32px 24px;">
+              <h2 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">${alertTitle}</h2>
+              <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 24px 0;">${alertMessage}</p>
+              <div style="background-color: #fafbfc; border-radius: 12px; border: 1px solid #f1f5f9; padding: 16px; margin-bottom: 24px;">
+                <table style="width: 100%; border-collapse: collapse;"><tbody>${detailsHtml}</tbody></table>
+              </div>
+              <p style="font-size: 11px; color: #475569; background-color: #fef08a; border-radius: 8px; padding: 12px; border: 1px solid #e2e8f0;">
+                ⚠️ ${t.adminAlert.warning}
+              </p>
+            </div>
+            <div style="background-color: #0f172a; padding: 24px; text-align: center; font-size: 11px; color: #94a3b8;">
+              © ${new Date().getFullYear()} ${companyName}
+              ${footerLinksHtml}
+              ${footerCustomTextHtml}
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    } else {
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>Invoice Statement</title></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #fafafa; padding: 40px 10px; margin: 0; color: #1e293b;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 28px; box-shadow: 0 15px 35px -10px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; overflow: hidden;">
+            <div style="background-color: #0f172a; padding: 36px 30px; text-align: center; color: #ffffff;">
+              <h1 style="margin: 0; font-size: 24px; font-weight: 900;">💳 Subscription Invoice</h1>
+            </div>
+            <div style="padding: 36px 30px;">
+              <p style="font-size: 15px; color: #334155;">Invoice Reference: <strong>PT-2026-9901</strong></p>
+            </div>
+            <div style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8;">
+              © ${new Date().getFullYear()} ${companyName}
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    }
+  };
 
   return (
     <div className="space-y-6">
-      
-      {/* Visual Header Block */}
-      <div className="bg-white p-6 rounded-[2rem] border border-neutral-150/80 shadow-sm">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="p-2 bg-primary/10 text-primary rounded-xl">
-                <Mail size={20} className="animate-bounce" />
-              </span>
-              <h2 className="text-2xl font-black uppercase tracking-tighter text-neutral-900">Branded Email Template Hub</h2>
+      {/* Top Banner Header */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-zinc-900 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden border border-slate-800">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs font-bold uppercase tracking-wider mb-3">
+              <Mail className="w-3.5 h-3.5" />
+              Multilingual Email Studio & Dispatch
             </div>
-            <p className="text-neutral-500 text-xs font-semibold">
-              Live design previewer & transactional compiler for custom organizational alerts, equipment checklists, and verification codes.
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
+              Email System & Communications
+            </h1>
+            <p className="text-slate-400 text-sm mt-1 max-w-2xl">
+              Design, translate, preview, and broadcast operational, marketing, and automated emails across 6 regional languages.
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => {
-                setSelectedTemplate('verification');
-                toast.success('Reset dynamic preview triggers.');
-              }}
-              className="p-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 rounded-xl transition duration-200"
-              title="Reset configuration defaults"
-            >
-              <RefreshCw size={15} />
-            </button>
 
-            <button
-              onClick={handleApplyBrandingChanges}
-              className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow active:scale-95 duration-200"
+          {/* Quick Language Selector */}
+          <div className="bg-slate-800/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/60 flex items-center gap-3">
+            <Globe className="w-4 h-4 text-orange-400 shrink-0" />
+            <span className="text-xs font-bold text-slate-300">Target Locale:</span>
+            <select
+              value={selectedLocale}
+              onChange={(e) => setSelectedLocale(e.target.value as EmailLocale)}
+              className="bg-slate-900 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-slate-700 focus:outline-none focus:border-orange-500 cursor-pointer"
             >
-              Push Brand Specs
-            </button>
+              <option value="en">English (en)</option>
+              <option value="es">Español (es)</option>
+              <option value="fr">Français (fr)</option>
+              <option value="de">Deutsch (de)</option>
+              <option value="ja">日本語 (ja)</option>
+              <option value="fj">Fijian (fj) 🇫🇯</option>
+            </select>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        
-        {/* Left Options Controller Panel (5 cols) */}
-        <div className="xl:col-span-4 space-y-6">
-          
-          {/* Section 1: Template selector card */}
-          <div className="bg-white p-5 rounded-[2rem] border border-neutral-150/80 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 border-b border-neutral-100 pb-3">
-              <span className="w-2 h-2 rounded-full bg-primary" />
-              <h3 className="font-extrabold uppercase text-[11px] tracking-wider text-neutral-600">Select Interactive Template</h3>
-            </div>
-            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-              {templates.map((tpl) => (
-                <button
-                  key={tpl.id}
-                  onClick={() => setSelectedTemplate(tpl.id)}
-                  className={`w-full p-3 rounded-xl text-left border transition text-xs flex flex-col gap-1 ${
-                    selectedTemplate === tpl.id 
-                      ? 'border-neutral-900 bg-neutral-950 text-white shadow' 
-                      : 'border-neutral-200 bg-neutral-50 hover:bg-neutral-100/80 text-neutral-700'
-                  }`}
-                >
-                  <span className="font-extrabold">{tpl.name}</span>
-                  <span className={`text-[9px] font-bold ${selectedTemplate === tpl.id ? 'text-primary' : 'text-neutral-400'}`}>
-                    Category: {tpl.category}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* Main Navigation Tabs */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-2 overflow-x-auto pb-1">
+        <button
+          onClick={() => setActiveMainTab('templates')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all whitespace-nowrap ${
+            activeMainTab === 'templates'
+              ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          Transactional & Service Templates
+        </button>
 
-          {/* Section 2: Custom variables editor depending on currently selected template */}
-          <div className="bg-white p-5 rounded-[2rem] border border-neutral-150/80 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 border-b border-neutral-100 pb-3">
-              <span className="w-2 h-2 rounded-full bg-neutral-500" />
-              <h3 className="font-extrabold uppercase text-[11px] tracking-wider text-neutral-600">WYSIWYG Variable Overrides</h3>
-            </div>
+        <button
+          onClick={() => setActiveMainTab('newsletter')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all whitespace-nowrap ${
+            activeMainTab === 'newsletter'
+              ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Megaphone className="w-4 h-4" />
+          Newsletter Broadcast Campaign
+        </button>
 
-            <div className="space-y-4">
-              {/* Recipient custom state */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-neutral-400 tracking-wider">Recipient Display Name</label>
-                <input
-                  type="text"
-                  value={recipientName}
-                  onChange={(e) => setRecipientName(e.target.value)}
-                  className="w-full px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-200 text-xs font-semibold focus:ring-2 focus:ring-primary/20 outline-none"
-                />
-              </div>
+        <button
+          onClick={() => setActiveMainTab('autotriggers')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all whitespace-nowrap ${
+            activeMainTab === 'autotriggers'
+              ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Bell className="w-4 h-4" />
+          Automated Triggers
+        </button>
 
-              {/* Subject custom state */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-neutral-400 tracking-wider">Custom Subject Line (Optional)</label>
-                <input
-                  type="text"
-                  value={customSubject}
-                  onChange={(e) => setCustomSubject(e.target.value)}
-                  placeholder="Defaults to layout dynamic headers..."
-                  className="w-full px-3 py-2 bg-neutral-50 rounded-xl border border-neutral-200 text-xs font-semibold focus:ring-2 focus:ring-primary/20 outline-none"
-                />
-              </div>
+        <button
+          onClick={() => setActiveMainTab('branding')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all whitespace-nowrap ${
+            activeMainTab === 'branding'
+              ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Sliders className="w-4 h-4" />
+          Shared Branding & Delivery
+        </button>
+      </div>
 
-              {/* DYNAMIC FIELD GENERATORS */}
-
-              {/* Template: OTP Verification code */}
-              {selectedTemplate === 'verification' && (
-                <div className="space-y-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-150">
-                  <span className="text-[9px] font-black uppercase text-[#FF5500] tracking-wider block font-mono">🔑 OTP Secure Token Editor</span>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-neutral-500 uppercase">Verification Code (6-digits)</label>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      className="w-full px-3 py-2 bg-white rounded-xl border border-neutral-200 text-xs font-black font-mono focus:ring-2 focus:ring-primary/20 outline-none"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Template: Logistics Equipment Checkout Receipt */}
-              {selectedTemplate === 'checkout' && (
-                <div className="space-y-3 bg-neutral-50 p-3.5 rounded-2xl border border-neutral-150 text-left">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black uppercase text-emerald-600 tracking-wider block font-mono">📦 Log Table items ({checkoutItems.length})</span>
-                  </div>
-                  
-                  {checkoutItems.length > 0 ? (
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                      {checkoutItems.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between p-2 bg-white rounded-lg border border-neutral-200 text-[10px]">
-                          <div className="min-w-0 flex-1 pr-2">
-                            <p className="font-extrabold text-neutral-800 truncate leading-none mb-1">{item.name}</p>
-                            <span className="font-mono text-[8px] text-neutral-400 block">{item.serial} • Returns {item.returnDate}</span>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveCheckoutItem(item.id)}
-                            className="text-red-600 hover:text-red-700 font-extrabold uppercase text-[9px] shrink-0"
-                          >
-                            Del
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[9px] text-neutral-400 italic block text-center uppercase font-bold py-2">All equipment tables empty</p>
-                  )}
-
-                  <div className="bg-white p-2 text-[10px] rounded-xl border border-neutral-200/60 space-y-1.5">
-                    <input
-                      type="text"
-                      placeholder="Asset name (e.g. Sony FX3)"
-                      value={newItemName}
-                      onChange={(e) => setNewItemName(e.target.value)}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded px-2 py-1 outline-none text-[10px] font-semibold"
-                    />
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <input
-                        type="text"
-                        placeholder="Serial/SKU"
-                        value={newItemSerial}
-                        onChange={(e) => setNewItemSerial(e.target.value)}
-                        className="bg-neutral-50 border border-neutral-200 rounded px-2 py-1 outline-none text-[10px] font-mono"
-                      />
-                      <select
-                        value={newItemCondition}
-                        onChange={(e) => setNewItemCondition(e.target.value)}
-                        className="bg-neutral-50 border border-neutral-200 rounded px-1.5 py-1 text-[10px] font-semibold"
-                      >
-                        <option value="Excellent">Excellent</option>
-                        <option value="Good">Good</option>
-                        <option value="Fair">Fair</option>
-                      </select>
-                    </div>
-                    <input
-                      type="date"
-                      value={newItemReturnDate}
-                      onChange={(e) => setNewItemReturnDate(e.target.value)}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded px-2 py-1 outline-none text-[10px] font-semibold"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddCheckoutItem}
-                      className="w-full py-1.5 bg-neutral-900 border border-neutral-800 hover:bg-black text-white text-[9px] font-black uppercase rounded tracking-wider"
-                    >
-                      + Add New Item Entry
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Template: System Alerts */}
-              {selectedTemplate === 'admin_notification' && (
-                <div className="space-y-3 bg-neutral-50 p-3.5 rounded-2xl border border-neutral-150 text-left">
-                  <span className="text-[9px] font-black uppercase text-red-600 tracking-wider block font-mono">🚨 Telemetry Alert Controls</span>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-neutral-500 uppercase">Alert Sub-Header</label>
-                    <input
-                      type="text"
-                      value={alertTitle}
-                      onChange={(e) => setAlertTitle(e.target.value)}
-                      className="w-full px-2 py-1 bg-white rounded border border-neutral-200 text-[11px] font-extrabold text-neutral-800 outline-none"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-neutral-500 uppercase">Alert Description Text</label>
-                    <textarea
-                      rows={2}
-                      value={alertMessage}
-                      onChange={(e) => setAlertMessage(e.target.value)}
-                      className="w-full px-2 py-1 bg-white rounded border border-neutral-200 text-[10px] outline-none resize-none font-semibold text-neutral-600"
-                    />
-                  </div>
-                  
-                  {/* Metadata fields list */}
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase text-neutral-450 block font-mono mt-2">Dynamic Key-Pair Labels</label>
-                    <div className="space-y-1 bg-white p-2.5 rounded-lg border border-neutral-200/60">
-                      {alertDetails.map((detail, dIdx) => (
-                        <div key={dIdx} className="flex justify-between items-center text-[9.5px] border-b border-neutral-50 py-0.5">
-                          <span className="font-extrabold text-neutral-400">{detail.key}:</span>
-                          <span className="font-mono text-neutral-800 truncate pr-2">{detail.value}</span>
-                          <button onClick={() => handleRemoveDetail(dIdx)} className="text-red-500 hover:text-red-600 font-bold shrink-0">✕</button>
-                        </div>
-                      ))}
-                      <div className="grid grid-cols-2 gap-1.5 mt-2">
-                        <input
-                          type="text"
-                          placeholder="Label (e.g. CPU)"
-                          value={newDetailKey}
-                          onChange={(e) => setNewDetailKey(e.target.value)}
-                          className="bg-neutral-50 border border-neutral-200 rounded px-1.5 py-1 text-[9px] outline-none"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Val (e.g. 98%)"
-                          value={newDetailValue}
-                          onChange={(e) => setNewDetailValue(e.target.value)}
-                          className="bg-neutral-50 border border-neutral-200 rounded px-1.5 py-1 text-[9px] outline-none"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleAddDetail}
-                        className="w-full mt-1.5 py-1 bg-neutral-900 text-white text-[8px] font-black uppercase rounded tracking-wider"
-                      >
-                        + Insert Row Parameters
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Template: Listing Approved */}
-              {selectedTemplate === 'listing_approved' && (
-                <div className="space-y-3 bg-neutral-50 p-3.5 rounded-2xl border border-neutral-150 text-left">
-                  <span className="text-[9px] font-black uppercase text-blue-600 tracking-wider block font-mono">🎉 Moderation Board Controls</span>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-neutral-500 uppercase">Item Listing Title</label>
-                    <input
-                      type="text"
-                      value={listingTitle}
-                      onChange={(e) => setListingTitle(e.target.value)}
-                      className="w-full px-2 py-1 bg-white rounded border border-neutral-200 text-[11px] font-extrabold"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-neutral-500 uppercase">Price Tag</label>
-                      <input
-                        type="text"
-                        value={listingPrice}
-                        onChange={(e) => setInvoiceTotal(e.target.value)}
-                        className="w-full px-2 py-1 bg-white rounded border border-neutral-200 text-[11px]"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-neutral-500 uppercase">Municipality</label>
-                      <input
-                        type="text"
-                        value={listingLocation}
-                        onChange={(e) => setListingLocation(e.target.value)}
-                        className="w-full px-2 py-1 bg-white rounded border border-neutral-200 text-[11px]"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-neutral-500 uppercase">CTA Button Call Out text</label>
-                    <input
-                      type="text"
-                      value={listingCtaText}
-                      onChange={(e) => setListingCtaText(e.target.value)}
-                      className="w-full px-2 py-1 bg-white rounded border border-neutral-200 text-[11px]"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Template: Billing Invoice Receipt */}
-              {selectedTemplate === 'invoice' && (
-                <div className="space-y-3 bg-neutral-50 p-3.5 rounded-2xl border border-neutral-150 text-left">
-                  <span className="text-[9px] font-black uppercase text-purple-600 tracking-wider block font-mono">💳 Statement Invoice Parameters</span>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-neutral-500 uppercase">Invoice Statement ID</label>
-                    <input
-                      type="text"
-                      value={invoiceNumber}
-                      onChange={(e) => setInvoiceNumber(e.target.value)}
-                      className="w-full px-2 py-1 bg-white rounded border border-neutral-200 text-[11px] font-mono tracking-wider font-bold"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-neutral-500 uppercase">Corporate Service Tier</label>
-                    <input
-                      type="text"
-                      value={invoicePlan}
-                      onChange={(e) => setInvoicePlan(e.target.value)}
-                      className="w-full px-2 py-1 bg-white rounded border border-neutral-200 text-[11px] font-extrabold"
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <div className="space-y-1">
-                      <label className="text-[8px] font-bold text-neutral-500 uppercase">Subtotal</label>
-                      <input
-                        type="text"
-                        value={invoiceSubtotal}
-                        onChange={(e) => setInvoiceSubtotal(e.target.value)}
-                        className="w-full px-1.5 py-1 bg-white rounded border border-neutral-200 text-[10px]"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[8px] font-bold text-neutral-500 uppercase">Tax Value</label>
-                      <input
-                        type="text"
-                        value={invoiceVat}
-                        onChange={(e) => setInvoiceVat(e.target.value)}
-                        className="w-full px-1.5 py-1 bg-white rounded border border-neutral-200 text-[10px]"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[8px] font-bold text-neutral-500 uppercase">Total Net</label>
-                      <input
-                        type="text"
-                        value={invoiceTotal}
-                        onChange={(e) => setInvoiceTotal(e.target.value)}
-                        className="w-full px-1.5 py-1 bg-white rounded border border-neutral-200 text-[10px]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Preview Generator Frame Sandbox (8 cols) */}
-        <div className="xl:col-span-8 space-y-6">
-          <div className="bg-neutral-900 rounded-[2.5rem] p-6 border border-neutral-850 shadow-2xl relative text-left text-white">
-            
-            {/* Upper preview dashboard toolbar controls */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-4 mb-6">
-              
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-black text-primary uppercase tracking-widest block font-mono">💻 Live Sandbox Previewer</span>
-                <h3 className="text-white text-lg font-black uppercase tracking-tight">WYSIWYG Email Simulator</h3>
-              </div>
-
-              {/* Toggle tabs and devices format selectors */}
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Mode Selector preview vs code */}
-                <div className="flex bg-neutral-950 p-1 rounded-xl border border-neutral-800 text-[10px] font-bold">
+      {/* TAB 1: TRANSACTIONAL & SERVICE TEMPLATES */}
+      {activeMainTab === 'templates' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column: Template Selector & Parameters */}
+          <div className="lg:col-span-4 space-y-6">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <List className="w-4 h-4 text-orange-500" />
+                Select Template
+              </h3>
+              <div className="space-y-1.5">
+                {templates.map(tmpl => (
                   <button
-                    onClick={() => setActiveSubTab('preview')}
-                    className={`px-3 py-1.5 rounded-lg transition-all text-xs flex items-center gap-1.5 ${activeSubTab === 'preview' ? 'bg-primary text-white font-black' : 'text-neutral-400 hover:text-neutral-200'}`}
+                    key={tmpl.id}
+                    onClick={() => setSelectedTemplate(tmpl.id)}
+                    className={`w-full text-left p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-between ${
+                      selectedTemplate === tmpl.id
+                        ? 'bg-orange-500/10 border-orange-500 text-orange-600 dark:text-orange-400'
+                        : 'border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
                   >
-                    <Eye size={12} />
-                    <span>Visual Simulator</span>
+                    <span>{tmpl.name}</span>
+                    <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
+                      {tmpl.category}
+                    </span>
                   </button>
-                  <button
-                    onClick={() => setActiveSubTab('html')}
-                    className={`px-3 py-1.5 rounded-lg transition-all text-xs flex items-center gap-1.5 ${activeSubTab === 'html' ? 'bg-primary text-white font-black' : 'text-neutral-400 hover:text-neutral-200'}`}
-                  >
-                    <Code size={12} />
-                    <span>Markup HTML Code</span>
-                  </button>
-                </div>
-
-                {/* Device Selector */}
-                <div className="flex bg-neutral-950 p-1 rounded-xl border border-neutral-800 text-[10px] font-bold">
-                  <button
-                    onClick={() => setPreviewMode('desktop')}
-                    className={`p-1.5 rounded-lg transition-all ${previewMode === 'desktop' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
-                    title="Desktop Preview Range"
-                  >
-                    <Laptop size={15} />
-                  </button>
-                  <button
-                    onClick={() => setPreviewMode('mobile')}
-                    className={`p-1.5 rounded-lg transition-all ${previewMode === 'mobile' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
-                    title="Mobile Core Canvas Width"
-                  >
-                    <Smartphone size={15} />
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
 
-            {/* Simulated Email Browser Header Specs Frame */}
-            <div className="bg-neutral-950 rounded-2xl border border-neutral-800/60 p-4 mb-4 font-mono text-[10.5px] text-neutral-400 space-y-1.5 select-none">
-              <div className="flex items-center gap-1">
-                <span className="font-extrabold text-neutral-500 w-16 uppercase">From:</span>
-                <span className="text-neutral-300 font-bold">
-                  {companyName.toLowerCase().replace(/[^a-z0-9]/g, '')}-notifications@{selectedTemplate === 'admin_notification' ? 'alerts' : 'logistics'}.packer.tools
-                </span>
-                <span className="px-1.5 py-0.5 bg-[#FF5500]/10 text-primary rounded text-[8px] font-black uppercase tracking-wider ml-2">VERIFIED RESEND SPF</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="font-extrabold text-neutral-500 w-16 uppercase">To:</span>
-                <span className="text-neutral-300 font-bold">"{recipientName}" &lt;{recipientEmail}&gt;</span>
-              </div>
-              <div className="flex items-start gap-1">
-                <span className="font-extrabold text-neutral-500 w-16 uppercase pb-1">Subject:</span>
-                <span className="text-emerald-400 font-extrabold leading-normal select-text break-all">{getSubject()}</span>
-              </div>
-            </div>
+            {/* Parameter Editors */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-orange-500" />
+                Live Preview Variables
+              </h3>
 
-            {/* Main Interactive Canvas iframe-like rendering viewport wrapper */}
-            {activeSubTab === 'preview' ? (
-              <div className="bg-neutral-100 rounded-[2.5rem] p-4 md:p-8 border border-neutral-200 overflow-hidden flex justify-center text-[#1e293b]">
-                <div 
-                  className="transition-all duration-300 shadow-xl overflow-hidden rounded-3xl"
-                  style={{ width: previewMode === 'mobile' ? '375px' : '100%', maxWidth: '520px' }}
-                >
-                  <div className="bg-white border border-neutral-200/60 overflow-hidden">
-                    
-                    {/* Dynamic Styled Header */}
-                    {selectedTemplate === 'verification' ? (
-                      <div className="p-6 text-center text-white flex flex-col items-center justify-center select-none" style={{ backgroundColor: primaryColor }}>
-                        <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mb-3">
-                          <img src={logoUrl} referrerPolicy="no-referrer" alt="Branding header" className="object-contain max-h-8 max-w-[120px]" />
-                        </div>
-                        <h2 className="margin-0 text-[10px] font-mono tracking-widest font-black uppercase text-white/90">Identity Verification Gateway</h2>
-                      </div>
-                    ) : selectedTemplate === 'admin_notification' ? (
-                      <div className="p-4 bg-slate-900 border-b border-slate-800 text-white flex items-center justify-between select-none">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                          <span className="font-extrabold text-[10px] uppercase tracking-wider">🚨 {companyName} Cluster Overseer</span>
-                        </div>
-                        <img src={logoUrl} referrerPolicy="no-referrer" alt="Custom logo preview" className="object-contain max-h-5 max-w-[80px]" />
-                      </div>
-                    ) : (
-                      <div className="p-8 text-center bg-slate-800 text-white flex flex-col items-center justify-center select-none">
-                        <img src={logoUrl} referrerPolicy="no-referrer" alt="Branded Logo" className="object-contain max-h-12 max-w-[140px] mb-3 rounded" />
-                        <h1 className="margin-0 text-md font-black uppercase tracking-widest text-[#FF5500]">SYSTEM DISPATCH DISCLOSURE</h1>
-                      </div>
-                    )}
-
-                    {/* Email Card Body Content Injector Block Container */}
-                    <div className="p-6 md:p-8">
-                      {selectedTemplate === 'verification' && (
-                        <div className="space-y-4 text-center">
-                          <p className="text-xs text-neutral-600 font-bold mt-0">Bula Vinaka, <strong>{recipientName}</strong>,</p>
-                          <p className="text-[11.5px] text-neutral-500 leading-relaxed font-sans mt-0">
-                            Use the following temporary security verification sequence token to access your secure device login panel for {companyName}:
-                          </p>
-                          <div className="font-mono text-2xl font-black tracking-widest p-4 rounded-xl border inline-block bg-orange-50/20 select-all" style={{ color: primaryColor, borderColor: `${primaryColor}20` }}>
-                            {otpCode}
-                          </div>
-                          <p className="text-[9.5px] text-neutral-400 italic font-medium leading-relaxed max-w-[360px] mx-auto">
-                            This security code sequence decays inside 15 minutes. Log in attempt initiated from external secure telemetry console.
-                          </p>
-                        </div>
-                      )}
-
-                      {selectedTemplate === 'checkout' && (
-                        <div className="space-y-4">
-                          <p className="text-xs text-neutral-600 font-bold mt-0">Bula Vinaka, <strong>{recipientName}</strong>,</p>
-                          <p className="text-[11px] text-neutral-500 leading-normal font-sans">
-                            You have successfully processed an automated equipment logistical handover on this device. Below are the registered items assigned to your profile record:
-                          </p>
-                          
-                          <table className="w-full text-left text-xs border-collapse">
-                            <thead>
-                              <tr className="border-b-2 border-neutral-100 bg-neutral-50 text-[10px] text-neutral-400 font-extrabold uppercase select-none">
-                                <th className="p-2">Equipment</th>
-                                <th className="p-2">Serial ID</th>
-                                <th className="p-2 text-center">Grade</th>
-                                <th className="p-2 text-right">Return Due</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {checkoutItems.map((item) => (
-                                <tr key={item.id} className="border-b border-neutral-100 font-sans font-medium text-[11px]">
-                                  <td className="p-2 font-extrabold text-neutral-800 leading-snug">{item.name}</td>
-                                  <td className="p-2 font-mono text-[10px] text-neutral-400 font-semibold">{item.serial}</td>
-                                  <td className="p-2 text-center">
-                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
-                                      item.condition === 'Excellent' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                                      item.condition === 'Good' ? 'bg-sky-50 text-sky-700 border border-sky-100' :
-                                      'bg-amber-50 text-amber-700 border border-amber-100'
-                                    }`}>
-                                      {item.condition}
-                                    </span>
-                                  </td>
-                                  <td className="p-2 text-right text-red-600 font-bold font-mono">{item.returnDate}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-
-                          <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-[10.5px]">
-                            <div className="font-extrabold text-red-700 uppercase tracking-widest font-mono text-[9px] mb-1">
-                              ⚠️ RETROACTIVE MAINTENANCE TERM
-                            </div>
-                            <p className="text-red-800 leading-relaxed font-sans m-0">
-                              Please return all listed gear immediately prior on or before the designated Return Date. Outstanding items will automatically flag audits under structural team protocols.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {selectedTemplate === 'admin_notification' && (
-                        <div className="space-y-4">
-                          <h4 className="font-extrabold text-red-600 text-[12.5px] border-b border-neutral-100 pb-2 flex items-center gap-1.5 uppercase font-mono tracking-wide">
-                            <AlertTriangle size={15} />
-                            <span>{alertTitle}</span>
-                          </h4>
-                          <p className="text-[11.5px] text-neutral-500 font-semibold leading-relaxed font-sans">
-                            An automated administrative anomaly detector alert was triggered in the logistics cluster infrastructure. Check metrics specs below:
-                          </p>
-
-                          <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-200">
-                            <table className="w-full text-left text-[11px] font-sans font-semibold">
-                              <tbody>
-                                {alertDetails.map((detail, dIdx) => (
-                                  <tr key={dIdx} className="border-b border-neutral-100/60 font-semibold">
-                                    <td className="py-1 text-neutral-400 font-bold uppercase text-[9.5px]">{detail.key}:</td>
-                                    <td className="py-1 text-neutral-800 font-mono text-[10.5px] font-extrabold text-right">{detail.value}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          <p className="text-[11px] text-neutral-600 leading-relaxed bg-[#FF5500]/5 border border-[#FF5500]/10 p-3 rounded-xl font-sans m-0">
-                            <strong>System Summary Message:</strong> {alertMessage}
-                          </p>
-                        </div>
-                      )}
-
-                      {selectedTemplate === 'listing_approved' && (
-                        <div className="space-y-4 text-center">
-                          <h3 className="font-black text-neutral-800 text-base uppercase tracking-tight">Your Listing is Active! 🎉</h3>
-                          <p className="text-xs text-neutral-500 leading-relaxed font-semibold">
-                            Bula Vinaka, <strong>{recipientName}</strong>, our Fijian logistics verification team approved and synced your listing on the public board platform instantly:
-                          </p>
-
-                          <div className="bg-neutral-50 p-4 border rounded-2xl max-w-[310px] mx-auto text-left space-y-2 select-none border-neutral-200 shadow-sm font-sans">
-                            <span className="text-[9px] font-mono text-neutral-400 block font-bold uppercase tracking-wider">MODERATED REGISTRY ITEM</span>
-                            <p className="font-black text-xs text-neutral-800 truncate leading-none">{listingTitle}</p>
-                            
-                            <div className="flex justify-between items-center pt-2.5 border-t border-neutral-200/60">
-                              <div>
-                                <span className="text-[8px] text-neutral-400 font-mono block font-bold uppercase">Price Index</span>
-                                <span className="text-xs font-black text-neutral-800" style={{ color: primaryColor }}>{listingPrice}</span>
-                              </div>
-                              <div className="text-all-right">
-                                <span className="text-[8px] text-neutral-400 font-mono block font-bold uppercase text-right">Location</span>
-                                <span className="text-[11px] font-bold text-neutral-600 block text-right">{listingLocation}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="py-2 inline-block">
-                            <span 
-                              className="px-6 py-2.5 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition shadow-sm hover:opacity-90 block" 
-                              style={{ backgroundColor: primaryColor }}
-                            >
-                              {listingCtaText}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {selectedTemplate === 'invoice' && (
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center border-b border-neutral-100 pb-3 select-none">
-                            <div className="text-left font-sans">
-                              <span className="text-[9px] text-neutral-400 font-mono block font-bold uppercase leading-none">Invoice Clearance</span>
-                              <span className="text-xs font-black text-neutral-800 tracking-tight font-mono">ID: #{invoiceNumber}</span>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-[9px] text-neutral-400 font-mono block font-bold uppercase leading-none">クリア日</span>
-                              <span className="text-[10px] font-bold text-neutral-600 block font-mono">{new Date().toLocaleDateString()}</span>
-                            </div>
-                          </div>
-
-                          <p className="text-xs text-neutral-600 font-bold mt-0">Hi {recipientName},</p>
-                          <p className="text-[11.5px] text-neutral-500 leading-normal font-sans">
-                            A digital bill statement confirmation and VAT clearance has been finalized as scheduled under your organizational record options:
-                          </p>
-
-                          <div className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-150 font-sans text-xs">
-                            <table className="w-full text-neutral-700 font-semibold font-sans">
-                              <tbody>
-                                <tr className="border-b border-neutral-100 font-semibold">
-                                  <td className="py-1 text-neutral-500">Service Plan Subscribed:</td>
-                                  <td className="py-1 text-neutral-900 font-black text-right">{invoicePlan}</td>
-                                </tr>
-                                <tr className="border-b border-neutral-100 font-semibold">
-                                  <td className="py-1 text-neutral-500 font-semibold">Subtotal (Net):</td>
-                                  <td className="py-1 text-neutral-600 text-right">{invoiceSubtotal}</td>
-                                </tr>
-                                <tr className="border-b border-neutral-100 font-semibold">
-                                  <td className="py-1 text-purple-600 font-bold uppercase text-[9.5px]">VAT Surcharge:</td>
-                                  <td className="py-1 text-purple-600 font-extrabold text-right">{invoiceVat}</td>
-                                </tr>
-                                <tr>
-                                  <td className="pt-2 text-neutral-900 font-extrabold text-sm">Amount Clear:</td>
-                                  <td className="pt-2 text-right font-black text-sm" style={{ color: primaryColor }}>{invoiceTotal}</td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-
-                          <p className="text-[10px] text-neutral-400 italic text-center w-full block m-0 pt-2 font-medium">
-                            Premium receipts are compiled in offline digital sandbox configurations. Thank you.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Integrated dynamic styled Layout footer */}
-                    <div className="p-6 bg-neutral-100 border-t border-neutral-200 text-center text-[10px] text-neutral-400 font-sans leading-relaxed select-none">
-                      <p className="text-[9px] font-semibold text-neutral-400 m-0">© {new Date().getFullYear()} {companyName} Registry logistics.</p>
-                      
-                      {footerLinks.length > 0 && (
-                        <div className="flex flex-wrap items-center justify-center gap-1.5 mt-1.5">
-                          {footerLinks.map((link, lIdx) => (
-                            <React.Fragment key={lIdx}>
-                              {lIdx > 0 && <span className="text-neutral-300"> | </span>}
-                              <span className="font-extrabold" style={{ color: primaryColor }}>{link.label}</span>
-                            </React.Fragment>
-                          ))}
-                        </div>
-                      )}
-
-                      {footerText && (
-                        <p className="text-[8.5px] text-neutral-400 leading-normal max-w-[360px] mx-auto mt-2 italic font-medium font-sans border-t border-neutral-200/60 pt-2">
-                          {footerText}
-                        </p>
-                      )}
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-neutral-950 rounded-2xl border border-neutral-800 p-4 font-mono text-[11px] text-neutral-300 space-y-2 relative overflow-hidden">
-                <div className="flex justify-between items-center border-b border-neutral-800 pb-2 mb-3 select-none">
-                  <span className="text-neutral-400 font-black uppercase text-[10px] tracking-wider block font-mono">Raw Fluid Compilation HTML</span>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(computedHTML);
-                      toast.success('Markup copied to system clipboard!');
-                    }}
-                    className="p-1 px-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-[10px] font-bold tracking-widest uppercase text-white rounded transition"
-                  >
-                    Copy HTML
-                  </button>
-                </div>
-                <pre className="max-h-[36rem] overflow-auto select-all p-3 text-neutral-400 bg-neutral-950/80 rounded border border-neutral-900 leading-relaxed max-w-full block">
-                  <code>{computedHTML}</code>
-                </pre>
-              </div>
-            )}
-
-            {/* Test Trigger Sender Widget Dashboard */}
-            <div className="bg-neutral-950/40 p-5 mt-6 border border-neutral-800 rounded-3xl space-y-4">
-              <div className="flex items-center gap-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <h4 className="font-black text-xs text-white uppercase tracking-tight block">Send Production-Fidelity Test Dispatch</h4>
-              </div>
-
-              <div className="grid sm:grid-cols-4 gap-3 items-end">
-                <div className="sm:col-span-2 space-y-1">
-                  <span className="text-[9px] font-black uppercase text-neutral-400 block tracking-widest font-mono">Recipient target Email Address</span>
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-500 font-medium mb-1">Recipient Display Name</label>
                   <input
-                    type="email"
-                    value={testEmailAddress}
-                    onChange={(e) => setTestEmailAddress(e.target.value)}
-                    placeholder="recipient@example.com"
-                    className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl px-3 py-2 text-xs font-semibold focus:ring-1 focus:ring-primary outline-none"
+                    type="text"
+                    value={recipientName}
+                    onChange={(e) => setRecipientName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-medium"
                   />
                 </div>
 
-                <div className="sm:col-span-1 space-y-1">
-                  <span className="text-[9px] font-black uppercase text-neutral-400 block tracking-widest font-mono">Template Selected</span>
-                  <div className="bg-neutral-900 border border-neutral-800 text-neutral-300 rounded-xl px-3 py-2 text-xs font-semibold capitalize truncate h-[38px] flex items-center select-none font-sans font-extrabold max-w-full">
-                    {selectedTemplate.replace('_', ' ')}
+                {selectedTemplate === 'verification' && (
+                  <div>
+                    <label className="block text-slate-500 font-medium mb-1">Verification OTP Token</label>
+                    <input
+                      type="text"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-mono font-bold"
+                    />
                   </div>
-                </div>
+                )}
 
-                <div className="sm:col-span-1">
-                  <button
-                    onClick={handleSendLiveTest}
-                    disabled={isSendingTest}
-                    className="w-full h-[38px] bg-primary hover:bg-primary/90 text-white font-black text-xs uppercase rounded-xl tracking-wider transition-all shadow duration-200 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    <Send size={12} />
-                    <span>{isSendingTest ? 'Sending...' : 'Dispatch'}</span>
-                  </button>
-                </div>
+                {selectedTemplate === 'admin_notification' && (
+                  <>
+                    <div>
+                      <label className="block text-slate-500 font-medium mb-1">Alert Headline</label>
+                      <input
+                        type="text"
+                        value={alertTitle}
+                        onChange={(e) => setAlertTitle(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-500 font-medium mb-1">Alert Message</label>
+                      <textarea
+                        rows={3}
+                        value={alertMessage}
+                        onChange={(e) => setAlertMessage(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-medium"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
-              <p className="text-[10px] text-neutral-400 leading-normal font-sans">
-                Sends a high- fidelity HTML transactional notification email incorporating current branding logos, brand primary colors codes, and customized footer disclaimers directly to your designated target mailbox using automated server routing.
-              </p>
             </div>
 
+            {/* Test Send Dispatcher */}
+            <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-md space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-orange-400 flex items-center gap-2">
+                <Send className="w-4 h-4" />
+                Dispatch Test Email
+              </h3>
+              <p className="text-xs text-slate-400">
+                Transmit a live test of the <strong className="text-white">{selectedTemplate}</strong> template in <strong className="text-orange-400 uppercase">{selectedLocale}</strong>.
+              </p>
+              <input
+                type="email"
+                placeholder="target@example.com"
+                value={testEmailAddress}
+                onChange={(e) => setTestEmailAddress(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-medium focus:outline-none focus:border-orange-500"
+              />
+              <button
+                onClick={handleSendTestEmail}
+                disabled={isSendingTest}
+                className="w-full py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 disabled:opacity-50"
+              >
+                {isSendingTest ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                Send Test Email ({selectedLocale.toUpperCase()})
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column: Live Responsive WYSIWYG Frame */}
+          <div className="lg:col-span-8 space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setActiveSubTab('preview')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    activeSubTab === 'preview'
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                      : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  WYSIWYG Render
+                </button>
+                <button
+                  onClick={() => setActiveSubTab('html')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    activeSubTab === 'html'
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                      : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <Code className="w-3.5 h-3.5" />
+                  HTML Source
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                <button
+                  onClick={() => setPreviewMode('desktop')}
+                  className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                    previewMode === 'desktop' ? 'bg-white dark:bg-slate-700 shadow-sm text-orange-500' : 'text-slate-500'
+                  }`}
+                  title="Desktop 600px Frame"
+                >
+                  <Laptop className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setPreviewMode('mobile')}
+                  className={`p-1.5 rounded-lg text-xs font-bold transition-all ${
+                    previewMode === 'mobile' ? 'bg-white dark:bg-slate-700 shadow-sm text-orange-500' : 'text-slate-500'
+                  }`}
+                  title="Mobile 360px Frame"
+                >
+                  <Smartphone className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Preview Frame */}
+            <div className="bg-slate-200 dark:bg-slate-950 rounded-2xl p-6 min-h-[550px] flex items-center justify-center border border-slate-300 dark:border-slate-800 overflow-x-auto">
+              {activeSubTab === 'preview' ? (
+                <div
+                  className={`transition-all duration-300 bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 ${
+                    previewMode === 'mobile' ? 'w-[360px]' : 'w-[620px]'
+                  }`}
+                >
+                  <iframe
+                    title="Email Preview"
+                    srcDoc={renderTemplateHtml()}
+                    className="w-full h-[600px] border-none"
+                  />
+                </div>
+              ) : (
+                <pre className="w-full max-h-[600px] overflow-auto p-4 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl border border-slate-800">
+                  {renderTemplateHtml()}
+                </pre>
+              )}
+            </div>
           </div>
         </div>
+      )}
 
-      </div>
+      {/* TAB 2: NEWSLETTER BROADCAST CAMPAIGN */}
+      {activeMainTab === 'newsletter' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Megaphone className="w-5 h-5 text-orange-500" />
+                Newsletter Broadcast Campaign
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Compose, preview, and transmit rich newsletter updates to workspace members in <strong className="text-orange-500 uppercase">{selectedLocale}</strong>.
+              </p>
+            </div>
+            <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              Active Broadcast Engine
+            </span>
+          </div>
 
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-6 space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Email Subject Line</label>
+                <input
+                  type="text"
+                  value={newsletterSubject}
+                  onChange={(e) => setNewsletterSubject(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Header Banner Title</label>
+                <input
+                  type="text"
+                  value={newsletterTitle}
+                  onChange={(e) => setNewsletterTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Header Image Banner URL</label>
+                <input
+                  type="text"
+                  value={newsletterBannerUrl}
+                  onChange={(e) => setNewsletterBannerUrl(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Newsletter HTML / Body Copy</label>
+                <textarea
+                  rows={8}
+                  value={newsletterBodyHtml}
+                  onChange={(e) => setNewsletterBodyHtml(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-mono text-xs leading-relaxed"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">CTA Button Text</label>
+                  <input
+                    type="text"
+                    value={newsletterCtaText}
+                    onChange={(e) => setNewsletterCtaText(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">CTA Destination URL</label>
+                  <input
+                    type="text"
+                    value={newsletterCtaUrl}
+                    onChange={(e) => setNewsletterCtaUrl(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-medium"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Recipients Email List (comma separated)</label>
+                <textarea
+                  rows={2}
+                  value={newsletterRecipientsText}
+                  onChange={(e) => setNewsletterRecipientsText(e.target.value)}
+                  placeholder="user1@example.com, user2@example.com"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-mono"
+                />
+              </div>
+
+              <button
+                onClick={handleBroadcastNewsletter}
+                disabled={isBroadcastingNewsletter}
+                className="w-full py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-black text-sm transition-all flex items-center justify-center gap-2 shadow-xl shadow-orange-500/25 disabled:opacity-50"
+              >
+                {isBroadcastingNewsletter ? (
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+                Broadcast Newsletter Campaign ({selectedLocale.toUpperCase()})
+              </button>
+            </div>
+
+            {/* Newsletter Live Preview */}
+            <div className="lg:col-span-6 bg-slate-100 dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-center">
+              <div className="w-[500px] bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+                <iframe
+                  title="Newsletter Preview"
+                  srcDoc={`
+                    <!DOCTYPE html>
+                    <html>
+                    <head><meta charset="utf-8"></head>
+                    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc; padding: 20px; margin: 0;">
+                      <div style="background-color: #0f172a; padding: 24px; text-align: center; color: #ffffff;">
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 900;">${newsletterTitle}</h2>
+                      </div>
+                      ${newsletterBannerUrl ? `<img src="${newsletterBannerUrl}" style="width: 100%; max-height: 180px; object-fit: cover;" />` : ''}
+                      <div style="padding: 24px; font-size: 13px; color: #334155; line-height: 1.6;">
+                        ${newsletterBodyHtml}
+                        ${newsletterCtaUrl ? `<div style="text-align: center; margin-top: 24px;"><a href="${newsletterCtaUrl}" style="background-color: ${primaryColor}; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-bold: true; font-size: 12px; font-weight: bold;">${newsletterCtaText}</a></div>` : ''}
+                      </div>
+                    </body>
+                    </html>
+                  `}
+                  className="w-full h-[550px] border-none"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: AUTOMATED TRIGGERS */}
+      {activeMainTab === 'autotriggers' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          <div>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Bell className="w-5 h-5 text-orange-500" />
+              Automated Email Trigger Settings
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Configure background rule conditions that trigger automatic email dispatches when inventory status or gear return dates change.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Trigger 1: Overdue Equipment Reminders */}
+            <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-red-500/10 text-red-500">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white">Overdue Gear Reminders</h3>
+                    <p className="text-xs text-slate-500">Auto email users holding overdue equipment</p>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={overdueTriggerEnabled}
+                  onChange={(e) => setOverdueTriggerEnabled(e.target.checked)}
+                  className="w-5 h-5 accent-orange-500 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="text-xs space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <label className="block text-slate-600 dark:text-slate-400 font-medium">Trigger Grace Period (Days Overdue)</label>
+                <input
+                  type="number"
+                  value={overdueThresholdDays}
+                  onChange={(e) => setOverdueThresholdDays(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 dark:text-white font-bold"
+                />
+              </div>
+
+              <button
+                onClick={() => toast.success("Automated Overdue Trigger Rule updated!")}
+                className="w-full py-2 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-xs font-bold"
+              >
+                Save Overdue Rule Specs
+              </button>
+            </div>
+
+            {/* Trigger 2: Low Stock Warning Alerts */}
+            <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500">
+                    <ShoppingBag className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white">Low Stock Level Warnings</h3>
+                    <p className="text-xs text-slate-500">Alert managers when stock drops below threshold</p>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={lowStockTriggerEnabled}
+                  onChange={(e) => setLowStockTriggerEnabled(e.target.checked)}
+                  className="w-5 h-5 accent-orange-500 rounded cursor-pointer"
+                />
+              </div>
+
+              <div className="text-xs space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <label className="block text-slate-600 dark:text-slate-400 font-medium">Global Minimum Threshold Quantity</label>
+                <input
+                  type="number"
+                  value={lowStockMinQty}
+                  onChange={(e) => setLowStockMinQty(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 dark:text-white font-bold"
+                />
+              </div>
+
+              <button
+                onClick={() => toast.success("Automated Low Stock Trigger Rule updated!")}
+                className="w-full py-2 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-xs font-bold"
+              >
+                Save Low Stock Rule Specs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: SHARED BRANDING & DELIVERY */}
+      {activeMainTab === 'branding' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          <div>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Sliders className="w-5 h-5 text-orange-500" />
+              Shared Email Branding & Footer Configuration
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Customize company name, logo graphics, primary accent color, and compliance footer text applied across all email types.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            <div>
+              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Company Display Name</label>
+              <input
+                type="text"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Logo URL</label>
+              <input
+                type="text"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Primary Accent Color</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="w-10 h-10 rounded-xl cursor-pointer border border-slate-300"
+                />
+                <input
+                  type="text"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-mono font-bold"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Compliance Footer Text</label>
+              <textarea
+                rows={3}
+                value={footerText}
+                onChange={(e) => setFooterText(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 dark:text-white font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+            <button
+              onClick={handleApplyBrandingChanges}
+              className="px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-all shadow-lg shadow-orange-500/20"
+            >
+              Apply Email Branding Specs
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

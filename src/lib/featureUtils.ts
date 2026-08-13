@@ -38,7 +38,10 @@ export function isFeatureEnabled(
     return true;
   }
 
-  // 4. Fallback for legacy 'pro' plan if plans are not fully configured
+  // 4. Fallback for legacy 'pro' or 'Enterprise' plan if plans are not fully configured
+  if (user.plan === 'Enterprise' && ['assetTransfer', 'aiWizard', 'gearLibrary', 'versionHistory', 'branding', 'toolingLists', 'organizer', 'travelCases', 'inventoryManagement'].includes(feature)) {
+    return true;
+  }
   if (user.plan === 'pro' && ['aiWizard', 'gearLibrary', 'versionHistory', 'branding', 'toolingLists', 'organizer', 'travelCases', 'inventoryManagement'].includes(feature)) {
     return true;
   }

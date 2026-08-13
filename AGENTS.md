@@ -263,6 +263,23 @@ To prevent unverified checkouts and enforce accountability before gear leaves th
    - Renders **Equipment Released & Dispatched** confirmation badge with release reference ID and timestamp.
    - Provides 1-click actions: **Packing Slip** modal, **Email Handover Copy**, and **Finish & Close Terminal**.
 
+---
+
+## 🔄 Standalone Enterprise Asset Transfer Module (`/src/pages/AssetTransferModule.tsx`)
+
+To enable secure cross-organization ownership re-assignment for Enterprise accounts:
+1. **Enterprise Access Gating (`user.plan === 'Enterprise'`)**:
+   - Access to `/transfer` is strictly gated to Enterprise users. Non-enterprise accounts see a rich Enterprise Paywall with feature breakdowns and upgrade CTAs.
+2. **Recipient Enterprise Account Verification**:
+   - Queries `users` collection in Firestore by target email. Confirms that the target user exists, is distinct from sender, and possesses an active `Enterprise` subscription plan.
+3. **Multi-Asset Selection Payload**:
+   - Supports selecting individual gear items, equipment kits (`isKit === true`), and entire packing lists or inventories into a unified transfer payload with real-time valuation and weight aggregation.
+4. **Time-Sensitive Email PIN Authorization**:
+   - Generates a 6-digit PIN with a 15-minute expiration countdown timer.
+   - Requires PIN verification prior to executing batch ownership updates (`ownerId`, `ownerEmail`) in Firestore and writing to the `assetTransfers` collection.
+5. **Transfer Audit Logs & PDF Receipts**:
+   - Provides an immutable audit trail of incoming and outgoing transfers with downloadable PDF transfer manifest receipts (`jsPDF`).
+
 
 
 

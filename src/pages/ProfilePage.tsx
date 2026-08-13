@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import { UserProfile, AdminSettings } from '../types';
 import { motion } from 'motion/react';
 import { useIndustry } from '../context/IndustryContext';
-import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Sparkles, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award, Sun, Moon, Smartphone, Download, Layout, LayoutDashboard } from 'lucide-react';
+import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Sparkles, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award, Sun, Moon, Smartphone, Download, Layout, LayoutDashboard, Eye, EyeOff } from 'lucide-react';
 import { getUsage } from '../lib/limitUtils';
 import PaymentModal from '../components/PaymentModal';
 import UpgradeNowModal from '../components/UpgradeNowModal';
@@ -32,6 +32,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
   const { isReadyToInstall, isInstalled, triggerInstall } = usePWAInstall();
   const [profileBillingCycle, setProfileBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [isEditing, setIsEditing] = useState(false);
+  const [showProfileApiKey, setShowProfileApiKey] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isUpgradeNowModalOpen, setIsUpgradeNowModalOpen] = useState(false);
   const [restrictedFeature, setRestrictedFeature] = useState('Developer API Settings');
@@ -2287,17 +2288,29 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
               <label className="micro-label">Your Personal API Key</label>
               <div className="flex flex-col sm:flex-row gap-2">
                 <div className="flex-1 bg-neutral-50 px-4 py-3 sm:px-6 sm:py-4 rounded-2xl border border-neutral-100 font-mono text-xs sm:text-sm flex items-center justify-between group min-w-0">
-                  <span className="truncate pr-2">{user.apiKey ? (isEditing ? user.apiKey : `•••••••••••••${user.apiKey.slice(-4)}`) : 'No key generated'}</span>
+                  <span className="truncate pr-2">
+                    {user.apiKey ? (showProfileApiKey ? user.apiKey : `•••••••••••••${user.apiKey.slice(-4)}`) : 'No key generated'}
+                  </span>
                   {user.apiKey && (
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(user.apiKey!);
-                        toast.success('API Key copied to clipboard');
-                      }}
-                      className="p-1.5 text-neutral-400 hover:text-primary transition shrink-0"
-                    >
-                      <Copy size={16} />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => setShowProfileApiKey(!showProfileApiKey)}
+                        className="p-1.5 text-neutral-400 hover:text-neutral-700 transition"
+                        title={showProfileApiKey ? "Hide API Key" : "Show API Key"}
+                      >
+                        {showProfileApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(user.apiKey!);
+                          toast.success('API Key copied to clipboard');
+                        }}
+                        className="p-1.5 text-neutral-400 hover:text-primary transition shrink-0"
+                        title="Copy API Key"
+                      >
+                        <Copy size={16} />
+                      </button>
+                    </div>
                   )}
                 </div>
                 <button

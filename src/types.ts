@@ -1,4 +1,4 @@
-export type FeatureKey = 'aiWizard' | 'gearLibrary' | 'reminders' | 'versionHistory' | 'branding' | 'qrSharing' | 'toolingLists' | 'organizer' | 'travelCases' | 'logisticsDashboard' | 'movingDashboard' | 'rackingDashboard' | 'marketplace' | 'marketplaceListings' | 'kioskMode' | 'orgManagement' | 'departments' | 'teams' | 'inventoryManagement' | 'projectCost' | 'supplierManagement' | 'bomManagement' | 'customBarcodes' | 'automaticDepreciation' | 'digitalSignatures' | 'clientPortal' | 'apiIntegrations' | 'weightAnalytics' | 'kioskOrderMode' | 'kioskDirectCheckout' | 'rfidTracking';
+export type FeatureKey = 'aiWizard' | 'gearLibrary' | 'reminders' | 'versionHistory' | 'branding' | 'qrSharing' | 'toolingLists' | 'organizer' | 'travelCases' | 'logisticsDashboard' | 'movingDashboard' | 'rackingDashboard' | 'marketplace' | 'marketplaceListings' | 'kioskMode' | 'orgManagement' | 'departments' | 'teams' | 'inventoryManagement' | 'projectCost' | 'supplierManagement' | 'bomManagement' | 'customBarcodes' | 'automaticDepreciation' | 'digitalSignatures' | 'clientPortal' | 'apiIntegrations' | 'weightAnalytics' | 'kioskOrderMode' | 'kioskDirectCheckout' | 'rfidTracking' | 'assetTransfer';
 
 export type UserRole = 'owner' | 'admin' | 'manager' | 'technician' | 'viewer';
 
@@ -1213,6 +1213,35 @@ export interface BugReport {
   adminNotes?: string;
   adminNotesUpdatedAt?: string;
   screenshots?: string[];
+}
+
+export interface AssetTransferRecord {
+  id: string;
+  transferReference: string;
+  senderUid: string;
+  senderEmail: string;
+  senderName: string;
+  senderOrgName?: string;
+  recipientUid: string;
+  recipientEmail: string;
+  recipientName: string;
+  recipientOrgName?: string;
+  items: Array<{
+    id: string;
+    name: string;
+    category?: string;
+    assetTag?: string;
+    serialNumber?: string;
+    type: 'gear' | 'kit' | 'list' | 'inventory';
+    price?: number;
+    weight?: number;
+    quantity?: number;
+  }>;
+  transferredAt: string;
+  status: 'completed' | 'pending' | 'cancelled';
+  pinVerified: boolean;
+  notes?: string;
+  pinCodeSimulated?: string;
 }
 
 

@@ -1,10 +1,12 @@
 import { authenticatedFetch } from '../lib/api';
 import { AdminSettings } from '../types';
+import { EmailLocale } from '../lib/emailTranslations';
 
 export interface SendEmailPayload {
   to: string | string[];
-  type: 'verification' | 'admin_notification' | 'general_notification' | 'custom';
+  type: 'verification' | 'welcome' | 'checkout' | 'overdue' | 'low_stock' | 'newsletter' | 'admin_notification' | 'general_notification' | 'custom';
   data: Record<string, any>;
+  locale?: EmailLocale;
   branding?: {
     companyName?: string;
     logo?: string;
@@ -30,22 +32,145 @@ function resolveBranding(adminSettings: AdminSettings | null) {
 
 export const emailService = {
   /**
-   * Send an OTP/security verify access list code email to a user
+   * Send an OTP/security verification code email to a user with translation support
    */
   sendVerificationEmail: async (
     to: string,
     code: string,
     userName: string,
-    adminSettings: AdminSettings | null
+    locale: EmailLocale = 'en',
+    adminSettings: AdminSettings | null = null
   ) => {
     const payload: SendEmailPayload = {
       to,
       type: 'verification',
+      locale,
       fromType: adminSettings?.emailBranding?.defaultFromType || 'no-reply',
       data: { code, userName },
       branding: resolveBranding(adminSettings)
     };
     return executeEmailSend(payload);
+  },
+
+  /**
+   * Send a localized onboarding welcome email
+   */
+  sendWelcomeEmail: async (
+    to: string,
+    displayName: string,
+    subPlan: string = 'Starter',
+    locale: EmailLocale = 'en',
+    adminSettings: AdminSettings | null = null
+  ) => {
+    const payload: SendEmailPayload = {
+      to,
+      type: 'welcome',
+      locale,
+      fromType: 'hi',
+      data: { displayName, subPlan },
+      branding: resolveBranding(adminSettings)
+    };
+    return executeEmailSend(payload);
+  },
+
+  /**
+   * Send an equipment handover checkout receipt
+   */
+  sendHandoverReceipt: async (
+    to: string,
+    orderNumber: string,
+    actionType: 'checkout' | 'checkin' | 'reservation',
+    userName: string,
+    items: Array<{ name: string; serial?: string; assetTag?: string; category?: string; qty?: number; returnDate?: string }>,
+    locale: EmailLocale = 'en',
+    adminSettings: AdminSettings | null = null
+  ) => {
+    const payload: SendEmailPayload = {
+      to,
+      type: 'checkout',
+      locale,
+      fromType: 'team',
+      data: { orderNumber, actionType, userName, items },
+      branding: resolveBranding(adminSettings)
+    };
+    return executeEmailSend(payload);
+  },
+
+  /**
+   * Send automated overdue gear return reminder
+   */
+  sendOverdueReminder: async (
+    to: string | string[],
+    userName: string,
+    items: Array<{ name: string; serial?: string; returnDate?: string; daysOverdue?: number }>,
+    locale: EmailLocale = 'en',
+    adminSettings: AdminSettings | null = null
+  ) => {
+    const payload: SendEmailPayload = {
+      to,
+      type: 'overdue',
+      locale,
+      fromType: 'no-reply',
+      data: { userName, items },
+      branding: resolveBranding(adminSettings)
+    };
+    return executeEmailSend(payload);
+  },
+
+  /**
+   * Send automated low stock inventory warning to admins / managers
+   */
+  sendLowStockWarning: async (
+    to: string | string[],
+    items: Array<{ name: string; sku?: string; quantity: number; threshold: number }>,
+    locale: EmailLocale = 'en',
+    adminSettings: AdminSettings | null = null
+  ) => {
+    const payload: SendEmailPayload = {
+      to,
+      type: 'low_stock',
+      locale,
+      fromType: 'no-reply',
+      data: { items },
+      branding: resolveBranding(adminSettings)
+    };
+    return executeEmailSend(payload);
+  },
+
+  /**
+   * Broadcast an HTML newsletter campaign to subscribers / team members
+   */
+  sendNewsletterBroadcast: async (
+    recipients: string[],
+    subject: string,
+    title: string,
+    bodyHtml: string,
+    ctaText?: string,
+    ctaUrl?: string,
+    bannerUrl?: string,
+    locale: EmailLocale = 'en',
+    adminSettings: AdminSettings | null = null
+  ) => {
+    const response = await authenticatedFetch('/api/emails/newsletter/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipients,
+        subject,
+        title,
+        bodyHtml,
+        ctaText,
+        ctaUrl,
+        bannerUrl,
+        locale,
+        branding: resolveBranding(adminSettings)
+      })
+    });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Server responded with ${response.status}`);
+    }
+    return await response.json();
   },
 
   /**
@@ -56,11 +181,13 @@ export const emailService = {
     title: string,
     message: string,
     details: Record<string, string>,
-    adminSettings: AdminSettings | null
+    locale: EmailLocale = 'en',
+    adminSettings: AdminSettings | null = null
   ) => {
     const payload: SendEmailPayload = {
       to,
       type: 'admin_notification',
+      locale,
       fromType: 'team',
       data: { title, message, details },
       branding: resolveBranding(adminSettings)
@@ -78,11 +205,13 @@ export const emailService = {
     message: string,
     actionUrl?: string,
     actionText?: string,
+    locale: EmailLocale = 'en',
     adminSettings?: AdminSettings | null
   ) => {
     const payload: SendEmailPayload = {
       to,
       type: 'general_notification',
+      locale,
       fromType: adminSettings?.emailBranding?.defaultFromType || 'hi',
       data: { subject, title, message, actionUrl, actionText },
       branding: resolveBranding(adminSettings || null)
