@@ -60,7 +60,11 @@ export const MODULE_METADATA: {
   weightAnalytics: { name: 'Gross Weight Calculators', description: 'Real-time total list weight calculators to keep transit vehicles safe.', icon: 'TrendingUp', version: 'v1.2.3', category: 'Logistics' },
   kioskOrderMode: { name: 'Kiosk Order Basket Mode', description: 'Allow renters to bundle item baskets to submit order checkouts.', icon: 'Package', version: 'v2.1.2', category: 'Kiosk' },
   kioskDirectCheckout: { name: 'Kiosk Direct Auto-Checkout', description: 'Automates scanning to instant self check-out without confirmation.', icon: 'Check', version: 'v2.2.0', category: 'Kiosk' },
-  rfidTracking: { name: 'UHF RFID Tracking', description: 'Integrates Zebra RFD40 readers for high-volume passive asset audits.', icon: 'Cpu', version: 'v3.0.0', category: 'Operations' }
+  rfidTracking: { name: 'UHF RFID Tracking', description: 'Integrates Zebra RFD40 readers for high-volume passive asset audits.', icon: 'Cpu', version: 'v3.0.0', category: 'Operations' },
+  assetTransfer: { name: 'Enterprise Asset Transfer', description: 'Cross-organization ownership reassignment with time-sensitive authorization PINs.', icon: 'Truck', version: 'v1.0.0', category: 'Advanced' },
+  nfcPassportModule: { name: 'Web NFC Passport & Tagging', description: 'Read and write digital equipment passports on NTAG213/215/216 chips via Web NFC.', icon: 'Smartphone', version: 'v1.0.0', category: 'Operations' },
+  rfidSledSweep: { name: 'UHF RFID Sled & Sweep Engine', description: 'Fast multi-tag sweeps, Geiger counter localization, and manifest reconciliation.', icon: 'Cpu', version: 'v1.0.0', category: 'Operations' },
+  hardwareAuditTrail: { name: 'Hardware Scan Audit Trail', description: 'Non-destructive immutable audit logging of NFC taps and RFID sweeps.', icon: 'ShieldCheck', version: 'v1.0.0', category: 'Operations' }
 };
 
 export const renderModuleIcon = (iconName: string) => {
@@ -8889,10 +8893,10 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                 <CommunitiesSettingsTab settings={settings} setSettings={setSettings} />
               )}
               {settingsSubTab === 'smtp' && (
-                <SmtpSettingsTab settings={settings} setSettings={setSettings} />
+                <SmtpSettingsTab settings={settings} setSettings={setSettings} user={user} />
               )}
               {settingsSubTab === 'emails' && (
-                <EmailBrandingSettingsTab settings={settings} setSettings={setSettings} />
+                <EmailBrandingSettingsTab settings={settings} setSettings={setSettings} user={user} />
               )}
               {settingsSubTab === 'payment_gateway' && (
                 <PaymentGatewaySettings settings={settings} setSettings={setSettings} users={users} />

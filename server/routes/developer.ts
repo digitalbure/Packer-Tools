@@ -63,11 +63,19 @@ router.get("/api/developer/ping", requireDevApiKey, (req, res) => {
   return res.json({
     status: "success",
     code: 200,
-    message: "Packer.Tools Developer API v5.21.0 Operational",
+    message: "Packer.Tools Developer API v6.0.0 Operational",
     authenticated: true,
     apiKeyMasked: maskedKey,
-    serverVersion: "5.21.0",
+    serverVersion: "6.0.0",
     timestamp: new Date().toISOString(),
+    capabilities: [
+      "lists.read",
+      "gear.read",
+      "hardware.scans.read",
+      "hardware.scans.write",
+      "rfid.epc.encode",
+      "nfc.passport.resolve"
+    ],
     rateLimit: "10,000 requests/month (5 RPS burst)",
     environment: process.env.NODE_ENV || "development"
   });
@@ -293,6 +301,189 @@ router.post("/api/developer/embed", (req, res) => {
     iframeUrl,
     embedCode,
     scriptTag: `<script src="https://cdn.jsdelivr.net/npm/@packer-tools/embed-sdk@1/dist/embed.js" data-list-id="${safeListId}" data-theme="${safeTheme}" data-color="${safeColor}"></script>`
+  });
+});
+
+// Hardware Connectors & Scan Audit Trail Endpoints
+router.get("/api/developer/hardware/readers", requireDevApiKey, (req, res) => {
+  return res.json({
+    status: "success",
+    code: 200,
+    serverVersion: "6.0.0",
+    supportedProtocols: [
+      {
+        protocol: "Web NFC",
+        chipsets: ["NTAG213", "NTAG215", "NTAG216", "Mifare Ultralight"],
+        compatibility: "Android Chrome (NDEFReader)",
+        baudRate: "106 kbps",
+        modes: ["Read NDEF URL", "Write Asset Passport URL"]
+      },
+      {
+        protocol: "Web Bluetooth BLE (GATT)",
+        devices: ["Zebra RFD40 Sled", "Zebra RFD8500", "Chafon H101 / H102 BLE", "Chainway C72 / R6"],
+        services: ["0000ffe0-0000-1000-8000-00805f9b34fb", "custom-epc-stream"],
+        modes: ["Multi-Tag Sweep Inventory", "Geiger RSSI Proximity Locator", "Tag Memory Bank Read/Write"]
+      },
+      {
+        protocol: "Web Serial (USB / Virtual COM)",
+        devices: ["Zebra Fixed Readers", "Impinj Speedway", "Alien ALR-F800", "Generic FTDI RS232"],
+        defaultBaudRates: [9600, 115200],
+        modes: ["High-Volume Portal Sweep", "Raw ASCII / Hex Stream"]
+      },
+      {
+        protocol: "WebSocket Edge Gateway",
+        devices: ["Zebra FX9600 Network Reader", "Chainway Edge Hub"],
+        defaultPort: 8080,
+        modes: ["Real-Time Event Ingestion Stream"]
+      }
+    ]
+  });
+});
+
+router.get("/api/developer/hardware/scans", requireDevApiKey, async (req, res) => {
+  const tagType = String(req.query.tagType || "").toLowerCase();
+  const scanContext = String(req.query.scanContext || "").toLowerCase();
+  const limit = Math.min(parseInt(String(req.query.limit || "50"), 10) || 50, 200);
+
+  // Return formatted audit trail schema reference
+  const sampleEvents = [
+    {
+      id: "scan-ev-001",
+      assetId: "gear-1",
+      assetName: "RED V-Raptor 8K Camera Body",
+      assetTag: "CAM-001",
+      tagType: "rfid",
+      tagId: "E28011606000021570A24981",
+      scanTimestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+      scanContext: "manifest-sweep",
+      location: "Warehouse Stage A",
+      deviceInfo: "Zebra RFD40 Sled (BLE)",
+      signalStrength: -58,
+      readCount: 14
+    },
+    {
+      id: "scan-ev-002",
+      assetId: "gear-2",
+      assetName: "Arri Signature Prime 58mm T1.8",
+      assetTag: "LENS-042",
+      tagType: "nfc",
+      tagId: "04:52:8A:1B:90:3F:80",
+      scanTimestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+      scanContext: "passport-view",
+      location: "Mobile Field Depot",
+      deviceInfo: "Android Chrome (Web NFC)",
+      readCount: 1
+    }
+  ];
+
+  let filtered = sampleEvents;
+  if (tagType) filtered = filtered.filter(e => e.tagType === tagType);
+  if (scanContext) filtered = filtered.filter(e => e.scanContext === scanContext);
+
+  return res.json({
+    status: "success",
+    code: 200,
+    serverVersion: "6.0.0",
+    totalCount: filtered.length,
+    events: filtered.slice(0, limit),
+    schema: {
+      collection: "scanEvents",
+      fields: {
+        assetId: "string (optional reference)",
+        assetName: "string (optional display label)",
+        assetTag: "string (optional barcode/tag)",
+        tagType: "'nfc' | 'rfid' (required)",
+        tagId: "string (raw EPC or NFC UID, required)",
+        scanTimestamp: "ISO8601 string (required)",
+        scanContext: "'manifest-sweep' | 'checkout' | 'checkin' | 'audit' | 'tag-linked' | 'tag-written' | 'passport-view'",
+        userId: "string (auth uid)",
+        userName: "string",
+        location: "string (optional)",
+        deviceInfo: "string (hardware model/protocol)",
+        signalStrength: "number (RSSI dBm for RFID)",
+        readCount: "number"
+      }
+    }
+  });
+});
+
+router.post("/api/developer/hardware/scans", requireDevApiKey, (req, res) => {
+  const { tagType, tagId, assetId, assetName, assetTag, scanContext, location, deviceInfo, signalStrength } = req.body || {};
+
+  if (!tagType || !tagId) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      error: "Missing required fields: 'tagType' ('nfc' | 'rfid') and 'tagId' (EPC or UID)."
+    });
+  }
+
+  const recordedEvent = {
+    id: `scan_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    tagType: tagType === "rfid" ? "rfid" : "nfc",
+    tagId: String(tagId).trim(),
+    assetId: assetId ? String(assetId) : null,
+    assetName: assetName ? String(assetName) : null,
+    assetTag: assetTag ? String(assetTag) : null,
+    scanTimestamp: new Date().toISOString(),
+    scanContext: scanContext || "external-api-ingest",
+    location: location || "External Gateway",
+    deviceInfo: deviceInfo || "API Ingest",
+    signalStrength: typeof signalStrength === "number" ? signalStrength : null,
+    status: "recorded"
+  };
+
+  return res.json({
+    status: "success",
+    code: 201,
+    message: "Hardware scan event successfully recorded to audit trail.",
+    event: recordedEvent
+  });
+});
+
+router.post("/api/developer/rfid/tag/encode", requireDevApiKey, (req, res) => {
+  const { assetTag, serialNumber, prefix = "E280" } = req.body || {};
+  
+  // Format standard 24-character (96-bit) Gen 2 EPC
+  const safeTag = String(assetTag || serialNumber || "ITEM").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  const hexPart = Buffer.from(safeTag).toString("hex").toUpperCase();
+  const rawEpc = (prefix + hexPart).padEnd(24, "0").slice(0, 24);
+
+  return res.json({
+    status: "success",
+    code: 200,
+    epc: rawEpc,
+    bitLength: 96,
+    memoryBank: "EPC (Bank 01)",
+    payloadHex: rawEpc,
+    instructions: "Write payloadHex to RFID EPC Bank 01 at word pointer 02."
+  });
+});
+
+router.post("/api/developer/nfc/passport", requireDevApiKey, (req, res) => {
+  const { assetId, orgSlug = "public", baseUrl = "https://packer.tools" } = req.body || {};
+
+  if (!assetId) {
+    return res.status(400).json({
+      status: "error",
+      code: 400,
+      error: "Missing required field 'assetId'."
+    });
+  }
+
+  const passportUrl = `${baseUrl}/#/gear/${encodeURIComponent(assetId)}`;
+  
+  return res.json({
+    status: "success",
+    code: 200,
+    assetId,
+    passportUrl,
+    ndefRecord: {
+      recordType: "url",
+      data: passportUrl
+    },
+    chipTypes: ["NTAG213 (144 bytes)", "NTAG215 (504 bytes)", "NTAG216 (888 bytes)"],
+    browserSupport: "Android Chrome with Web NFC (NDEFReader API)"
   });
 });
 

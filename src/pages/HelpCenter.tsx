@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { 
   Search, ChevronRight, Book, MessageCircle, Mail, Phone, ExternalLink, 
   Shield, Truck, Camera, Zap, ListChecks, CheckCircle2, Plus, Heart, 
-  User, Calendar, FileText, Globe, Award, Sparkles, X, ChevronDown, Check
+  User, Calendar, FileText, Globe, Award, Sparkles, X, ChevronDown, Check,
+  Cpu, Smartphone, Radio
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
@@ -13,6 +14,7 @@ import { toast } from 'sonner';
 
 const categories = [
   { id: 'getting-started', name: 'Getting Started', icon: <Book size={18} /> },
+  { id: 'rfid-nfc', name: 'RFID & Web NFC', icon: <Cpu size={18} /> },
   { id: 'packer-tools-academy', name: 'Packer Academy', icon: <Award size={18} /> },
   { id: 'packing-lists', name: 'Manifests', icon: <ListChecks size={18} /> },
   { id: 'gear-library', name: 'Gear Library', icon: <Camera size={18} /> },
@@ -23,6 +25,55 @@ const categories = [
 ];
 
 const articles = [
+  {
+    id: 'nfc-equipment-passports',
+    title: "Web NFC Equipment Passports & Tag Writing Guide",
+    description: "Learn how to program asset passport URLs onto NTAG213/215/216 chips using Android Chrome Web NFC and resolve scans into digital passports.",
+    category: 'rfid-nfc',
+    steps: [
+      { title: "Browser & Hardware Compatibility", description: "Web NFC is natively supported on Google Chrome for Android (version 89+). iOS Safari does not support the Web NFC NDEFReader API; an informative fallback prompt will appear on non-supported platforms." },
+      { title: "Select Asset to Program", description: "Open the Gear Library or RFID/NFC Operations Hub, navigate to 'NFC Tag Writer', and choose the asset you wish to link." },
+      { title: "Hold NFC Chip to Android Device", description: "Click 'Write to NFC Tag' and hold your blank NTAG213, NTAG215, or NTAG216 sticker tag against the back of your Android phone until you hear the confirmation chime." },
+      { title: "Tag Verification & Asset State", description: "Upon successful write, the asset document schema automatically updates 'nfcTagWritten: true', and an immutable audit record is logged to the scanEvents trail." },
+      { title: "Instant Scan Resolution", description: "Scanning any programmed NFC tag opens the full public digital equipment passport directly, displaying technical specifications, inspection certificates, and recovery portal." }
+    ],
+    tips: [
+      "Use durable IP68 anti-metal ferrite NFC stickers when applying tags directly onto aluminum camera cages, Pelican flightcases, or steel rack rails.",
+      "NFC scans operate in log-only mode and do not automatically alter the checkout status of the equipment."
+    ]
+  },
+  {
+    id: 'rfid-sled-sweeps',
+    title: "UHF RFID Sled Setup, Inventory Sweeps & Geiger Locator",
+    description: "Connect handheld Bluetooth BLE sled readers (Zebra RFD40, Chafon) to perform rapid multi-tag sweeps, manifest diffs, and proximity searches.",
+    category: 'rfid-nfc',
+    steps: [
+      { title: "Connect Hardware Reader", description: "In the RFID Operations Hub ('#/rfid'), choose your connection protocol: Web Bluetooth (GATT BLE), Web Serial (USB COM port), or Network WebSocket Gateway." },
+      { title: "Perform High-Velocity Sweep", description: "Pull the trigger on your RFID sled to sweep cases, trucks, or staging depot shelves at up to 1,000+ tags per second. The live dashboard reconciles tag EPCs against your gear database in real time." },
+      { title: "Manifest Diff Reconciliation", description: "Select an active packing list or container manifest. The system performs an instant diff matching detected tags vs. expected items, highlighting Missing, Verified, and Unexpected assets." },
+      { title: "Geiger Proximity Locator", description: "Select a missing item to enter Geiger mode. As you approach the tagged equipment, the visual bar and audio pulse frequency increase with signal strength (RSSI) to guide you directly to the item." },
+      { title: "Program 96-Bit Gen 2 EPC Tags", description: "Use the built-in Tag Encoder to program standard 24-character EPC tags linked to your asset serial numbers and asset tags." }
+    ],
+    tips: [
+      "For dense flightcases containing 50+ cables and transmitters, sweeping at a 45-degree angle ensures RF polarization couples with all tag orientations.",
+      "Ensure Bluetooth location/device permissions are granted in your browser settings when pairing BLE sleds."
+    ]
+  },
+  {
+    id: 'hardware-scan-audit-trail',
+    title: "Immutable Hardware Scan Audit Trail & Data Model",
+    description: "Understand the non-destructive scanEvents audit trail, asset schema fields, and compliance logging for all physical NFC taps and RFID sweeps.",
+    category: 'rfid-nfc',
+    steps: [
+      { title: "Audit Trail Separation", description: "All hardware scans write to an immutable 'scanEvents' collection (assetId, tagType, scanTimestamp, scanContext, location, deviceInfo, signalStrength). Scans are logged without triggering automatic status changes until manually validated." },
+      { title: "Asset Schema Extensions", description: "Assets support 'rfidEpc' (96-bit Gen 2 EPC), 'rfidTag', 'nfcTag', and 'nfcTagWritten' (boolean indicator) fields for complete hardware traceability." },
+      { title: "Real-Time Audit Review", description: "Navigate to the 'Scan Audit Trail' tab in the RFID module to inspect timestamps, filter by tag type (NFC/RFID) or scan context (manifest-sweep, audit, tag-written), and search by asset name." },
+      { title: "Compliance Export", description: "Export audit logs to CSV with one click for customs clearance, insurance proof-of-possession, or dispatch verification manifests." }
+    ],
+    tips: [
+      "Audit trail records are preserved indefinitely for compliance verification and cannot be overwritten by subsequent scans."
+    ]
+  },
   {
     id: 'packer-academy-intro',
     title: "Introduction to Packer Tools Academy",

@@ -1,4 +1,4 @@
-export type FeatureKey = 'aiWizard' | 'gearLibrary' | 'reminders' | 'versionHistory' | 'branding' | 'qrSharing' | 'toolingLists' | 'organizer' | 'travelCases' | 'logisticsDashboard' | 'movingDashboard' | 'rackingDashboard' | 'marketplace' | 'marketplaceListings' | 'kioskMode' | 'orgManagement' | 'departments' | 'teams' | 'inventoryManagement' | 'projectCost' | 'supplierManagement' | 'bomManagement' | 'customBarcodes' | 'automaticDepreciation' | 'digitalSignatures' | 'clientPortal' | 'apiIntegrations' | 'weightAnalytics' | 'kioskOrderMode' | 'kioskDirectCheckout' | 'rfidTracking' | 'assetTransfer';
+export type FeatureKey = 'aiWizard' | 'gearLibrary' | 'reminders' | 'versionHistory' | 'branding' | 'qrSharing' | 'toolingLists' | 'organizer' | 'travelCases' | 'logisticsDashboard' | 'movingDashboard' | 'rackingDashboard' | 'marketplace' | 'marketplaceListings' | 'kioskMode' | 'orgManagement' | 'departments' | 'teams' | 'inventoryManagement' | 'projectCost' | 'supplierManagement' | 'bomManagement' | 'customBarcodes' | 'automaticDepreciation' | 'digitalSignatures' | 'clientPortal' | 'apiIntegrations' | 'weightAnalytics' | 'kioskOrderMode' | 'kioskDirectCheckout' | 'rfidTracking' | 'assetTransfer' | 'nfcPassportModule' | 'rfidSledSweep' | 'hardwareAuditTrail';
 
 export type UserRole = 'owner' | 'admin' | 'manager' | 'technician' | 'viewer';
 
@@ -437,7 +437,9 @@ export interface GearItem {
   formatCoverage?: string;
   focusType?: string;
   nfcTag?: string;
+  nfcTagWritten?: boolean;
   rfidTag?: string;
+  rfidEpc?: string;
   ownerBio?: string;
 }
 
@@ -1242,6 +1244,30 @@ export interface AssetTransferRecord {
   pinVerified: boolean;
   notes?: string;
   pinCodeSimulated?: string;
+}
+
+export interface ScanEvent {
+  id?: string;
+  assetId: string;
+  assetName?: string;
+  tagType: 'nfc' | 'rfid';
+  scanTimestamp: string;
+  scanContext: 'manifest-sweep' | 'checkout' | 'audit' | 'verification' | 'encoder-write' | 'passport-lookup' | 'tag-associate' | 'tag-link' | string;
+  userId?: string;
+  userEmail?: string;
+  tagValue?: string;
+  metadata?: {
+    location?: string;
+    containerId?: string;
+    packingListId?: string;
+    signalRssi?: number;
+    readCount?: number;
+    statusFound?: string;
+    deviceName?: string;
+    rawSource?: string;
+    [key: string]: any;
+  };
+  createdAt?: any;
 }
 
 

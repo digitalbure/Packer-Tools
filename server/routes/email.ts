@@ -275,15 +275,24 @@ function getT(locale: string = 'en') {
   return EMAIL_TRANSLATIONS[loc];
 }
 
-async function dispatchEmailPayload(to: string | string[], subject: string, htmlContent: string, fromAddress: string, companyName: string) {
-  let smtpConfig = null;
-  try {
-    const adminSettingsDoc = await dbAdmin.collection('adminSettings').doc('global').get();
-    if (adminSettingsDoc.exists) {
-      smtpConfig = adminSettingsDoc.data()?.smtp;
+async function dispatchEmailPayload(
+  to: string | string[],
+  subject: string,
+  htmlContent: string,
+  fromAddress: string,
+  companyName: string,
+  overrideSmtpConfig?: any
+) {
+  let smtpConfig = overrideSmtpConfig || null;
+  if (!smtpConfig) {
+    try {
+      const adminSettingsDoc = await dbAdmin.collection('adminSettings').doc('global').get();
+      if (adminSettingsDoc.exists) {
+        smtpConfig = adminSettingsDoc.data()?.smtp;
+      }
+    } catch (dbErr: any) {
+      console.warn("Could not retrieve global SMTP settings from Firestore db:", dbErr.message);
     }
-  } catch (dbErr: any) {
-    console.warn("Could not retrieve global SMTP settings from Firestore db:", dbErr.message);
   }
 
   // 1. SMTP Dispatch if configured
@@ -301,7 +310,7 @@ async function dispatchEmailPayload(to: string | string[], subject: string, html
         tls: { rejectUnauthorized: false }
       });
 
-      let senderEmail = smtpConfig.user;
+      let senderEmail = smtpConfig.user || 'no-reply@packer.tools';
       let customFromAddress = `"${companyName}" <${senderEmail}>`;
 
       const response = await transporter.sendMail({
@@ -321,6 +330,14 @@ async function dispatchEmailPayload(to: string | string[], subject: string, html
       };
     } catch (smtpErr: any) {
       console.error("[SMTP Gateway] Transmission failed:", smtpErr.message);
+      if (overrideSmtpConfig && overrideSmtpConfig.enabled) {
+        return {
+          success: false,
+          error: `SMTP Error: ${smtpErr.message}`,
+          recipient: to,
+          gateway: 'SMTP'
+        };
+      }
     }
   }
 
@@ -356,7 +373,8 @@ async function dispatchEmailPayload(to: string | string[], subject: string, html
         simulated: false,
         resendId: response.data?.id,
         recipient: to,
-        from: fromAddress
+        from: fromAddress,
+        gateway: 'Resend'
       };
     } catch (sendErr: any) {
       const fallbackFrom = `Packer Tools <onboarding@resend.dev>`;
@@ -373,6 +391,7 @@ async function dispatchEmailPayload(to: string | string[], subject: string, html
         resendId: response.data?.id,
         recipient: to,
         from: fallbackFrom,
+        gateway: 'Resend',
         notice: "Routed via onboarding@resend.dev sandbox domain!"
       };
     }
@@ -386,6 +405,65 @@ async function dispatchEmailPayload(to: string | string[], subject: string, html
     };
   }
 }
+
+// -------------------------------------------------------------
+// Test Connection Endpoint for SMTP / Resend Credentials
+// -------------------------------------------------------------
+router.post("/api/emails/test-connection", authenticateUser, async (req, res) => {
+  const { toEmail, smtp, branding } = req.body;
+  const targetEmail = toEmail || (req as any).user?.email || "admin@packer.tools";
+  const companyName = branding?.companyName || "Packer Tools";
+  const logo = branding?.logo || "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop";
+  const primaryColor = branding?.primaryColor || "#FF5500";
+  const fromAddress = `"${companyName} Admin" <no-reply@packer.tools>`;
+  const subject = `🧪 [Diagnostic] Email Connection Test - ${new Date().toLocaleTimeString()}`;
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"><title>${subject}</title></head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 40px 10px; margin: 0; color: #0f172a;">
+      <div style="max-width: 550px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; overflow: hidden;">
+        <div style="background-color: ${primaryColor}; padding: 28px; text-align: center; color: #ffffff;">
+          <img src="${logo}" alt="${companyName} Logo" style="max-height: 48px; max-width: 140px; border-radius: 8px; margin-bottom: 12px; height: auto;" />
+          <h2 style="margin: 0; font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">Connection Verification</h2>
+        </div>
+        <div style="padding: 32px 24px; text-align: center;">
+          <div style="display: inline-block; background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 12px 24px; border-radius: 9999px; font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px;">
+            ✅ Email Gateway Connection Validated
+          </div>
+          <p style="font-size: 14px; color: #334155; line-height: 1.6; margin: 0 0 20px 0;">
+            This test email verifies that your email server settings and credentials are valid and active in Packer Tools.
+          </p>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; text-align: left; font-size: 12px; font-family: monospace; color: #334155; margin-bottom: 20px;">
+            <div style="padding: 4px 0;"><strong>Recipient Admin:</strong> ${targetEmail}</div>
+            <div style="padding: 4px 0;"><strong>Timestamp:</strong> ${new Date().toISOString()}</div>
+            <div style="padding: 4px 0;"><strong>SMTP Enabled:</strong> ${smtp?.enabled ? `Yes (${smtp.host}:${smtp.port || 587})` : 'No (Default Gateway / Resend API)'}</div>
+            <div style="padding: 4px 0;"><strong>Platform Version:</strong> Packer Tools v5.21.0</div>
+          </div>
+          <p style="font-size: 11px; color: #94a3b8; margin: 0;">
+            Dispatched via automated admin connection test.
+          </p>
+        </div>
+        <div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0;">
+          © ${new Date().getFullYear()} ${companyName} Logistical Communications Engine
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const result = await dispatchEmailPayload(targetEmail, subject, htmlContent, fromAddress, companyName, smtp);
+    return res.json(result);
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Failed to execute connection test",
+      gateway: smtp?.enabled ? 'SMTP' : 'Resend'
+    });
+  }
+});
 
 // -------------------------------------------------------------
 // Core Multilingual Transactional Email Router

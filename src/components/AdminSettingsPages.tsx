@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import {
   Sparkles, CreditCard, Building2, ShoppingBag, Wrench, Save, Upload, Plus, Trash2, AlertCircle, Coins,
@@ -2381,11 +2381,11 @@ export function WidgetsSettingsTab({ settings, setSettings }: SettingsTabProps) 
  * 6. AUTOMATED EMAILS VISUAL CUSTOMIZER SETTINGS TAB
  * =========================================================================
  */
-export function EmailBrandingSettingsTab({ settings, setSettings }: SettingsTabProps) {
+export function EmailBrandingSettingsTab({ settings, setSettings, user }: SettingsTabProps) {
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkHref, setNewLinkHref] = useState('');
   const [previewTemplate, setPreviewTemplate] = useState<'verification' | 'admin_notification' | 'general_notification'>('verification');
-  const [testRecipientEmail, setTestRecipientEmail] = useState('');
+  const [testRecipientEmail, setTestRecipientEmail] = useState(user?.email || '');
   const [isTestingEmail, setIsTestingEmail] = useState(false);
 
   const handleAddField = <K extends keyof NonNullable<AdminSettings['emailBranding']>>(
@@ -2502,6 +2502,32 @@ export function EmailBrandingSettingsTab({ settings, setSettings }: SettingsTabP
     }
   };
 
+  const handleTestGatewayConnection = async () => {
+    const target = (testRecipientEmail || user?.email || auth.currentUser?.email || 'admin@packer.tools').trim();
+    if (!target || !target.includes('@')) {
+      toast.error("Please enter a valid recipient email.");
+      return;
+    }
+    setIsTestingEmail(true);
+    try {
+      const { emailService } = await import('../services/emailService');
+      const res = await emailService.testConnection(target, settings?.smtp, settings);
+      if (res && res.success !== false) {
+        if (res.simulated) {
+          toast.info(`Sandbox Active: Connection verified (${target}).`);
+        } else {
+          toast.success(`✅ Connection Verified! Test email dispatched to ${target}`);
+        }
+      } else {
+        toast.error(`❌ Connection Test Failed: ${res?.error || 'Gateway connection error'}`);
+      }
+    } catch (err: any) {
+      toast.error(`❌ Connection Test Error: ${err.message || String(err)}`);
+    } finally {
+      setIsTestingEmail(false);
+    }
+  };
+
   const companyName = settings?.emailBranding?.companyName || settings?.branding?.companyName || "Packer Tools";
   const logoUrl = settings?.emailBranding?.logoUrl || settings?.branding?.logo || "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop";
   const primaryColor = settings?.emailBranding?.primaryColor || settings?.branding?.primaryColor || "#FF5500";
@@ -2523,8 +2549,19 @@ export function EmailBrandingSettingsTab({ settings, setSettings }: SettingsTabP
             Design, preview, and test-dispatch high-fidelity transactional emails including verification codes and admin notifications.
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-900 text-white rounded-full text-[10px] font-mono font-black uppercase tracking-widest self-start">
-          <span>Resend SDK Engine</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleTestGatewayConnection}
+            disabled={isTestingEmail}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-sm cursor-pointer disabled:opacity-50"
+          >
+            <CheckCircle2 size={15} className={isTestingEmail ? "animate-spin" : ""} />
+            <span>{isTestingEmail ? "Testing..." : "Test Connection"}</span>
+          </button>
+          <div className="inline-flex items-center gap-2 px-3 py-2 bg-neutral-900 text-white rounded-xl text-[10px] font-mono font-black uppercase tracking-widest">
+            <span>Resend SDK Engine</span>
+          </div>
         </div>
       </div>
 
@@ -2887,10 +2924,17 @@ export function EmailBrandingSettingsTab({ settings, setSettings }: SettingsTabP
  * 7. SMTP TRANSMISSION SETTINGS TAB
  * =========================================================================
  */
-export function SmtpSettingsTab({ settings, setSettings }: SettingsTabProps) {
-  const [testRecipient, setTestRecipient] = useState('');
+export function SmtpSettingsTab({ settings, setSettings, user }: SettingsTabProps) {
+  const [testRecipient, setTestRecipient] = useState(user?.email || '');
   const [isTestingSmtp, setIsTestingSmtp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{
+    success?: boolean;
+    gateway?: string;
+    message?: string;
+    recipient?: string;
+    timestamp?: string;
+  } | null>(null);
 
   const handleUpdateSmtp = <K extends keyof NonNullable<AdminSettings['smtp']>>(
     key: K,
@@ -2909,37 +2953,61 @@ export function SmtpSettingsTab({ settings, setSettings }: SettingsTabProps) {
     });
   };
 
-  const handleSendSmtpTestEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!testRecipient.trim() || !testRecipient.includes('@')) {
+  const handleTestConnection = async (overrideRecipient?: string) => {
+    const adminEmail = (overrideRecipient || testRecipient || user?.email || auth.currentUser?.email || 'admin@packer.tools').trim();
+    if (!adminEmail || !adminEmail.includes('@')) {
       toast.error("Please enter a valid recipient email address.");
       return;
     }
 
     setIsTestingSmtp(true);
+    setConnectionStatus(null);
     try {
       const { emailService } = await import('../services/emailService');
-      const res = await emailService.sendNotification(
-        testRecipient.trim(),
-        "SMTP Diagnostic Dispatch",
-        "SMTP Server Verification Check",
-        "Congratulations! Your custom SMTP transmission settings have been compiled successfully inside the Packer Tools communications engine. Transactions are now routing properly.",
-        window.location.origin + "/admin",
-        "Return to Admin Panel",
-        'en',
-        settings
-      );
+      const res = await emailService.testConnection(adminEmail, settings?.smtp, settings);
 
-      if (res && res.simulated) {
-        toast.info("Sandbox Simulation Mode: Node.js server lacks backend SMTP support, but custom configuration handles parsing correctly.");
+      if (res && res.success !== false) {
+        setConnectionStatus({
+          success: true,
+          gateway: res.gateway || (isEnabled ? 'SMTP' : 'Resend/Sandbox'),
+          message: res.notice || `Diagnostic email successfully dispatched to ${adminEmail}`,
+          recipient: adminEmail,
+          timestamp: new Date().toLocaleTimeString()
+        });
+        if (res.simulated) {
+          toast.info(`Sandbox Simulation Active: Mail parsed properly. Recipient: ${adminEmail}`);
+        } else {
+          toast.success(`✅ Connection Verified! Test email dispatched to ${adminEmail}`);
+        }
       } else {
-        toast.success(`Active SMTP test dispatched successfully to ${testRecipient}!`);
+        const errorText = res?.error || "SMTP authentication or network handshake failed.";
+        setConnectionStatus({
+          success: false,
+          gateway: res?.gateway || 'SMTP',
+          message: errorText,
+          recipient: adminEmail,
+          timestamp: new Date().toLocaleTimeString()
+        });
+        toast.error(`❌ Connection Test Failed: ${errorText}`);
       }
     } catch (err: any) {
-      toast.error(`SMTP transmission failed: ${err.message || err}`);
+      const errorText = err.message || String(err);
+      setConnectionStatus({
+        success: false,
+        gateway: 'SMTP',
+        message: errorText,
+        recipient: adminEmail,
+        timestamp: new Date().toLocaleTimeString()
+      });
+      toast.error(`❌ Connection Test Error: ${errorText}`);
     } finally {
       setIsTestingSmtp(false);
     }
+  };
+
+  const handleSendSmtpTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await handleTestConnection(testRecipient);
   };
 
   const smtp = settings?.smtp || {};
@@ -2956,11 +3024,22 @@ export function SmtpSettingsTab({ settings, setSettings }: SettingsTabProps) {
             <span>SMTP Server Settings</span>
           </h2>
           <p className="font-semibold text-neutral-500 text-xs">
-            Configure host, gateway ports, and secure authentication to route all automatic, welcome, and verification emails via standard custom SMPT servers rather than external presets.
+            Configure host, gateway ports, and secure authentication to route all automatic, welcome, and verification emails via standard custom SMTP servers rather than external presets.
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-900 text-white rounded-full text-[10px] font-mono font-black uppercase tracking-widest self-start">
-          <span>SMTP Gateway Engine</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleTestConnection()}
+            disabled={isTestingSmtp}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-sm cursor-pointer disabled:opacity-50"
+          >
+            <CheckCircle2 size={15} className={isTestingSmtp ? "animate-spin" : ""} />
+            <span>{isTestingSmtp ? "Testing..." : "Test Connection"}</span>
+          </button>
+          <div className="inline-flex items-center gap-2 px-3 py-2 bg-neutral-900 text-white rounded-xl text-[10px] font-mono font-black uppercase tracking-widest">
+            <span>SMTP Gateway Engine</span>
+          </div>
         </div>
       </div>
 
@@ -3062,32 +3141,58 @@ export function SmtpSettingsTab({ settings, setSettings }: SettingsTabProps) {
             </div>
 
             {/* Test Connection module segment */}
-            <div className={`pt-4 border-t border-neutral-100/70 ${isEnabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-              <div className="bg-neutral-50 p-4 rounded-xl space-y-3">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="text-emerald-600" size={16} />
-                  <span className="text-[10px] font-black uppercase text-neutral-800 tracking-wide">SMTP Integrity Test</span>
+            <div className={`pt-4 border-t border-neutral-100/70`}>
+              <div className="bg-neutral-50 p-5 rounded-2xl space-y-4 border border-neutral-200/60">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="text-emerald-600" size={18} />
+                    <span className="text-xs font-black uppercase text-neutral-800 tracking-wide">SMTP Integrity & Connection Test</span>
+                  </div>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-mono text-[9px] font-bold rounded uppercase">Diagnostic Ready</span>
                 </div>
-                <p className="text-[10px] text-neutral-500 font-semibold">
-                  Send an on-demand verification diagnostic e-mail block instantly to test server handshakes and verify authorization.
+                <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
+                  Send an on-demand verification diagnostic e-mail block instantly to test server handshakes, verify authorization, and check SMTP host latency.
                 </p>
-                <form onSubmit={handleSendSmtpTestEmail} className="flex gap-2 items-center">
+                <form onSubmit={handleSendSmtpTestEmail} className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
                   <input
                     type="email"
                     value={testRecipient}
                     onChange={(e) => setTestRecipient(e.target.value)}
-                    placeholder="test@packer.tools"
-                    className="flex-1 px-3 py-2 bg-white border border-neutral-200/60 rounded-xl text-xs font-mono"
-                    required={isEnabled}
+                    placeholder={user?.email || "admin@packer.tools"}
+                    className="flex-1 px-4 py-2.5 bg-white border border-neutral-200/80 rounded-xl text-xs font-mono font-bold text-neutral-800 focus:ring-2 focus:ring-primary/20 outline-none"
+                    required
                   />
                   <button
                     type="submit"
-                    disabled={isTestingSmtp || !isEnabled}
-                    className="bg-neutral-900 border border-neutral-850 hover:bg-neutral-800 text-white font-black text-[9px] uppercase tracking-widest px-4 py-2.5 rounded-xl transition disabled:opacity-50 inline-flex items-center gap-1.5"
+                    disabled={isTestingSmtp}
+                    className="bg-neutral-900 hover:bg-neutral-800 text-white font-black text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow-sm shrink-0 cursor-pointer"
                   >
-                    {isTestingSmtp ? 'Sending...' : 'Test SMTP'}
+                    <CheckCircle2 size={14} className={isTestingSmtp ? "animate-spin" : ""} />
+                    <span>{isTestingSmtp ? 'Testing Handshake...' : 'Test Connection'}</span>
                   </button>
                 </form>
+
+                {connectionStatus && (
+                  <div className={`p-4 rounded-xl text-xs font-sans space-y-1.5 border animate-in fade-in duration-300 ${
+                    connectionStatus.success
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                      : 'bg-rose-50 border-rose-200 text-rose-900'
+                  }`}>
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="uppercase text-[10px] tracking-wider font-mono">
+                        {connectionStatus.success ? '✅ Handshake Successful' : '❌ Handshake Failed'}
+                      </span>
+                      <span className="text-[9px] font-mono opacity-80">{connectionStatus.timestamp}</span>
+                    </div>
+                    <p className="font-mono text-[11px] leading-relaxed break-all">
+                      {connectionStatus.message}
+                    </p>
+                    <div className="flex items-center gap-3 pt-1 border-t border-black/5 text-[9px] font-mono opacity-75">
+                      <span>Gateway: <strong>{connectionStatus.gateway}</strong></span>
+                      <span>Target: <strong>{connectionStatus.recipient}</strong></span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

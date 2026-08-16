@@ -58,6 +58,42 @@ export async function logIdentificationEvent(userId: string, event: Identificati
   }
 }
 
+// Lightweight immutable ScanEvent logger (log-only audit trail, does not mutate item status)
+export async function logScanEvent(event: {
+  assetId: string;
+  assetName?: string;
+  tagType: 'nfc' | 'rfid';
+  scanTimestamp?: string;
+  scanContext: 'manifest-sweep' | 'checkout' | 'audit' | 'verification' | 'encoder-write' | 'passport-lookup' | 'tag-associate' | 'tag-link' | string;
+  userId?: string;
+  userEmail?: string;
+  tagValue?: string;
+  metadata?: Record<string, any>;
+}) {
+  try {
+    const payload = {
+      assetId: event.assetId || 'unknown',
+      assetName: event.assetName || '',
+      tagType: event.tagType,
+      scanTimestamp: event.scanTimestamp || new Date().toISOString(),
+      scanContext: event.scanContext,
+      userId: event.userId || 'anonymous',
+      userEmail: event.userEmail || '',
+      tagValue: event.tagValue || '',
+      metadata: event.metadata || {},
+      createdAt: serverTimestamp()
+    };
+    // 1. Top-level scanEvents collection for central depot-wide audit trail
+    await addDoc(collection(db, 'scanEvents'), payload);
+    // 2. Also record in user-scoped subcollection when user session is active
+    if (event.userId && event.userId !== 'anonymous') {
+      await addDoc(collection(db, 'users', event.userId, 'scanEvents'), payload);
+    }
+  } catch (err) {
+    console.warn('Failed to record scan event to Firestore (log-only):', err);
+  }
+}
+
 // Simple unique token generator for NFC URIs
 export function generateSecureToken(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -83,3 +119,5 @@ export function generatePackerEpc(assetTag?: string): string {
   }
   return `${baseHex}${randomPadding}`;
 }
+
+export * from './hardwareService';

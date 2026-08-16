@@ -6,16 +6,17 @@ import {
   Globe, Megaphone, Bell, Sparkles, Sliders, Users, FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { AdminSettings } from '../types';
+import { AdminSettings, UserProfile } from '../types';
 import { emailService } from '../services/emailService';
 import { EMAIL_TRANSLATIONS, EmailLocale, getEmailTranslation } from '../lib/emailTranslations';
 
 interface EmailTemplatesProps {
   settings: AdminSettings | null;
   onUpdateSettings?: (updated: AdminSettings) => void;
+  user?: UserProfile;
 }
 
-export default function EmailTemplates({ settings, onUpdateSettings }: EmailTemplatesProps) {
+export default function EmailTemplates({ settings, onUpdateSettings, user }: EmailTemplatesProps) {
   // Navigation Tabs
   const [activeMainTab, setActiveMainTab] = useState<'templates' | 'newsletter' | 'autotriggers' | 'branding'>('templates');
 
@@ -93,8 +94,41 @@ export default function EmailTemplates({ settings, onUpdateSettings }: EmailTemp
   const [lowStockMinQty, setLowStockMinQty] = useState(2);
 
   // Test send state
-  const [testEmailAddress, setTestEmailAddress] = useState('jnakasamai@gmail.com');
+  const [testEmailAddress, setTestEmailAddress] = useState(user?.email || 'jnakasamai@gmail.com');
   const [isSendingTest, setIsSendingTest] = useState(false);
+
+  // Sync test email address if user loads
+  useEffect(() => {
+    if (user?.email && (!testEmailAddress || testEmailAddress === 'jnakasamai@gmail.com')) {
+      setTestEmailAddress(user.email);
+    }
+  }, [user]);
+
+  // Test Gateway Connection directly
+  const handleTestGatewayConnection = async () => {
+    const target = (testEmailAddress || user?.email || 'admin@packer.tools').trim();
+    if (!target || !target.includes('@')) {
+      toast.error('Please specify a valid target test email address.');
+      return;
+    }
+    setIsSendingTest(true);
+    try {
+      const res = await emailService.testConnection(target, settings?.smtp, settings);
+      if (res && res.success !== false) {
+        if (res.simulated) {
+          toast.info(`Sandbox Active: Email Gateway verified (${target}).`);
+        } else {
+          toast.success(`✅ Connection Verified! Test email delivered to ${target}`);
+        }
+      } else {
+        toast.error(`❌ Connection Test Failed: ${res?.error || 'Gateway error'}`);
+      }
+    } catch (err: any) {
+      toast.error(`❌ Connection Test Error: ${err.message || String(err)}`);
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
 
   // Sync settings whenever global settings reload
   useEffect(() => {
@@ -632,18 +666,28 @@ export default function EmailTemplates({ settings, onUpdateSettings }: EmailTemp
                 onChange={(e) => setTestEmailAddress(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-medium focus:outline-none focus:border-orange-500"
               />
-              <button
-                onClick={handleSendTestEmail}
-                disabled={isSendingTest}
-                className="w-full py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 disabled:opacity-50"
-              >
-                {isSendingTest ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-                Send Test Email ({selectedLocale.toUpperCase()})
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <button
+                  onClick={handleSendTestEmail}
+                  disabled={isSendingTest}
+                  className="w-full py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSendingTest ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Send Template ({selectedLocale.toUpperCase()})
+                </button>
+                <button
+                  onClick={handleTestGatewayConnection}
+                  disabled={isSendingTest}
+                  className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  Test Connection
+                </button>
+              </div>
             </div>
           </div>
 

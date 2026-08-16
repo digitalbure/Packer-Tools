@@ -217,6 +217,36 @@ export const emailService = {
       branding: resolveBranding(adminSettings || null)
     };
     return executeEmailSend(payload);
+  },
+
+  /**
+   * Test SMTP or Resend email gateway connection
+   */
+  testConnection: async (
+    toEmail?: string,
+    smtpSettings?: AdminSettings['smtp'],
+    adminSettings?: AdminSettings | null
+  ) => {
+    try {
+      const payload = {
+        toEmail,
+        smtp: smtpSettings || adminSettings?.smtp,
+        branding: resolveBranding(adminSettings || null)
+      };
+      const response = await authenticatedFetch('/api/emails/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Server responded with ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('[EmailService] Connection test failed:', error);
+      throw error;
+    }
   }
 };
 

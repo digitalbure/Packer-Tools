@@ -128,6 +128,10 @@ export interface InventoryItem {
   ownerEmail?: string;
   ownerBio?: string;
   publicSharingEnabled?: boolean;
+  nfcTag?: string;
+  nfcTagWritten?: boolean;
+  rfidTag?: string;
+  rfidEpc?: string;
   createdAt: string;
   updatedAt: string;
   isOfflinePending?: boolean;
