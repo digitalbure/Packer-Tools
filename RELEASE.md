@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v5.20.0`
+## Current Application Version: `v6.0.1`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,30 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚀 Feature Release: v6.0.1 (Multi-Library Switcher, Dedicated Equipment Depots & Fluid Asset Flow)
+*Released on: August 19, 2026*
+- **Multi-Library Switcher & Depot Hub**: Introduced native multi-library management directly inside the Gear Library. Users can create, edit, delete, and switch between named equipment depots (e.g. Cinema Depot, Stage B Vault, Mobile Audio Unit, Staging Warehouse) with custom color badges, locations, and live asset count & valuation telemetry.
+- **Batch Depot Reassignment**: Added one-click batch assignment in Select Mode, allowing multi-selected items to be moved/assigned into any library depot via chunked Firestore WriteBatch operations.
+- **Depot Manifest Push**: Enabled 1-click "Push to List" from any depot card to pre-select and add all contained items into an active packing list or inventory sheet.
+- **Cross-Module Terminology Standard**: Standardized unified "Add to List" and "Add to Group" terminology and non-destructive item copying flows across Gear Libraries, Inventories, and Manifests.
+- **Knowledge Base Expansion**: Added dedicated documentation and step-by-step guides in the Help Center covering multi-library fleet partitioning, depot switching, and cross-module asset routing.
+
+---
+
+### 🚀 Major Architecture Release: v6.0.0 (Core Architecture Upgrade & Extended Fleet Logistics Engine)
+*Released on: August 19, 2026*
+- **Core Architecture & Fleet Scalability**: Upgraded platform data models to support expansive enterprise equipment inventories, multi-tier organizational hierarchies, and high-velocity fleet logistics.
+- **Intelligent Battery & Power Asset Management**: Comprehensive battery health tracking, cycle telemetry, and maintenance forecasting for high-draw production power systems.
+
+---
+
+### 🚀 Feature Release: v5.21.0 (Smart Intent Onboarder & Dynamic Use-Case Auto-Configuration)
+*Released on: August 15, 2026*
+- **Interactive Multi-Step Intent Onboarder**: Added a 5-step smart onboarding wizard on initial sign-in and on-demand recalibration.
+- **Dynamic AI Module Layout Auto-Configuration**: Auto-configures workspace navigation based on user role and industry workflow.
 
 ---
 

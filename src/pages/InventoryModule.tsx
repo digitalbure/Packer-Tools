@@ -137,6 +137,16 @@ export interface InventoryItem {
   isOfflinePending?: boolean;
   offlineOpId?: string;
   trackingMode?: 'batch' | 'individual';
+  isBattery?: boolean;
+  batteryChemistry?: string;
+  batteryCapacityMah?: number;
+  batteryCapacityWh?: number;
+  batteryVoltage?: number;
+  batteryCycleCount?: number;
+  batteryMaxCycles?: number;
+  batteryHealthPercentage?: number;
+  batteryHealthStatus?: string;
+  batteryLastTestedDate?: string;
 }
 
 export default function InventoryModule({ user, adminSettings }: InventoryModuleProps) {
@@ -3231,8 +3241,12 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                             const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
                             const isCheckedOut = item.status === 'in_use';
                             return (
-                              <tr 
+                              <motion.tr 
                                 key={`inv-tbl-${item.id}-${idx}`} 
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.18, delay: Math.min(idx * 0.015, 0.25), ease: "easeOut" }}
                                 className={`transition-colors ${
                                   isAttention 
                                     ? 'bg-amber-55/40 border-l-4 border-l-amber-500' 
@@ -3412,7 +3426,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                   )}
                                 </div>
                               </td>
-                            </tr>
+                            </motion.tr>
                           );
                         })}
                         </tbody>
@@ -3425,8 +3439,12 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                         const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
                         const isCheckedOut = item.status === 'in_use';
                         return (
-                          <div 
+                          <motion.div 
                             key={`inv-mob-${item.id}-${idx}`}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2, delay: Math.min(idx * 0.02, 0.3), ease: "easeOut" }}
                             className={`p-4 space-y-3 transition-colors ${
                               isAttention 
                                 ? 'bg-amber-55/40 border-l-4 border-l-amber-500' 
@@ -3592,7 +3610,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                 )}
                               </div>
                             </div>
-                          </div>
+                          </motion.div>
                         );
                       })}
                     </div>
@@ -3604,8 +3622,12 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                         const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
                         const isCheckedOut = item.status === 'in_use';
                         return (
-                          <div
+                          <motion.div
                             key={`inv-grid-${item.id}-${idx}`}
+                            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.98 }}
+                            transition={{ duration: 0.22, delay: Math.min(idx * 0.02, 0.3), ease: "easeOut" }}
                             className={`group bg-white rounded-[2rem] border shadow-sm transition-all duration-500 overflow-hidden flex flex-col relative h-[380px] ${
                               isAttention 
                                 ? 'ring-2 ring-amber-500 border-amber-500 shadow-amber-100 shadow-lg' 
@@ -3723,19 +3745,23 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                 </div>
                               </div>
                             </div>
-                          </div>
+                          </motion.div>
                         );
                       })}
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                      {paginatedInventoryItems.map((item) => {
+                      {paginatedInventoryItems.map((item, idx) => {
                         const photoUrl = (item.photoUrls && item.photoUrls[0]) || `https://picsum.photos/seed/${item.id}/400/400`;
                         const isAttention = isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item));
                         const isCheckedOut = item.status === 'in_use';
                         return (
-                          <div
-                            key={item.id}
+                          <motion.div
+                            key={`inv-compact-${item.id}-${idx}`}
+                            initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.2, delay: Math.min(idx * 0.015, 0.25), ease: "easeOut" }}
                             className={`group bg-white rounded-2xl border shadow-sm transition-all duration-300 overflow-hidden flex flex-col relative h-[240px] ${
                               isAttention 
                                 ? 'ring-2 ring-amber-500 border-amber-500 shadow-md' 
@@ -3808,7 +3834,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                 <span className="text-[9px] font-bold text-neutral-900">${(item.price || 0).toLocaleString()}</span>
                               </div>
                             </div>
-                          </div>
+                          </motion.div>
                         );
                       })}
                     </div>

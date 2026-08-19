@@ -192,9 +192,40 @@ const articles = [
     steps: [
       { title: "Activate Select Mode", description: "In the Gear Library view bar, click 'Select Mode' to toggle checkbox selection across grids, list compacts, and tables." },
       { title: "Select Target Inventory", description: "Tap individual items to append them to your active batch selection. An elegant smart floating bar will emerge tracking counts." },
-      { title: "Execute Batch Changes", description: "Use the floating triggers to update statuses, assign departments, move items to racks, or batch delete entire selections." }
+      { title: "Execute Batch Changes", description: "Use the floating triggers to update statuses, assign departments, move items to racks, assign to libraries, or batch delete entire selections." }
     ],
     tips: ["Batch deletion acts immediately via Firestore write-batches. Be sure your selections are accurate as deletion is irreversible!"]
+  },
+  {
+    id: 'multi-library-depot-management',
+    title: "Multi-Library & Depot Organization (Managing Multiple Dedicated Asset Fleets)",
+    description: "Create distinct named libraries/depots (e.g. Cinema Depot, Lighting Staging, Mobile Unit, Sound Vault) to partition and switch between equipment inventories.",
+    category: 'gear-library',
+    steps: [
+      { title: "Open Multi-Library Switcher", description: "At the top of the Gear Library, explore the Library Switcher bar displaying 'All Gear', 'Main Depot', and your custom named library hubs." },
+      { title: "Create a Dedicated Depot", description: "Click '+ New Library' to create a custom depot. Specify a custom name, location/bay (e.g., 'Studio Stage B'), theme color, and distinctive icon." },
+      { title: "One-Click Switching & Filtering", description: "Click any depot tab to instantly filter the entire inventory view to only the assets assigned to that specific library, along with aggregated asset counts and valuation." },
+      { title: "Assign Items to Depots", description: "When registering new items or editing existing assets, select the Target Gear Library. You can also multi-select items in Select Mode and click 'Assign Depot' to batch reassign equipment." },
+      { title: "Depot Manifest Push", description: "Click 'Push to List' on any depot card to instantly pre-select all contained items and bundle them directly into a project packing list or custom inventory sheet." }
+    ],
+    tips: [
+      "Deleting a custom library safely reassigns all contained assets back to the 'Main Depot' default pool so no gear records are ever lost.",
+      "Use custom depot colors and locations to mirror physical cage shelving or off-site warehouse locations."
+    ]
+  },
+  {
+    id: 'fluid-asset-flow-lists-inventories',
+    title: "Fluid Asset Flow: Adding Items to Lists, Groups, and Inventories",
+    description: "Easily flow gear and items between master libraries, custom inventory sheets, packing lists, and resource groups with zero friction.",
+    category: 'gear-library',
+    steps: [
+      { title: "Adding from Gear Library to Lists", description: "Select items in the Gear Library and click 'Add to List' from the floating action bar to copy assets into an existing packing list, inventory sheet, or group—or create a new one on the fly." },
+      { title: "Adding from Inventory Sheets to Lists", description: "Inside the Inventories Module, select items or full categories and click 'Add to List' to export or sync them with production dispatch manifests." },
+      { title: "Resource Group Organization", description: "Create shared Resource Groups (e.g. 'Standard 3-Point Light Package') to hold reusable item bundles that can be added to any project with a single click." }
+    ],
+    tips: [
+      "Using 'Add to List' preserves the original asset record in the Master Library while generating linked manifest items for tracking and checkouts."
+    ]
   },
   {
     id: 'packing-list-mastery',

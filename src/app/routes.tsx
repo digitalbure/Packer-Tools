@@ -87,6 +87,7 @@ const RFIDModule = lazyWithRetry(() => import('../pages/RFIDModule'));
 const GroupsModule = lazyWithRetry(() => import('../pages/GroupsModule'));
 const IdResolutionPage = lazyWithRetry(() => import('../pages/IdResolutionPage'));
 const AssetTransferModule = lazyWithRetry(() => import('../pages/AssetTransferModule'));
+const BatteryLifecycleModule = lazyWithRetry(() => import('../pages/BatteryLifecycleModule'));
 
 // Component AuthGate (replaces inline Gate component)
 const AuthGate = lazyWithRetry(() => import('../components/AuthGate'));
@@ -187,6 +188,8 @@ export function AnimatedRoutes() {
         <Route path="/rfid" element={<AuthGuard><RFIDModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
         <Route path="/groups" element={<AuthGuard><GroupsModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
         <Route path="/transfer" element={<AuthGuard><AssetTransferModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
+        <Route path="/battery-lifecycle" element={<AuthGuard><BatteryLifecycleModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
+        <Route path="/batteries" element={<AuthGuard><BatteryLifecycleModule user={user!} adminSettings={adminSettings} /></AuthGuard>} />
 
         {/* SuperAdmin Routes */}
         <Route path="/admin" element={<AdminGuard><AdminPanel user={user!} onMenuClick={onMenuClick} /></AdminGuard>} />

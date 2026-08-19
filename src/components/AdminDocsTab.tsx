@@ -245,7 +245,7 @@ export default function AdminDocsTab() {
                 <div className="p-3.5 bg-neutral-950/70 rounded-xl border border-purple-500/30 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-mono font-bold text-purple-300 text-[11px]">get_release_notes</span>
-                    <span className="text-[8px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-500/30">v5.21.0 Changelog</span>
+                    <span className="text-[8px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-500/30">v6.0.1 Changelog</span>
                   </div>
                   <p className="text-[11px] text-neutral-400 leading-tight">Retrieves official release notes (`RELEASE.md`), version history, and feature additions.</p>
                 </div>

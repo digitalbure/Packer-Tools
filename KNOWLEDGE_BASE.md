@@ -1,6 +1,32 @@
 # 📘 Packer Tools Knowledge Base
 
-Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including Model Context Protocol (MCP) connectors, Claude Marketing Agent positioning kits, deletion safeguards, Organizer Designer marquee box-select and group/ungroup shapes engine, CAD exports, magnetic alignment snapping, public share link resolution, unauthenticated asset passports, bulk allocation, audit workflows, AI scenario coaching, and native mobile UX.
+Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including Multi-Library Depots, Model Context Protocol (MCP) connectors, Claude Marketing Agent positioning kits, deletion safeguards, Organizer Designer marquee box-select and group/ungroup shapes engine, CAD exports, magnetic alignment snapping, public share link resolution, unauthenticated asset passports, bulk allocation, audit workflows, AI scenario coaching, and native mobile UX.
+
+---
+
+## 🏛️ 0.00000. Multi-Library Switcher & Dedicated Equipment Depots (v6.0.1)
+
+Packer Tools allows managing multiple distinct named Gear Libraries / Depots directly from the **Gear Library** module (`GearLibrary.tsx` & `LibrarySwitcher.tsx`):
+
+### 1. The Multi-Library Depot Architecture
+- **Partitioned Inventory Pools**: Rather than forcing all workspace equipment into an unsegmented master list, users can establish dedicated named depots (e.g. `Cinema Vault`, `Stage B Lighting`, `Mobile Audio Unit`, `Off-Site Rigging Depot`).
+- **Main Depot (Default Pool)**: All unassigned equipment sits securely in the "Main Depot" default pool (`libraryId: 'default'` or unset).
+- **Safe Library Deletion**: Deleting a custom library automatically reassigns all contained assets back to the `Main Depot` default pool, guaranteeing zero data loss.
+
+### 2. Multi-Library Switcher Controls
+- **Top Switcher Bar**: Located in the Gear Library header, providing instant visual tabs for **All Gear**, **Main Depot**, and all custom user depots.
+- **Aggregated Telemetry**: Each depot pill and expanded card shows real-time item count, total replacement valuation, physical location, and custom color badge.
+- **One-Click Filtering**: Clicking any depot instantly filters the entire library view (grid, compact list, table) to only items assigned to that depot.
+- **New Library Creation**: Click `+ New Library` to define depot name, optional physical bay location (e.g. `Bay 4 - Shelf C`), description, custom theme color, and distinctive icon.
+
+### 3. Equipment Assignment & Cross-Depot Movement
+- **Individual Item Assignment**: Set the `Target Gear Library` dropdown in the `AddGearModal` or `EditGearModal`.
+- **Bulk Batch Assignment**: Toggle `Select Mode`, multi-select equipment items across the library, and click `Assign Depot` from the smart floating action bar to batch-reassign items in chunked Firestore WriteBatch operations.
+- **Depot Manifest Push**: Click `Push to List` on any depot card to instantly pre-select all contained items and load them directly into an active or new packing list or inventory sheet.
+
+### 4. Fluid Cross-Module Flow (Standardized Terminology)
+- **"Add to List" / "Add to Group" Standard**: Standardized non-destructive item copying terminology and actions across Gear Libraries, Inventories, and Manifests.
+- **Inventory Sheet Flow**: Seamlessly add items from custom inventory sheets into production packing lists or vice versa with unified modal interfaces.
 
 ---
 

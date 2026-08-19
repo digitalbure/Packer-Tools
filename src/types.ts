@@ -1,6 +1,27 @@
-export type FeatureKey = 'aiWizard' | 'gearLibrary' | 'reminders' | 'versionHistory' | 'branding' | 'qrSharing' | 'toolingLists' | 'organizer' | 'travelCases' | 'logisticsDashboard' | 'movingDashboard' | 'rackingDashboard' | 'marketplace' | 'marketplaceListings' | 'kioskMode' | 'orgManagement' | 'departments' | 'teams' | 'inventoryManagement' | 'projectCost' | 'supplierManagement' | 'bomManagement' | 'customBarcodes' | 'automaticDepreciation' | 'digitalSignatures' | 'clientPortal' | 'apiIntegrations' | 'weightAnalytics' | 'kioskOrderMode' | 'kioskDirectCheckout' | 'rfidTracking' | 'assetTransfer' | 'nfcPassportModule' | 'rfidSledSweep' | 'hardwareAuditTrail';
+export type FeatureKey = 'aiWizard' | 'gearLibrary' | 'reminders' | 'versionHistory' | 'branding' | 'qrSharing' | 'toolingLists' | 'organizer' | 'travelCases' | 'logisticsDashboard' | 'movingDashboard' | 'rackingDashboard' | 'marketplace' | 'marketplaceListings' | 'kioskMode' | 'orgManagement' | 'departments' | 'teams' | 'inventoryManagement' | 'projectCost' | 'supplierManagement' | 'bomManagement' | 'customBarcodes' | 'automaticDepreciation' | 'digitalSignatures' | 'clientPortal' | 'apiIntegrations' | 'weightAnalytics' | 'kioskOrderMode' | 'kioskDirectCheckout' | 'rfidTracking' | 'assetTransfer' | 'nfcPassportModule' | 'rfidSledSweep' | 'hardwareAuditTrail' | 'batteryLifecycle';
 
 export type UserRole = 'owner' | 'admin' | 'manager' | 'technician' | 'viewer';
+
+export type BatteryHealthStatus = 'excellent' | 'good' | 'degraded' | 'replace_soon' | 'critical';
+
+export type BatteryChemistry = 'Li-ion' | 'LiPo' | 'LiFePO4' | 'NiMH' | 'Lead-Acid' | 'V-Mount' | 'Gold-Mount' | 'NP-F' | 'B-Mount' | 'BP-U' | 'Other';
+
+export interface BatteryLog {
+  id: string;
+  timestamp: string; // ISO String
+  cycleCount: number;
+  healthPercentage: number; // 0 - 100
+  voltage?: number; // Volts e.g. 14.8
+  capacityActualMah?: number; // Measured actual mAh
+  capacityActualWh?: number; // Measured actual Wh
+  internalResistanceMOhms?: number; // mΩ (milliohms)
+  temperatureCelsius?: number;
+  status: BatteryHealthStatus;
+  notes?: string;
+  recordedBy?: string; // User display name or email
+  chargePercentage?: number; // Current charge %
+  diagnosticType?: 'routine_cycle' | 'bench_test' | 'load_test' | 'calibration' | 'field_checkout';
+}
 
 export interface Organization {
   id: string;
@@ -441,6 +462,39 @@ export interface GearItem {
   rfidTag?: string;
   rfidEpc?: string;
   ownerBio?: string;
+  isBattery?: boolean;
+  batteryChemistry?: BatteryChemistry;
+  batteryCapacityMah?: number;
+  batteryCapacityWh?: number;
+  batteryVoltage?: number;
+  batteryCycleCount?: number;
+  batteryMaxCycles?: number;
+  batteryHealthPercentage?: number;
+  batteryHealthStatus?: BatteryHealthStatus;
+  batteryLastTestedDate?: string;
+  batteryInternalResistanceMOhms?: number;
+  batteryFlightCompliance?: 'unrestricted' | 'airline_approval' | 'cargo_only' | 'hazardous';
+  batteryLogs?: BatteryLog[];
+  libraryId?: string; // ID of the specific Gear Library / Depot it belongs to
+}
+
+export interface GearLibraryEntity {
+  id: string;
+  name: string;
+  description?: string;
+  ownerId: string;
+  ownerEmail?: string;
+  orgId?: string;
+  deptId?: string;
+  color?: string; // Hex color code or Tailwind accent color
+  icon?: string; // Lucide icon identifier (e.g. 'box', 'camera', 'tool', 'warehouse', 'truck', 'layers')
+  location?: string; // e.g. 'Main Warehouse Bay 2', 'Stage A Soundstage', 'Mobile Rig Van 1'
+  isDefault?: boolean;
+  itemCount?: number;
+  totalValue?: number;
+  totalWeight?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Container {

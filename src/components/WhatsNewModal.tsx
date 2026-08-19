@@ -24,9 +24,66 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v5.21.0',
+      version: 'v6.0.1',
       tag: 'Latest',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Multi-Library Switcher, Dedicated Equipment Depots & Fluid Cross-Module Asset Flow',
+      date: 'August 2026',
+      icon: Sparkles,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Multi-Library Switcher & Depot Hub',
+          desc: 'Create, edit, delete, and switch seamlessly between multiple named Gear Libraries / Depots (e.g. Cinema Depot, Stage B Vault, Mobile Audio Unit, Staging Warehouse). Each depot features custom color badges, physical bay locations, and auto-aggregated item counts and valuation stats.',
+          badge: 'Multi-Library Hub'
+        },
+        {
+          title: 'Batch Depot Reassignment',
+          desc: 'Multi-select equipment items in Select Mode and assign them to any library depot with a single click via Firestore WriteBatch processing.',
+          badge: 'Batch Operations'
+        },
+        {
+          title: 'Direct Depot Manifest Push',
+          desc: 'Push all equipment in any dedicated depot directly into an existing or new packing list manifest or inventory sheet with automated item pre-selection.',
+          badge: 'Manifest Workflow'
+        },
+        {
+          title: 'Standardized Terminology & Actions',
+          desc: 'Standardized unified "Add to List" and "Add to Group" actions and terminology across Gear Libraries, Inventories, and Manifests, enabling frictionless cross-module gear movement.',
+          badge: 'UX Polish'
+        },
+        {
+          title: 'Knowledge Base Expansion',
+          desc: 'Added in-depth user guides to the Help Center covering multi-library fleet partitioning, depot switching, and cross-module asset routing.',
+          badge: 'Documentation'
+        }
+      ]
+    },
+    {
+      version: 'v6.0.0',
+      tag: 'Major Release',
+      tagBg: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20 dark:bg-indigo-500/20 dark:text-indigo-300',
+      title: 'Major Architecture Upgrade & Extended Fleet Logistics Engine',
+      date: 'August 2026',
+      icon: Sparkles,
+      color: 'text-indigo-600 dark:text-indigo-400',
+      updates: [
+        {
+          title: 'Core Architecture & Fleet Scalability',
+          desc: 'Major platform upgrade supporting expansive equipment libraries, multi-tier organizational hierarchies, and high-velocity fleet logistics.',
+          badge: 'Major Release'
+        },
+        {
+          title: 'Intelligent Battery & Power Asset Management',
+          desc: 'Comprehensive battery health tracking, cycle telemetry, and maintenance forecasting for high-draw production power systems.',
+          badge: 'Power Telemetry'
+        }
+      ]
+    },
+    {
+      version: 'v5.21.0',
+      tag: 'Stable',
+      tagBg: 'bg-neutral-500/10 text-neutral-600 border-neutral-500/20 dark:bg-neutral-500/20 dark:text-neutral-300',
       title: 'Smart Intent-Driven User Onboarder & Dynamic Use-Case Auto-Configuration Engine',
       date: 'August 2026',
       icon: Sparkles,

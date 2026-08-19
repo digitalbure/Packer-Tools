@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { collection, query, getDocs, addDoc, doc, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
-import { UserProfile, GearItem, PackingList } from '../types';
+import { UserProfile, GearItem, PackingList, GearLibraryEntity } from '../types';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -119,6 +119,7 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
   // Packing list selection states
   const [packingLists, setPackingLists] = useState<PackingList[]>([]);
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
+  const [gearLibraries, setGearLibraries] = useState<GearLibraryEntity[]>([]);
 
   // Success states
   const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null);
@@ -316,6 +317,32 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     };
     loadPackingLists();
   }, [isOpen, user]);
+
+  // Load user's gear libraries (depots)
+  useEffect(() => {
+    if (!isOpen || !user) return;
+    const loadGearLibraries = async () => {
+      try {
+        const qRef = query(collection(db, 'gearLibraries'), where('ownerId', '==', user.uid));
+        const snap = await getDocs(qRef);
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as GearLibraryEntity);
+        setGearLibraries(list);
+      } catch (e) {
+        console.error("Error loading gear libraries:", e);
+      }
+    };
+    loadGearLibraries();
+  }, [isOpen, user]);
+
+  // Sync libraryId from URL parameter if passed
+  useEffect(() => {
+    if (isOpen) {
+      const libId = searchParams.get('libraryId');
+      if (libId) {
+        setForm(prev => ({ ...prev, libraryId: libId }));
+      }
+    }
+  }, [isOpen, searchParams]);
 
   const handleClose = () => {
     // Clear URL params
@@ -1154,6 +1181,23 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
                     <option value="Electronics">Electronics</option>
                     <option value="Support">Support / Grip</option>
                     <option value="Other">Other Ancillary</option>
+                  </select>
+                </div>
+
+                {/* Library / Depot Selection */}
+                <div className="space-y-1">
+                  <label className="text-[9px] uppercase font-black tracking-widest text-neutral-400">Target Gear Library</label>
+                  <select
+                    value={form.libraryId || 'default'}
+                    onChange={(e) => setForm({ ...form, libraryId: e.target.value })}
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary text-xs transition"
+                  >
+                    <option value="default">Main Depot (Default)</option>
+                    {gearLibraries.map((lib) => (
+                      <option key={lib.id} value={lib.id}>
+                        {lib.name} {lib.location ? `(${lib.location})` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

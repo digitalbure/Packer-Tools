@@ -52,7 +52,7 @@ import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { triggerGoogleChatAlert } from '../services/googleChat';
-import { UserProfile, GearItem, GearItemVersion, GearIncident, AdminSettings, Container, Organization, Department, Team } from '../types';
+import { UserProfile, GearItem, GearItemVersion, GearIncident, AdminSettings, Container, Organization, Department, Team, Group, GearLibraryEntity } from '../types';
 import { logActivity } from '../services/activityLog';
 import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import { toast } from 'sonner';
@@ -63,13 +63,14 @@ import { SwipeableImageGallery } from '../components/SwipeableImageGallery';
 import { format } from 'date-fns';
 import { compressImage } from '../lib/imageUtils';
 import NfcScannerModal from '../components/NfcScannerModal';
+import LibrarySwitcher from '../components/LibrarySwitcher';
 
 import { hapticLight, hapticLongPress } from '../utils/haptics';
 
 const triggerHaptic = () => {
   hapticLight();
 };
-import { Camera, Sparkles, Wand2, Lightbulb, Check, Layers, Luggage, Box, Briefcase, QrCode, Loader2, RefreshCw, Server, HelpCircle, ClipboardCheck } from 'lucide-react';
+import { Camera, Sparkles, Wand2, Lightbulb, Check, Layers, Luggage, Box, Briefcase, QrCode, Loader2, RefreshCw, Server, HelpCircle, ClipboardCheck, Building2 } from 'lucide-react';
 import QRPrintModal from '../components/QRPrintModal';
 import DuplicateItemModal, { DuplicateModalResult } from '../components/DuplicateItemModal';
 import { cloneGearItemData } from '../utils/duplicateUtils';
@@ -294,45 +295,79 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     }
   };
 
-  // States and handler for exporting/moving from central gear library to any custom inventories or packing lists
+  // States and handler for adding/copying from central gear library to any custom inventories, packing lists, or resource groups
   const [isExportToInventoryOpen, setIsExportToInventoryOpen] = useState(false);
-  const [exportTargetType, setExportTargetType] = useState<'inventory' | 'packingList'>('inventory');
+  const [exportTargetType, setExportTargetType] = useState<'inventory' | 'packingList' | 'group'>('inventory');
   const [selectedExportInventoryId, setSelectedExportInventoryId] = useState('');
   const [selectedExportPackingListId, setSelectedExportPackingListId] = useState('');
+  const [selectedExportGroupId, setSelectedExportGroupId] = useState('');
   const [isExportingToInventory, setIsExportingToInventory] = useState(false);
   const [isCreateNewInventoryForExport, setIsCreateNewInventoryForExport] = useState(false);
   const [newExportInventoryName, setNewExportInventoryName] = useState('');
   const [newExportInventoryDesc, setNewExportInventoryDesc] = useState('');
   const [packingLists, setPackingLists] = useState<any[]>([]);
+  const [availableGroups, setAvailableGroups] = useState<Group[]>([]);
+  const [gearLibraries, setGearLibraries] = useState<GearLibraryEntity[]>([]);
+  const [selectedLibraryId, setSelectedLibraryId] = useState<string>('all');
+  const [isAssignLibraryModalOpen, setIsAssignLibraryModalOpen] = useState(false);
+  const [targetAssignLibraryId, setTargetAssignLibraryId] = useState('default');
+  const [isAssigningLibrary, setIsAssigningLibrary] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) return;
     const qLists = query(collection(db, 'packingLists'), where('ownerId', '==', user.uid));
-    const unsub = onSnapshot(qLists, (snap) => {
+    const unsubLists = onSnapshot(qLists, (snap) => {
       const lists = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setPackingLists(lists);
     }, (err) => {
       console.error("Error loading packing lists in GearLibrary:", err);
       handleFirestoreError(err, OperationType.LIST, 'packingLists');
     });
-    return unsub;
+
+    const qGroups = query(collection(db, 'groups'), where('ownerId', '==', user.uid));
+    const unsubGroups = onSnapshot(qGroups, (snap) => {
+      const grps = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Group[];
+      setAvailableGroups(grps);
+    }, (err) => {
+      console.error("Error loading groups in GearLibrary:", err);
+      handleFirestoreError(err, OperationType.LIST, 'groups');
+    });
+
+    const qLibs = query(collection(db, 'gearLibraries'), where('ownerId', '==', user.uid));
+    const unsubLibs = onSnapshot(qLibs, (snap) => {
+      const libs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as GearLibraryEntity[];
+      setGearLibraries(libs);
+    }, (err) => {
+      console.error("Error loading gear libraries in GearLibrary:", err);
+    });
+
+    return () => {
+      unsubLists();
+      unsubGroups();
+      unsubLibs();
+    };
   }, [user?.uid]);
 
   const handleExportToInventory = async () => {
-    let targetId = exportTargetType === 'inventory' ? selectedExportInventoryId : selectedExportPackingListId;
+    let targetId = exportTargetType === 'inventory' 
+      ? selectedExportInventoryId 
+      : exportTargetType === 'packingList' 
+        ? selectedExportPackingListId 
+        : selectedExportGroupId;
     let targetName = '';
 
     setIsExportingToInventory(true);
+    const targetTypeLabel = exportTargetType === 'inventory' ? 'inventory sheet' : exportTargetType === 'packingList' ? 'packing list' : 'resource group';
     const toastId = toast.loading(
       isCreateNewInventoryForExport 
-        ? `Creating new ${exportTargetType === 'inventory' ? 'inventory' : 'packing list'} "${newExportInventoryName}" and copying...` 
-        : `Copying items...`
+        ? `Creating new ${targetTypeLabel} "${newExportInventoryName}" and adding items...` 
+        : `Adding items to ${targetTypeLabel}...`
     );
 
     try {
       if (isCreateNewInventoryForExport) {
         if (!newExportInventoryName.trim()) {
-          toast.error(`Please provide a name for the new ${exportTargetType === 'inventory' ? 'inventory' : 'packing list'}.`, { id: toastId });
+          toast.error(`Please provide a name for the new ${targetTypeLabel}.`, { id: toastId });
           setIsExportingToInventory(false);
           return;
         }
@@ -358,7 +393,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           await setDoc(newDocRef, payload);
           targetId = newDocRef.id;
           targetName = newExportInventoryName.trim();
-        } else {
+        } else if (exportTargetType === 'packingList') {
           // Create packing list
           const newDocRef = await addDoc(collection(db, 'packingLists'), {
             ownerId: user.uid,
@@ -374,10 +409,26 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           });
           targetId = newDocRef.id;
           targetName = newExportInventoryName.trim();
+        } else {
+          // Create new resource group with the selected item IDs
+          const newDocRef = await addDoc(collection(db, 'groups'), {
+            name: newExportInventoryName.trim(),
+            description: newExportInventoryDesc.trim() || 'Created from Gear Library selection',
+            ownerId: user.uid,
+            ownerEmail: user.email || '',
+            entityType: 'gear',
+            entityIds: Array.from(selectedItems),
+            color: '#0066cc',
+            icon: 'Layers',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+          targetId = newDocRef.id;
+          targetName = newExportInventoryName.trim();
         }
       } else {
         if (!targetId) {
-          toast.error(`Please select a target ${exportTargetType === 'inventory' ? 'inventory list' : 'packing list'}.`, { id: toastId });
+          toast.error(`Please select a target ${targetTypeLabel}.`, { id: toastId });
           setIsExportingToInventory(false);
           return;
         }
@@ -389,7 +440,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             return;
           }
           targetName = targetInv.name;
-        } else {
+        } else if (exportTargetType === 'packingList') {
           const targetList = packingLists.find(list => list.id === targetId);
           if (!targetList) {
             toast.error("Selected packing list not found.", { id: toastId });
@@ -397,6 +448,14 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             return;
           }
           targetName = targetList.name;
+        } else {
+          const targetGroup = availableGroups.find(g => g.id === targetId);
+          if (!targetGroup) {
+            toast.error("Selected resource group not found.", { id: toastId });
+            setIsExportingToInventory(false);
+            return;
+          }
+          targetName = targetGroup.name;
         }
       }
 
@@ -432,8 +491,8 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           });
           await batch.commit();
         }
-      } else {
-        // Exporting to packing list (packingLists/{listId}/items)
+      } else if (exportTargetType === 'packingList') {
+        // Adding to packing list (packingLists/{listId}/items)
         const colRef = collection(db, 'packingLists', targetId, 'items');
         for (let i = 0; i < itemsToExport.length; i += 500) {
           const chunk = itemsToExport.slice(i, i + 500);
@@ -458,19 +517,32 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           });
           await batch.commit();
         }
+      } else {
+        // Adding items to existing group
+        if (!isCreateNewInventoryForExport) {
+          const targetGroup = availableGroups.find(g => g.id === targetId);
+          const existingIds = targetGroup?.entityIds || [];
+          const newIds = itemsToExport.map(item => item.id);
+          const mergedIds = Array.from(new Set([...existingIds, ...newIds]));
+          await updateDoc(doc(db, 'groups', targetId), {
+            entityIds: mergedIds,
+            updatedAt: new Date().toISOString()
+          });
+        }
       }
 
-      toast.success(`Exported ${itemsToExport.length} items to "${targetName}" successfully!`, { id: toastId });
+      toast.success(`Added ${itemsToExport.length} item(s) to "${targetName}" successfully!`, { id: toastId });
       setSelectedItems(new Set());
       setIsExportToInventoryOpen(false);
       setSelectedExportInventoryId('');
       setSelectedExportPackingListId('');
+      setSelectedExportGroupId('');
       setNewExportInventoryName('');
       setNewExportInventoryDesc('');
       setIsCreateNewInventoryForExport(false);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to export items: verification/database error.", { id: toastId });
+      toast.error("Failed to add items: verification/database error.", { id: toastId });
     } finally {
       setIsExportingToInventory(false);
     }
@@ -2175,6 +2247,53 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     }
   };
 
+  const handleBatchAssignLibrary = async () => {
+    if (selectedItems.size === 0) {
+      toast.error("No items selected");
+      return;
+    }
+    setIsAssigningLibrary(true);
+    const targetLibName = targetAssignLibraryId === 'default' 
+      ? 'Main Depot' 
+      : gearLibraries.find(l => l.id === targetAssignLibraryId)?.name || 'Selected Depot';
+
+    const toastId = toast.loading(`Assigning ${selectedItems.size} item(s) to "${targetLibName}"...`);
+    try {
+      const updatedAt = new Date().toISOString();
+      const assetIds = Array.from(selectedItems);
+
+      for (let i = 0; i < assetIds.length; i += 400) {
+        const chunk = assetIds.slice(i, i + 400);
+        const batch = writeBatch(db);
+        chunk.forEach(itemId => {
+          const itemRef = doc(db, 'users', user.uid, 'gearLibrary', itemId);
+          batch.update(itemRef, { 
+            libraryId: targetAssignLibraryId,
+            updatedAt
+          });
+        });
+        await batch.commit();
+      }
+
+      await logActivity(
+        user.uid,
+        user.displayName || user.email || 'Platform User',
+        'gear_library_assignment',
+        `Reassigned ${selectedItems.size} item(s) to Gear Library / Depot: ${targetLibName}`,
+        { targetLibraryId: targetAssignLibraryId, count: selectedItems.size }
+      );
+
+      toast.success(`Successfully assigned ${selectedItems.size} item(s) to "${targetLibName}"!`, { id: toastId });
+      setSelectedItems(new Set());
+      setIsAssignLibraryModalOpen(false);
+    } catch (err: any) {
+      console.error("Error assigning items to library:", err);
+      toast.error(`Failed to assign items: ${err.message || 'Unknown error'}`, { id: toastId });
+    } finally {
+      setIsAssigningLibrary(false);
+    }
+  };
+
   const handleBatchAssign = async () => {
     if (selectedItems.size === 0) {
       toast.error("No items selected");
@@ -2344,6 +2463,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         }
       }
 
+      // Multi-Library Depot filter check
+      if (selectedLibraryId !== 'all') {
+        if (selectedLibraryId === 'default') {
+          if (item.libraryId && item.libraryId !== 'default') {
+            return false;
+          }
+        } else {
+          if (item.libraryId !== selectedLibraryId) {
+            return false;
+          }
+        }
+      }
+
       // Audit Mode filters
       if (isAuditMode && showOnlyAttentionNeeded) {
         const needsAttention = isMaintenanceOutdated(item) || isLowInventory(item);
@@ -2375,7 +2507,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [effectiveGear, debouncedSearchTerm, selectedCategory, categoryFilterMode, selectedCondition, privacyLayerFilter, isAuditMode, showOnlyAttentionNeeded, sortField, sortOrder]);
+  }, [effectiveGear, debouncedSearchTerm, selectedCategory, categoryFilterMode, selectedCondition, privacyLayerFilter, selectedLibraryId, isAuditMode, showOnlyAttentionNeeded, sortField, sortOrder]);
 
   const paginatedGear = useMemo(() => {
     if (itemsPerPage === -1) return filteredGear;
@@ -4312,11 +4444,18 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   );
 
   const renderTableRow = (item: GearItem, uniqueKey: string = item.id) => (
-    <tr key={uniqueKey} className={`border-b transition ${
-      isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
-        ? 'bg-amber-50/40 border-amber-250 border-l-4 border-l-amber-500' 
-        : selectedItems.has(item.id) ? 'bg-primary/5' : 'hover:bg-neutral-50 border-neutral-50'
-    }`}>
+    <motion.tr 
+      key={uniqueKey} 
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+      className={`border-b transition ${
+        isAuditMode && (isMaintenanceOutdated(item) || isLowInventory(item))
+          ? 'bg-amber-50/40 border-amber-250 border-l-4 border-l-amber-500' 
+          : selectedItems.has(item.id) ? 'bg-primary/5' : 'hover:bg-neutral-50 border-neutral-50'
+      }`}
+    >
       <td className="px-8 py-4">
         <button 
           type="button"
@@ -4452,12 +4591,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           <button type="button" onClick={() => handleDelete(item.id)} className="p-2 text-neutral-400 hover:text-accent transition"><Trash2 size={16} /></button>
         </div>
       </td>
-    </tr>
+    </motion.tr>
   );
 
   const renderMobileListItem = (item: GearItem, uniqueKey: string = item.id) => (
-    <div 
+    <motion.div 
       key={uniqueKey} 
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
       className={`p-4 rounded-2xl border flex items-center gap-4 transition-all cursor-pointer ${
         selectedItems.has(item.id)
           ? 'bg-sky-50/10 border-[#0066cc] ring-2 ring-[#0066cc]'
@@ -4561,7 +4704,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           <Edit2 size={18} />
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 
   const exportOfflineBackup = () => {
@@ -4739,6 +4882,31 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           </button>
         </div>
       </header>
+
+      {/* Multi-Library Switcher & Depot Selector */}
+      {user && (
+        <LibrarySwitcher
+          user={user}
+          libraries={gearLibraries}
+          selectedLibraryId={selectedLibraryId}
+          onSelectLibrary={(libId) => setSelectedLibraryId(libId)}
+          gear={gear}
+          onOpenAddGearToLibrary={(libId) => {
+            triggerHaptic();
+            setSearchParams({ addGear: 'true', libraryId: libId });
+          }}
+          onExportLibraryToPackingList={(lib) => {
+            const libItems = gear.filter(g => (lib.id === 'default' ? (!g.libraryId || g.libraryId === 'default') : g.libraryId === lib.id));
+            if (libItems.length === 0) {
+              toast.error(`"${lib.name}" has no items to export.`);
+              return;
+            }
+            setSelectedItems(new Set(libItems.map(i => i.id)));
+            setNewExportInventoryName(`${lib.name} Manifest`);
+            setIsExportToInventoryOpen(true);
+          }}
+        />
+      )}
 
       {/* Offline Management Panel / Notification Callout */}
       <AnimatePresence>
@@ -7755,6 +7923,22 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     </select>
                   </div>
 
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Gear Library / Depot</label>
+                    <select
+                      value={editingItem.libraryId || 'default'}
+                      onChange={e => setEditingItem({ ...editingItem, libraryId: e.target.value })}
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition text-xs font-semibold"
+                    >
+                      <option value="default">Main Depot (Default)</option>
+                      {gearLibraries.map((lib) => (
+                        <option key={lib.id} value={lib.id}>
+                          {lib.name} {lib.location ? `(${lib.location})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Secondary Categories Selection Section */}
                   <div className="space-y-3 col-span-full border-t border-neutral-100 pt-4">
                     <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400 block">Secondary Categories (Tags)</span>
@@ -8769,10 +8953,23 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   onClick={() => setIsExportToInventoryOpen(true)}
                   disabled={selectedItems.size === 0}
                   className="shrink-0 flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-500 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="Copy/Export selected assets to other lists"
+                  title="Add selected assets to custom sheets, packing lists, or resource groups"
                 >
                   <Upload size={14} className="text-emerald-200" />
-                  <span>Move to List</span>
+                  <span>Add to List</span>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setTargetAssignLibraryId('default');
+                    setIsAssignLibraryModalOpen(true);
+                  }}
+                  disabled={selectedItems.size === 0}
+                  className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Assign selected items to a Gear Library Depot"
+                >
+                  <Building2 size={14} className="text-amber-400 font-bold" />
+                  <span>Assign Depot</span>
                 </button>
 
                 <button 
@@ -9104,7 +9301,109 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         )}
       </AnimatePresence>
 
-      {/* Export to Custom Inventory Modal */}
+      {/* Assign to Library / Depot Modal */}
+      <AnimatePresence>
+        {isAssignLibraryModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden border border-neutral-100"
+            >
+              <div className="p-6 md:p-8 flex items-center justify-between border-b border-[#f4f4f5]">
+                <div className="flex items-center gap-3">
+                  <span className="p-3 bg-neutral-900 text-white rounded-2xl">
+                    <Building2 size={20} />
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Assign to Depot</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-600">
+                      Partition {selectedItems.size} items to a specific library depot
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAssignLibraryModalOpen(false)}
+                  className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-400 hover:text-neutral-900 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6 md:p-8 space-y-6">
+                <div className="space-y-4">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-400">Target Gear Library / Depot</label>
+                  <div className="grid grid-cols-1 gap-2.5 max-h-[320px] overflow-y-auto pr-1">
+                    {/* Default Library */}
+                    <button
+                      type="button"
+                      onClick={() => setTargetAssignLibraryId('default')}
+                      className={`w-full p-4 rounded-2xl flex items-start gap-4 border text-left transition cursor-pointer ${
+                        targetAssignLibraryId === 'default'
+                          ? 'bg-neutral-900 text-white border-neutral-900 shadow-md'
+                          : 'bg-white text-neutral-800 border-neutral-100 hover:bg-neutral-50'
+                      }`}
+                    >
+                      <div className={`w-3.5 h-3.5 rounded-full border-2 mt-1 shrink-0 ${
+                        targetAssignLibraryId === 'default' ? 'bg-primary border-primary' : 'bg-white border-neutral-300'
+                      }`} />
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wide">Main Depot (Default)</p>
+                        <p className={`text-[10px] font-medium leading-relaxed mt-0.5 ${targetAssignLibraryId === 'default' ? 'text-neutral-300' : 'text-neutral-400'}`}>
+                          Primary global workspace gear inventory pool
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Custom User Libraries */}
+                    {gearLibraries.map((lib) => (
+                      <button
+                        key={lib.id}
+                        type="button"
+                        onClick={() => setTargetAssignLibraryId(lib.id)}
+                        className={`w-full p-4 rounded-2xl flex items-start gap-4 border text-left transition cursor-pointer ${
+                          targetAssignLibraryId === lib.id
+                            ? 'bg-neutral-900 text-white border-neutral-900 shadow-md'
+                            : 'bg-white text-neutral-800 border-neutral-100 hover:bg-neutral-50'
+                        }`}
+                      >
+                        <div className={`w-3.5 h-3.5 rounded-full border-2 mt-1 shrink-0 ${
+                          targetAssignLibraryId === lib.id ? 'bg-primary border-primary' : 'bg-white border-neutral-300'
+                        }`} />
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-wide">{lib.name}</p>
+                          <p className={`text-[10px] font-medium leading-relaxed mt-0.5 ${targetAssignLibraryId === lib.id ? 'text-neutral-300' : 'text-neutral-400'}`}>
+                            {lib.description || lib.location || 'Dedicated equipment partition'}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 md:p-8 bg-neutral-50 border-t border-neutral-100 flex gap-4">
+                <button
+                  onClick={() => setIsAssignLibraryModalOpen(false)}
+                  className="flex-1 py-4 bg-white border border-neutral-200 text-neutral-600 rounded-2xl font-bold hover:bg-neutral-100 transition shadow-sm text-xs uppercase tracking-wider"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBatchAssignLibrary}
+                  disabled={isAssigningLibrary}
+                  className="flex-1 py-4 bg-black text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl font-black uppercase tracking-widest text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isAssigningLibrary ? 'Assigning...' : 'Confirm Assignment'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Add to List / Group Modal */}
       <AnimatePresence>
         {isExportToInventoryOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -9120,9 +9419,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     <FileSpreadsheet size={20} />
                   </label>
                   <div>
-                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Export / Copy to Lists</h3>
+                    <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Add to List / Group</h3>
                     <p className="text-[10px] font-black uppercase tracking-widest text-[#0066cc]">
-                      Target {selectedItems.size} items to custom lists
+                      Add {selectedItems.size} items to custom lists or groups
                     </p>
                   </div>
                 </div>
@@ -9136,22 +9435,22 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
 
               <div className="p-6 md:p-8 space-y-6">
                 <p className="text-xs text-neutral-500 font-medium leading-relaxed">
-                  Copying these items will completely replicate them into your chosen list or checklist.
+                  Add these items to your chosen custom sheet, packing list, or resource group.
                 </p>
 
-                {/* List Type Selector */}
+                {/* Target Type Selector */}
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block font-sans">
                     Select Target Type
                   </label>
-                  <div className="flex bg-neutral-100 p-1.5 rounded-2xl">
+                  <div className="grid grid-cols-3 gap-1 bg-neutral-100 p-1.5 rounded-2xl">
                     <button
                       type="button"
                       onClick={() => {
                         setExportTargetType('inventory');
                         setIsCreateNewInventoryForExport(false);
                       }}
-                      className={`flex-1 py-2.5 text-center text-xs font-black uppercase tracking-wider rounded-xl transition ${
+                      className={`py-2.5 text-center text-xs font-black uppercase tracking-wider rounded-xl transition ${
                         exportTargetType === 'inventory' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
                       }`}
                     >
@@ -9163,11 +9462,23 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                         setExportTargetType('packingList');
                         setIsCreateNewInventoryForExport(false);
                       }}
-                      className={`flex-1 py-2.5 text-center text-xs font-black uppercase tracking-wider rounded-xl transition ${
+                      className={`py-2.5 text-center text-xs font-black uppercase tracking-wider rounded-xl transition ${
                         exportTargetType === 'packingList' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
                       }`}
                     >
                       ✈️ Packing List
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExportTargetType('group');
+                        setIsCreateNewInventoryForExport(false);
+                      }}
+                      className={`py-2.5 text-center text-xs font-black uppercase tracking-wider rounded-xl transition ${
+                        exportTargetType === 'group' ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
+                      }`}
+                    >
+                      🗂️ Group
                     </button>
                   </div>
                 </div>
@@ -9181,7 +9492,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       !isCreateNewInventoryForExport ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
                     }`}
                   >
-                    Copy to Existing
+                    Add to Existing
                   </button>
                   <button
                     type="button"
@@ -9190,7 +9501,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       isCreateNewInventoryForExport ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-900'
                     }`}
                   >
-                    💡 Create New & Copy
+                    💡 Create New & Add
                   </button>
                 </div>
 
@@ -9198,11 +9509,11 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                   <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block font-sans">
-                        New {exportTargetType === 'inventory' ? 'Inventory' : 'Packing List'} Name
+                        New {exportTargetType === 'inventory' ? 'Inventory' : exportTargetType === 'packingList' ? 'Packing List' : 'Resource Group'} Name
                       </label>
                       <input
                         type="text"
-                        placeholder={exportTargetType === 'inventory' ? "e.g. Facility Maintenance Inventory" : "e.g. European Production Tour 2026"}
+                        placeholder={exportTargetType === 'inventory' ? "e.g. Facility Maintenance Inventory" : exportTargetType === 'packingList' ? "e.g. European Production Tour 2026" : "e.g. Primary Rigging Tools"}
                         value={newExportInventoryName}
                         onChange={(e) => setNewExportInventoryName(e.target.value)}
                         className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-xs font-bold focus:ring-2 focus:ring-neutral-900 outline-none"
@@ -9213,7 +9524,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                         Description (Optional)
                       </label>
                       <textarea
-                        placeholder="Brief purpose of this checklist or custom list..."
+                        placeholder="Brief purpose of this list or resource group..."
                         value={newExportInventoryDesc}
                         onChange={(e) => setNewExportInventoryDesc(e.target.value)}
                         rows={2}
@@ -9224,12 +9535,12 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 ) : (
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-wider text-neutral-400 block font-sans">
-                      Choose Target {exportTargetType === 'inventory' ? 'Custom Sheet' : 'Packing List'}
+                      Choose Target {exportTargetType === 'inventory' ? 'Custom Sheet' : exportTargetType === 'packingList' ? 'Packing List' : 'Resource Group'}
                     </label>
                     {exportTargetType === 'inventory' ? (
                       inventories.length === 0 ? (
                         <div className="text-xs font-bold text-center p-6 bg-neutral-50 border border-neutral-200 text-neutral-400 rounded-2xl">
-                          No custom sheets found. Click "Create New & Copy" above to generate one on the fly!
+                          No custom sheets found. Click "Create New & Add" above to generate one on the fly!
                         </div>
                       ) : (
                         <select
@@ -9245,10 +9556,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           ))}
                         </select>
                       )
-                    ) : (
+                    ) : exportTargetType === 'packingList' ? (
                       packingLists.length === 0 ? (
                         <div className="text-xs font-bold text-center p-6 bg-neutral-50 border border-neutral-200 text-neutral-400 rounded-2xl">
-                          No packing lists found. Click "Create New & Copy" above to generate one on the fly!
+                          No packing lists found. Click "Create New & Add" above to generate one on the fly!
                         </div>
                       ) : (
                         <select
@@ -9260,6 +9571,25 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                           {packingLists.map((list) => (
                             <option key={list.id} value={list.id}>
                               {list.name} ({list.ownerEmail || 'Owned'})
+                            </option>
+                          ))}
+                        </select>
+                      )
+                    ) : (
+                      availableGroups.length === 0 ? (
+                        <div className="text-xs font-bold text-center p-6 bg-neutral-50 border border-neutral-200 text-neutral-400 rounded-2xl">
+                          No resource groups found. Click "Create New & Add" above to create one on the fly!
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedExportGroupId}
+                          onChange={(e) => setSelectedExportGroupId(e.target.value)}
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3.5 text-xs focus:ring-2 focus:ring-neutral-900 outline-none font-bold uppercase tracking-wider transition"
+                        >
+                          <option value="" disabled>Select Resource Group...</option>
+                          {availableGroups.map((grp) => (
+                            <option key={grp.id} value={grp.id}>
+                              {grp.name} ({grp.entityIds?.length || 0} items)
                             </option>
                           ))}
                         </select>
@@ -9283,14 +9613,16 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                       ? !newExportInventoryName.trim() 
                       : (exportTargetType === 'inventory' 
                           ? (!selectedExportInventoryId || inventories.length === 0) 
-                          : (!selectedExportPackingListId || packingLists.length === 0)
+                          : exportTargetType === 'packingList'
+                            ? (!selectedExportPackingListId || packingLists.length === 0)
+                            : (!selectedExportGroupId || availableGroups.length === 0)
                         )
                     )
                   }
                   onClick={handleExportToInventory}
                   className="flex-1 py-4 bg-black text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl font-black uppercase tracking-widest text-xs transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {isExportingToInventory ? 'Copying...' : `Copy Selected (${selectedItems.size})`}
+                  {isExportingToInventory ? 'Adding...' : `Add Selected (${selectedItems.size})`}
                 </button>
               </div>
             </motion.div>
