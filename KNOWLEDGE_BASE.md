@@ -1,6 +1,35 @@
 # 📘 Packer Tools Knowledge Base
 
-Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including Multi-Library Depots, Model Context Protocol (MCP) connectors, Claude Marketing Agent positioning kits, deletion safeguards, Organizer Designer marquee box-select and group/ungroup shapes engine, CAD exports, magnetic alignment snapping, public share link resolution, unauthenticated asset passports, bulk allocation, audit workflows, AI scenario coaching, and native mobile UX.
+Welcome to the **Packer Tools** Knowledge Base! This document provides detailed, step-by-step guides on how to use advanced operations in the platform, including Camera-Based Barcode & QR Scanning, Multi-Library Depots, Model Context Protocol (MCP) connectors, Claude Marketing Agent positioning kits, deletion safeguards, Organizer Designer marquee box-select and group/ungroup shapes engine, CAD exports, magnetic alignment snapping, public share link resolution, unauthenticated asset passports, bulk allocation, audit workflows, AI scenario coaching, and native mobile UX.
+
+---
+
+## 📷 0.000000. Real-Time Camera Barcode & QR Scanner Integration (v6.1.0)
+
+Packer Tools features a native camera-based barcode and QR scanning engine powered by `html5-qrcode` and accessible across the **Gear Library** (`GearLibrary.tsx` & `BarcodeScannerModal.tsx`):
+
+### 1. Unified Multi-Format Detection
+- **Supported Barcode Types**: 1D Barcodes (CODE_128, CODE_39, EAN_13, EAN_8, UPC_A, UPC_E, CODABAR, ITF) and 2D Matrices (QR Code, Data Matrix, Aztec).
+- **Multi-Field Database Lookup**: Scanned strings are queried in real time across `assetTag`, `serialNumber`, `barcode`, `rfidEpc`, and `rfidTag` fields within the user's Firestore equipment library.
+- **Hardware Integration**: Uses the device camera API with environment-facing lens selection (`facingMode: 'environment'`), high FPS sampling, and optical target framing.
+
+### 2. Dual Scanning Workflows
+- **Single Scan & Inspect Mode**:
+  - Automatically queries the database upon tag detection.
+  - Displays instant gear match cards with equipment thumbnail, category badge, condition indicator, and current holder status.
+  - One-tap actions to open the full Gear Detail inspection drawer, add the matched item to an active packing list/manifest, or re-scan.
+- **Continuous Rapid Scan (Batch / Selection Mode)**:
+  - Keeps camera stream active for rapid depot audits, check-ins, or multi-item selections.
+  - Maintains an interactive scanned session log with audio/haptic confirmation beeps.
+  - Automatically integrates with `Select Mode` in the Gear Library so scanned items are added to the batch action bar in real time.
+- **Direct Asset Registration**:
+  - If a scanned barcode is not yet in the system, one click opens the `AddGearModal` with the `assetTag` prefilled and manual mode pre-selected.
+
+### 3. Quick Access Triggers
+- **Keyboard Shortcut**: Press `B` anywhere in the Gear Library (when not typing in a text field) to instantly open the camera scanner.
+- **Search Bar Triggers**: Dedicated Barcode icon buttons embedded directly inside the desktop and mobile search bars.
+- **Header Actions**: One-touch `Scan Tag` pill button in the top action bar.
+- **Select Mode Bar**: `Scan to Select` button in the floating selection bar for continuous batch gear selection.
 
 ---
 

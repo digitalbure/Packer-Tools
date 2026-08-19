@@ -334,12 +334,22 @@ export default function AddGearModal({ user, adminSettings }: AddGearModalProps)
     loadGearLibraries();
   }, [isOpen, user]);
 
-  // Sync libraryId from URL parameter if passed
+  // Sync libraryId, prefillTag, or prefillSerial from URL parameters if passed
   useEffect(() => {
     if (isOpen) {
       const libId = searchParams.get('libraryId');
-      if (libId) {
-        setForm(prev => ({ ...prev, libraryId: libId }));
+      const prefillTag = searchParams.get('prefillTag') || searchParams.get('assetTag');
+      const prefillSerial = searchParams.get('prefillSerial') || searchParams.get('serialNumber');
+
+      setForm(prev => ({
+        ...prev,
+        ...(libId ? { libraryId: libId } : {}),
+        ...(prefillTag ? { assetTag: prefillTag } : {}),
+        ...(prefillSerial ? { serialNumber: prefillSerial } : {})
+      }));
+
+      if (prefillTag || prefillSerial) {
+        setMethod('manual');
       }
     }
   }, [isOpen, searchParams]);

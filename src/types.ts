@@ -423,6 +423,7 @@ export interface GearItem {
   photoUrls: string[];
   specs?: any;
   assetTag?: string;
+  barcode?: string;
   quantity?: number;
   isOfflinePending?: boolean;
   offlineOpId?: string;

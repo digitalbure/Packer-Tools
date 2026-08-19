@@ -44,7 +44,8 @@ import {
   ArrowRightLeft,
   CheckSquare,
   Cpu,
-  Copy
+  Copy,
+  Barcode
 } from 'lucide-react';
 import ShareModal from '../components/ShareModal';
 import ManualCheckoutModal from '../components/ManualCheckoutModal';
@@ -63,6 +64,7 @@ import { SwipeableImageGallery } from '../components/SwipeableImageGallery';
 import { format } from 'date-fns';
 import { compressImage } from '../lib/imageUtils';
 import NfcScannerModal from '../components/NfcScannerModal';
+import BarcodeScannerModal from '../components/BarcodeScannerModal';
 import LibrarySwitcher from '../components/LibrarySwitcher';
 
 import { hapticLight, hapticLongPress } from '../utils/haptics';
@@ -1203,10 +1205,34 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     };
   }, [user?.uid]);
 
+  // Barcode & QR Camera Scanner State variables
+  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
+  const [barcodeScanMode, setBarcodeScanMode] = useState<'single' | 'continuous'>('single');
+
   // NFC Scanner State variables
   const [isNfcModalOpen, setIsNfcModalOpen] = useState(false);
   const [nfcScanMode, setNfcScanMode] = useState<'associate' | 'search'>('search');
   const [nfcTargetItem, setNfcTargetItem] = useState<{ id: string; name: string; type: 'gear' | 'inventory'; inventoryId?: string } | undefined>(undefined);
+
+  // Keyboard shortcut listener ('B' to open Barcode scanner)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      if (e.key === 'b' || e.key === 'B') {
+        if (!isBarcodeModalOpen && !isNfcModalOpen && !duplicateModalOpen) {
+          e.preventDefault();
+          triggerHaptic();
+          setBarcodeScanMode('single');
+          setIsBarcodeModalOpen(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isBarcodeModalOpen, isNfcModalOpen, duplicateModalOpen]);
 
   // Read NFC redirect triggers (if redirected from Inventory page after an NFC match)
   useEffect(() => {
@@ -4871,6 +4897,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             </button>
           </div>
           <button 
+            type="button"
+            onClick={() => {
+              triggerHaptic();
+              setBarcodeScanMode('single');
+              setIsBarcodeModalOpen(true);
+            }}
+            className="bg-neutral-100 hover:bg-neutral-200 text-neutral-900 border border-neutral-200/80 px-4 py-2.5 md:px-6 md:py-4 rounded-full font-black uppercase text-[10px] md:text-xs tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 duration-75 shadow-sm sm:flex-none flex-1 w-full sm:w-auto cursor-pointer"
+            title="Scan Barcode / QR with Camera (Keyboard shortcut: Press 'B')"
+          >
+            <Barcode size={16} className="text-[#ff4f3a]" />
+            <span>Scan Tag</span>
+          </button>
+          <button 
             onClick={() => {
               triggerHaptic();
               setSearchParams({ addGear: 'true' });
@@ -5649,23 +5688,37 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             <Search className="absolute left-3.5 md:left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
             <input
               type="text"
-              placeholder="Search library..."
+              placeholder="Search library by name, tag, brand, serial..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white border border-neutral-200 rounded-xl md:rounded-2xl pl-10 md:pl-12 pr-12 py-3 md:py-4 outline-none focus:ring-2 focus:ring-primary transition shadow-sm text-sm font-semibold"
+              className="w-full bg-white border border-neutral-200 rounded-xl md:rounded-2xl pl-10 md:pl-12 pr-24 py-3 md:py-4 outline-none focus:ring-2 focus:ring-primary transition shadow-sm text-sm font-semibold"
             />
-            <button
-              type="button"
-              onClick={() => {
-                setNfcScanMode('search');
-                setNfcTargetItem(undefined);
-                setIsNfcModalOpen(true);
-              }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-neutral-100 rounded-xl transition text-neutral-500 hover:text-primary"
-              title="Scan NFC Tag"
-            >
-              <Cpu size={16} className="text-[#F27D26]" />
-            </button>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic();
+                  setBarcodeScanMode('single');
+                  setIsBarcodeModalOpen(true);
+                }}
+                className="p-2 hover:bg-neutral-100 rounded-xl transition text-neutral-500 hover:text-[#ff4f3a] cursor-pointer"
+                title="Scan Barcode / QR (Camera) [Shortcut: Press 'B']"
+              >
+                <Barcode size={18} className="text-[#ff4f3a]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNfcScanMode('search');
+                  setNfcTargetItem(undefined);
+                  setIsNfcModalOpen(true);
+                }}
+                className="p-2 hover:bg-neutral-100 rounded-xl transition text-neutral-500 hover:text-primary cursor-pointer"
+                title="Scan NFC Tag"
+              >
+                <Cpu size={16} className="text-[#F27D26]" />
+              </button>
+            </div>
           </div>
           
           <div className="flex flex-wrap sm:flex-nowrap gap-2 md:gap-3 w-full lg:w-auto">
@@ -5735,20 +5788,34 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 placeholder="Search library..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-white border border-neutral-200 rounded-xl pl-10 pr-12 py-3 outline-none focus:ring-1 focus:ring-primary transition shadow-sm text-xs font-semibold"
+                className="w-full bg-white border border-neutral-200 rounded-xl pl-10 pr-20 py-3 outline-none focus:ring-1 focus:ring-primary transition shadow-sm text-xs font-semibold"
               />
-              <button
-                type="button"
-                onClick={() => {
-                  setNfcScanMode('search');
-                  setNfcTargetItem(undefined);
-                  setIsNfcModalOpen(true);
-                }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-neutral-100 rounded-xl transition text-neutral-500 hover:text-primary"
-                title="Scan NFC Tag"
-              >
-                <Cpu size={14} className="text-[#F27D26]" />
-              </button>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic();
+                    setBarcodeScanMode('single');
+                    setIsBarcodeModalOpen(true);
+                  }}
+                  className="p-1.5 hover:bg-neutral-100 rounded-xl transition text-neutral-500 hover:text-[#ff4f3a] cursor-pointer"
+                  title="Scan Barcode / QR (Camera)"
+                >
+                  <Barcode size={16} className="text-[#ff4f3a]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNfcScanMode('search');
+                    setNfcTargetItem(undefined);
+                    setIsNfcModalOpen(true);
+                  }}
+                  className="p-1.5 hover:bg-neutral-100 rounded-xl transition text-neutral-500 hover:text-primary cursor-pointer"
+                  title="Scan NFC Tag"
+                >
+                  <Cpu size={14} className="text-[#F27D26]" />
+                </button>
+              </div>
             </div>
             <button
               type="button"
@@ -8930,6 +8997,19 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 className="flex items-center gap-2 overflow-x-auto w-full scrollbar-hide pb-1 md:pb-0 px-2"
               >
                 <button 
+                  onClick={() => {
+                    triggerHaptic();
+                    setBarcodeScanMode('continuous');
+                    setIsBarcodeModalOpen(true);
+                  }}
+                  className="shrink-0 flex items-center justify-center gap-2 bg-[#ff4f3a] hover:bg-[#e04330] text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition shadow-lg whitespace-nowrap border border-white/10 cursor-pointer"
+                  title="Continuously scan barcodes/QR codes with camera to select items"
+                >
+                  <Barcode size={14} className="text-white" />
+                  <span>Scan to Select</span>
+                </button>
+
+                <button 
                   onClick={() => setIsPackingModalOpen(true)}
                   disabled={selectedItems.size === 0}
                   className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-700 transition shadow-lg whitespace-nowrap border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -10756,6 +10836,35 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
           />
         )}
       </AnimatePresence>
+
+      <BarcodeScannerModal
+        isOpen={isBarcodeModalOpen}
+        onClose={() => setIsBarcodeModalOpen(false)}
+        mode={barcodeScanMode}
+        onItemSelect={(item) => {
+          triggerHaptic();
+          if (barcodeScanMode === 'continuous') {
+            setSelectedItems(prev => {
+              const next = new Set(prev);
+              next.add(item.id);
+              return next;
+            });
+            setIsMultiSelectMode(true);
+            toast.success(`Selected "${item.name}"`);
+          } else {
+            setSelectedGearItemView(item);
+          }
+        }}
+        onAddToManifest={(item) => {
+          triggerHaptic();
+          setSelectedItems(new Set([item.id]));
+          setIsExportToInventoryOpen(true);
+        }}
+        onRegisterNewItem={(tag) => {
+          triggerHaptic();
+          setSearchParams({ addGear: 'true', prefillTag: tag });
+        }}
+      />
 
       <NfcScannerModal
         isOpen={isNfcModalOpen}
