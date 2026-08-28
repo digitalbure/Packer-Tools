@@ -670,6 +670,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
     }
 
     setIsExporting(true);
+    await new Promise(res => setTimeout(res, 60));
     try {
       const canvasContainer = document.getElementById('studio-canvas-container');
       if (!canvasContainer) {
@@ -680,7 +681,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
       const activeItem = printableItemsList.find(i => i.id === previewItemId) || items[0];
       const baseFilename = activeItem?.name ? `${activeItem.name}-label` : 'packer-tools-label';
 
-      toast.info(`Downloading label as ${fmt.toUpperCase()}...`);
+      toast.info(`Downloading clean label as ${fmt.toUpperCase()}...`);
       await downloadLabelFromElement(canvasContainer, {
         filename: baseFilename,
         format: fmt,
@@ -3427,10 +3428,11 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                         borderRadius: canvasLayout === 'cable' ? '0' : '4px'
                       }}
                     >
-                      {/* Dynamic Visual sub-grid overlays */}
+                      {/* Dynamic Visual sub-grid overlays (Editor-Only) */}
                       {showGrid && (
                         <div 
-                          className="absolute inset-0 pointer-events-none"
+                          className="editor-grid-overlay studio-editor-only absolute inset-0 pointer-events-none"
+                          data-editor-only="true"
                           style={{
                             backgroundImage: `
                               linear-gradient(to right, rgba(0, 0, 0, 0.035) 1px, transparent 1px),
@@ -3447,10 +3449,23 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                         />
                       )}
 
-                      {/* Guides Layer */}
+                      {/* Guides Layer (Editor-Only) */}
                       {showGuides && (
-                        <div className="absolute inset-2 border border-dashed border-[#0066cc]/10 pointer-events-none">
+                        <div 
+                          className="editor-guides-overlay studio-editor-only absolute inset-2 border border-dashed border-[#0066cc]/10 pointer-events-none"
+                          data-editor-only="true"
+                        >
                           <span className="absolute top-1 left-1 text-[5px] text-[#0066cc]/40 uppercase font-bold tracking-wider">Safe Area (2mm)</span>
+                        </div>
+                      )}
+
+                      {/* Crop & Trim Marks Layer (Preserved during label export) */}
+                      {showCropMarks && (
+                        <div className="crop-marks-layer pointer-events-none select-none z-20 absolute inset-0">
+                          <div className="crop-mark absolute top-0 left-0 w-2.5 h-2.5 border-t border-l border-neutral-500 pointer-events-none" style={{ marginTop: '-0.5px', marginLeft: '-0.5px' }} />
+                          <div className="crop-mark absolute top-0 right-0 w-2.5 h-2.5 border-t border-r border-neutral-500 pointer-events-none" style={{ marginTop: '-0.5px', marginRight: '-0.5px' }} />
+                          <div className="crop-mark absolute bottom-0 left-0 w-2.5 h-2.5 border-b border-l border-neutral-500 pointer-events-none" style={{ marginBottom: '-0.5px', marginLeft: '-0.5px' }} />
+                          <div className="crop-mark absolute bottom-0 right-0 w-2.5 h-2.5 border-b border-r border-neutral-500 pointer-events-none" style={{ marginBottom: '-0.5px', marginRight: '-0.5px' }} />
                         </div>
                       )}
 
@@ -3470,9 +3485,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                             }}
                             onTouchMove={handleTouchMoveContext}
                             onTouchEnd={handleTouchEndContext}
-                            className={`absolute flex flex-col justify-center cursor-move select-none transition-shadow ${
-                              isSelected ? 'ring-1 ring-[#0066cc] bg-[#0066cc]/5 border border-[#0066cc]' : 'hover:bg-neutral-100/50'
-                            }`}
+                            className="absolute flex flex-col justify-center cursor-move select-none transition-shadow"
                             style={{
                               left: `${el.x}%`,
                               top: `${el.y}%`,
@@ -3520,38 +3533,45 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                               />
                             )}
 
-                            {/* Touch Resize Corner Handles */}
+                            {/* Editor-Only Selection Box & Resize Corner Handles (Filtered out from exports) */}
                             {isSelected && (
-                              <>
+                              <div 
+                                className="selection-overlay selection-handle studio-editor-only absolute inset-0 ring-1 ring-[#0066cc] bg-[#0066cc]/5 border border-[#0066cc] pointer-events-none z-30"
+                                data-editor-only="true"
+                              >
                                 <div
                                   onMouseDown={(e) => handleResizeMouseDown(e, el.id, 'top-left')}
                                   onTouchStart={(e) => handleResizeMouseDown(e, el.id, 'top-left')}
-                                  className="absolute -top-3 -left-3 w-6 h-6 flex items-center justify-center cursor-nwse-resize z-30 touch-none"
+                                  className="selection-handle studio-editor-only absolute -top-3 -left-3 w-6 h-6 flex items-center justify-center cursor-nwse-resize z-30 touch-none pointer-events-auto"
+                                  data-editor-only="true"
                                 >
-                                  <span className="w-2.5 h-2.5 bg-[#0066cc] border-2 border-white rounded-full shadow-md" />
+                                  <span className="w-2.5 h-2.5 bg-[#0066cc] border-2 border-white rounded-full shadow-md pointer-events-none" />
                                 </div>
                                 <div
                                   onMouseDown={(e) => handleResizeMouseDown(e, el.id, 'top-right')}
                                   onTouchStart={(e) => handleResizeMouseDown(e, el.id, 'top-right')}
-                                  className="absolute -top-3 -right-3 w-6 h-6 flex items-center justify-center cursor-nesw-resize z-30 touch-none"
+                                  className="selection-handle studio-editor-only absolute -top-3 -right-3 w-6 h-6 flex items-center justify-center cursor-nesw-resize z-30 touch-none pointer-events-auto"
+                                  data-editor-only="true"
                                 >
-                                  <span className="w-2.5 h-2.5 bg-[#0066cc] border-2 border-white rounded-full shadow-md" />
+                                  <span className="w-2.5 h-2.5 bg-[#0066cc] border-2 border-white rounded-full shadow-md pointer-events-none" />
                                 </div>
                                 <div
                                   onMouseDown={(e) => handleResizeMouseDown(e, el.id, 'bottom-left')}
                                   onTouchStart={(e) => handleResizeMouseDown(e, el.id, 'bottom-left')}
-                                  className="absolute -bottom-3 -left-3 w-6 h-6 flex items-center justify-center cursor-nesw-resize z-30 touch-none"
+                                  className="selection-handle studio-editor-only absolute -bottom-3 -left-3 w-6 h-6 flex items-center justify-center cursor-nesw-resize z-30 touch-none pointer-events-auto"
+                                  data-editor-only="true"
                                 >
-                                  <span className="w-2.5 h-2.5 bg-[#0066cc] border-2 border-white rounded-full shadow-md" />
+                                  <span className="w-2.5 h-2.5 bg-[#0066cc] border-2 border-white rounded-full shadow-md pointer-events-none" />
                                 </div>
                                 <div
                                   onMouseDown={(e) => handleResizeMouseDown(e, el.id, 'bottom-right')}
                                   onTouchStart={(e) => handleResizeMouseDown(e, el.id, 'bottom-right')}
-                                  className="absolute -bottom-3 -right-3 w-6 h-6 flex items-center justify-center cursor-nwse-resize z-30 touch-none"
+                                  className="selection-handle studio-editor-only absolute -bottom-3 -right-3 w-6 h-6 flex items-center justify-center cursor-nwse-resize z-30 touch-none pointer-events-auto"
+                                  data-editor-only="true"
                                 >
-                                  <span className="w-2.5 h-2.5 bg-[#0066cc] border-2 border-white rounded-full shadow-md" />
+                                  <span className="w-2.5 h-2.5 bg-[#0066cc] border-2 border-white rounded-full shadow-md pointer-events-none" />
                                 </div>
-                              </>
+                              </div>
                             )}
                           </div>
                         );
@@ -4744,6 +4764,35 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                   </div>
                 </div>
               )}
+
+              {/* Clean Export & Crop Marks Options */}
+              <div>
+                <label className="block text-[10px] font-black uppercase text-neutral-400 tracking-wider mb-2">
+                  {selectedIds.size > 1 ? '5.' : '4.'} Print & Trim Guides
+                </label>
+                <div className="p-3 bg-neutral-900/60 rounded-xl border border-neutral-800 flex items-center justify-between">
+                  <div className="flex flex-col pr-3">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>✂️ Corner Crop Marks</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono">Trim Lines</span>
+                    </span>
+                    <span className="text-[10px] text-neutral-400 mt-0.5">
+                      Exports clean design with precise corner trim lines (editor handles and background grids are always excluded)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCropMarks(!showCropMarks)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 ${
+                      showCropMarks
+                        ? 'bg-emerald-500 text-neutral-950 shadow-sm'
+                        : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    {showCropMarks ? 'Included' : 'Off'}
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Modal Footer */}

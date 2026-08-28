@@ -81,6 +81,41 @@ export function clearPrinterCssCache(): { success: boolean; clearedCount: number
 }
 
 /**
+ * Determines whether a given DOM node is an editor-only artifact that should be stripped
+ * from label exports (PNG, JPG, PDF, SVG).
+ * NOTE: Crop & trim marks are the explicit exception and MUST be preserved in the export.
+ */
+export function isEditorOverlayNode(node: Node): boolean {
+  if (!(node instanceof HTMLElement || node instanceof SVGElement)) {
+    return false;
+  }
+  const el = node as HTMLElement;
+  if (el.dataset?.editorOnly === 'true') {
+    return true;
+  }
+  const classStr = typeof el.className === 'string' ? el.className : (el.getAttribute?.('class') || '');
+  
+  // Crop marks MUST NOT be filtered out (they are the explicit exception for cutting/trimming)
+  if (classStr.includes('crop-marks') || classStr.includes('crop-mark')) {
+    return false;
+  }
+  
+  if (
+    classStr.includes('editor-grid-overlay') ||
+    classStr.includes('editor-guides-overlay') ||
+    classStr.includes('selection-overlay') ||
+    classStr.includes('selection-handle') ||
+    classStr.includes('studio-editor-only') ||
+    classStr.includes('editor-only') ||
+    classStr.includes('cut-guide-indicator') ||
+    classStr.includes('transform-handle')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Downloads a DOM element (label container) in PNG, JPG, PDF, or SVG format.
  */
 export async function downloadLabelFromElement(
@@ -119,18 +154,9 @@ export async function downloadLabelFromElement(
     backgroundColor: format === 'png' ? (backgroundColor === 'transparent' ? undefined : backgroundColor) : '#ffffff',
     quality,
     cacheBust: true,
-    filter: (node: HTMLElement) => {
-      // Exclude selection borders, resize handles, or editor-only elements
-      if (node.classList) {
-        if (
-          node.classList.contains('editor-grid-overlay') ||
-          node.classList.contains('selection-handle') ||
-          node.classList.contains('cut-guide-indicator')
-        ) {
-          return false;
-        }
-      }
-      return true;
+    filter: (node: Node) => {
+      // Exclude selection borders, resize handles, grids, guides, or editor-only elements
+      return !isEditorOverlayNode(node);
     },
   };
 
@@ -227,17 +253,8 @@ export async function downloadBatchLabelsPdf(
           boxShadow: 'none',
           border: 'none',
         },
-        filter: (node: HTMLElement) => {
-          if (node.classList) {
-            if (
-              node.classList.contains('editor-grid-overlay') ||
-              node.classList.contains('selection-handle') ||
-              node.classList.contains('cut-guide-indicator')
-            ) {
-              return false;
-            }
-          }
-          return true;
+        filter: (node: Node) => {
+          return !isEditorOverlayNode(node);
         },
       });
 
