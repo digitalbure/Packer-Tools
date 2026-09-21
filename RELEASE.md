@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.2.0`
+## Current Application Version: `v6.3.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,21 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🖥️ Feature Release: v6.3.0 (Kiosk Phase 1: Scoped Terminal Tokens & Kiosk API)
+*Released on: September 22, 2026*
+
+Additive server foundation for kiosks that never hold the owner's account. **No existing screen changes in this release**; the kiosk UI still uses its current client-side path until Phase 2 migrates it. Full reference: `docs/kiosk-api.md`.
+
+- **Server-verified pairing.** The owner activates a kiosk through `POST /api/kiosk/terminals/activate`, which writes a server-only grant (`kioskGrants`). The client-writable `terminals` document is no longer trusted: any signed-in user could previously rewrite a *pending* terminal to point at another owner. A forged terminal now gets no token (tested). Ambiguous pairing codes are refused instead of guessed.
+- **Scoped, revocable device tokens** (`kioskTokens`, hashed, 30 days, rotating refresh). Every request re-checks the grant, the terminal and the owner's `kioskMode` plan entitlement (server port of `isFeatureEnabled`), so revoking a terminal or downgrading a plan disables the kiosk within about a minute.
+- **Kiosk API** (`/api/kiosk/*`): context, paged catalogue search (no composite indexes needed), scan lookup, check-out, check-in, self-service orders, order fulfilment and hand-over receipts. Every operation is scoped to the token's single owner (no endpoint accepts an owner id) and multi-item operations are all-or-nothing transactions with per-item conflict reports.
+- **Tests**: `tests/kiosk-api-e2e.mts` (60 checks) covers two-tenant isolation (lookup, search, inventory, check-out, check-in, orders, fulfilment, revoke), forged terminals, atomic races, restricted statuses, kits, validation, receipts, refresh, revocation and plan downgrade. `npm test` now runs 134 checks in total.
+- `renderKioskReceipt` extracted from the email route for reuse; `kioskGrants` / `kioskTokens` explicitly denied to clients in `firestore.rules`.
+
+**Phase 2 (next)**: move the kiosk UI and the owner's pairing screen onto these endpoints, split `KioskMode.tsx`, then tighten the `terminals`, `checkouts` and `inventories` rules (the leak that lets any signed-in user read every inventory sheet).
 
 ---
 

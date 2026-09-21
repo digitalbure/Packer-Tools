@@ -25,7 +25,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.2.0',
+      version: 'v6.3.0',
       tag: 'Latest',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Claude Connector, Security Hardening, Safer Kiosk Check-outs & Working Email',
