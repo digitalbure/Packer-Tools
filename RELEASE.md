@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.4.0`
+## Current Application Version: `v6.5.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -15,6 +15,20 @@ Below is the consolidated history of Packer Tools, tracing all production rollou
 
 ---
 
+### 🔌 Feature Release: v6.5.0 (Kiosk Phase 2a: Kiosk UI on the Server API, Server-verified Pairing)
+*Released on: September 22, 2026*
+
+The kiosk screens now use the Phase 1 API when a device holds a terminal token, and fall back to the existing client-side path otherwise, so kiosks already deployed keep working until they are re-paired.
+
+- **Pairing goes through the server.** The dashboard's "Authorize Device" now calls `POST /api/kiosk/terminals/activate` (records the server-only grant), and "Deauthorize" / delete call `revoke` (grant and every token removed at once). Newly paired kiosks obtain a scoped token automatically; the 5-tap escape clears it.
+- **Atomic, server-enforced actions.** With a token, scan lookup, bulk check-out, bulk check-in, self-service orders, order fulfilment and receipt emails run on the server: one transaction per request (all items released or none), restricted statuses and plan entitlement enforced, every record stamped with owner and terminal. Conflicts read plainly, for example "Camera is already checked out to Ola".
+- **Receipts** from a paired kiosk no longer depend on a signed-in user.
+- New client module `src/lib/kioskApi.ts`; `tests/kiosk-client-e2e.mts` (17 checks) runs it against the real server. `npm test` now runs 146 checks plus the 17 client checks.
+
+**Not in this release (Phase 2b, needs a test kiosk device)**
+- Tablets still sign in with an account to browse and to load the catalogue; running with no login at all requires migrating the remaining screens (browse/search results, travel-case / pack screens, live order list) onto the API.
+- Firestore rules for `terminals`, `checkouts` and `inventories` are unchanged; they can only be tightened once no kiosk depends on direct client access. The inventory read leak therefore remains until then.
+- Devices paired before this release run in legacy mode until re-paired (Deauthorize, then pair again).
 ### 🏠 Feature Release: v6.4.0 (New Public Home Page)
 *Released on: September 22, 2026*
 

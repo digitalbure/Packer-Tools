@@ -49,6 +49,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, Organization, Department, Team, UserRole, Terminal, AdminSettings } from '../types';
 import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
+import { kioskApi, KioskApiError } from '../lib/kioskApi';
 import { compressImage } from '../lib/imageUtils';
 import UpgradeNowModal from '../components/UpgradeNowModal';
 import PackerLogo from '../components/PackerLogo';
@@ -3166,22 +3167,12 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                         return;
                       }
                       try {
-                        const q = query(collection(db, 'terminals'), where('pairingCode', '==', pairingCodeInput), where('status', '==', 'pending'));
-                        const snap = await getDocs(q);
-                        if (snap.empty) {
-                          toast.error("Invalid or expired pairing code");
-                          return;
-                        }
-                        const terminalDoc = snap.docs[0];
-                        await updateDoc(doc(db, 'terminals', terminalDoc.id), {
-                          status: 'active',
-                          ownerUid: user?.uid,
-                          lastActive: new Date().toISOString()
-                        });
+                        // Server-verified pairing: the server records the grant that lets the tablet obtain a scoped token.
+                        await kioskApi.activateTerminal(pairingCodeInput);
                         setPairingCodeInput('');
                         toast.success("Terminal Paired Successfully!");
                       } catch (e) {
-                        toast.error("Pairing failed");
+                        toast.error(e instanceof KioskApiError ? e.message : "Pairing failed");
                       }
                     }}
                     className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] transition"
@@ -3216,8 +3207,12 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                       <button 
                         onClick={async () => {
                           if (window.confirm('Deauthorize this terminal?')) {
-                            await updateDoc(doc(db, 'terminals', terminal.id), { status: 'pending', ownerUid: null });
-                            toast.success("Terminal deauthorized");
+                            try {
+                              await kioskApi.revokeTerminal(terminal.id); // server: revokes the grant and every token at once
+                              toast.success("Terminal deauthorized");
+                            } catch (e) {
+                              toast.error(e instanceof KioskApiError ? e.message : "Could not deauthorize the terminal");
+                            }
                           }
                         }}
                         className="absolute top-6 right-6 p-2 text-neutral-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
