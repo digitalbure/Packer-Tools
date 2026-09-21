@@ -1,0 +1,52 @@
+/* Label Studio. Same brand language as the home page (docs/landing-design.md). Scoped under .ls */
+.ls {
+  --concrete: #dde0dc; --raised: #eceeea; --foam: #202427; --foam-deep: #111417; --ink: #14181b; --ink-soft: #4a5257;
+  --tape: #f2f0e6; --hazard: #ff5500; --ok: #1f6b42; --line: rgba(20, 24, 27, 0.18);
+  --f-display: 'Big Shoulders Display', 'Arial Narrow', sans-serif; --f-body: 'Barlow', system-ui, sans-serif; --f-data: 'Barlow Semi Condensed', 'Barlow', sans-serif;
+  background: var(--concrete); color: var(--ink); font: 400 1rem/1.5 var(--f-body); padding: clamp(1rem, 3vw, 2rem); min-height: 100%;
+}
+.ls *, .ls *::before, .ls *::after { box-sizing: border-box; }
+.ls h1, .ls h2, .ls h3, .ls p { margin: 0; }
+.ls :focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.ls-title { font: 900 clamp(2.5rem, 6vw, 4rem)/0.92 var(--f-display); text-transform: uppercase; }
+.ls-head { display: grid; gap: 0.5rem; margin-bottom: 1.5rem; max-width: 60ch; }
+.ls-grid { display: grid; gap: 1.5rem; align-items: start; }
+@media (min-width: 1100px) { .ls-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); } .ls-side { position: sticky; top: 1rem; } }
+.ls-panel { background: var(--raised); border: 2px solid var(--ink); padding: 1.25rem; display: grid; gap: 1rem; margin-bottom: 1.5rem; }
+.ls-panel > h2 { font: 800 1.6rem/1 var(--f-display); text-transform: uppercase; }
+.ls-step { color: var(--hazard); margin-right: 0.5rem; }
+.ls-row { display: grid; gap: 0.75rem; }
+@media (min-width: 640px) { .ls-row--2 { grid-template-columns: 1fr 1fr; } .ls-row--4 { grid-template-columns: repeat(4, 1fr); } }
+.ls label { display: grid; gap: 0.25rem; font-weight: 600; font-size: 0.9375rem; }
+.ls input[type='text'], .ls input[type='number'], .ls input[type='search'], .ls select { width: 100%; min-height: 2.6rem; padding: 0.4rem 0.6rem; border: 2px solid var(--ink); border-radius: 3px; background: #fff; font: 500 1rem var(--f-body); color: var(--ink); }
+.ls-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: 0.5rem 1.1rem; border: 2px solid var(--ink); border-radius: 3px; background: transparent; color: var(--ink); font: 700 1rem var(--f-body); cursor: pointer; }
+.ls-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ls-btn--primary { background: var(--hazard); box-shadow: 3px 3px 0 var(--ink); }
+.ls-btn--small { min-height: 2.25rem; padding: 0.25rem 0.75rem; font-size: 0.9375rem; }
+.ls-btn--danger { border-color: #9b1c1c; color: #9b1c1c; }
+.ls-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.ls-list { max-height: 18rem; overflow: auto; border: 2px solid var(--ink); background: #fff; }
+.ls-item { display: grid; grid-template-columns: 1.6rem 1fr auto; gap: 0.6rem; align-items: center; padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--line); cursor: pointer; }
+.ls-item:last-child { border-bottom: 0; }
+.ls-item input { width: 1.1rem; height: 1.1rem; }
+.ls-soft { color: var(--ink-soft); font-size: 0.9375rem; }
+.ls-badge { font: 600 0.8125rem var(--f-data); padding: 0.05rem 0.5rem; background: var(--ink); color: var(--tape); border-radius: 2px; }
+.ls-badge--test { background: var(--hazard); color: var(--ink); }
+.ls-el { border: 2px solid var(--line); background: #fff; padding: 0.75rem; display: grid; gap: 0.6rem; }
+.ls-el header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-weight: 700; }
+details.ls-fold > summary { cursor: pointer; font: 800 1.15rem var(--f-display); text-transform: uppercase; }
+/* preview: foam panel with the label sheet on it */
+.ls-preview { background: var(--foam); color: #e6e9e6; padding: 1.25rem; display: grid; gap: 1rem; margin-bottom: 1.5rem; }
+.ls-preview h2 { font: 800 1.6rem/1 var(--f-display); text-transform: uppercase; }
+.ls-stage { background: #3a4147; padding: 1.5rem; display: grid; place-items: center; overflow: auto; }
+.ls-stage svg { display: block; background: #fff; box-shadow: 0 6px 16px #0008; max-width: 100%; height: auto; }
+.ls-issues { display: grid; gap: 0.5rem; }
+.ls-issue { display: grid; grid-template-columns: 0.5rem 1fr; gap: 0.7rem; padding: 0.55rem 0.7rem; background: #111417; }
+.ls-issue i { background: var(--hazard); display: block; }
+.ls-issue[data-level='warn'] i { background: #f2c200; }
+.ls-ok { padding: 0.6rem 0.8rem; background: #111417; border-left: 6px solid #2f8f5b; }
+.ls-preview .ls-btn { color: #e6e9e6; border-color: #e6e9e6; }
+.ls-preview .ls-btn--primary { color: var(--ink); border-color: var(--hazard); box-shadow: 3px 3px 0 #000; }
+.ls-msg { padding: 0.6rem 0.8rem; background: var(--tape); color: var(--ink); font-weight: 600; }
+
+.ls-preview .ls-soft { color: #b4bbb7; }

@@ -162,6 +162,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/projects', label: 'Projects', icon: <Briefcase size={20} /> },
     { to: '/kiosk', label: 'Gear Kiosk', icon: <QrCode size={20} />, feature: 'kioskMode' as FeatureKey },
     { to: '/library', label: getAdjustedLabel('library'), icon: <Package size={20} /> },
+    { to: '/labels', label: 'Labels', icon: <QrCode size={20} /> },
     { to: '/systems-builder', label: getAdjustedLabel('systems-builder'), icon: <Hammer size={20} /> },
     { 
       to: '/marketplace', 

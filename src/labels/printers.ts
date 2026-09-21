@@ -40,7 +40,7 @@ export const PRINTERS: PrinterProfile[] = [
       { type: 'web-bluetooth', status: 'planned' },
     ],
     status: 'in-testing',
-    notes: 'Owner-ordered unit: 2 inch thermal transfer, 300 dpi, 50 mm black ribbon. Printable width, command set (the sibling DT60S is listed with ESC/POS and LPAPI) and Bluetooth behaviour are not confirmed and must be checked on the unit.',
+    notes: 'Thermal transfer, 2 inch, 300 dpi. In testing: printing through the printer driver and saving images should work. Direct Bluetooth printing is planned.',
   },
   { id: 'zebra-zd', name: 'Zebra ZD series', kind: 'roll', dpiOptions: [203, 300], languages: ['ZPL'], transports: [{ type: 'browser-print', status: 'untested' }, { type: 'network-raw', status: 'planned' }], status: 'planned', notes: 'Direct ZPL printing is planned.' },
   { id: 'brother-ql', name: 'Brother QL series', kind: 'roll', dpiOptions: [300], languages: ['Brother raster'], transports: [{ type: 'browser-print', status: 'untested' }], status: 'planned', notes: 'Direct printing is planned.' },

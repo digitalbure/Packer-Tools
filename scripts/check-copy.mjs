@@ -10,7 +10,7 @@ import path from 'node:path';
 const args = process.argv.slice(2);
 const all = args.includes('--all');
 const roots = args.filter(a => !a.startsWith('--'));
-const targets = all ? ['src'] : roots.length ? roots : ['src/labels', 'src/components/landing', 'src/pages/HomePage.tsx'];
+const targets = all ? ['src'] : roots.length ? roots : ['src/labels', 'src/components/landing', 'src/pages/HomePage.tsx', 'src/pages/LabelStudio.tsx'];
 
 const BANNED = [
   'seamless', 'seamlessly', 'supercharge', 'unlock', 'revolutioniz', 'cutting-edge', 'next-gen', 'state-of-the-art', 'world-class',

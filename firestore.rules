@@ -631,6 +631,15 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
 
+    // Label Studio templates. Global: any signed-in user reads, only admins change. Personal: owner only.
+    match /labelTemplatesGlobal/{templateId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /users/{userId}/labelTemplatesV2/{templateId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
+
     // Server-only collections (Admin SDK bypasses rules). Explicit deny for MCP OAuth state and audit logs.
     match /mcpClients/{id} { allow read, write: if false; }
     match /mcpAuthCodes/{id} { allow read, write: if false; }

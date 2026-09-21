@@ -46,6 +46,7 @@ const lazyWithRetry = (importFn: () => Promise<any>) => {
 
 // Lazy-loaded Pages
 const HomePage = lazyWithRetry(() => import('../pages/HomePage'));
+const LabelStudio = lazyWithRetry(() => import('../pages/LabelStudio'));
 const Dashboard = lazyWithRetry(() => import('../pages/Dashboard'));
 const PackingListDetail = lazyWithRetry(() => import('../pages/PackingListDetail'));
 const PackingListBioView = lazyWithRetry(() => import('../pages/PackingListBioView'));
@@ -169,6 +170,8 @@ export function AnimatedRoutes() {
         <Route path="/listings" element={isFeatureEnabled('marketplaceListings', user, adminSettings) ? <AuthGuard><ListingsModule user={user!} adminSettings={adminSettings} /></AuthGuard> : <Navigate to="/dashboard" />} />
         
         <Route path="/ai-wizard" element={isFeatureEnabled('aiWizard', user, adminSettings) ? <AITemplateWizard user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
+        <Route path="/labels" element={<AuthGuard><LabelStudio user={user!} adminSettings={adminSettings} /></AuthGuard>} />
+        {import.meta.env.DEV && <Route path="/labels-demo" element={<LabelStudio user={null} demo />} />}
         <Route path="/library" element={<AuthGuard><GearLibrary user={user!} adminSettings={adminSettings} /></AuthGuard>} />
         <Route path="/systems-builder" element={<AuthGuard><SystemsBuilder user={user!} /></AuthGuard>} />
         <Route path="/racks" element={<AuthGuard><RackingDashboard user={user!} adminSettings={adminSettings} /></AuthGuard>} />

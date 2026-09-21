@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.8.0`
+## Current Application Version: `v6.9.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,21 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🏷️ Feature Release: v6.9.0 (New Label Studio)
+*Released on: September 22, 2026*
+The new Label Studio is at **Labels** in the sidebar (`/labels`). The old studio (in the gear library and other modules) keeps working until the entry points are moved over.
+- **Three steps on one screen:** pick items, choose printer, label stock and template, then check the live preview and print. Warnings and errors show under the preview; printing is blocked while a code is too small to scan or the label is empty.
+- **Any printer, or none.** Roll and handheld printers print at the exact label size through the printer driver (cable labels feed their full length, tail unprinted). "Any printer" prints A4 or Letter pages, either as label sheets or as a cut-and-tape layout with dashed cut lines for plain paper. "Save as images" exports black-and-white PNGs at the printer's resolution for the printer maker's own app.
+- **Stock and printer profiles** from the engine: the DT60PLUS is listed as "In testing"; Zebra, Brother and DYMO are listed as planned.
+- **Templates in two tiers.** Starter templates ship with the app. Company (global) templates are published by a Packer Tools admin (collection `labelTemplatesGlobal`, admin write, everyone read). Personal templates (`users/{uid}/labelTemplatesV2`) belong to their author only. Anyone can copy any template into their own set. Everything read back from storage is validated and clamped (`sanitizeSpec`).
+- **Template editor** (numbers and lists, no dragging yet): add text, codes (QR, Code 128, Code 39, EAN-13, Data Matrix) and lines; set position, size and turn.
+- **Firestore rules** added for the two template collections. The old shared `marketplaceTemplates` collection (any signed-in user could overwrite any template) is no longer used by the new studio.
+- Development-only demo at `#/labels-demo` (not included in production builds).
+- 68 label tests; `npm test` now runs 231 checks. Copy check covers the new screen.
+- **Not yet done:** dragging elements on a canvas, direct printer commands (Bluetooth, ZPL), moving the old entry points to the new studio, and hands-on printer testing.
 
 ---
 

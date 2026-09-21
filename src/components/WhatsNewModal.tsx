@@ -25,7 +25,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.8.0',
+      version: 'v6.9.0',
       tag: 'Latest',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Claude Connector, Security Hardening, Safer Kiosk Check-outs & Working Email',
@@ -57,6 +57,11 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
           title: 'More Reliable Server Sync',
           desc: 'Fixed the server connecting to the wrong database, which affected billing, webhooks and share pages. Also added automated checks that run on every change.',
           badge: 'Reliability'
+        },
+        {
+          title: 'New Label Studio',
+          desc: 'Print labels at exact size on roll printers, label sheets or plain paper with cut lines. Real barcodes, cable wrap labels, and codes that are checked for scannability before you print. Save your own templates.',
+          badge: 'Labels'
         },
         {
           title: 'A New Home Page',

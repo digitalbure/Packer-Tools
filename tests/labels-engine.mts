@@ -1,5 +1,5 @@
 /** Label engine: encoding, dot-aligned fitting, scan-safety rules, vector rendering, sheets. No emulator needed. */
-import { LABEL_STOCKS, STARTER_TEMPLATES, getStock, encodeSymbol, SymbolError, fitSymbol, renderLabel, renderSheets, layoutSheet, PAGES, tapeItYourselfOptions, resolvePlaceholders, esc, mmToDots, PRINTERS, recommendedPrinters, getPrinter, type LabelSpec } from "../src/labels";
+import { sanitizeSpec, LABEL_STOCKS, STARTER_TEMPLATES, getStock, encodeSymbol, SymbolError, fitSymbol, renderLabel, renderSheets, layoutSheet, PAGES, tapeItYourselfOptions, resolvePlaceholders, esc, mmToDots, PRINTERS, recommendedPrinters, getPrinter, type LabelSpec } from "../src/labels";
 
 let pass = 0, failed = 0;
 const check = (name: string, cond: boolean, extra = "") => { cond ? pass++ : failed++; console.log(`${cond ? "PASS" : "FAIL"}  ${name}${cond ? "" : "  <- " + extra}`); };
@@ -116,6 +116,16 @@ check("rotated placement lands on a printer dot", Math.abs(mmToDots(parseFloat(r
 const long9 = renderLabel({ ...barSpec(90), elements: [{ id: "c", kind: "code", symbology: "code128", value: "PT-ABC123", x: 2, y: 1, w: 12, h: 36, rotate: 90 }] }, {}, { dpi: 300 });
 check("a longer tag on that label is refused with a size to aim for", long9.issues.some(i => i.level === "error" && /at least/.test(i.message)), JSON.stringify(long9.issues));
 check("rotated text renders too", renderLabel({ ...barSpec(90), elements: [{ id: "t", kind: "text", x: 2, y: 1, w: 8, h: 30, fontMm: 3, text: "PT-ABC123", rotate: 90 }] }, {}).svg.includes("rotate(90)"));
+
+// ---- stored templates are untrusted ----
+check("a stored template renders identically after a JSON round trip", STARTER_TEMPLATES.every(s => renderLabel(sanitizeSpec(JSON.stringify(s))!, { name: "Cam", assetTag: "PT-1", url: "https://packer.tools/gear/x" }, { dpi: 300 }).svg === renderLabel(s, { name: "Cam", assetTag: "PT-1", url: "https://packer.tools/gear/x" }, { dpi: 300 }).svg));
+check("garbage is rejected", sanitizeSpec("not json") === null && sanitizeSpec(null) === null && sanitizeSpec({ widthMm: "x" }) === null);
+const hostile = sanitizeSpec({ widthMm: 9999, heightMm: -5, name: "x".repeat(500), elements: [{ kind: "script", x: 1 }, { kind: "code", symbology: "evil", x: 0 }, { kind: "text", text: "ok", x: "1e9", y: NaN, w: -4, h: 0, fontMm: 900, rotate: 45 }, ...Array.from({ length: 100 }, () => ({ kind: "rule", x: 0, y: 0, w: 1, h: 1 }))] })!;
+check("sizes are clamped and names capped", hostile.widthMm === 300 && hostile.heightMm === 5 && hostile.name.length === 80);
+check("unknown kinds and symbologies are dropped and the count is capped", hostile.elements.length <= 40 && hostile.elements[0].kind === "text" && hostile.elements.every(e => ["text", "code", "rule"].includes(e.kind)), String(hostile.elements.length));
+const t0 = hostile.elements[0] as any;
+check("numbers inside elements are clamped and rotation is limited", t0.x === 500 && t0.w === 0.5 && t0.h === 0.5 && t0.fontMm === 60 && t0.rotate === 0, JSON.stringify(t0));
+check("a sanitised hostile template still renders", renderLabel(hostile, {}).svg.startsWith("<svg"));
 
 console.log(`\n${pass} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

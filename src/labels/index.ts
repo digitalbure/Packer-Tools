@@ -5,3 +5,4 @@ export * from './render';
 export * from './sheet';
 export * from './printers';
 export * from './presets';
+export * from './sanitize';
