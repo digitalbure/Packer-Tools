@@ -12,7 +12,7 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "check:copy": "node scripts/check-copy.mjs",
-    "test": "firebase emulators:exec --only firestore,auth --project packer-tools \"tsx tests/mcp-e2e.mts && tsx tests/billing-e2e.mts && tsx tests/kiosk-ops-e2e.mts && tsx tests/kiosk-api-e2e.mts && tsx tests/kiosk-client-e2e.mts && tsx tests/email-e2e.mts && tsx tests/labels-engine.mts\"",
+    "test": "firebase emulators:exec --only firestore,auth --project packer-tools \"tsx tests/mcp-e2e.mts && tsx tests/billing-e2e.mts && tsx tests/kiosk-ops-e2e.mts && tsx tests/kiosk-api-e2e.mts && tsx tests/kiosk-client-e2e.mts && tsx tests/email-e2e.mts && tsx tests/labels-engine.mts && tsx tests/booking-pricing.mts\"",
     "test:mcp": "npm test"
   },
   "dependencies": {

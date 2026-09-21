@@ -100,6 +100,7 @@ const LazySpinner = () => (
   </div>
 );
 
+import BookingDemo from '../booking/BookingDemo';
 export function AnimatedRoutes() {
   const { user, setUser, adminSettings, setIsMobileSidebarOpen, landingView, setLandingView } = useAuth();
   const location = useLocation();
@@ -171,6 +172,7 @@ export function AnimatedRoutes() {
         
         <Route path="/ai-wizard" element={isFeatureEnabled('aiWizard', user, adminSettings) ? <AITemplateWizard user={user!} adminSettings={adminSettings} /> : <Navigate to="/dashboard" />} />
         <Route path="/labels" element={<AuthGuard><LabelStudio user={user!} adminSettings={adminSettings} /></AuthGuard>} />
+        {import.meta.env.DEV && <Route path="/booking-demo" element={<BookingDemo />} />}
         {import.meta.env.DEV && <Route path="/labels-demo" element={<LabelStudio user={null} demo />} />}
         <Route path="/library" element={<AuthGuard><GearLibrary user={user!} adminSettings={adminSettings} /></AuthGuard>} />
         <Route path="/systems-builder" element={<AuthGuard><SystemsBuilder user={user!} /></AuthGuard>} />
