@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.0.2`
+## Current Application Version: `v6.0.3`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,15 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🔌 Patch Release: v6.0.3 (MCP Streamable HTTP & Connector Sign-in Fix)
+*Released on: September 21, 2026*
+- **Streamable HTTP transport**: `POST /api/mcp` now serves the current MCP Streamable HTTP transport (stateless, via the official SDK). Use `https://packer.tools/api/mcp` and select "Streamable HTTP" under Advanced in the Claude connector form. Legacy SSE remains at `/api/mcp/sse` for existing clients; `GET /api/mcp` now returns 405.
+- **OAuth metadata fix**: removed the advertised `registration_endpoint` (`/oauth/register` was never implemented and returned 404, causing "Couldn't register with Packer Tools's sign-in service"). Enter the OAuth client ID `packer-tools-claude-connector` and the `MCP_CLIENT_SECRET` value manually under Advanced.
+- **Lockfile**: `package-lock.json` resynced with `package.json` (`npm ci` was failing).
+- MCP `serverInfo`, Developer API and Knowledge Base synced to `v6.0.3`.
 
 ---
 

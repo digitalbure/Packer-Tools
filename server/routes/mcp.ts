@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -39,7 +40,6 @@ router.get([
     issuer: baseUrl,
     authorization_endpoint: `${baseUrl}/oauth/authorize`,
     token_endpoint: `${baseUrl}/oauth/token`,
-    registration_endpoint: `${baseUrl}/oauth/register`,
     response_types_supported: ["code", "token"],
     grant_types_supported: ["client_credentials", "authorization_code"],
     token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
@@ -848,7 +848,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
         const targetIndustry = (args.industry as string | undefined)?.toLowerCase();
         const kit = {
           brand: "Packer Tools",
-          version: "v6.0.2",
+          version: "v6.0.3",
           canonicalPositioning: "signed, bidirectional manifest",
           tagline: "Production Logistics OS for Professional Crews",
           valuePropositions: [
@@ -1103,7 +1103,7 @@ async function readMcpResource(uri: string) {
     try {
       content = fs.readFileSync(filePath, "utf-8");
     } catch {
-      content = "# Release Notes\n\nCurrent Version: v6.0.2";
+      content = "# Release Notes\n\nCurrent Version: v6.0.3";
     }
     return {
       contents: [{ uri, mimeType: "text/markdown", text: content }]
@@ -1228,7 +1228,7 @@ function createMcpServer(): Server {
   const mcpServer = new Server(
     {
       name: "packer-tools-mcp",
-      version: "6.0.2",
+      version: "6.0.3",
     },
     {
       capabilities: {
@@ -1258,7 +1258,7 @@ function createMcpServer(): Server {
 }
 
 // 6. Mount SSE Endpoints
-router.get(["/api/mcp/sse", "/api/mcp", "/api/mcp/"], async (req, res) => {
+router.get(["/api/mcp/sse"], async (req, res) => {
   console.info("[MCP Router] Initializing new client SSE connection stream...");
 
   res.setHeader("Content-Type", "text/event-stream");
@@ -1305,8 +1305,34 @@ router.post(["/api/mcp/messages", "/api/mcp/messages/"], async (req, res) => {
   }
 });
 
+// Streamable HTTP transport (current MCP standard), stateless: one server + transport per request.
+router.post(["/api/mcp", "/api/mcp/"], async (req, res) => {
+  try {
+    const server = createMcpServer();
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    res.on("close", () => {
+      transport.close();
+      server.close();
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch (err: any) {
+    console.error("[MCP Streamable HTTP] request failed:", err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ jsonrpc: "2.0", error: { code: -32603, message: "Internal server error" }, id: null });
+    }
+  }
+});
+
+// Stateless mode has no server-initiated stream or sessions to delete.
+router.all(["/api/mcp", "/api/mcp/"], (req, res) => {
+  if (req.method === "OPTIONS") return res.status(204).end();
+  res.setHeader("Allow", "POST");
+  return res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed. Use POST (Streamable HTTP), or /api/mcp/sse for legacy SSE." }, id: null });
+});
+
 // 8. Direct HTTP JSON-RPC Endpoint (Stateless Fallback / Non-SSE clients)
-router.post(["/api/mcp", "/api/mcp/sse"], async (req, res) => {
+router.post(["/api/mcp/sse"], async (req, res) => {
   if (req.query.sessionId) {
     const sessionId = req.query.sessionId as string;
     const transport = activeTransports.get(sessionId);
@@ -1332,7 +1358,7 @@ router.post(["/api/mcp", "/api/mcp/sse"], async (req, res) => {
         result: {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {}, resources: {} },
-          serverInfo: { name: "packer-tools-mcp", version: "6.0.2" }
+          serverInfo: { name: "packer-tools-mcp", version: "6.0.3" }
         },
         id
       });
