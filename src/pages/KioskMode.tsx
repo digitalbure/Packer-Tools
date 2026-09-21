@@ -42,6 +42,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { collection, query, where, getDocs, getDoc, addDoc, deleteDoc, serverTimestamp, doc, updateDoc, onSnapshot, limit, arrayUnion } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, signInWithGoogle } from '../firebase';
 import { authenticatedFetch } from '../lib/api';
+import { kioskApi, KioskApiError, remember as kioskRemember, hasToken as kioskHasToken } from '../lib/kioskApi';
 import { findItem, checkOutItem, checkInItem, parseScannedValue, ItemConflictError, type ItemSource } from '../lib/kioskOps';
 import { triggerGoogleChatAlert } from '../services/googleChat';
 import { GearItem, UserProfile, CheckoutRecord, AdminSettings, Container } from '../types';
@@ -760,6 +761,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       return;
     }
     try {
+      await kioskApi.revokeTerminal(tId).catch(() => undefined); // server: grant + tokens go immediately
       await deleteDoc(doc(db, 'terminals', tId));
       toast.success(`Terminal ${deviceName} successfully deleted.`);
     } catch (err) {
@@ -1134,6 +1136,34 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     initializeTerminal();
   }, []);
 
+  // ---- Server-verified session (kiosk API). Devices paired before this existed simply stay on the legacy path. ----
+  const [apiMode, setApiMode] = useState<boolean>(kioskHasToken());
+  useEffect(() => {
+    if (pairingCode) kioskRemember.pairingCode(pairingCode); // needed to open a session once the owner activates
+  }, [pairingCode]);
+  useEffect(() => {
+    if (!isActivated || !terminalId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        if (kioskHasToken()) {
+          await kioskApi.refresh().catch(() => undefined); // rotate the 30-day token on each app start
+        } else {
+          const code = kioskRemember.pairingCodeValue();
+          if (code) await kioskApi.startSession(terminalId, code);
+        }
+      } catch (e) {
+        console.warn('[Kiosk] API session unavailable, using legacy mode:', e);
+      }
+      if (!cancelled) setApiMode(kioskHasToken());
+    })();
+    return () => { cancelled = true; };
+  }, [isActivated, terminalId]);
+  /** True when this action should go through the server API (online, and this device holds a valid token). */
+  const viaKioskApi = () => apiMode && isOnline && kioskHasToken();
+  const describeKioskError = (err: unknown, fallback: string) =>
+    err instanceof KioskApiError ? err.describe() : err instanceof ItemConflictError ? err.message : fallback;
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -1147,6 +1177,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
           updateDoc(doc(db, 'terminals', terminalId), { status: 'pending', ownerUid: null });
         }
         localStorage.removeItem('kiosk_terminal_id');
+        kioskApi.forget();
         window.location.href = '/dashboard';
         return 0;
       }
@@ -1492,7 +1523,9 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     const decodedValue = parseScannedValue(scannedValue);
 
     try {
-      const foundItem: GearItem | null = await findItem(getItemSource(targetUid), scannedValue);
+      const foundItem: GearItem | null = viaKioskApi()
+        ? await kioskApi.lookup(scannedValue, activeSourceType === 'customInventory' && terminalInventoryId ? { source: 'inventory', inventoryId: terminalInventoryId } : {})
+        : await findItem(getItemSource(targetUid), scannedValue);
 
       if (!foundItem) {
         toast.error("Asset not found in organization database");
@@ -1527,6 +1560,19 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       const checkoutItems: any[] = [];
       const sigData = savedSignatureData || sigCanvas.current?.toDataURL() || undefined;
       const nowMs = Date.now();
+
+      const viaApiNow = viaKioskApi();
+      if (viaApiNow) {
+        // One server transaction for the whole cart: all items are released or none is.
+        await kioskApi.checkout({
+          ...(activeSourceType === 'customInventory' && terminalInventoryId ? { source: 'inventory' as const, inventoryId: terminalInventoryId } : {}),
+          items: cart.map(({ item, qty }) => ({ id: item.id, qty })),
+          holder: { name: guestInfo.name || initialUser?.displayName || 'Terminal Guest', email: guestInfo.email || initialUser?.email || '' },
+          signature: sigData || null,
+          expectedReturnDate: guestInfo.expectedReturnDate || undefined,
+          notes: `Bulk checked out via Gear Terminal at ${new Date().toLocaleString()}`,
+        });
+      }
 
       for (const { item, qty } of cart) {
         if (!isOnline) {
@@ -1580,7 +1626,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
               });
             }
           }
-        } else {
+        } else if (!viaApiNow) {
           await checkOutItem(getItemSource(targetUid), item, {
             ownerUid: targetUid,
             name: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
@@ -1630,9 +1676,11 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       setStep('item_released');
     } catch (error) {
       console.error(error);
-      toast.error(error instanceof ItemConflictError
-        ? `${error.message} Items scanned before this one were already released; review the list and retry.`
-        : "Bulk check-out failed. Please try again.");
+      toast.error(error instanceof KioskApiError && error.conflicts
+        ? `Nothing was released. ${error.describe()}.`
+        : error instanceof ItemConflictError
+          ? `${error.message} Items scanned before this one were already released; review the list and retry.`
+          : describeKioskError(error, "Bulk check-out failed. Please try again."));
     } finally {
       setIsLoading(false);
     }
@@ -1645,6 +1693,15 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     try {
       const checkinItems: any[] = [];
       const nowMs = Date.now();
+      const viaApiNow = viaKioskApi();
+      if (viaApiNow) {
+        await kioskApi.checkin({
+          ...(activeSourceType === 'customInventory' && terminalInventoryId ? { source: 'inventory' as const, inventoryId: terminalInventoryId } : {}),
+          items: cart.map(({ item }) => ({ id: item.id })),
+          holder: { name: guestInfo.name || initialUser?.displayName || 'Terminal Guest', email: guestInfo.email || initialUser?.email || '' },
+        });
+      }
+
       for (const { item, qty } of cart) {
         if (!isOnline) {
           const checkoutId = 'checkout_' + nowMs + '_' + Math.random().toString(36).substring(2, 7);
@@ -1696,7 +1753,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
               });
             }
           }
-        } else {
+        } else if (!viaApiNow) {
           await checkInItem(getItemSource(targetUid), item, {
             ownerUid: targetUid,
             name: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
@@ -1736,7 +1793,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       setStep('receipt');
     } catch (error) {
       console.error(error);
-      toast.error("Bulk check-in failed.");
+      toast.error(describeKioskError(error, "Bulk check-in failed."));
     } finally {
       setIsLoading(false);
     }
@@ -1746,22 +1803,22 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     if (!lastOrderReceipt) return;
     setIsSendingEmail(true);
     try {
-      const response = await authenticatedFetch('/api/send-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          to: lastOrderReceipt.userEmail,
-          orderNumber: lastOrderReceipt.orderNumber,
-          actionType: lastOrderReceipt.actionType,
-          userName: lastOrderReceipt.userName,
-          items: lastOrderReceipt.items,
-          timestamp: lastOrderReceipt.createdAt.toLocaleString(),
-          expectedReturnDate: lastOrderReceipt.expectedReturnDate
-        })
-      });
-      const data = await response.json();
+      const receiptBody = {
+        to: lastOrderReceipt.userEmail,
+        orderNumber: lastOrderReceipt.orderNumber,
+        actionType: lastOrderReceipt.actionType,
+        userName: lastOrderReceipt.userName,
+        items: lastOrderReceipt.items,
+        timestamp: lastOrderReceipt.createdAt.toLocaleString(),
+        expectedReturnDate: lastOrderReceipt.expectedReturnDate
+      };
+      const data: any = viaKioskApi()
+        ? await kioskApi.receipt(receiptBody).catch((e: any) => ({ success: false, error: e?.message }))
+        : await (await authenticatedFetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(receiptBody)
+          })).json();
       if (data && data.success) {
         if (data.simulated) {
           // Development sandbox only: show the rendered email instead of sending it
@@ -1797,6 +1854,21 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
         isKit: item.isKit || false
       }));
 
+      // Server-created order (names/tags come from the database) when the device has a token; otherwise legacy write.
+      if (viaKioskApi()) {
+        const created = await kioskApi.createOrder({ items: cart.map(({ item, qty }) => ({ id: item.id, qty })), guest: { name: guestInfo.name, email: guestInfo.email } });
+        setLastOrderReceipt({
+          orderNumber: created.orderNumber,
+          userName: guestInfo.name || 'Terminal Guest',
+          userEmail: guestInfo.email || 'guest@terminal.local',
+          items: created.items,
+          createdAt: new Date(),
+          actionType: 'order'
+        });
+        setStep('receipt');
+        return;
+      }
+
       // Write order to Firestore db
       await addDoc(collection(db, 'orders'), {
         orderNumber,
@@ -1820,7 +1892,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       setStep('receipt');
     } catch (e) {
       console.error(e);
-      toast.error("Failed to submit self-service order.");
+      toast.error(describeKioskError(e, "Failed to submit self-service order."));
     } finally {
       setIsLoading(false);
     }
@@ -1831,6 +1903,15 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     const src: ItemSource = { kind: 'library', ownerUid: order.userId };
     const released: any[] = [];
     try {
+      if (viaKioskApi()) {
+        // Single server transaction: release every item and mark the order fulfilled, or change nothing.
+        await kioskApi.fulfillOrder(order.id);
+        toast.success(`Order ${order.orderNumber} successfully fulfilled and items released!`);
+        setIsFulfillDeskOpen(false);
+        setActiveFulfillOrder(null);
+        setVerifiedItemsMap({});
+        return;
+      }
       // 1. Release every item first (each release is its own atomic transaction: status + checkout record).
       for (const item of order.items) {
         const gearItem = gear.find(g => g.id === item.id);
@@ -1861,7 +1942,9 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
           console.error("Rollback failed for", target.id, rollbackErr);
         }
       }
-      toast.error(err instanceof ItemConflictError
+      toast.error(err instanceof KioskApiError && err.conflicts
+        ? `Order not fulfilled. ${err.describe()}.`
+        : err instanceof ItemConflictError
         ? `Order not fulfilled. ${err.message}`
         : "Failed to fulfill the order. Nothing was released; try again.");
     } finally {
@@ -3143,6 +3226,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                       await updateDoc(doc(db, 'terminals', terminalId), { status: 'pending', ownerUid: null });
                     }
                     localStorage.removeItem('kiosk_terminal_id');
+        kioskApi.forget();
                     window.location.reload();
                   }}
                   className="flex-1 py-4 bg-white/5 border border-white/15 text-white hover:bg-white/10 rounded-2xl text-[11px] font-black uppercase tracking-widest transition"
@@ -3309,6 +3393,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                       await updateDoc(doc(db, 'terminals', terminalId), { status: 'pending', ownerUid: null });
                     }
                     localStorage.removeItem('kiosk_terminal_id');
+        kioskApi.forget();
                     localStorage.removeItem('kiosk_configured');
                     window.location.reload();
                   }}
