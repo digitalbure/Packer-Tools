@@ -349,12 +349,16 @@ export async function dispatchEmailPayload(
   const key = process.env.RESEND_API_KEY;
   const keyMissing = !key || key === "YOUR_RESEND_API_KEY";
   if (keyMissing) {
-    if (process.env.NODE_ENV === "production") {
-      // Never pretend a real email was sent.
-      console.error("[Email] RESEND_API_KEY is not configured; email NOT sent:", subject);
-      return { success: false, simulated: false, error: "Email is not configured on this server.", recipient: to, gateway: 'none' };
+    // Simulation is OPT-IN (EMAIL_SIMULATE=true, for local development). It must never happen implicitly: the runtime
+    // does not reliably set NODE_ENV, and a silent "sent" with nothing delivered is worse than an error.
+    if (process.env.EMAIL_SIMULATE !== "true") {
+      console.error("[Email] RESEND_API_KEY is missing or still the placeholder; email NOT sent:", subject);
+      return {
+        success: false, simulated: false, recipient: to, gateway: 'none',
+        error: "Email is not configured: set a valid RESEND_API_KEY (starts with re_) in the server secrets and republish.",
+      };
     }
-    console.info("[Email] No Resend key (dev). Simulated email:", subject);
+    console.info("[Email] EMAIL_SIMULATE=true. Simulated email:", subject);
     return {
       success: true,
       simulated: true,
@@ -362,7 +366,7 @@ export async function dispatchEmailPayload(
       subject,
       html: htmlContent,
       fromAddress,
-      notice: "Resend key is unconfigured. Email simulated in development sandbox mode."
+      notice: "Simulated: EMAIL_SIMULATE is on, so nothing was sent."
     };
   }
 

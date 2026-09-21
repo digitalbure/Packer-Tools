@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.5.0`
+## Current Application Version: `v6.5.1`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚑 Hotfix: v6.5.1 (Email Never Silently Simulates)
+*Released on: September 22, 2026*
+- **Bug:** email only failed loudly when `NODE_ENV=production`. The hosting runtime does not reliably set it, so with a missing or placeholder `RESEND_API_KEY` the admin test reported "sent successfully" while nothing was sent (and nothing appeared in Resend).
+- **Fix:** simulation is now opt-in (`EMAIL_SIMULATE=true`, development only). Without a valid key the server returns a clear error: set a valid `RESEND_API_KEY` (starts with `re_`) and republish.
+- Tests updated (`tests/email-e2e.mts`, `tests/kiosk-api-e2e.mts`).
 
 ---
 

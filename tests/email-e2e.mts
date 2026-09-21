@@ -30,9 +30,9 @@ const send = (body: any, headers: any = H) => realFetch(`${base}/api/send-email`
 
 check("receipt without auth -> 401", (await send(receipt, { "content-type": "application/json" })).status === 401);
 
-process.env.NODE_ENV = "production"; delete process.env.RESEND_API_KEY;
+delete process.env.RESEND_API_KEY; delete process.env.EMAIL_SIMULATE;
 let r: any = await (await send(receipt)).json();
-check("production without a Resend key reports failure (no fake success)", r.success === false && /not configured/i.test(r.error), JSON.stringify(r));
+check("without a Resend key it reports failure, whatever NODE_ENV is (no fake success)", r.success === false && /not configured/i.test(r.error), JSON.stringify(r));
 
 process.env.RESEND_API_KEY = "re_test_key"; resendMode = "unverified";
 r = await (await send(receipt)).json();
@@ -49,9 +49,9 @@ check("HTML in item names is escaped in the email body", !lastResendBody.html.in
 await (await realFetch(`${base}/api/emails/send`, { method: "POST", headers: H, body: JSON.stringify({ to: "x@y.dev", type: "welcome", data: { displayName: "N" }, branding: { companyName: 'Evil" <ceo@bank.com>\r\nBcc: a@b.c' } }) })).json();
 check("company name cannot inject into the From header", !/[\r\n]/.test(lastResendBody.from) && (lastResendBody.from.match(/</g) || []).length === 1 && /no-reply@packer\.tools>$/.test(lastResendBody.from), lastResendBody.from);
 
-process.env.NODE_ENV = "development"; delete process.env.RESEND_API_KEY;
+process.env.EMAIL_SIMULATE = "true"; delete process.env.RESEND_API_KEY;
 r = await (await send(receipt)).json();
-check("development without a key simulates (sandbox)", r.success === true && r.simulated === true);
+check("simulation only happens when EMAIL_SIMULATE=true", r.success === true && r.simulated === true);
 
 console.log(`\n${pass} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

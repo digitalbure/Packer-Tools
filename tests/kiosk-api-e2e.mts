@@ -134,14 +134,14 @@ check("order cannot be fulfilled twice", (await call("POST", `/api/kiosk/orders/
 
 // ---------- receipt email (Resend stubbed) ----------
 let sent: any = null;
-process.env.RESEND_API_KEY = "re_test"; process.env.NODE_ENV = "production";
+process.env.RESEND_API_KEY = "re_test";
 globalThis.fetch = (async (url: any, init?: any) => String(url).includes("api.resend.com") ? (sent = JSON.parse(init.body), new Response(JSON.stringify({ id: "re_9" }), { status: 200, headers: { "content-type": "application/json" } })) : realFetch(url, init)) as any;
 const rc = await call("POST", "/api/kiosk/receipt", TA, { to: "ola@x.dev", orderNumber: "REC-1", actionType: "checkout", userName: "Ola", items: [{ name: "<b>Cam</b>", assetTag: "T1", qty: 1 }] });
 check("receipt sends via Resend", rc.status === 200 && rc.data.success === true && rc.data.resendId === "re_9", JSON.stringify(rc.data));
 check("receipt Reply-To is the owner, From is the platform domain", (sent.reply_to === "a@own.dev" || sent.replyTo === "a@own.dev") && /kiosk-no-reply@packer\.tools/.test(sent.from), JSON.stringify(sent));
 check("receipt HTML is escaped", !sent.html.includes("<b>Cam</b>") && sent.html.includes("&lt;b&gt;"));
 check("receipt rejects a bad recipient", (await call("POST", "/api/kiosk/receipt", TA, { to: "not-an-email" })).status === 400);
-globalThis.fetch = realFetch; process.env.NODE_ENV = "development";
+globalThis.fetch = realFetch;
 
 // ---------- session refresh / revoke / entitlement ----------
 const ref = await call("POST", "/api/kiosk/session/refresh", TA);
