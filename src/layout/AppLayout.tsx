@@ -119,7 +119,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           )}
         </AnimatePresence>
 
-        <div className={`flex-1 flex overflow-hidden w-full ${isLandingPage ? 'bg-[#0d0f12] text-white' : (user && user.layoutTheme === 'workflow' && !isLayoutHidden ? 'bg-[#111113] text-[#dfdfe5]' : 'bg-neutral-50 text-neutral-900')}`}>
+        <div className={`flex-1 flex ${isLandingPage ? '' : 'overflow-hidden'} w-full ${isLandingPage ? 'bg-[#0d0f12] text-white' : (user && user.layoutTheme === 'workflow' && !isLayoutHidden ? 'bg-[#111113] text-[#dfdfe5]' : 'bg-neutral-50 text-neutral-900')}`}>
         {user && user.layoutTheme === 'workflow' && !isLayoutHidden ? (
           <WorkflowLayout
             user={user}
@@ -158,7 +158,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                   onToggleLayoutTheme={toggleLayoutTheme}
                 />
               )}
-              <main className={`flex-1 w-full overflow-y-auto flex flex-col justify-between ${
+              <main className={`flex-1 w-full ${isLandingPage ? '' : 'overflow-y-auto'} flex flex-col justify-between ${
                 isLandingPage
                   ? 'max-w-none px-0 py-0 bg-[#0d0f12] text-white'
                   : (isLayoutHidden 

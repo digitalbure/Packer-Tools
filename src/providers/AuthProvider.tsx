@@ -111,71 +111,6 @@ export function getDefaultAdminSettings(): AdminSettings {
       primaryColor: '#F27D26',
       logo: ''
     },
-    frontPageCopy: 'Professional Gear Management for the Modern Pro.',
-    landingPage: {
-      header: { logoText: 'Packer.Tools', links: [] },
-      hero: {
-        title: 'Visual Inventory. Smarter Logistics.',
-        subtitle: 'Industrial Grade Gear Tracking',
-        description: 'Professional-grade lifecycle management for high-stakes equipment. Visual verification, asset tracking, and integrated team logistics.',
-        primaryButtonText: 'Get Started',
-        secondaryButtonText: 'Explore Use Cases',
-        isEnabled: true
-      },
-      ticker: {
-        title: 'Used By',
-        pairs: [
-          { by: "Production Crews", for: "Camera Kit Labeling" },
-          { by: "Logistics Teams", for: "Team Kit Distribution" },
-          { by: "Mountaineers", for: "Expedition Readiness" },
-          { by: "Global Logistics", for: "Asset Accountability" },
-          { by: "Rental Houses", for: "Lifecycle Management" },
-          { by: "Hikers & Backpackers", for: "Trail Weight Optimization" },
-          { by: "Touring Artists", for: "Backstage Inventory" },
-          { by: "Field Engineers", for: "Tooling Deployment" }
-        ],
-        isEnabled: true
-      },
-      features: {
-        title: 'Built for the Field',
-        description: "We've engineered a system that thrives in high-pressure environments. From remote expeditions to back-to-back production schedules.",
-        items: [
-          { title: 'Visual Verification', description: 'Every item is tracked with high-resolution photos for instant identification.', icon: 'Camera' },
-          { title: 'Asset Tagging', description: 'Generate and scan QR codes for rapid inventory audits and tracking.', icon: 'QrCode' },
-          { title: 'Marketplace Integration', description: 'List surplus gear for sale or rental with a single click.', icon: 'ShoppingBag' },
-          { title: 'Team Distribution', description: 'Deploy kits to team members and track their status in real-time.', icon: 'Truck' }
-        ],
-        isEnabled: true
-      },
-      scenarios: {
-        title: 'The Standard Across Industries',
-        subtitle: 'From independent creators to global logistics teams, Packer.Tools provides the infrastructure for visual gear management and versioned workflows.',
-        items: [
-          { title: "Film Production", image: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=800" },
-          { title: "Alpine Expeditions", image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800" },
-          { title: "Tactical Logistics", image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=800" },
-          { title: "Extreme Sports", image: "https://images.unsplash.com/photo-1533560904424-a0c61dc306fc?auto=format&fit=crop&q=80&w=800" }
-        ],
-        isEnabled: true
-      },
-      stats: {
-        items: [
-          { label: "Recognition", value: "99.2%" },
-          { label: "Active Users", value: "12k+" },
-          { label: "Kits Managed", value: "450k" }
-        ],
-        isEnabled: true
-      },
-      testimonials: { title: 'Trusted Professionals', subtitle: 'What our users say', items: [], isEnabled: false },
-      faq: { title: 'FAQ', subtitle: 'Frequently Asked Questions', items: [], isEnabled: false },
-      cta: {
-        title: 'Ready to Streamline Your Workflow?',
-        description: 'Join thousands of professionals who trust Packer.Tools for their critical equipment management.',
-        buttonText: 'Get Started Now',
-        isEnabled: true
-      },
-      footer: { copyright: '© 2026 Packer.Tools', links: [] }
-    },
     billingEnabled: false,
     aiConfig: {
       enabled: true,
@@ -466,7 +401,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [landingView, setLandingView] = useState<string>('saas');
+  const [landingView, setLandingView] = useState<string>('home');
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [listsCount, setListsCount] = useState(0);
   const [currentHash, setCurrentHash] = useState(window.location.hash);
@@ -679,71 +614,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               pwaThemeColor: '#0a0a0c',
               pwaIcon192Url: '/icon-192.png',
               pwaIcon512Url: '/icon-512.png'
-            },
-            frontPageCopy: 'Professional Gear Management for the Modern Pro.',
-            landingPage: {
-              header: { logoText: 'Packer Tools', links: [] },
-              hero: {
-                title: 'Visual Inventory. Smarter Logistics.',
-                subtitle: 'Industrial Grade Gear Tracking',
-                description: 'Professional-grade lifecycle management for high-stakes equipment. Visual verification, asset tracking, and integrated team logistics.',
-                primaryButtonText: 'Get Started',
-                secondaryButtonText: 'Explore Use Cases',
-                isEnabled: true
-              },
-              ticker: {
-                title: 'Used By',
-                pairs: [
-                  { by: "Production Crews", for: "Camera Kit Labeling" },
-                  { by: "Logistics Teams", for: "Team Kit Distribution" },
-                  { by: "Mountaineers", for: "Expedition Readiness" },
-                  { by: "Global Logistics", for: "Asset Accountability" },
-                  { by: "Rental Houses", for: "Lifecycle Management" },
-                  { by: "Hikers & Backpackers", for: "Trail Weight Optimization" },
-                  { by: "Touring Artists", for: "Backstage Inventory" },
-                  { by: "Field Engineers", for: "Tooling Deployment" }
-                ],
-                isEnabled: true
-              },
-              features: {
-                title: 'Built for the Field',
-                description: 'We\'ve engineered a system that thrives in high-pressure environments. From remote expeditions to back-to-back production schedules.',
-                items: [
-                  { title: 'Visual Verification', description: 'Every item is tracked with high-resolution photos for instant identification.', icon: 'Camera' },
-                  { title: 'Asset Tagging', description: 'Generate and scan QR codes for rapid inventory audits and tracking.', icon: 'QrCode' },
-                  { title: 'Marketplace Integration', description: 'List surplus gear for sale or rental with a single click.', icon: 'ShoppingBag' },
-                  { title: 'Team Distribution', description: 'Deploy kits to team members and track their status in real-time.', icon: 'Truck' }
-                ],
-                isEnabled: true
-              },
-              scenarios: {
-                title: 'The Standard Across Industries',
-                subtitle: 'From independent creators to global logistics teams, Packer Tools provides the infrastructure for visual gear management and versioned workflows.',
-                items: [
-                  { title: "Film Production", image: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&fit=crop&q=80&w=800" },
-                  { title: "Alpine Expeditions", image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800" },
-                  { title: "Tactical Logistics", image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=800" },
-                  { title: "Extreme Sports", image: "https://images.unsplash.com/photo-1533560904424-a0c61dc306fc?auto=format&fit=crop&q=80&w=800" }
-                ],
-                isEnabled: true
-              },
-              stats: {
-                items: [
-                  { label: "Recognition", value: "99.2%" },
-                  { label: "Active Users", value: "12k+" },
-                  { label: "Kits Managed", value: "450k" }
-                ],
-                isEnabled: true
-              },
-              testimonials: { title: 'Trusted Professionals', subtitle: 'What our users say', items: [], isEnabled: false },
-              faq: { title: 'FAQ', subtitle: 'Frequently Asked Questions', items: [], isEnabled: false },
-              cta: {
-                title: 'Ready to Streamline Your Workflow?',
-                description: 'Join thousands of professionals who trust Packer Tools for their critical equipment management.',
-                buttonText: 'Get Started Now',
-                isEnabled: true
-              },
-              footer: { copyright: '© 2026 Packer Tools', links: [] }
             },
             billingEnabled: false,
             aiConfig: {

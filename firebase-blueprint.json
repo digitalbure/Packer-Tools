@@ -145,7 +145,6 @@
       "type": "object",
       "properties": {
         "branding": { "type": "object" },
-        "frontPageCopy": { "type": "string" },
         "billingEnabled": { "type": "boolean" },
         "aiConfig": {
           "type": "object",

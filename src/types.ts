@@ -861,118 +861,6 @@ export interface IntegrationConfig {
   paypalSandboxMode?: boolean;
 }
 
-export interface LandingPagePair {
-  by: string;
-  for: string;
-}
-
-export interface LandingPageFeature {
-  title: string;
-  description: string;
-  icon: string; // Lucide icon name
-}
-
-export interface LandingPageScenario {
-  title: string;
-  image: string;
-}
-
-export interface LandingPageTestimonial {
-  name: string;
-  role: string;
-  content: string;
-  avatar?: string;
-}
-
-export interface LandingPageFAQ {
-  question: string;
-  answer: string;
-}
-
-export interface NavLink {
-  label: string;
-  href: string;
-}
-
-export interface AIRecognitionItem {
-  id: string;
-  name: string;
-  details: string;
-  image: string;
-  icon: string; // Lucide icon name
-}
-
-export interface AIRecognitionConfig {
-  enabled: boolean;
-  interval: number; // in milliseconds
-  items: AIRecognitionItem[];
-}
-
-export interface LandingPageContent {
-  header: {
-    logoText: string;
-    links: NavLink[];
-  };
-  hero: {
-    title: string;
-    subtitle: string;
-    description: string;
-    primaryButtonText: string;
-    secondaryButtonText: string;
-    isEnabled: boolean;
-  };
-  ticker: {
-    title: string;
-    pairs: LandingPagePair[];
-    isEnabled: boolean;
-  };
-  features: {
-    title: string;
-    description: string;
-    items: LandingPageFeature[];
-    isEnabled: boolean;
-  };
-  scenarios: {
-    title: string;
-    subtitle: string;
-    items: LandingPageScenario[];
-    isEnabled: boolean;
-  };
-  stats: {
-    items: { label: string; value: string }[];
-    isEnabled: boolean;
-  };
-  testimonials: {
-    title: string;
-    subtitle: string;
-    items: LandingPageTestimonial[];
-    isEnabled: boolean;
-  };
-  faq: {
-    title: string;
-    subtitle: string;
-    items: LandingPageFAQ[];
-    isEnabled: boolean;
-  };
-  cta: {
-    title: string;
-    description: string;
-    buttonText: string;
-    isEnabled: boolean;
-  };
-  footer: {
-    copyright: string;
-    links: NavLink[];
-  };
-}
-
-export interface Lander {
-  id: string;
-  name: string;
-  content: LandingPageContent;
-  createdAt: any;
-}
-
 export interface KioskTerminal {
   id: string;
   orgId: string;
@@ -1005,10 +893,9 @@ export interface CustomPage {
   slug: string;
   title: string;
   content: string;
-  category: 'legal' | 'policy' | 'info' | 'other' | 'landing';
+  category: 'legal' | 'policy' | 'info' | 'other';
   status: 'draft' | 'published';
   isVisible: boolean;
-  isLandingPage?: boolean;
   createdAt: any;
   updatedAt: any;
   lastUpdatedBy: string;
@@ -1066,12 +953,6 @@ export interface AdminSettings {
   limits?: {
     maxCheckoutDurationHours?: number;
   };
-  frontPageCopy: string;
-  landingPage?: LandingPageContent;
-  landers?: Lander[];
-  activeLanderId?: string;
-  activeCustomPageSlug?: string;
-  activeLandingPageType?: 'main' | 'marketplace' | 'modern' | 'saas' | 'custom';
   rootVisibility?: 'public' | 'auth_only';
   billingEnabled: boolean;
   marketplaceVisibility?: 'signed-in' | 'public';
@@ -1084,7 +965,6 @@ export interface AdminSettings {
   globalFeatures: FeatureToggles;
   betaFeatures?: { [key: string]: boolean }; // Toggles for modules in beta mode
   aiConfig: AIConfig;
-  aiRecognitionConfig?: AIRecognitionConfig;
   kioskConfig?: {
     allowManualSearch: boolean;
     showItemStatus: boolean;

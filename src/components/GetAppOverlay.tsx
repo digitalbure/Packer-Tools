@@ -51,14 +51,20 @@ export default function GetAppOverlay({ forceOpen, onClose }: GetAppOverlayProps
       window.matchMedia('(display-mode: standalone)').matches ||
       (navigator as any).standalone === true;
 
-    if (!isStandalone && !isDismissed && (mobileCheck || forceOpen)) {
-      const timer = setTimeout(() => {
+    // Never interrupt a first-time visitor on the public landing page; they have not seen the product yet.
+    // (The install prompt still appears inside the app, and can be opened manually at any time.)
+    const hash = window.location.hash;
+    const onPublicLanding = hash === '' || hash === '#' || hash === '#/';
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (!isStandalone && !isDismissed && (mobileCheck || forceOpen) && (forceOpen || !onPublicLanding)) {
+      timer = setTimeout(() => {
         setIsOpen(true);
       }, 1500);
-      return () => clearTimeout(timer);
     }
 
     return () => {
+      if (timer) clearTimeout(timer);
       window.removeEventListener('open-get-app-overlay', handleOpenOverlay);
     };
   }, [forceOpen]);
