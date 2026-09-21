@@ -282,7 +282,8 @@ async function dispatchEmailPayload(
   htmlContent: string,
   fromAddress: string,
   companyName: string,
-  overrideSmtpConfig?: any
+  overrideSmtpConfig?: any,
+  options: { replyTo?: string } = {}
 ) {
   let smtpConfig = overrideSmtpConfig || null;
   if (!smtpConfig) {
@@ -308,17 +309,19 @@ async function dispatchEmailPayload(
           user: smtpConfig.user || '',
           pass: smtpConfig.pass || ''
         },
-        tls: { rejectUnauthorized: false }
+        // TLS certificates are verified. (Previously disabled, which allowed man-in-the-middle attacks.)
+        tls: { rejectUnauthorized: true }
       });
 
       let senderEmail = smtpConfig.user || 'no-reply@packer.tools';
-      let customFromAddress = `"${companyName}" <${senderEmail}>`;
+      let customFromAddress = safeFrom(companyName, senderEmail);
 
       const response = await transporter.sendMail({
         from: customFromAddress,
         to: Array.isArray(to) ? to.join(', ') : to,
         subject,
-        html: htmlContent
+        html: htmlContent,
+        ...(options.replyTo ? { replyTo: options.replyTo } : {})
       });
 
       return {
@@ -342,10 +345,16 @@ async function dispatchEmailPayload(
     }
   }
 
-  // 2. Resend API Dispatch if key provided
+  // 2. Resend API dispatch
   const key = process.env.RESEND_API_KEY;
-  if (!key || key === "YOUR_RESEND_API_KEY") {
-    console.info("Resend API key missing or default. Simulated email transaction:", subject);
+  const keyMissing = !key || key === "YOUR_RESEND_API_KEY";
+  if (keyMissing) {
+    if (process.env.NODE_ENV === "production") {
+      // Never pretend a real email was sent.
+      console.error("[Email] RESEND_API_KEY is not configured; email NOT sent:", subject);
+      return { success: false, simulated: false, error: "Email is not configured on this server.", recipient: to, gateway: 'none' };
+    }
+    console.info("[Email] No Resend key (dev). Simulated email:", subject);
     return {
       success: true,
       simulated: true,
@@ -353,7 +362,7 @@ async function dispatchEmailPayload(
       subject,
       html: htmlContent,
       fromAddress,
-      notice: "Resend key is unconfigured. Transactional email simulated in sandbox mode!"
+      notice: "Resend key is unconfigured. Email simulated in development sandbox mode."
     };
   }
 
@@ -361,50 +370,42 @@ async function dispatchEmailPayload(
     const resendClient = new Resend(key);
     const emailRecipients = Array.isArray(to) ? to : [to];
 
-    try {
-      const response = await resendClient.emails.send({
-        from: fromAddress,
-        to: emailRecipients,
-        subject,
-        html: htmlContent
-      });
+    // NOTE: the Resend SDK does NOT throw on API errors; it resolves with { data, error }.
+    const response = await resendClient.emails.send({
+      from: fromAddress,
+      to: emailRecipients,
+      subject,
+      html: htmlContent,
+      ...(options.replyTo ? { replyTo: options.replyTo } : {})
+    });
 
-      return {
-        success: true,
-        simulated: false,
-        resendId: response.data?.id,
-        recipient: to,
-        from: fromAddress,
-        gateway: 'Resend'
-      };
-    } catch (sendErr: any) {
-      const fallbackFrom = `Packer Tools <onboarding@resend.dev>`;
-      const response = await resendClient.emails.send({
-        from: fallbackFrom,
-        to: emailRecipients,
-        subject,
-        html: htmlContent
-      });
-
-      return {
-        success: true,
-        simulated: false,
-        resendId: response.data?.id,
-        recipient: to,
-        from: fallbackFrom,
-        gateway: 'Resend',
-        notice: "Routed via onboarding@resend.dev sandbox domain!"
-      };
+    if (response.error || !response.data?.id) {
+      const msg = response.error?.message || "Resend returned no message id";
+      console.error(`[Email] Resend rejected the message (${(response.error as any)?.name || "unknown"}): ${msg}`);
+      const domainHint = /domain|verif|not allowed|from/i.test(msg)
+        ? " Check that the sending domain (packer.tools) is verified in Resend (SPF/DKIM) and that the From address uses it."
+        : "";
+      return { success: false, simulated: false, error: `Email provider rejected the message: ${msg}.${domainHint}`, recipient: to, gateway: 'Resend' };
     }
-  } catch (err: any) {
+
     return {
       success: true,
-      simulated: true,
-      error: err.message,
-      html: htmlContent,
-      notice: `Transactional dispatch fallback loaded: ${err.message}`
+      simulated: false,
+      resendId: response.data.id,
+      recipient: to,
+      from: fromAddress,
+      gateway: 'Resend'
     };
+  } catch (err: any) {
+    console.error("[Email] Resend request failed:", err.message);
+    return { success: false, simulated: false, error: `Email delivery failed: ${err.message}`, recipient: to, gateway: 'Resend' };
   }
+}
+
+/** Builds a safe From header: display names cannot contain quotes, angle brackets or line breaks. */
+function safeFrom(displayName: string, address: string): string {
+  const name = String(displayName || "Packer Tools").replace(/&(amp|lt|gt|quot|#039);/g, "").replace(/["<>\r\n,;]/g, "").trim().slice(0, 60) || "Packer Tools";
+  return `${name} <${address}>`;
 }
 
 // -------------------------------------------------------------
@@ -412,8 +413,10 @@ async function dispatchEmailPayload(
 // -------------------------------------------------------------
 
 // ---- Abuse controls for all outbound-email routes ----
-// Non-admins: 30 emails/hour. All string payload fields are HTML-escaped before templating.
-const emailRateLimit = rateLimit("email", 30, 60 * 60 * 1000);
+// Per-user limits (receipts 600/h, other 60/h, welcome/contact 10/h). All string payload fields are HTML-escaped before templating.
+const emailRateLimit = rateLimit("email", 60, 60 * 60 * 1000);
+const receiptRateLimit = rateLimit("email-receipt", 600, 60 * 60 * 1000); // busy kiosks send many receipts
+const lowVolumeRateLimit = rateLimit("email-lowvol", 10, 60 * 60 * 1000);
 const BROADCAST_MAX_RECIPIENTS = 500;
 function emailGuard(req: any, res: any, next: any) {
   const original = req.body || {};
@@ -432,12 +435,9 @@ function emailGuard(req: any, res: any, next: any) {
   if (req.body?.branding?.logo) req.body.branding.logo = safeHref(req.body.branding.logo);
   next();
 }
-router.use(
-  ["/api/emails", "/api/send-email", "/api/send-welcome-email", "/api/send-contact-email"],
-  authenticateUser,
-  emailRateLimit,
-  emailGuard
-);
+router.use("/api/send-email", authenticateUser, receiptRateLimit, emailGuard);
+router.use(["/api/send-welcome-email", "/api/send-contact-email"], authenticateUser, lowVolumeRateLimit, emailGuard);
+router.use("/api/emails", authenticateUser, emailRateLimit, emailGuard);
 
 router.post("/api/emails/test-connection", authenticateUser, requireAdmin, async (req, res) => {
   const { toEmail, smtp, branding } = req.body;
@@ -511,11 +511,11 @@ router.post("/api/emails/send", authenticateUser, async (req, res) => {
   const primaryColor = branding?.primaryColor || "#FF5500";
   const contactEmail = branding?.contactEmail || "hi@packer.tools";
 
-  let fromAddress = `"${companyName}" <no-reply@packer.tools>`;
+  let fromAddress = safeFrom(companyName, "no-reply@packer.tools");
   if (fromType === "hi") {
-    fromAddress = `"${companyName}" <hi@packer.tools>`;
+    fromAddress = safeFrom(companyName, "hi@packer.tools");
   } else if (fromType === "team") {
-    fromAddress = `"${companyName}" <team@packer.tools>`;
+    fromAddress = safeFrom(companyName, "team@packer.tools");
   }
 
   const footerLinksArr = branding?.footerLinks || [];
@@ -833,7 +833,7 @@ router.post("/api/emails/newsletter/broadcast", authenticateUser, requireAdmin, 
   const companyName = branding?.companyName || "Packer Tools";
   const logo = branding?.logo || "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop";
   const primaryColor = branding?.primaryColor || "#FF5500";
-  const fromAddress = `"${companyName} Newsletter" <hi@packer.tools>`;
+  const fromAddress = safeFrom(`${companyName} Newsletter`, "hi@packer.tools");
   const campaignSubject = subject || t.newsletter.defaultSubject;
 
   const htmlContent = `
@@ -900,7 +900,7 @@ router.post("/api/emails/auto/trigger", authenticateUser, async (req, res) => {
       to,
       `[${companyName}] 🚨 Overdue Gear Return Notice`,
       `<h3>Overdue Gear Alert</h3><p>Dear ${userName || 'Operator'}, you have ${items.length} overdue item(s).</p>`,
-      `"${companyName}" <no-reply@packer.tools>`,
+      safeFrom(companyName, "no-reply@packer.tools"),
       companyName
     );
     return res.json({ success: true, trigger: 'overdue_checkouts', result: sendRes });
@@ -914,7 +914,7 @@ router.post("/api/emails/auto/trigger", authenticateUser, async (req, res) => {
       to,
       `[${companyName}] ⚠️ Low Stock Inventory Alert`,
       `<h3>Low Stock Inventory Alert</h3><p>${items.length} item(s) are below threshold.</p>`,
-      `"${companyName}" <no-reply@packer.tools>`,
+      safeFrom(companyName, "no-reply@packer.tools"),
       companyName
     );
     return res.json({ success: true, trigger: 'low_stock_inventory', result: sendRes });
@@ -1003,7 +1003,7 @@ router.post("/api/send-email", authenticateUser, async (req, res) => {
     </html>
   `;
 
-  const result = await dispatchEmailPayload(to, subject, htmlContent, "kiosk-no-reply@packer.tools", "Packer Tools");
+  const result = await dispatchEmailPayload(to, subject, htmlContent, safeFrom("Packer Tools Kiosk", "kiosk-no-reply@packer.tools"), "Packer Tools", undefined, { replyTo: (req as any).user?.email });
   return res.json(result);
 });
 

@@ -25,10 +25,10 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.1.3',
+      version: 'v6.2.0',
       tag: 'Latest',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
-      title: 'Claude Connector, Security Hardening & Reliability Fixes',
+      title: 'Claude Connector, Security Hardening, Safer Kiosk Check-outs & Working Email',
       date: 'September 2026',
       icon: Sparkles,
       color: 'text-[#ff4f3a]',
@@ -42,6 +42,16 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
           title: 'Stronger Billing & Account Security',
           desc: 'Plans, seats and prices are now verified on the server. Payments are matched to your account, manual payments wait for admin approval, and outgoing email, sharing links and file fetching are protected against abuse.',
           badge: 'Security'
+        },
+        {
+          title: 'Safer Kiosk Check-out & Check-in',
+          desc: 'Gear can no longer be issued twice when two tablets scan at once, check-outs and returns are recorded consistently, order fulfilment rolls back cleanly, and scanning is faster.',
+          badge: 'Kiosk'
+        },
+        {
+          title: 'Reliable Receipt Emails',
+          desc: 'Kiosk hand-over receipts now send correctly, replies go to your team, and delivery problems are reported instead of silently ignored.',
+          badge: 'Email'
         },
         {
           title: 'More Reliable Server Sync',

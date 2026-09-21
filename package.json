@@ -2,7 +2,7 @@
   "name": "packer-tools",
   "private": true,
   "description": "Production operations and equipment packing platform for broadcast, film, AV and event teams.",
-  "version": "6.1.3",
+  "version": "6.2.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server/index.ts",
@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test:mcp": "firebase emulators:exec --only firestore,auth --project packer-tools \"tsx tests/mcp-e2e.mts\""
+    "test": "firebase emulators:exec --only firestore,auth --project packer-tools \"tsx tests/mcp-e2e.mts && tsx tests/kiosk-ops-e2e.mts && tsx tests/email-e2e.mts\"",
+    "test:mcp": "npm test"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

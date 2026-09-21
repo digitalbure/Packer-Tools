@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.1.3`
+## Current Application Version: `v6.2.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,32 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 📦 Feature Release: v6.2.0 (Kiosk Phase 0: Atomic Check-out/in, Shared Scan Lookup & Reliable Email)
+*Released on: September 22, 2026*
+
+**Kiosk (`src/pages/KioskMode.tsx`, new `src/lib/kioskOps.ts`)**
+- **Atomic check-out and check-in.** Item status, kit children and the checkout record now change together in one Firestore transaction. An item that is already out can no longer be checked out a second time (two tablets scanning the same item: exactly one wins, verified with 6 simultaneous attempts). Previously these were separate writes that could leave gear stuck "in use" or double-issued.
+- **One scan lookup** replaces three hand-copied versions (each up to 4 sequential queries): a direct id read plus a single `assetTag in [...]` query, run in parallel. Works for the gear library and custom inventories, and never crosses owners.
+- **Consistent checkout records.** All kiosk paths now write `status: 'active'` and close it to `returned` on check-in, and add `ownerId` / `terminalId`. The handheld (PWA) scanner previously wrote `checked_out` records that check-in never closed, and check-in created duplicate `returned` rows; both are fixed (legacy `checked_out` records are closed too).
+- **Order fulfilment** releases items first and marks the order fulfilled only afterwards, rolling back released items on failure (previously the order was marked fulfilled first).
+- Clear messages when an item is already out ("Already checked out to X") instead of a generic failure.
+
+**Email (`server/routes/email.ts`)**
+- **The kiosk receipt email now works**: the call was missing its auth header (always 401).
+- **Failures are no longer reported as successes.** The Resend SDK returns `{data, error}` instead of throwing, and the old code read only `data`; a rejected send (e.g. unverified domain) was reported as sent. Errors now surface with a hint, the fake `onboarding@resend.dev` fallback and the catch-all "simulated success" were removed, and in production a missing `RESEND_API_KEY` reports failure instead of pretending. Development still simulates.
+- **Reply-To** on kiosk receipts is the operator's address, so borrower replies reach the customer, not Packer Tools.
+- From-header display names are sanitized (customer-controlled company names could inject into the header). SMTP now verifies TLS certificates (was `rejectUnauthorized: false`).
+- Rate limits reshaped for real use: receipts 600/hour per user, other email routes 60/hour, welcome/contact 10/hour.
+- **Setup required**: verify the `packer.tools` domain in Resend (Domains, add the SPF/DKIM DNS records). Emails are sent from `@packer.tools` addresses and Resend rejects unverified domains.
+
+**Tests**: `npm test` now runs three suites in the emulators (MCP connector 42 checks, kiosk operations 23, email 9) and CI runs them on every push.
+
+**Findings for later phases (not changed here)**
+- `src/firebase.ts` sets `experimentalForceLongPolling` and `experimentalAutoDetectLongPolling` together, which Firestore rejects, so both initialisation attempts throw and the app silently falls back to a plain `getFirestore()`: the intended persistent cache and forced long-polling never take effect.
+- Kiosk Phase 1/2 (terminal tokens, server endpoints, scoped queries, tightening `inventories` / `checkouts` / `terminals` rules) is still to do; see the audit.
 
 ---
 
