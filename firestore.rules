@@ -630,5 +630,13 @@ service cloud.firestore {
       allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidCase(incoming());
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
+
+    // Server-only collections (Admin SDK bypasses rules). Explicit deny for MCP OAuth state and audit logs.
+    match /mcpClients/{id} { allow read, write: if false; }
+    match /mcpAuthCodes/{id} { allow read, write: if false; }
+    match /mcpTokens/{id} { allow read, write: if false; }
+    match /mcpRefresh/{id} { allow read, write: if false; }
+    match /paypalOrders/{id} { allow read, write: if false; }
+    match /adminAuditLogs/{id} { allow read, write: if false; }
   }
 }

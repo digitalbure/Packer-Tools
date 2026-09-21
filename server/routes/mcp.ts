@@ -11,7 +11,10 @@ import {
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { admin, dbAdmin } from "../firebaseAdmin";
-import { safeEqual, getAdminApiKey, randomToken } from "../utils/secrets";
+import { rateLimit } from "../middleware/security";
+import { getClient, registerClient, createAuthCode, consumeAuthCode, consumeRefreshToken, issueTokens, verifyAccessToken, verifyFirebaseUser, pkceMatches } from "../mcp/oauthStore";
+import { renderConsentPage, renderErrorPage, consentCsp } from "../mcp/consentPage";
+import { userToolSchemas, adminToolSchemas, SCOPED_USER_TOOLS, SCOPED_ADMIN_TOOLS, executeScopedTool, getRoleLevel, McpContext } from "../mcp/tools";
 
 const router = express.Router();
 
@@ -26,353 +29,171 @@ router.use(["/api/mcp", "/api/mcp/*", "/oauth", "/oauth/*", "/.well-known", "/.w
   next();
 });
 
-// OAuth 2.0 Discovery Metadata for Claude & External MCP Clients
-router.get([
-  "/.well-known/oauth-authorization-server",
-  "/.well-known/mcp-configuration",
-  "/.well-known/openid-configuration"
-], (req, res) => {
-  const host = req.get("host") || "packer.tools";
-  const protocol = req.protocol === "https" || req.headers["x-forwarded-proto"] === "https" ? "https" : "http";
-  const baseUrl = `${protocol}://${host}`;
-
-  res.json({
-    issuer: baseUrl,
-    authorization_endpoint: `${baseUrl}/oauth/authorize`,
-    token_endpoint: `${baseUrl}/oauth/token`,
-    response_types_supported: ["code", "token"],
-    grant_types_supported: ["client_credentials", "authorization_code"],
-    token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
-    scopes_supported: ["mcp:all", "mcp:read", "mcp:write"]
-  });
-});
-
-// In-memory stores (single-instance only; move to Firestore/Redis for multi-instance deploys)
-const activeMcpTokens = new Map<string, { clientId: string; createdAt: number; expiresAt: number; scope: string }>();
-const pendingAuthCodes = new Map<string, { clientId: string; redirectUri: string; expiresAt: number }>();
-const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
-const CODE_TTL_MS = 5 * 60 * 1000;
-
-function getMcpClientSecret(): string {
-  return process.env.MCP_CLIENT_SECRET || getAdminApiKey();
+// ---------------------------------------------------------------------------------------------
+// OAuth 2.1 (authorization code + PKCE S256, dynamic client registration, rotating refresh tokens).
+// Each MCP connection is bound to ONE Packer Tools user, who signs in and approves on the consent page.
+// ---------------------------------------------------------------------------------------------
+function baseUrlOf(req: express.Request): string {
+  const host = (req.headers["x-forwarded-host"] as string) || req.get("host") || "packer.tools";
+  const local = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
+  return `${local ? "http" : "https"}://${host.split(",")[0].trim()}`;
 }
 
-function isAllowedRedirect(uri: string): boolean {
+function isAllowedRedirectUri(uri: string): boolean {
   try {
     const u = new URL(uri);
+    if (u.hash) return false;
+    if (u.protocol === "http:") return ["localhost", "127.0.0.1", "[::1]"].includes(u.hostname); // native/CLI clients
     if (u.protocol !== "https:") return false;
     const extra = (process.env.MCP_ALLOWED_REDIRECT_HOSTS || "").split(",").map(h => h.trim().toLowerCase()).filter(Boolean);
-    const allowed = ["claude.ai", "claude.com", ...extra];
     const host = u.hostname.toLowerCase();
-    return allowed.some(h => host === h || host.endsWith("." + h));
+    return ["claude.ai", "claude.com", ...extra].some(h => host === h || host.endsWith("." + h));
   } catch {
     return false;
   }
 }
 
-function purgeExpired() {
-  const now = Date.now();
-  for (const [k, v] of activeMcpTokens) if (v.expiresAt < now) activeMcpTokens.delete(k);
-  for (const [k, v] of pendingAuthCodes) if (v.expiresAt < now) pendingAuthCodes.delete(k);
+function oauthError(res: express.Response, status: number, error: string, description?: string) {
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(status).json({ error, ...(description ? { error_description: description } : {}) });
 }
 
-// Bearer-token gate for every MCP transport endpoint (SSE stream, messages, JSON-RPC).
-function requireMcpAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+router.get("/.well-known/oauth-protected-resource*", (req, res) => {
+  const base = baseUrlOf(req);
+  res.json({ resource: `${base}/api/mcp`, authorization_servers: [base], bearer_methods_supported: ["header"], scopes_supported: ["mcp:all"] });
+});
+
+router.get(["/.well-known/oauth-authorization-server*", "/.well-known/mcp-configuration", "/.well-known/openid-configuration"], (req, res) => {
+  const base = baseUrlOf(req);
+  res.json({
+    issuer: base,
+    authorization_endpoint: `${base}/oauth/authorize`,
+    token_endpoint: `${base}/oauth/token`,
+    registration_endpoint: `${base}/oauth/register`,
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code", "refresh_token"],
+    code_challenge_methods_supported: ["S256"],
+    token_endpoint_auth_methods_supported: ["none"],
+    scopes_supported: ["mcp:all"],
+  });
+});
+
+// Dynamic Client Registration (RFC 7591). Public clients only; redirect URIs must be allow-listed.
+router.post("/oauth/register", rateLimit("mcp-register", 20, 60 * 60 * 1000, req => req.ip || "unknown"), async (req, res) => {
+  const uris = req.body?.redirect_uris;
+  if (!Array.isArray(uris) || uris.length < 1 || uris.length > 5 || !uris.every((u: any) => typeof u === "string" && u.length < 500 && isAllowedRedirectUri(u))) {
+    return oauthError(res, 400, "invalid_redirect_uri", "redirect_uris must be 1-5 allowed https (claude.ai / claude.com) or loopback URLs.");
+  }
+  const name = String(req.body?.client_name || "MCP client").replace(/[^\w .\-()]/g, "").slice(0, 60) || "MCP client";
+  const client = await registerClient(name, uris);
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(201).json({
+    client_id: client.clientId, client_name: client.name, redirect_uris: client.redirectUris,
+    token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"],
+  });
+});
+
+// Consent page: user signs in with their Packer Tools account and explicitly approves.
+router.get("/oauth/authorize", rateLimit("mcp-authorize", 60, 60 * 1000, req => req.ip || "unknown"), async (req, res) => {
+  res.setHeader("Content-Security-Policy", consentCsp);
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Cache-Control", "no-store");
+  const q = req.query as Record<string, string>;
+  const client = await getClient(q.client_id);
+  // Never redirect to an unverified redirect_uri: show an error page instead.
+  if (!client || !client.redirectUris.includes(q.redirect_uri)) {
+    return res.status(400).send(renderErrorPage("Unknown application or redirect address. Reconnect the connector from Claude."));
+  }
+  const back = (error: string) => {
+    const u = new URL(q.redirect_uri);
+    u.searchParams.set("error", error);
+    if (q.state) u.searchParams.set("state", q.state);
+    return res.redirect(u.toString());
+  };
+  if (q.response_type !== "code") return back("unsupported_response_type");
+  if (q.code_challenge_method !== "S256" || !/^[A-Za-z0-9_-]{43}$/.test(q.code_challenge || "")) return back("invalid_request");
+  return res.send(renderConsentPage({
+    clientName: client.name, clientId: client.clientId, redirectUri: q.redirect_uri,
+    codeChallenge: q.code_challenge, state: String(q.state || "").slice(0, 500), scope: "mcp:all",
+  }));
+});
+
+// Called by the consent page after the user clicks Allow.
+router.post("/oauth/authorize/complete", rateLimit("mcp-complete", 30, 60 * 1000, req => req.ip || "unknown"), async (req, res) => {
+  const origin = req.headers.origin;
+  if (!origin || origin !== baseUrlOf(req)) return oauthError(res, 403, "invalid_request", "Cross-origin request rejected.");
+  const b = req.body || {};
+  const client = await getClient(b.client_id);
+  if (!client || !client.redirectUris.includes(b.redirect_uri)) return oauthError(res, 400, "invalid_client");
+  if (!/^[A-Za-z0-9_-]{43}$/.test(b.code_challenge || "")) return oauthError(res, 400, "invalid_request", "PKCE challenge required.");
+  let user;
+  try {
+    user = await verifyFirebaseUser(String(b.idToken || ""));
+  } catch {
+    return oauthError(res, 401, "access_denied", "Sign-in could not be verified. Please try again.");
+  }
+  const code = await createAuthCode({ uid: user.uid, clientId: client.clientId, redirectUri: b.redirect_uri, codeChallenge: b.code_challenge, scope: "mcp:all" });
+  console.info(`[MCP OAuth] user ${user.uid} authorized client ${client.clientId}`);
+  const u = new URL(b.redirect_uri);
+  u.searchParams.set("code", code);
+  if (b.state) u.searchParams.set("state", String(b.state).slice(0, 500));
+  return res.json({ redirect: u.toString() });
+});
+
+router.post("/oauth/token", rateLimit("mcp-token", 60, 60 * 1000, req => req.ip || "unknown"), async (req, res) => {
+  const b = req.body || {};
+  try {
+    if (b.grant_type === "authorization_code") {
+      const rec = await consumeAuthCode(String(b.code || ""));
+      if (!rec || rec.clientId !== b.client_id || rec.redirectUri !== b.redirect_uri || !pkceMatches(String(b.code_verifier || ""), rec.codeChallenge)) {
+        return oauthError(res, 400, "invalid_grant");
+      }
+      return res.set("Cache-Control", "no-store").json(await issueTokens(rec.uid, rec.clientId, rec.scope));
+    }
+    if (b.grant_type === "refresh_token") {
+      const rec = await consumeRefreshToken(String(b.refresh_token || ""), String(b.client_id || ""));
+      if (!rec) return oauthError(res, 400, "invalid_grant");
+      try {
+        await verifyFirebaseUserStillActive(rec.uid);
+      } catch {
+        return oauthError(res, 400, "invalid_grant", "Account unavailable.");
+      }
+      return res.set("Cache-Control", "no-store").json(await issueTokens(rec.uid, rec.clientId, rec.scope));
+    }
+    return oauthError(res, 400, "unsupported_grant_type");
+  } catch (e: any) {
+    console.error("[MCP OAuth] token error:", e.message);
+    return oauthError(res, 500, "server_error");
+  }
+});
+
+async function verifyFirebaseUserStillActive(uid: string) {
+  const u = await admin.auth().getUser(uid);
+  if (u.disabled) throw new Error("disabled");
+}
+
+// Bearer gate for every MCP transport endpoint; attaches the signed-in user's context.
+async function requireMcpAuth(req: any, res: express.Response, next: express.NextFunction) {
   if (req.method === "OPTIONS") return next();
-  purgeExpired();
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  const record = token ? activeMcpTokens.get(token) : undefined;
-  if (!record || record.expiresAt < Date.now()) {
-    res.setHeader("WWW-Authenticate", 'Bearer realm="packer-tools-mcp"');
+  let rec = null;
+  try { rec = token ? await verifyAccessToken(token) : null; } catch (e: any) { console.error("[MCP auth]", e.message); }
+  if (!rec) {
+    res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${baseUrlOf(req)}/.well-known/oauth-protected-resource"`);
     return res.status(401).json({ error: "unauthorized", error_description: "Valid Bearer access token required." });
   }
+  req.mcpCtx = { uid: rec.uid } as McpContext;
   next();
 }
 router.use(["/api/mcp/sse", "/api/mcp/messages", "/api/mcp/messages/"], requireMcpAuth);
 router.use((req, res, next) => (req.path === "/api/mcp" || req.path === "/api/mcp/") ? requireMcpAuth(req, res, next) : next());
 
-// OAuth 2.0 Authorization Endpoint. Codes are single-use and only redeemable with the client secret.
-router.all(["/oauth/authorize", "/api/mcp/oauth/authorize"], async (req, res) => {
-  const clientId = String(req.query.client_id || req.body?.client_id || "packer-tools-claude-connector");
-  const redirectUri = String(req.query.redirect_uri || req.body?.redirect_uri || "");
-  const state = String(req.query.state || req.body?.state || "");
-
-  if (!redirectUri || !isAllowedRedirect(redirectUri)) {
-    return res.status(400).json({ error: "invalid_request", error_description: "redirect_uri missing or not allowed." });
-  }
-
-  purgeExpired();
-  const authCode = randomToken("pt_code");
-  pendingAuthCodes.set(authCode, { clientId, redirectUri, expiresAt: Date.now() + CODE_TTL_MS });
-
-  const redirectUrl = new URL(redirectUri);
-  redirectUrl.searchParams.set("code", authCode);
-  if (state) redirectUrl.searchParams.set("state", state);
-  return res.redirect(redirectUrl.toString());
-});
-
-// OAuth 2.0 Token Endpoint
-router.post(["/oauth/token", "/api/mcp/oauth/token"], async (req, res) => {
-  let clientId = req.body?.client_id;
-  let clientSecret = req.body?.client_secret;
-
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Basic ")) {
-    try {
-      const credentials = Buffer.from(authHeader.split(" ")[1], "base64").toString("utf-8");
-      const idx = credentials.indexOf(":");
-      if (idx > 0) {
-        clientId = credentials.slice(0, idx);
-        clientSecret = credentials.slice(idx + 1);
-      }
-    } catch {
-      // fall through to failure below
-    }
-  }
-
-  const expectedSecret = getMcpClientSecret();
-  if (!expectedSecret) {
-    console.error("[MCP OAuth] MCP_CLIENT_SECRET / ADMIN_API_KEY is not configured; token issuance disabled.");
-    return res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth is not configured." });
-  }
-  if (typeof clientSecret !== "string" || !safeEqual(clientSecret, expectedSecret)) {
-    return res.status(401).json({ error: "invalid_client" });
-  }
-
-  const grantType = req.body?.grant_type;
-  const finalClientId = String(clientId || "packer-tools-claude-connector");
-
-  if (grantType === "authorization_code") {
-    const code = String(req.body?.code || "");
-    const pending = pendingAuthCodes.get(code);
-    pendingAuthCodes.delete(code); // single use
-    if (!pending || pending.expiresAt < Date.now() || pending.clientId !== finalClientId) {
-      return res.status(400).json({ error: "invalid_grant" });
-    }
-  } else if (grantType !== "client_credentials") {
-    return res.status(400).json({ error: "unsupported_grant_type" });
-  }
-
-  purgeExpired();
-  const accessToken = randomToken("pt_mcp_tok");
-  activeMcpTokens.set(accessToken, {
-    clientId: finalClientId,
-    createdAt: Date.now(),
-    expiresAt: Date.now() + TOKEN_TTL_MS,
-    scope: "mcp:all"
-  });
-
-  return res.json({
-    access_token: accessToken,
-    token_type: "Bearer",
-    expires_in: TOKEN_TTL_MS / 1000,
-    scope: "mcp:all"
-  });
-});
-
 // Map to track active client SSE transports by their sessionId
-const activeTransports = new Map<string, SSEServerTransport>();
+const activeTransports = new Map<string, { transport: SSEServerTransport; uid: string }>();
 
 // 1. List MCP Tools available on the server
-function getMcpToolsList() {
-  return [
-      {
-        name: "list_gear",
-        description: "List and search all gear/assets stored in the Packer Tools library for a given user.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            uid: {
-              type: "string",
-              description: "The Firebase user ID (UID) of the operator. Required for multi-tenant account isolation."
-            },
-            category: {
-              type: "string",
-              description: "Optional category filter (e.g., 'Camera', 'Lens', 'Audio', 'Lighting', 'Support')."
-            },
-            search: {
-              type: "string",
-              description: "Optional text search keyword matching name, brand, model, or serial number."
-            },
-            limit: {
-              type: "number",
-              description: "Maximum number of gear items to return. Defaults to 50."
-            }
-          },
-          required: ["uid"]
-        }
-      },
-      {
-        name: "add_gear_item",
-        description: "Add or register a brand new equipment/gear asset into a specified user's Packer Tools library.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            uid: {
-              type: "string",
-              description: "The Firebase user ID (UID) of the operator target account. Required."
-            },
-            name: {
-              type: "string",
-              description: "Visual name of the equipment item (e.g. 'RED V-Raptor Cine Camera Body')."
-            },
-            brand: {
-              type: "string",
-              description: "The brand/manufacturer of the item (e.g. 'RED', 'Sony', 'Arri')."
-            },
-            model: {
-              type: "string",
-              description: "The specific model description of the item."
-            },
-            modelNumber: {
-              type: "string",
-              description: "The manufacturer part number or model number."
-            },
-            serialNumber: {
-              type: "string",
-              description: "Unique serial number printed on the device chassis."
-            },
-            primaryCategory: {
-              type: "string",
-              description: "Category category of the item (e.g., 'Camera', 'Lens', 'Audio', 'Lighting', 'Support', 'Power', 'Electronics', 'Cables', 'Accessories')."
-            },
-            quantity: {
-              type: "number",
-              description: "Current aggregate quantity. Defaults to 1."
-            },
-            price: {
-              type: "number",
-              description: "The estimated purchase value or rental pricing of the item."
-            },
-            condition: {
-              type: "string",
-              description: "Item physical condition status: 'new', 'good', 'fair', or 'poor'."
-            },
-            status: {
-              type: "string",
-              description: "Deployment state: 'available', 'in_use', 'maintenance', 'retired', 'missing'. Defaults to 'available'."
-            },
-            notes: {
-              type: "string",
-              description: "Custom specification details, I/O ports, or other accessories notes."
-            }
-          },
-          required: ["uid", "name"]
-        }
-      },
-      {
-        name: "list_inventory_sheets",
-        description: "List all active custom inventory checklists/sheets in the workspace for a specific user.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            uid: {
-              type: "string",
-              description: "The Firebase user ID (UID) of the operator. Required."
-            }
-          },
-          required: ["uid"]
-        }
-      },
-      {
-        name: "get_inventory_sheet_items",
-        description: "Retrieve all items nested inside a specific custom inventory sheet or checklist.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            sheetId: {
-              type: "string",
-              description: "The unique document ID of the custom inventory sheet."
-            }
-          },
-          required: ["sheetId"]
-        }
-      },
-      {
-        name: "lookup_user",
-        description: "Admin Tool: Lookup user profile, plan tier, and workspace metadata by email or Firebase UID (Requires adminApiKey).",
-        inputSchema: {
-          type: "object",
-          properties: {
-            adminApiKey: {
-              type: "string",
-              description: "Admin API Key required to query user account profiles."
-            },
-            email: {
-              type: "string",
-              description: "User email address to search for."
-            },
-            uid: {
-              type: "string",
-              description: "Firebase user UID to directly retrieve."
-            }
-          },
-          required: ["adminApiKey"]
-        }
-      },
-      {
-        name: "update_user_plan",
-        description: "Admin Tool: Update a user's subscription tier, seat limit, or feature configuration (Requires adminApiKey).",
-        inputSchema: {
-          type: "object",
-          properties: {
-            adminApiKey: {
-              type: "string",
-              description: "Admin API Key required to perform administrative plan updates."
-            },
-            uid: {
-              type: "string",
-              description: "The Firebase user UID to update."
-            },
-            planTier: {
-              type: "string",
-              description: "Target subscription plan tier ('free', 'pro', 'enterprise', 'custom')."
-            },
-            seatLimit: {
-              type: "number",
-              description: "Maximum number of team seats allowed."
-            },
-            status: {
-              type: "string",
-              description: "Subscription status ('active', 'canceled', 'trialing', 'past_due')."
-            }
-          },
-          required: ["adminApiKey", "uid"]
-        }
-      },
-      {
-        name: "list_organizations",
-        description: "Admin Tool: List registered multi-tenant organizations across the Packer Tools network (Requires adminApiKey).",
-        inputSchema: {
-          type: "object",
-          properties: {
-            adminApiKey: {
-              type: "string",
-              description: "Admin API Key required for cross-tenant organizational discovery."
-            },
-            limit: {
-              type: "number",
-              description: "Maximum number of organizations to return. Defaults to 20."
-            }
-          },
-          required: ["adminApiKey"]
-        }
-      },
-      {
-        name: "get_system_telemetry",
-        description: "Admin Tool: Retrieve overall platform telemetry including total users, active gear count, and health status (Requires adminApiKey).",
-        inputSchema: {
-          type: "object",
-          properties: {
-            adminApiKey: {
-              type: "string",
-              description: "Admin API Key required to view platform metrics."
-            }
-          },
-          required: ["adminApiKey"]
-        }
-      },
+const INFO_TOOL_SCHEMAS: any[] = [
       {
         name: "get_app_capabilities",
         description: "Admin Capabilities Tool: Retrieve complete platform specifications, active modules, layout presets, tech stack details, and system feature rules.",
@@ -420,330 +241,30 @@ function getMcpToolsList() {
           }
         }
       }
+];
+const ADMIN_ONLY_INFO_TOOLS = new Set(["get_marketing_messaging_kit"]);
+
+// Tools visible to the signed-in user: their own-data tools, docs, and (for admins) admin tools.
+async function getMcpToolsList(ctx: McpContext) {
+  const level = await getRoleLevel(ctx.uid);
+  const isAdmin = level !== "user";
+  return [
+    ...userToolSchemas,
+    ...(isAdmin ? adminToolSchemas.filter(t => t.name !== "update_user_plan" || level === "superAdmin") : []),
+    ...INFO_TOOL_SCHEMAS.filter(t => isAdmin || !ADMIN_ONLY_INFO_TOOLS.has(t.name)),
   ];
 }
 
-// Admin Authentication Helper for elevated MCP Tools
-function checkAdminAuth(args: Record<string, any>) {
-  const expectedKey = getAdminApiKey();
-  const providedKey = args.adminApiKey || args.apiKey;
-  if (!expectedKey || typeof providedKey !== "string" || !safeEqual(providedKey, expectedKey)) {
-    throw new Error("Access Denied: Invalid or missing 'adminApiKey'. Elevated admin authorization is required for cross-tenant system tools.");
-  }
-}
-
 // 2. Call/Execute MCP Tools
-async function executeMcpTool(toolName: string, args: Record<string, any> = {}) {
+async function executeMcpTool(toolName: string, args: Record<string, any> = {}, ctx: McpContext) {
+  if (SCOPED_USER_TOOLS.has(toolName) || SCOPED_ADMIN_TOOLS.has(toolName)) {
+    return executeScopedTool(toolName, args, ctx);
+  }
+  if (ADMIN_ONLY_INFO_TOOLS.has(toolName) && (await getRoleLevel(ctx.uid)) === "user") {
+    return { isError: true, content: [{ type: "text", text: JSON.stringify({ status: "error", message: "Access denied: administrators only." }) }] };
+  }
   try {
     switch (toolName) {
-      case "list_gear": {
-        const uid = args.uid as string;
-        if (!uid) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  status: "error",
-                  message: "Unauthenticated call rejected: Explicit 'uid' parameter is required for list_gear. Unauthenticated defaults are disabled for security."
-                }, null, 2)
-              }
-            ]
-          };
-        }
-        const category = args.category as string | undefined;
-        const search = args.search as string | undefined;
-        const limit = (args.limit as number) || 50;
-
-        let query: admin.firestore.Query = dbAdmin.collection("users").doc(uid).collection("gearLibrary");
-
-        if (category) {
-          query = query.where("primaryCategory", "==", category);
-        }
-
-        const snapshot = await query.limit(limit).get();
-        let items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        if (search) {
-          const lowerSearch = search.toLowerCase();
-          items = items.filter((item: any) => {
-            return (
-              String(item.name || "").toLowerCase().includes(lowerSearch) ||
-              String(item.brand || "").toLowerCase().includes(lowerSearch) ||
-              String(item.model || "").toLowerCase().includes(lowerSearch) ||
-              String(item.serialNumber || "").toLowerCase().includes(lowerSearch) ||
-              String(item.description || "").toLowerCase().includes(lowerSearch)
-            );
-          });
-        }
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                status: "success",
-                uid,
-                totalCount: items.length,
-                items
-              }, null, 2)
-            }
-          ]
-        };
-      }
-
-      case "add_gear_item": {
-        const uid = args.uid as string;
-        if (!uid) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  status: "error",
-                  message: "Unauthenticated write operation rejected: Explicit 'uid' parameter is required for add_gear_item. Unauthenticated defaults to elevated super-admin accounts are disabled."
-                }, null, 2)
-              }
-            ]
-          };
-        }
-        const newItem = {
-          name: args.name || "Unnamed Gear",
-          brand: args.brand || "",
-          model: args.model || "",
-          modelNumber: args.modelNumber || "",
-          serialNumber: args.serialNumber || "",
-          primaryCategory: args.primaryCategory || "Other",
-          quantity: args.quantity !== undefined ? Number(args.quantity) : 1,
-          price: args.price !== undefined ? Number(args.price) : 0,
-          condition: args.condition || "good",
-          status: args.status || "available",
-          notes: args.notes || "",
-          createdAt: new Date().toISOString(),
-          lastMaintenanceDate: new Date().toISOString().split("T")[0],
-          maintenanceIntervalDays: 90
-        };
-
-        const docRef = await dbAdmin
-          .collection("users")
-          .doc(uid)
-          .collection("gearLibrary")
-          .add(newItem);
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                status: "success",
-                message: "Equipment registered successfully inside user's Gear Library.",
-                itemId: docRef.id,
-                item: newItem
-              }, null, 2)
-            }
-          ]
-        };
-      }
-
-      case "list_inventory_sheets": {
-        const uid = args.uid as string;
-        if (!uid) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  status: "error",
-                  message: "Unauthenticated call rejected: Explicit 'uid' parameter is required for list_inventory_sheets."
-                }, null, 2)
-              }
-            ]
-          };
-        }
-        const snapshot = await dbAdmin
-          .collection("inventories")
-          .where("ownerId", "==", uid)
-          .get();
-
-        const sheets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                status: "success",
-                uid,
-                totalCount: sheets.length,
-                sheets
-              }, null, 2)
-            }
-          ]
-        };
-      }
-
-      case "get_inventory_sheet_items": {
-        const sheetId = args.sheetId as string;
-        const snapshot = await dbAdmin
-          .collection("inventories")
-          .doc(sheetId)
-          .collection("items")
-          .get();
-
-        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                status: "success",
-                sheetId,
-                totalCount: items.length,
-                items
-              }, null, 2)
-            }
-          ]
-        };
-      }
-
-      case "lookup_user": {
-        checkAdminAuth(args);
-        const email = args.email as string | undefined;
-        const uid = args.uid as string | undefined;
-
-        if (!email && !uid) {
-          throw new Error("Either 'email' or 'uid' must be provided to lookup user profile.");
-        }
-
-        let userDoc: any = null;
-        let userId = uid;
-
-        if (uid) {
-          const doc = await dbAdmin.collection("users").doc(uid).get();
-          if (doc.exists) {
-            userDoc = { id: doc.id, ...doc.data() };
-          }
-        } else if (email) {
-          const snapshot = await dbAdmin.collection("users").where("email", "==", email).limit(1).get();
-          if (!snapshot.empty) {
-            const doc = snapshot.docs[0];
-            userId = doc.id;
-            userDoc = { id: doc.id, ...doc.data() };
-          }
-        }
-
-        if (!userDoc) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  status: "not_found",
-                  message: `User record not found for search query: ${uid || email}`
-                }, null, 2)
-              }
-            ]
-          };
-        }
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                status: "success",
-                uid: userId,
-                user: userDoc
-              }, null, 2)
-            }
-          ]
-        };
-      }
-
-      case "update_user_plan": {
-        checkAdminAuth(args);
-        const uid = args.uid as string;
-        const planTier = args.planTier as string | undefined;
-        const seatLimit = args.seatLimit as number | undefined;
-        const status = args.status as string | undefined;
-
-        const updateData: Record<string, any> = {
-          updatedAt: new Date().toISOString(),
-          updatedBy: "MCP_CLAUDE_CONNECTOR"
-        };
-
-        if (planTier) updateData.planTier = planTier;
-        if (seatLimit !== undefined) updateData.seatLimit = Number(seatLimit);
-        if (status) updateData.subscriptionStatus = status;
-
-        await dbAdmin.collection("users").doc(uid).set(updateData, { merge: true });
-
-        const updatedDoc = await dbAdmin.collection("users").doc(uid).get();
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                status: "success",
-                message: `User subscription/plan updated successfully for UID ${uid}`,
-                uid,
-                updatedFields: updateData,
-                currentProfile: updatedDoc.data()
-              }, null, 2)
-            }
-          ]
-        };
-      }
-
-      case "list_organizations": {
-        checkAdminAuth(args);
-        const limit = (args.limit as number) || 20;
-        const snapshot = await dbAdmin.collection("organizations").limit(limit).get();
-        const orgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                status: "success",
-                totalCount: orgs.length,
-                organizations: orgs
-              }, null, 2)
-            }
-          ]
-        };
-      }
-
-      case "get_system_telemetry": {
-        checkAdminAuth(args);
-        const usersCount = (await dbAdmin.collection("users").count().get()).data().count;
-        const orgsCount = (await dbAdmin.collection("organizations").count().get()).data().count;
-        const inventoriesCount = (await dbAdmin.collection("inventories").count().get()).data().count;
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                status: "success",
-                system: "Packer Tools Enterprise Platform",
-                timestamp: new Date().toISOString(),
-                metrics: {
-                  totalUsers: usersCount,
-                  totalOrganizations: orgsCount,
-                  totalCustomInventories: inventoriesCount,
-                  mcpProtocolVersion: "1.0.0",
-                  health: "OPERATIONAL"
-                }
-              }, null, 2)
-            }
-          ]
-        };
-      }
-
       case "get_app_capabilities": {
         const capabilities = {
           name: "Packer Tools",
@@ -848,7 +369,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
         const targetIndustry = (args.industry as string | undefined)?.toLowerCase();
         const kit = {
           brand: "Packer Tools",
-          version: "v6.0.3",
+          version: "v6.1.0",
           canonicalPositioning: "signed, bidirectional manifest",
           tagline: "Production Logistics OS for Professional Crews",
           valuePropositions: [
@@ -964,8 +485,9 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
 }
 
 // 3. List MCP Resources
-function getMcpResourcesList() {
-  return [
+const ADMIN_ONLY_RESOURCES = new Set(["packer://marketing-playbook", "packer://agent-rules"]);
+function getMcpResourcesList(isAdmin: boolean) {
+  return ([
       {
         uri: "packer://app-capabilities",
         name: "Packer Tools Platform Specifications & Capabilities",
@@ -1002,11 +524,14 @@ function getMcpResourcesList() {
         mimeType: "text/markdown",
         description: "A summary dashboard of the gear library metrics, maintenance states, and health overview."
       }
-  ];
+  ] as any[]).filter(r => isAdmin || !ADMIN_ONLY_RESOURCES.has(r.uri));
 }
 
 // 4. Read MCP Resources
-async function readMcpResource(uri: string) {
+async function readMcpResource(uri: string, ctx: McpContext) {
+  if (ADMIN_ONLY_RESOURCES.has(uri) && (await getRoleLevel(ctx.uid)) === "user") {
+    throw new Error("Resource not available.");
+  }
   if (uri === "packer://app-capabilities") {
     const capabilities = {
       name: "Packer Tools",
@@ -1103,7 +628,7 @@ async function readMcpResource(uri: string) {
     try {
       content = fs.readFileSync(filePath, "utf-8");
     } catch {
-      content = "# Release Notes\n\nCurrent Version: v6.0.3";
+      content = "# Release Notes\n\nCurrent Version: v6.1.0";
     }
     return {
       contents: [{ uri, mimeType: "text/markdown", text: content }]
@@ -1139,7 +664,7 @@ async function readMcpResource(uri: string) {
   if (uri === "packer://gear-summary") {
     try {
       // Fetch gear count from common super-admin / default view
-      const uid = "demo-super-admin";
+      const uid = ctx.uid; // the signed-in user's own library only
       const snapshot = await dbAdmin
         .collection("users")
         .doc(uid)
@@ -1224,11 +749,11 @@ ${Object.entries(statusCounts)
 }
 
 // 5. MCP Server Factory Instance Per Connection Session
-function createMcpServer(): Server {
+function createMcpServer(ctx: McpContext): Server {
   const mcpServer = new Server(
     {
       name: "packer-tools-mcp",
-      version: "6.0.3",
+      version: "6.1.0",
     },
     {
       capabilities: {
@@ -1239,28 +764,27 @@ function createMcpServer(): Server {
   );
 
   mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
-    return { tools: getMcpToolsList() };
+    return { tools: await getMcpToolsList(ctx) };
   });
 
   mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
-    return await executeMcpTool(request.params.name, request.params.arguments || {});
+    return await executeMcpTool(request.params.name, request.params.arguments || {}, ctx);
   });
 
   mcpServer.setRequestHandler(ListResourcesRequestSchema, async () => {
-    return { resources: getMcpResourcesList() };
+    return { resources: getMcpResourcesList((await getRoleLevel(ctx.uid)) !== "user") };
   });
 
   mcpServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    return await readMcpResource(request.params.uri);
+    return await readMcpResource(request.params.uri, ctx);
   });
 
   return mcpServer;
 }
 
-// 6. Mount SSE Endpoints
-router.get(["/api/mcp/sse"], async (req, res) => {
-  console.info("[MCP Router] Initializing new client SSE connection stream...");
-
+// 6. Legacy SSE transport (kept for older clients). Each stream is bound to the token's user.
+router.get(["/api/mcp/sse"], async (req: any, res) => {
+  const ctx: McpContext = req.mcpCtx;
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
@@ -1268,47 +792,34 @@ router.get(["/api/mcp/sse"], async (req, res) => {
 
   const transport = new SSEServerTransport("/api/mcp/messages", res);
   const sessionId = transport.sessionId;
+  activeTransports.set(sessionId, { transport, uid: ctx.uid });
 
-  activeTransports.set(sessionId, transport);
-  console.info(`[MCP Router] Registered active session sessionID: ${sessionId}`);
-
-  // Heartbeat ping interval every 15 seconds to keep proxies (Cloud Run / Nginx) alive
+  // Keep proxies (Cloud Run) from closing an idle stream
   const heartbeat = setInterval(() => {
-    try {
-      res.write(": ping\n\n");
-    } catch {
-      clearInterval(heartbeat);
-    }
+    try { res.write(": ping\n\n"); } catch { clearInterval(heartbeat); }
   }, 15000);
 
   req.on("close", () => {
-    console.info(`[MCP Router] Client closed stream. Discarding sessionId: ${sessionId}`);
     clearInterval(heartbeat);
     activeTransports.delete(sessionId);
   });
 
-  const sessionServer = createMcpServer();
-  await sessionServer.connect(transport);
+  await createMcpServer(ctx).connect(transport);
 });
 
-// 7. Mount POST Message Endpoint for Active SSE Sessions
-router.post(["/api/mcp/messages", "/api/mcp/messages/"], async (req, res) => {
-  const sessionId = req.query.sessionId as string;
-  const transport = activeTransports.get(sessionId);
-
-  if (transport) {
-    // Pass req.body as 3rd parameter because express.json() already parsed the stream
-    await transport.handlePostMessage(req, res, req.body);
-  } else {
-    console.warn(`[MCP Router] Failed to route message. SessionId not active or stale: ${sessionId}`);
-    res.status(404).json({ error: "Session not found or connection terminated." });
+router.post(["/api/mcp/messages", "/api/mcp/messages/"], async (req: any, res) => {
+  const entry = activeTransports.get(String(req.query.sessionId || ""));
+  // The session must belong to the same user as the bearer token
+  if (!entry || entry.uid !== req.mcpCtx.uid) {
+    return res.status(404).json({ error: "Session not found or connection terminated." });
   }
+  await entry.transport.handlePostMessage(req, res, req.body);
 });
 
-// Streamable HTTP transport (current MCP standard), stateless: one server + transport per request.
-router.post(["/api/mcp", "/api/mcp/"], async (req, res) => {
+// 7. Streamable HTTP transport (current MCP standard), stateless: one server + transport per request.
+router.post(["/api/mcp", "/api/mcp/"], async (req: any, res) => {
   try {
-    const server = createMcpServer();
+    const server = createMcpServer(req.mcpCtx);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     res.on("close", () => {
       transport.close();
@@ -1329,77 +840,6 @@ router.all(["/api/mcp", "/api/mcp/"], (req, res) => {
   if (req.method === "OPTIONS") return res.status(204).end();
   res.setHeader("Allow", "POST");
   return res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed. Use POST (Streamable HTTP), or /api/mcp/sse for legacy SSE." }, id: null });
-});
-
-// 8. Direct HTTP JSON-RPC Endpoint (Stateless Fallback / Non-SSE clients)
-router.post(["/api/mcp/sse"], async (req, res) => {
-  if (req.query.sessionId) {
-    const sessionId = req.query.sessionId as string;
-    const transport = activeTransports.get(sessionId);
-    if (transport) {
-      return await transport.handlePostMessage(req, res, req.body);
-    }
-    return res.status(404).json({ error: "Session not found or connection terminated." });
-  }
-
-  const { jsonrpc, method, params, id } = req.body || {};
-  if (jsonrpc !== "2.0") {
-    return res.status(400).json({
-      jsonrpc: "2.0",
-      error: { code: -32600, message: "Invalid Request: Expected jsonrpc 2.0" },
-      id: id || null
-    });
-  }
-
-  try {
-    if (method === "initialize") {
-      return res.json({
-        jsonrpc: "2.0",
-        result: {
-          protocolVersion: "2024-11-05",
-          capabilities: { tools: {}, resources: {} },
-          serverInfo: { name: "packer-tools-mcp", version: "6.0.3" }
-        },
-        id
-      });
-    }
-
-    if (method === "ping") {
-      return res.json({ jsonrpc: "2.0", result: {}, id });
-    }
-
-    if (method === "tools/list") {
-      const tools = getMcpToolsList();
-      return res.json({ jsonrpc: "2.0", result: { tools }, id });
-    }
-
-    if (method === "tools/call") {
-      const toolResult = await executeMcpTool(params?.name, params?.arguments);
-      return res.json({ jsonrpc: "2.0", result: toolResult, id });
-    }
-
-    if (method === "resources/list") {
-      const resources = getMcpResourcesList();
-      return res.json({ jsonrpc: "2.0", result: { resources }, id });
-    }
-
-    if (method === "resources/read") {
-      const resourceResult = await readMcpResource(params?.uri);
-      return res.json({ jsonrpc: "2.0", result: resourceResult, id });
-    }
-
-    return res.status(404).json({
-      jsonrpc: "2.0",
-      error: { code: -32601, message: `Method not found: ${method}` },
-      id
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      jsonrpc: "2.0",
-      error: { code: -32603, message: err.message || "Internal error" },
-      id
-    });
-  }
 });
 
 export default router;

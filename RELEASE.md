@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.0.3`
+## Current Application Version: `v6.1.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,34 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🤖 Feature Release: v6.1.0 (Per-User Claude Connector: OAuth Sign-in, Scoped Tools & Admin Tiers)
+*Released on: September 21, 2026*
+
+**Connector redesign.** The MCP server is no longer a shared-secret operator connector. Every connection is now bound to one Packer Tools user.
+- **OAuth 2.1 sign-in**: authorization code + PKCE (S256), dynamic client registration (`/oauth/register`), and a consent page at `/oauth/authorize` where the user signs in (Google or email) and explicitly approves. Access tokens last 1 hour; refresh tokens rotate (30 days) and cannot be replayed. Tokens, codes and clients live in Firestore (hashed, server-only), so they survive restarts and work across instances. Redirects are allow-listed (claude.ai / claude.com and loopback for CLI clients).
+- **Tools run as the signed-in user** (no `uid` argument anywhere): `get_account_summary`, `list_gear`, `add_gear_item` (respects plan gear limit, stamps `ownerId`/`assetTag`), `update_gear_item`, `list_packing_lists`, `get_packing_list` (owned or shared, read-only), `list_inventory_sheets`, `get_inventory_sheet_items` (owned or same-organization). Other users' data returns "not found".
+- **Admin tiers, checked live on every call** (never cached in the token): admins see `lookup_user` (sensitive fields stripped), `list_organizations`, `get_system_telemetry`, and the marketing kit/resources; only **super-admins** see `update_user_plan`, which now writes the real `plan` field (previously `planTier`, which the app ignored), validates the plan, and records every change in `adminAuditLogs`. Demoting an admin removes access immediately.
+- Users can no longer read internal resources (`packer://agent-rules`, marketing playbook); `packer://gear-summary` now summarizes the caller's own library (it previously read a hardcoded `demo-super-admin` account).
+- `ADMIN_API_KEY` and `MCP_CLIENT_SECRET` are **no longer used** by the MCP server and can be deleted.
+
+**Critical fix: server database target.** `server/firebaseAdmin.ts` opened the *default* Firestore database, but project `packer-tools` only has named databases (the app uses `ai-studio-8af96458-…`). Every server-side Firestore call (billing, webhooks, PayPal config, share pages) targeted a database that does not exist. The server now uses `firestoreDatabaseId` from `firebase-applet-config.json` (override with `FIRESTORE_DATABASE_ID`).
+
+**Testing.** New end-to-end suite `tests/mcp-e2e.mts` (`npm run test:mcp`, needs Java) runs against the Firestore + Auth emulators: 42 checks covering the OAuth flow, PKCE, single-use codes, refresh rotation, tenant isolation, plan limits, admin tiers, audit logging and live role revocation.
+
+**Deployment notes**
+- After publishing, the Cloud Run service account must have access to project `packer-tools` (Cloud Datastore User + Firebase Authentication Admin). If MCP sign-in or billing returns permission errors, grant those roles.
+- Add `packer.tools` to Firebase Authentication → Authorized domains (needed for the Google sign-in popup on the consent page).
+- Recommended: enable Firestore TTL policies on `expiresAt` for `mcpAuthCodes`, `mcpTokens` and `mcpRefresh`.
+- Reconnect in Claude: URL `https://packer.tools/api/mcp`, transport Streamable HTTP. No client ID/secret is needed any more.
+
+**Known issues / follow-ups**
+- `inventories` is readable by any signed-in user under the Firestore rules, because the app lists the whole collection in several places (Kiosk, Organization module, assistant). Tightening the rule requires changing those client queries first. The MCP tools are scoped correctly regardless.
+- The consent page's Google/email sign-in was verified for rendering only; the live sign-in was not exercised against production Firebase.
+- `list_gear` with a text search scans up to 1,000 items per call.
+- Legacy SSE remains at `/api/mcp/sse` and is bound to the token's user.
 
 ---
 
