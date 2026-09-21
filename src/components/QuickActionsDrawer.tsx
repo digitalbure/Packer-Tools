@@ -38,6 +38,7 @@ import {
 import { toast } from 'sonner';
 import QRPrintModal from './QRPrintModal';
 import DukeyAssistant from './DukeyAssistant';
+import { APP_VERSION } from '../version';
 
 interface QuickActionsDrawerProps {
   user: UserProfile;
@@ -718,7 +719,7 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
                           <Sparkles size={16} className="text-[#ff4f3a]" />
                           <span className="text-[10px] font-mono font-black uppercase tracking-wider text-amber-400">Smart Onboarding Calibrator</span>
                         </div>
-                        <span className="text-[8px] font-bold bg-[#ff4f3a]/20 text-[#ff4f3a] px-1.5 py-0.5 rounded uppercase">v5.21.0</span>
+                        <span className="text-[8px] font-bold bg-[#ff4f3a]/20 text-[#ff4f3a] px-1.5 py-0.5 rounded uppercase">v{APP_VERSION}</span>
                       </div>
                       <p className="text-[10px] text-neutral-300 font-medium leading-relaxed">
                         Re-run intent wizard to auto-configure workspace modules, industry terminology & UI density for your exact use case.

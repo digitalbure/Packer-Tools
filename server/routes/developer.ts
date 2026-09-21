@@ -77,10 +77,10 @@ router.get("/api/developer/ping", requireDevApiKey, (req, res) => {
   return res.json({
     status: "success",
     code: 200,
-    message: "Packer.Tools Developer API v6.1.2 Operational",
+    message: "Packer.Tools Developer API v6.1.3 Operational",
     authenticated: true,
     apiKeyMasked: maskedKey,
-    serverVersion: "6.1.2",
+    serverVersion: "6.1.3",
     timestamp: new Date().toISOString(),
     capabilities: [
       "lists.read",
@@ -323,7 +323,7 @@ router.get("/api/developer/hardware/readers", requireDevApiKey, (req, res) => {
   return res.json({
     status: "success",
     code: 200,
-    serverVersion: "6.1.2",
+    serverVersion: "6.1.3",
     supportedProtocols: [
       {
         protocol: "Web NFC",
@@ -397,7 +397,7 @@ router.get("/api/developer/hardware/scans", requireDevApiKey, async (req, res) =
   return res.json({
     status: "success",
     code: 200,
-    serverVersion: "6.1.2",
+    serverVersion: "6.1.3",
     totalCount: filtered.length,
     events: filtered.slice(0, limit),
     schema: {

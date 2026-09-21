@@ -20,6 +20,7 @@ import { BrandingSettingsTab, BillingSettingsTab, MultiIndustrySettingsTab, Mark
 import EmailTemplates from '../components/EmailTemplates';
 import OrganizationAdmin from '../components/OrganizationAdmin';
 import { AreaChart, Area, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cell, CartesianGrid } from 'recharts';
+import { APP_VERSION } from '../version';
 
 export const MODULE_METADATA: {
   [key: string]: {
@@ -5325,7 +5326,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               <div className="p-6 bg-neutral-50 border border-neutral-100 rounded-3xl space-y-3">
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-bold text-neutral-800 text-sm">1. Write-Batch Operation Throttle (500 Limit)</span>
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v5.21.0</span>
+                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v{APP_VERSION}</span>
                 </div>
                 <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
                   Firestore limits write-batches to 500 documents per request. Bulk allocations of tens of thousands of assets are fully safeguarded via transaction volume splitting chunking. Prevents fatal crashes during catalog updates.
@@ -5335,7 +5336,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
               <div className="p-6 bg-neutral-50 border border-neutral-100 rounded-3xl space-y-3">
                 <div className="flex items-center justify-between gap-4">
                   <span className="font-bold text-neutral-800 text-sm">2. Resource Limit Audits Cost Slasher</span>
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v5.21.0</span>
+                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-xl border border-emerald-100 shrink-0">SECURED v{APP_VERSION}</span>
                 </div>
                 <p className="text-[11px] text-neutral-500 font-medium leading-relaxed">
                   Instead of downloading millions of user properties to confirm plan compliance and check limits, real-time validations run on-demand serverless metadata aggregations via 

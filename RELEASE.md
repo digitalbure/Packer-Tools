@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.1.2`
+## Current Application Version: `v6.1.3`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,13 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🏷️ Patch Release: v6.1.3 (Live Version Display)
+*Released on: September 21, 2026*
+- The in-app version (sidebar, footer, What's New, profile, admin, landing and onboarding screens) was hardcoded to `v5.21.0`. It is now injected at build time from `package.json` (`__APP_VERSION__` in `vite.config.ts`, exported as `APP_VERSION` from `src/version.ts`), so it always matches the release. Do not hardcode versions in UI code.
+- What's New now lists the v6.1 Claude connector, security and reliability work.
 
 ---
 

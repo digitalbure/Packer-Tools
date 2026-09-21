@@ -4,6 +4,7 @@ import { Package, ShieldCheck, Mail, HelpCircle, Heart } from 'lucide-react';
 import PackerLogo from './PackerLogo';
 import { AdminSettings } from '../types';
 import { toast } from 'sonner';
+import { APP_VERSION } from '../version';
 
 interface FooterProps {
   adminSettings: AdminSettings | null;
@@ -198,7 +199,7 @@ export default function Footer({ adminSettings, selectedCommunity, onOpenSelecto
               </li>
               <li>
                 <span className="text-[10px] text-neutral-450 font-mono tracking-tighter block pt-1">
-                  Version v5.21.0 ({versionSuffix})
+                  Version v{APP_VERSION} ({versionSuffix})
                 </span>
               </li>
             </ul>

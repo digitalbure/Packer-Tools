@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Sparkles, Cpu, Layers, Zap, CheckCircle2, CloudOff, Database, Smartphone, QrCode, Terminal, HelpCircle } from 'lucide-react';
+import { APP_VERSION } from '../version';
 
 interface WhatsNewModalProps {
   isOpen: boolean;
@@ -8,7 +9,7 @@ interface WhatsNewModalProps {
 }
 
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const [activeTab, setActiveTab] = useState<'all' | '5.21.0' | '5.20.1' | '5.20.0' | '5.19.4' | '5.19.3' | '5.19.2' | '5.19.1' | '5.19.0' | '5.18.6' | '5.18.5' | '5.18.4' | '5.18.3' | '5.18.2' | '5.18.1' | '5.18.0' | '5.17.0' | '5.16.0' | '5.15.0' | '5.14.0' | '5.13.0' | '5.12.0' | '5.11.0' | '5.10.0' | '5.9.0' | '5.8.0' | '5.7.0' | '5.6.0' | '5.5.0' | '5.4.0' | '5.3.0'>('all');
+  const [activeTab, setActiveTab] = useState<string>('all');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,9 +25,40 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.0.1',
+      version: 'v6.1.3',
       tag: 'Latest',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Claude Connector, Security Hardening & Reliability Fixes',
+      date: 'September 2026',
+      icon: Sparkles,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Connect Packer Tools to Claude',
+          desc: 'Sign in with your own account and let Claude view and manage your gear library, packing lists and inventory sheets. Access is limited to your data, and you can revoke it any time. Admins get additional tools automatically.',
+          badge: 'Claude Connector'
+        },
+        {
+          title: 'Stronger Billing & Account Security',
+          desc: 'Plans, seats and prices are now verified on the server. Payments are matched to your account, manual payments wait for admin approval, and outgoing email, sharing links and file fetching are protected against abuse.',
+          badge: 'Security'
+        },
+        {
+          title: 'More Reliable Server Sync',
+          desc: 'Fixed the server connecting to the wrong database, which affected billing, webhooks and share pages. Also added automated checks that run on every change.',
+          badge: 'Reliability'
+        },
+        {
+          title: 'Live Version Display',
+          desc: 'The version shown throughout the app (sidebar, footer, profile and admin screens) now always matches the installed release.',
+          badge: 'Polish'
+        }
+      ]
+    },
+    {
+      version: 'v6.0.1',
+      tag: 'Stable',
+      tagBg: 'bg-neutral-500/10 text-neutral-600 border-neutral-500/20 dark:bg-neutral-500/20 dark:text-neutral-300',
       title: 'Multi-Library Switcher, Dedicated Equipment Depots & Fluid Cross-Module Asset Flow',
       date: 'August 2026',
       icon: Sparkles,
@@ -1014,7 +1046,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[10px] uppercase font-black tracking-wide hidden sm:inline text-neutral-400">
-                  Build v5.21.0
+                  Build v{APP_VERSION}
                 </span>
                 <button
                   type="button"

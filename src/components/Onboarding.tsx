@@ -41,6 +41,7 @@ import { db } from '../firebase';
 import { UserProfile, INDUSTRIES, FeatureKey } from '../types';
 import { toast } from 'sonner';
 import { authenticatedFetch } from '../lib/api';
+import { APP_VERSION } from '../version';
 
 interface OnboardingProps {
   user: UserProfile;
@@ -363,7 +364,7 @@ export default function Onboarding({ user, onComplete, onClose }: OnboardingProp
           <div className="space-y-4 sm:space-y-6">
             <div className="space-y-1">
               <span className="text-[9px] font-extrabold uppercase tracking-widest text-[#ff4f3a] bg-rose-50 px-2.5 py-0.5 rounded-md border border-rose-100">
-                INTENT ENGINE &middot; v5.21.0
+                INTENT ENGINE &middot; v{APP_VERSION}
               </span>
               <h3 className="text-lg sm:text-xl font-black tracking-tight text-neutral-800 leading-tight">
                 {currentStepData.title}

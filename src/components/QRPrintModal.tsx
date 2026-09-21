@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { getLabelRecommendation } from '../services/labelSuggester';
 import { hapticResizeTick, hapticMedium, hapticLight } from '../utils/haptics';
 import { downloadLabelFromElement, downloadBatchLabelsPdf, clearPrinterCssCache, LabelExportFormat } from '../utils/labelDownload';
+import { APP_VERSION } from '../version';
 
 interface PrintableItem {
   id: string;
@@ -1815,7 +1816,7 @@ export default function QRPrintModal({ isOpen, onClose, items, user, initialSele
                   Label Studio
                 </h2>
                 <span className="text-[8px] sm:text-[9px] uppercase font-black tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 sm:px-2 py-0.5 rounded shrink-0 hidden sm:inline-block">
-                  v5.21.0
+                  v{APP_VERSION}
                 </span>
               </div>
               <p className="text-xs text-neutral-400 hidden sm:block truncate">
