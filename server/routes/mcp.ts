@@ -10,6 +10,7 @@ import {
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { admin, dbAdmin } from "../firebaseAdmin";
+import { safeEqual, getAdminApiKey, randomToken } from "../utils/secrets";
 
 const router = express.Router();
 
@@ -40,78 +41,132 @@ router.get([
     token_endpoint: `${baseUrl}/oauth/token`,
     registration_endpoint: `${baseUrl}/oauth/register`,
     response_types_supported: ["code", "token"],
-    grant_types_supported: ["client_credentials", "authorization_code", "refresh_token"],
+    grant_types_supported: ["client_credentials", "authorization_code"],
     token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
     scopes_supported: ["mcp:all", "mcp:read", "mcp:write"]
   });
 });
 
-// In-Memory store for active OAuth access tokens
-const activeMcpTokens = new Map<string, { clientId: string; createdAt: number; scope: string }>();
+// In-memory stores (single-instance only; move to Firestore/Redis for multi-instance deploys)
+const activeMcpTokens = new Map<string, { clientId: string; createdAt: number; expiresAt: number; scope: string }>();
+const pendingAuthCodes = new Map<string, { clientId: string; redirectUri: string; expiresAt: number }>();
+const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const CODE_TTL_MS = 5 * 60 * 1000;
 
-// OAuth 2.0 Authorization Endpoint (Supports Claude OAuth Flow)
+function getMcpClientSecret(): string {
+  return process.env.MCP_CLIENT_SECRET || getAdminApiKey();
+}
+
+function isAllowedRedirect(uri: string): boolean {
+  try {
+    const u = new URL(uri);
+    if (u.protocol !== "https:") return false;
+    const extra = (process.env.MCP_ALLOWED_REDIRECT_HOSTS || "").split(",").map(h => h.trim().toLowerCase()).filter(Boolean);
+    const allowed = ["claude.ai", "claude.com", ...extra];
+    const host = u.hostname.toLowerCase();
+    return allowed.some(h => host === h || host.endsWith("." + h));
+  } catch {
+    return false;
+  }
+}
+
+function purgeExpired() {
+  const now = Date.now();
+  for (const [k, v] of activeMcpTokens) if (v.expiresAt < now) activeMcpTokens.delete(k);
+  for (const [k, v] of pendingAuthCodes) if (v.expiresAt < now) pendingAuthCodes.delete(k);
+}
+
+// Bearer-token gate for every MCP transport endpoint (SSE stream, messages, JSON-RPC).
+function requireMcpAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (req.method === "OPTIONS") return next();
+  purgeExpired();
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  const record = token ? activeMcpTokens.get(token) : undefined;
+  if (!record || record.expiresAt < Date.now()) {
+    res.setHeader("WWW-Authenticate", 'Bearer realm="packer-tools-mcp"');
+    return res.status(401).json({ error: "unauthorized", error_description: "Valid Bearer access token required." });
+  }
+  next();
+}
+router.use(["/api/mcp/sse", "/api/mcp/messages", "/api/mcp/messages/"], requireMcpAuth);
+router.use((req, res, next) => (req.path === "/api/mcp" || req.path === "/api/mcp/") ? requireMcpAuth(req, res, next) : next());
+
+// OAuth 2.0 Authorization Endpoint. Codes are single-use and only redeemable with the client secret.
 router.all(["/oauth/authorize", "/api/mcp/oauth/authorize"], async (req, res) => {
-  const responseType = (req.query.response_type || req.body?.response_type || "code") as string;
-  const clientId = (req.query.client_id || req.body?.client_id || "packer-tools-claude-connector") as string;
-  const redirectUri = (req.query.redirect_uri || req.body?.redirect_uri || "") as string;
-  const state = (req.query.state || req.body?.state || "") as string;
+  const clientId = String(req.query.client_id || req.body?.client_id || "packer-tools-claude-connector");
+  const redirectUri = String(req.query.redirect_uri || req.body?.redirect_uri || "");
+  const state = String(req.query.state || req.body?.state || "");
 
-  const authCode = `pt_code_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-
-  if (redirectUri) {
-    try {
-      const redirectUrl = new URL(String(redirectUri));
-      redirectUrl.searchParams.set("code", authCode);
-      if (state) redirectUrl.searchParams.set("state", String(state));
-      return res.redirect(redirectUrl.toString());
-    } catch {
-      // Fallback if invalid URL format
-    }
+  if (!redirectUri || !isAllowedRedirect(redirectUri)) {
+    return res.status(400).json({ error: "invalid_request", error_description: "redirect_uri missing or not allowed." });
   }
 
-  return res.json({
-    status: "authorized",
-    code: authCode,
-    state,
-    clientId,
-    message: "Packer Tools Claude MCP OAuth Authorization Approved."
-  });
+  purgeExpired();
+  const authCode = randomToken("pt_code");
+  pendingAuthCodes.set(authCode, { clientId, redirectUri, expiresAt: Date.now() + CODE_TTL_MS });
+
+  const redirectUrl = new URL(redirectUri);
+  redirectUrl.searchParams.set("code", authCode);
+  if (state) redirectUrl.searchParams.set("state", state);
+  return res.redirect(redirectUrl.toString());
 });
 
-// OAuth 2.0 Token Endpoint (Supports Client Credentials & Authorization Code for Claude)
+// OAuth 2.0 Token Endpoint
 router.post(["/oauth/token", "/api/mcp/oauth/token"], async (req, res) => {
   let clientId = req.body?.client_id;
   let clientSecret = req.body?.client_secret;
 
-  // Extract from HTTP Basic Authorization header if present
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Basic ")) {
     try {
       const credentials = Buffer.from(authHeader.split(" ")[1], "base64").toString("utf-8");
-      const [u, p] = credentials.split(":");
-      if (u) clientId = u;
-      if (p) clientSecret = p;
+      const idx = credentials.indexOf(":");
+      if (idx > 0) {
+        clientId = credentials.slice(0, idx);
+        clientSecret = credentials.slice(idx + 1);
+      }
     } catch {
-      // Parse error fallback
+      // fall through to failure below
     }
   }
 
-  // Assign default client identity if not supplied
-  const finalClientId = clientId || "packer-tools-claude-connector";
-  const accessToken = `pt_mcp_tok_${Date.now()}_${Math.random().toString(36).substring(2, 12)}`;
-  const refreshToken = `pt_mcp_ref_${Date.now()}_${Math.random().toString(36).substring(2, 12)}`;
+  const expectedSecret = getMcpClientSecret();
+  if (!expectedSecret) {
+    console.error("[MCP OAuth] MCP_CLIENT_SECRET / ADMIN_API_KEY is not configured; token issuance disabled.");
+    return res.status(503).json({ error: "temporarily_unavailable", error_description: "OAuth is not configured." });
+  }
+  if (typeof clientSecret !== "string" || !safeEqual(clientSecret, expectedSecret)) {
+    return res.status(401).json({ error: "invalid_client" });
+  }
 
+  const grantType = req.body?.grant_type;
+  const finalClientId = String(clientId || "packer-tools-claude-connector");
+
+  if (grantType === "authorization_code") {
+    const code = String(req.body?.code || "");
+    const pending = pendingAuthCodes.get(code);
+    pendingAuthCodes.delete(code); // single use
+    if (!pending || pending.expiresAt < Date.now() || pending.clientId !== finalClientId) {
+      return res.status(400).json({ error: "invalid_grant" });
+    }
+  } else if (grantType !== "client_credentials") {
+    return res.status(400).json({ error: "unsupported_grant_type" });
+  }
+
+  purgeExpired();
+  const accessToken = randomToken("pt_mcp_tok");
   activeMcpTokens.set(accessToken, {
     clientId: finalClientId,
     createdAt: Date.now(),
+    expiresAt: Date.now() + TOKEN_TTL_MS,
     scope: "mcp:all"
   });
 
   return res.json({
     access_token: accessToken,
     token_type: "Bearer",
-    expires_in: 2592000, // 30 days
-    refresh_token: refreshToken,
+    expires_in: TOKEN_TTL_MS / 1000,
     scope: "mcp:all"
   });
 });
@@ -370,9 +425,9 @@ function getMcpToolsList() {
 
 // Admin Authentication Helper for elevated MCP Tools
 function checkAdminAuth(args: Record<string, any>) {
-  const expectedKey = process.env.ADMIN_API_KEY || "pt_sec_packertools_2026_mcp";
+  const expectedKey = getAdminApiKey();
   const providedKey = args.adminApiKey || args.apiKey;
-  if (!providedKey || providedKey !== expectedKey) {
+  if (!expectedKey || typeof providedKey !== "string" || !safeEqual(providedKey, expectedKey)) {
     throw new Error("Access Denied: Invalid or missing 'adminApiKey'. Elevated admin authorization is required for cross-tenant system tools.");
   }
 }
@@ -793,7 +848,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}) 
         const targetIndustry = (args.industry as string | undefined)?.toLowerCase();
         const kit = {
           brand: "Packer Tools",
-          version: "v5.18.6",
+          version: "v6.0.2",
           canonicalPositioning: "signed, bidirectional manifest",
           tagline: "Production Logistics OS for Professional Crews",
           valuePropositions: [
@@ -1048,7 +1103,7 @@ async function readMcpResource(uri: string) {
     try {
       content = fs.readFileSync(filePath, "utf-8");
     } catch {
-      content = "# Release Notes\n\nCurrent Version: v5.18.6";
+      content = "# Release Notes\n\nCurrent Version: v6.0.2";
     }
     return {
       contents: [{ uri, mimeType: "text/markdown", text: content }]
@@ -1173,7 +1228,7 @@ function createMcpServer(): Server {
   const mcpServer = new Server(
     {
       name: "packer-tools-mcp",
-      version: "5.18.6",
+      version: "6.0.2",
     },
     {
       capabilities: {
@@ -1277,7 +1332,7 @@ router.post(["/api/mcp", "/api/mcp/sse"], async (req, res) => {
         result: {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {}, resources: {} },
-          serverInfo: { name: "packer-tools-mcp", version: "5.18.6" }
+          serverInfo: { name: "packer-tools-mcp", version: "6.0.2" }
         },
         id
       });

@@ -100,21 +100,25 @@ const MEMORY_MARKETPLACE: LabelTemplate[] = [
 const PRINT_HISTORY: any[] = [];
 
 // 1. GET User custom templates
-router.get("/api/labels/templates", (req, res) => {
+router.get("/api/labels/templates", authenticateUser, (req: any, res) => {
   res.json({
     status: "success",
-    templates: MEMORY_TEMPLATES
+    templates: MEMORY_TEMPLATES.filter((t: any) => !t.ownerId || t.ownerId === req.user.uid)
   });
 });
 
 // 2. POST Save user custom template
-router.post("/api/labels/templates", authenticateUser, (req, res) => {
+router.post("/api/labels/templates", authenticateUser, (req: any, res) => {
   const { name, width, height, elements, layout, category } = req.body;
   if (!name) {
     return res.status(400).json({ error: "Template name is required" });
   }
 
-  const newTemplate: LabelTemplate = {
+  if (MEMORY_TEMPLATES.length > 5000) {
+    return res.status(429).json({ error: "Template store is full." });
+  }
+  const newTemplate: LabelTemplate & { ownerId?: string } = {
+    ownerId: req.user.uid,
     id: `tpl_${Date.now()}`,
     name,
     width: width || 54,
@@ -135,9 +139,9 @@ router.post("/api/labels/templates", authenticateUser, (req, res) => {
 });
 
 // 3. DELETE User custom template
-router.delete("/api/labels/templates/:id", authenticateUser, (req, res) => {
+router.delete("/api/labels/templates/:id", authenticateUser, (req: any, res) => {
   const { id } = req.params;
-  const idx = MEMORY_TEMPLATES.findIndex(t => t.id === id);
+  const idx = MEMORY_TEMPLATES.findIndex((t: any) => t.id === id && t.ownerId === req.user.uid);
   if (idx > -1) {
     MEMORY_TEMPLATES.splice(idx, 1);
   }
@@ -148,13 +152,14 @@ router.delete("/api/labels/templates/:id", authenticateUser, (req, res) => {
 });
 
 // 4. POST Log print session
-router.post("/api/labels/print", authenticateUser, (req, res) => {
+router.post("/api/labels/print", authenticateUser, (req: any, res) => {
   const { templateId, assetIds, printerProfile, copies } = req.body;
   if (!assetIds || !Array.isArray(assetIds)) {
     return res.status(400).json({ error: "Invalid assets array for printing queue" });
   }
 
   const printJob = {
+    ownerId: req.user.uid,
     id: `prnt_${Date.now()}`,
     templateId: templateId || "tpl_asset_standard",
     assetIds,
@@ -164,6 +169,7 @@ router.post("/api/labels/print", authenticateUser, (req, res) => {
   };
 
   PRINT_HISTORY.push(printJob);
+  if (PRINT_HISTORY.length > 5000) PRINT_HISTORY.shift();
   res.json({
     status: "success",
     message: `Print command routed to ${printerProfile}`,
@@ -172,15 +178,15 @@ router.post("/api/labels/print", authenticateUser, (req, res) => {
 });
 
 // 5. GET Print history logs
-router.get("/api/labels/print/history", (req, res) => {
+router.get("/api/labels/print/history", authenticateUser, (req: any, res) => {
   res.json({
     status: "success",
-    history: PRINT_HISTORY
+    history: PRINT_HISTORY.filter((j: any) => j.ownerId === req.user.uid)
   });
 });
 
 // 6. POST Generate live preview model
-router.post("/api/labels/preview", (req, res) => {
+router.post("/api/labels/preview", authenticateUser, (req, res) => {
   const { elements, assetData } = req.body;
   
   // Dynamic parsing logic on backend
@@ -244,6 +250,7 @@ router.post("/api/labels/marketplace/publish", authenticateUser, (req, res) => {
     createdAt: new Date().toISOString()
   };
 
+  if (MEMORY_MARKETPLACE.length > 1000) MEMORY_MARKETPLACE.shift();
   MEMORY_MARKETPLACE.push(published);
   res.json({
     status: "success",

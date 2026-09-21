@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import nodemailer from "nodemailer";
 import { dbAdmin } from "../firebaseAdmin";
 import { authenticateUser } from "../middleware/auth";
+import { rateLimit, requireAdmin, escapeDeep, safeHref, sanitizeRichHtml, isValidEmail } from "../middleware/security";
 
 const router = express.Router();
 
@@ -409,7 +410,36 @@ async function dispatchEmailPayload(
 // -------------------------------------------------------------
 // Test Connection Endpoint for SMTP / Resend Credentials
 // -------------------------------------------------------------
-router.post("/api/emails/test-connection", authenticateUser, async (req, res) => {
+
+// ---- Abuse controls for all outbound-email routes ----
+// Non-admins: 30 emails/hour. All string payload fields are HTML-escaped before templating.
+const emailRateLimit = rateLimit("email", 30, 60 * 60 * 1000);
+const BROADCAST_MAX_RECIPIENTS = 500;
+function emailGuard(req: any, res: any, next: any) {
+  const original = req.body || {};
+  const recipientFields = [original.to, original.toEmail, original.payload?.to].filter(v => v !== undefined);
+  if (recipientFields.some(v => !isValidEmail(v))) {
+    return res.status(400).json({ error: "A single valid recipient email address is required." });
+  }
+  const skip = req.path.includes("/newsletter/broadcast") ? ["recipients", "bodyHtml"] : ["smtp", "toEmail", "to"];
+  req.body = escapeDeep(original, skip);
+  if (original.payload?.to !== undefined && req.body.payload) req.body.payload.to = original.payload.to;
+  // Neutralise non-http(s) links supplied through branding / CTA fields
+  if (Array.isArray(req.body?.branding?.footerLinks)) {
+    req.body.branding.footerLinks = req.body.branding.footerLinks.slice(0, 10).map((l: any) => ({ label: l?.label, href: safeHref(l?.href) }));
+  }
+  for (const f of ["ctaUrl", "bannerUrl"]) if (req.body?.[f]) req.body[f] = safeHref(req.body[f]);
+  if (req.body?.branding?.logo) req.body.branding.logo = safeHref(req.body.branding.logo);
+  next();
+}
+router.use(
+  ["/api/emails", "/api/send-email", "/api/send-welcome-email", "/api/send-contact-email"],
+  authenticateUser,
+  emailRateLimit,
+  emailGuard
+);
+
+router.post("/api/emails/test-connection", authenticateUser, requireAdmin, async (req, res) => {
   const { toEmail, smtp, branding } = req.body;
   const targetEmail = toEmail || (req as any).user?.email || "admin@packer.tools";
   const companyName = branding?.companyName || "Packer Tools";
@@ -789,11 +819,14 @@ router.post("/api/emails/send", authenticateUser, async (req, res) => {
 // -------------------------------------------------------------
 // Newsletter Broadcast Campaign Endpoint
 // -------------------------------------------------------------
-router.post("/api/emails/newsletter/broadcast", authenticateUser, async (req, res) => {
+router.post("/api/emails/newsletter/broadcast", authenticateUser, requireAdmin, async (req, res) => {
   const { recipients, subject, title, bodyHtml, ctaText, ctaUrl, bannerUrl, locale = 'en', branding } = req.body;
 
   if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
     return res.status(400).json({ error: "Recipients array is required for newsletter broadcast" });
+  }
+  if (recipients.length > BROADCAST_MAX_RECIPIENTS || !recipients.every(isValidEmail)) {
+    return res.status(400).json({ error: `Recipients must be valid emails (max ${BROADCAST_MAX_RECIPIENTS}).` });
   }
 
   const t = getT(locale);
@@ -815,7 +848,7 @@ router.post("/api/emails/newsletter/broadcast", authenticateUser, async (req, re
         </div>
         ${bannerUrl ? `<div style="width: 100%; overflow: hidden;"><img src="${bannerUrl}" alt="Newsletter Banner" style="width: 100%; max-height: 240px; object-fit: cover;" /></div>` : ''}
         <div style="padding: 36px 30px; font-size: 15px; color: #334155; line-height: 1.7;">
-          ${bodyHtml || '<p>Welcome to our latest newsletter update!</p>'}
+          ${sanitizeRichHtml(bodyHtml) || '<p>Welcome to our latest newsletter update!</p>'}
           ${ctaUrl ? `
             <div style="text-align: center; margin: 32px 0 16px 0;">
               <a href="${ctaUrl}" style="background-color: ${primaryColor}; color: #ffffff; font-weight: bold; padding: 14px 32px; border-radius: 12px; text-decoration: none; display: inline-block; font-size: 14px; text-transform: uppercase;">
@@ -1038,7 +1071,7 @@ router.post("/api/send-contact-email", authenticateUser, async (req, res) => {
     </html>
   `;
 
-  const result = await dispatchEmailPayload(email, subject, htmlContent, "contact-form@packer.tools", "Packer Tools");
+  const result = await dispatchEmailPayload(process.env.CONTACT_INBOX || "hi@packer.tools", subject, htmlContent, "contact-form@packer.tools", "Packer Tools");
   return res.json(result);
 });
 

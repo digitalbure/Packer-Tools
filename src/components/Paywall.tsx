@@ -187,6 +187,7 @@ export default function Paywall({
           planId: selectedPlan.id, 
           amount, 
           billingCycle, 
+          extraSeats,
           currency: 'USD' 
         })
       });
@@ -694,6 +695,8 @@ export default function Paywall({
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                       planId: selectedPlan.id,
+                                      billingCycle,
+                                      extraSeats,
                                       amount: amountInSelectedCurrency,
                                       currency: selectedCurrency || 'USD'
                                     })

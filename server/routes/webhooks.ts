@@ -16,6 +16,21 @@ function safeTimingCompare(a: string, b: string): boolean {
   }
 }
 
+/**
+ * Exact-match plan mapping from environment config, e.g.
+ *   PADDLE_PRO_IDS="pri_abc,pro_abc"  PADDLE_ENTERPRISE_IDS="pri_xyz"  (same for DODO_*)
+ * No substring matching: an unknown identifier maps to null and the webhook is rejected.
+ */
+function mapProviderPlan(productId: any, priceId: any, provider: 'PADDLE' | 'DODO'): 'pro' | 'enterprise' | null {
+  const ids = [productId, priceId].filter((v): v is string => typeof v === 'string' && v.length > 0);
+  const list = (name: string) => (process.env[`${provider}_${name}_IDS`] || '').split(',').map(x => x.trim()).filter(Boolean);
+  const ent = list('ENTERPRISE');
+  const pro = list('PRO');
+  if (ids.some(i => ent.includes(i))) return 'enterprise';
+  if (ids.some(i => pro.includes(i))) return 'pro';
+  return null;
+}
+
 function verifyDodoSignature(req: express.Request, rawBody: string, secret: string): boolean {
   const signatureHeader = (req.headers['dodo-signature'] || req.headers['x-dodo-signature'] || req.headers['webhook-signature']) as string || '';
   if (!signatureHeader) return false;
@@ -87,22 +102,19 @@ router.post(["/api/webhook", "/api/webhooks/paddle"], express.raw({ type: 'appli
 
     const userRef = dbAdmin.collection('users').doc(targetUid);
 
-    let mappedPlan: 'free' | 'pro' | 'enterprise' = 'free';
     const priceId = data?.items?.[0]?.price?.id || '';
     const productId = data?.items?.[0]?.price?.product?.id || '';
-
-    const searchableSku = (productId + " " + priceId).toLowerCase();
-    if (searchableSku.includes('enterprise') || searchableSku.includes('ent')) {
-      mappedPlan = 'enterprise';
-    } else if (searchableSku.includes('pro')) {
-      mappedPlan = 'pro';
+    const mappedPlan = mapProviderPlan(productId, priceId, 'PADDLE');
+    if (mappedPlan === null && event_type !== 'subscription.canceled') {
+      console.error(`[Paddle Webhook] Unmapped product/price (${productId}/${priceId}); refusing to change plan.`);
+      return res.status(422).json({ error: "Unmapped plan identifier." });
     }
 
     switch (event_type) {
       case 'subscription.created': {
         const isTrial = data?.status === 'trialing';
         await userRef.update({
-          plan: mappedPlan,
+          plan: mappedPlan ?? 'free',
           subscriptionStatus: data?.status,
           paddleSubscriptionId: data?.id,
           paddleCustomerId: data?.customer_id,
@@ -115,7 +127,7 @@ router.post(["/api/webhook", "/api/webhooks/paddle"], express.raw({ type: 'appli
       }
       case 'subscription.updated': {
         await userRef.update({
-          plan: mappedPlan,
+          plan: mappedPlan ?? 'free',
           subscriptionStatus: data?.status,
           paddleSubscriptionId: data?.id,
           planLastRenewedAt: new Date().toISOString(),
@@ -184,29 +196,17 @@ router.post("/api/webhooks/dodopayments", express.raw({ type: 'application/json'
 
     const userRef = dbAdmin.collection('users').doc(targetUid);
 
-    let mappedPlan = 'free';
-    const priceId = data?.price_id;
-    const productId = data?.product_id;
-
-    if (productId) {
-      if (productId.toLowerCase().includes('enterprise') || productId.toLowerCase().includes('ent')) {
-        mappedPlan = 'enterprise';
-      } else if (productId.toLowerCase().includes('pro')) {
-        mappedPlan = 'pro';
-      }
-    } else if (priceId) {
-      if (priceId.toLowerCase().includes('enterprise') || priceId.toLowerCase().includes('ent')) {
-        mappedPlan = 'enterprise';
-      } else if (priceId.toLowerCase().includes('pro')) {
-        mappedPlan = 'pro';
-      }
+    const mappedPlan = mapProviderPlan(data?.product_id, data?.price_id, 'DODO');
+    if (mappedPlan === null && event !== 'subscription.cancelled') {
+      console.error(`[Dodo Webhook] Unmapped product/price (${data?.product_id}/${data?.price_id}); refusing to change plan.`);
+      return res.status(422).json({ error: "Unmapped plan identifier." });
     }
 
     switch (event) {
       case 'subscription.created': {
         const isTrial = data?.status === 'trialing';
         await userRef.update({
-          plan: mappedPlan,
+          plan: mappedPlan ?? 'free',
           subscriptionStatus: data?.status || 'active',
           dodoSubscriptionId: data?.id,
           dodoCustomerId: data?.customer?.id || '',
@@ -218,7 +218,7 @@ router.post("/api/webhooks/dodopayments", express.raw({ type: 'application/json'
       }
       case 'subscription.updated': {
         await userRef.update({
-          plan: mappedPlan,
+          plan: mappedPlan ?? 'free',
           subscriptionStatus: data?.status || 'active',
           dodoSubscriptionId: data?.id,
           planLastRenewedAt: new Date().toISOString(),

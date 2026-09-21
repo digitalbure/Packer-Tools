@@ -277,7 +277,7 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
       const createRes = await authenticatedFetch('/api/paypal/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId: selectedPlan?.id, amount: amountInSelectedCurrency, billingCycle, currency: selectedCurrencyCode })
+        body: JSON.stringify({ planId: selectedPlan?.id, extraSeats: extraSeatsCount, amount: amountInSelectedCurrency, billingCycle, currency: selectedCurrencyCode })
       });
       const order = await createRes.json();
       if (!createRes.ok || !order.id) {
@@ -803,7 +803,7 @@ export default function PaymentModal({ isOpen, onClose, user, adminSettings, onS
                                       const response = await authenticatedFetch('/api/paypal/create-order', {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ planId: selectedPlan.id, amount: amountInSelectedCurrency, billingCycle, currency: selectedCurrencyCode })
+                                        body: JSON.stringify({ planId: selectedPlan.id, extraSeats: extraSeatsCount, amount: amountInSelectedCurrency, billingCycle, currency: selectedCurrencyCode })
                                       });
                                       const order = await response.json();
                                       return order.id;

@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.0.1`
+## Current Application Version: `v6.0.2`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,48 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🔒 Security Release: v6.0.2 (Security Audit Remediation)
+*Released on: September 21, 2026*
+
+**⚠️ Deployment action required before/at rollout** (see "Required configuration" below).
+
+**Critical fixes**
+- **Billing / entitlement bypass closed** (`server/routes/billing.ts`): plan, seat count, price and trial length are now computed server-side (`server/utils/plans.ts`). Client-supplied `amount`, `currency`, `planId` at capture and `trialDays` are ignored. PayPal orders are recorded in `paypalOrders/{orderId}`, bound to the creating user, single-use, and capture verifies the paid amount/currency before upgrading. Orders are charged in USD.
+- **Manual payments no longer grant a plan**: `activate-manual` records `manualPaymentRequestedPlan` + `manualPaymentPending`; an admin must approve. Trials are claimed atomically (transaction) and only for trial-enabled paid plans.
+- **MCP server authenticated** (`server/routes/mcp.ts`): all `/api/mcp*` transports now require a Bearer token. `/oauth/token` requires the client secret, authorization codes are single-use, 5-minute, and bound to an allow-listed `https` redirect URI (claude.ai / claude.com by default). Tokens are cryptographically random and expire after 24h. The hardcoded default admin key was removed; admin tools fail closed when `ADMIN_API_KEY` is unset.
+- **Developer API keys** (`server/routes/developer.ts`): removed the "any key ≥ 8 chars / `pk_`/`pt_`/`sk_` prefix" acceptance and the hardcoded default key. Keys must equal `DEVELOPER_API_KEY` or match a key issued to a user. Query-string keys are no longer accepted.
+
+**High**
+- **Email abuse controls** (`server/routes/email.ts`, `server/middleware/security.ts`): per-user rate limit (30/hour), single validated recipient, HTML-escaping of all templated fields, `http(s)/mailto` only links, admin-only newsletter broadcast (max 500 recipients, sanitized rich HTML) and SMTP test. Contact-form messages are now delivered to `CONTACT_INBOX` (default `hi@packer.tools`) instead of the submitter-supplied address.
+- **Firestore rules** (`firestore.rules`): `users/{uid}` is no longer world-readable (owner/admin only). Collaborators can no longer take ownership of a packing list or alter collaborator/sharing fields (previously a collaborator could set `ownerId` to themselves). Email-based collaborator access requires a verified email. `hasHadTrial` and `manualPaymentRequestedPlan` are server-only.
+- **Unauthenticated endpoints**: `/api/gemini/organizer-layout` now requires auth. Label templates/print history/preview are authenticated and scoped per user (templates previously deletable by anyone; history leaked across users).
+- **Webhooks**: plan mapping uses exact IDs from env (`PADDLE_PRO_IDS`, `PADDLE_ENTERPRISE_IDS`, `DODO_PRO_IDS`, `DODO_ENTERPRISE_IDS`) instead of substring matching (`"ent"`/`"pro"`); unmapped products are rejected. Paddle signatures reject timestamps older than 5 minutes.
+
+**Medium**
+- **SSRF hardening** (`server/utils/ssrf.ts`): DNS-resolution guard applied at connect time (blocks DNS rebinding), redirect hops re-validated, IPv4-mapped/NAT64/6to4/link-local IPv6 handled, response size capped.
+- **Server hardening** (`server/index.ts`): security headers, `trust proxy`, global per-IP API rate limit, JSON body limit reduced 50 MB → 15 MB, `PORT` env respected.
+- MCP `serverInfo`, Developer API and resources synced to `v6.0.2`.
+
+**Required configuration (new/changed environment variables)**
+| Variable | Purpose |
+|---|---|
+| `ADMIN_API_KEY` | **Required.** MCP admin tools. No default any more — rotate the old default key, it was public. |
+| `MCP_CLIENT_SECRET` | Secret for the Claude connector OAuth client (falls back to `ADMIN_API_KEY`). |
+| `DEVELOPER_API_KEY` | Optional shared developer key. |
+| `MCP_ALLOWED_REDIRECT_HOSTS` | Optional extra OAuth redirect hosts (comma separated). |
+| `CONTACT_INBOX` | Contact-form destination. |
+| `PADDLE_PRO_IDS`, `PADDLE_ENTERPRISE_IDS`, `DODO_PRO_IDS`, `DODO_ENTERPRISE_IDS` | Comma-separated product/price IDs for webhook plan mapping. |
+| `NODE_ENV=production` | Must be set in deployed environments. |
+
+Deploy `firestore.rules` (`firebase deploy --only firestore:rules`) together with the server.
+
+**Behaviour changes / known follow-ups**
+- Existing Claude MCP connector must be re-authorized with the client secret.
+- Public gear-bio pages read the owner profile; with the new `users` rule this read is denied for non-owners and the page degrades gracefully (owner branding/profile fields hidden). Follow-up: publish a `publicProfiles/{uid}` projection.
+- Still open: `subscriptionStatus`/trial fields remain client-writable (`UpgradeNowModal`, `AuthProvider` write them); `gearLibrary` (+versions/incidents) is intentionally public-read for QR bio pages; Dodo signature verifier accepts a timestamp-less scheme; MCP tokens/sessions are in-memory (single instance); developer API keys are generated client-side with `Math.random`; JWT/Google tokens are stored in `localStorage`; no automated tests/CI.
 
 ---
 

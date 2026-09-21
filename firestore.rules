@@ -42,7 +42,7 @@ service cloud.firestore {
       let listData = get(/databases/$(database)/documents/packingLists/$(listId)).data;
       return isAuthenticated() && (
         (listData.collaboratorIds != null && request.auth.uid in listData.collaboratorIds) ||
-        (listData.collaboratorEmails != null && request.auth.token.email in listData.collaboratorEmails)
+        (listData.collaboratorEmails != null && request.auth.token.email_verified == true && request.auth.token.email in listData.collaboratorEmails)
       );
     }
 
@@ -71,7 +71,7 @@ service cloud.firestore {
     }
 
     function isUnchanged(key) {
-      return !(key in request.resource.data) || request.resource.data[key] == resource.data[key];
+      return !(key in request.resource.data) || request.resource.data[key] == resource.data.get(key, null);
     }
 
     // Schema Validation Helpers
@@ -249,7 +249,8 @@ service cloud.firestore {
 
     // 1. User Profiles & Subcollections
     match /users/{userId} {
-      allow read: if true;
+      // Profiles contain email, plan, role and API keys: owner/admin only (was world-readable).
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if (isOwner(userId) && isValidUser(incoming()) && incoming().plan == 'free' && (!('role' in incoming()) || incoming().role == 'user')) || isSuperAdmin();
       allow update: if (isOwner(userId) && (
         isAdmin() || (
@@ -257,7 +258,9 @@ service cloud.firestore {
           isUnchanged('role') &&
           isUnchanged('isSuperAdmin') &&
           isUnchanged('extraSeats') &&
-          isUnchanged('manualPaymentPending')
+          isUnchanged('manualPaymentPending') &&
+          isUnchanged('manualPaymentRequestedPlan') &&
+          isUnchanged('hasHadTrial')
         )
       )) || isSuperAdmin();
       allow delete: if isAdmin();
@@ -326,7 +329,17 @@ service cloud.firestore {
     match /packingLists/{listId} {
       allow read: if (resource != null && (resource.data.marketplaceEnabled == true || resource.data.publicSharingEnabled == true)) || (isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isCollaborator(listId) || isAdmin()));
       allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidPackingList(incoming());
-      allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isCollaborator(listId)) && isOwner(incoming().ownerId) && isValidPackingList(incoming());
+      // Owners may edit anything (incl. ownership transfer). Collaborators may edit content but can never
+      // change ownership, the collaborator lists, or the public/marketplace sharing flags.
+      allow update: if isSignedIn() && isValidPackingList(incoming()) && (
+        isOwner(resource.data.ownerId) ||
+        (isCollaborator(listId) &&
+         incoming().ownerId == resource.data.ownerId &&
+         isUnchanged('collaboratorIds') &&
+         isUnchanged('collaboratorEmails') &&
+         isUnchanged('marketplaceEnabled') &&
+         isUnchanged('publicSharingEnabled'))
+      );
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
 
       match /items/{itemId} {

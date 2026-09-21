@@ -4,7 +4,7 @@ import axios from "axios";
 import { ai } from "../services/gemini";
 import { authenticateUser } from "../middleware/auth";
 import { isQuotaError, extractSpecsFromText } from "../utils/ai";
-import { isSafeUrl, isAllowlistedImageSource } from "../utils/ssrf";
+import { isSafeUrl, isAllowlistedImageSource, ssrfSafeAxiosOptions } from "../utils/ssrf";
 
 const router = express.Router();
 
@@ -145,7 +145,8 @@ router.post("/api/analyze-item", authenticateUser, async (req, res) => {
             "Cache-Control": "no-cache",
             "Pragma": "no-cache"
           },
-          timeout: 6000
+          timeout: 6000,
+          ...ssrfSafeAxiosOptions
         });
         const html = fetchRes.data;
         if (typeof html === "string") {
@@ -327,7 +328,8 @@ router.post("/api/extract-case-url", authenticateUser, async (req, res) => {
             "Accept-Language": "en-US,en;q=0.5",
             "Cache-Control": "no-cache"
           },
-          timeout: 7000
+          timeout: 7000,
+          ...ssrfSafeAxiosOptions
         });
         const html = fetchRes.data;
         if (typeof html === "string") {
@@ -1924,7 +1926,7 @@ router.post("/api/ai/gig-assistant", authenticateUser, async (req: any, res) => 
 });
 
 // POST /api/gemini/organizer-layout - Generate smart 2D Sketchup-style layout for cases/drawers
-router.post("/api/gemini/organizer-layout", async (req, res) => {
+router.post("/api/gemini/organizer-layout", authenticateUser, async (req, res) => {
   const { containerType = "Pelican Case", containerDimensions, items = [], priority = "protection" } = req.body;
 
   try {
@@ -2074,7 +2076,7 @@ router.post("/api/url-to-base64", authenticateUser, async (req: any, res) => {
     const fetchRes = await axios.get(parsedUrl.toString(), {
       responseType: "arraybuffer",
       timeout: 10000,
-      maxContentLength: 10 * 1024 * 1024,
+      ...ssrfSafeAxiosOptions,
       maxRedirects: 0,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

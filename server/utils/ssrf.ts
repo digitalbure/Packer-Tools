@@ -1,5 +1,8 @@
 import { URL } from "url";
 import net from "net";
+import dns from "dns";
+import http from "http";
+import https from "https";
 
 /**
  * Validates whether a given URL string is safe from SSRF vulnerabilities.
@@ -78,7 +81,15 @@ function parseAlternativeIpNotation(hostname: string): string | null {
 /**
  * Helper to check if an IP address falls within private/reserved/loopback CIDR blocks.
  */
-function isPrivateIp(ip: string): boolean {
+export function isPrivateIp(ip: string): boolean {
+  // IPv4-mapped IPv6 (::ffff:a.b.c.d or ::ffff:7f00:1) -> evaluate the embedded IPv4 address
+  const mapped = ip.toLowerCase().match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mapped) return isPrivateIp(mapped[1]);
+  const mappedHex = ip.toLowerCase().match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (mappedHex) {
+    const hi = parseInt(mappedHex[1], 16), lo = parseInt(mappedHex[2], 16);
+    return isPrivateIp(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`);
+  }
   if (net.isIPv4(ip)) {
     const parts = ip.split(".").map(Number);
     // 0.0.0.0/8
@@ -107,9 +118,11 @@ function isPrivateIp(ip: string): boolean {
     if (
       normalized === "::1" ||
       normalized === "::" ||
-      normalized.startsWith("fe80:") ||
-      normalized.startsWith("fc00:") ||
-      normalized.startsWith("fd00:") ||
+      /^fe[89ab][0-9a-f]:/.test(normalized) || // fe80::/10 link-local
+      /^f[cd][0-9a-f]{2}:/.test(normalized) || // fc00::/7 unique local
+      normalized.startsWith("ff") || // multicast
+      normalized.startsWith("64:ff9b:") || // NAT64
+      normalized.startsWith("2002:") || // 6to4
       normalized.includes("127.0.0.1") ||
       normalized.includes("169.254.169.254")
     ) {
@@ -210,3 +223,38 @@ export function isAllowlistedImageSource(parsedUrl: URL): boolean {
   return false;
 }
 
+
+
+/**
+ * DNS lookup guard: resolves the hostname and refuses to connect if ANY resolved address is private/internal.
+ * Applied at connect time, so it also covers DNS rebinding and every redirect hop.
+ */
+const guardedLookup: any = (hostname: string, options: any, callback: any) => {
+  const cb = typeof options === "function" ? options : callback;
+  const opts = typeof options === "function" ? {} : options;
+  dns.lookup(hostname, { ...opts, all: true }, (err, addresses: any) => {
+    if (err) return cb(err);
+    const list = Array.isArray(addresses) ? addresses : [{ address: addresses, family: net.isIP(addresses) }];
+    if (list.length === 0 || list.some((a: any) => isPrivateIp(a.address))) {
+      return cb(new Error(`SSRF guard: ${hostname} resolves to a restricted address.`));
+    }
+    if (opts && opts.all) return cb(null, list);
+    return cb(null, list[0].address, list[0].family);
+  });
+};
+
+export const ssrfHttpAgent = new http.Agent({ lookup: guardedLookup });
+export const ssrfHttpsAgent = new https.Agent({ lookup: guardedLookup });
+
+/** Spread into axios config for any server-side fetch of a user-supplied URL. */
+export const ssrfSafeAxiosOptions = {
+  httpAgent: ssrfHttpAgent,
+  httpsAgent: ssrfHttpsAgent,
+  maxRedirects: 3,
+  maxContentLength: 10 * 1024 * 1024,
+  beforeRedirect: (options: any) => {
+    const target = `${options.protocol}//${options.hostname}${options.path || ""}`;
+    const check = isSafeUrl(target);
+    if (!check.safe) throw new Error(`SSRF guard: redirect blocked (${check.reason})`);
+  },
+};

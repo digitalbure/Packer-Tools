@@ -1,6 +1,8 @@
 import express from "express";
 import crypto from "crypto";
 import { authenticateUser } from "../middleware/auth";
+import { dbAdmin } from "../firebaseAdmin";
+import { safeEqual, getDeveloperApiKey } from "../utils/secrets";
 
 const router = express.Router();
 
@@ -24,32 +26,44 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
-function requireDevApiKey(req: express.Request, res: express.Response, next: express.NextFunction) {
+// Developer keys: header-only (no query-string keys, which leak into logs). A key is valid if it
+// equals the configured DEVELOPER_API_KEY, or matches a key issued to a user (users/{uid}.apiKey).
+const validKeyCache = new Map<string, number>();
+async function requireDevApiKey(req: express.Request, res: express.Response, next: express.NextFunction) {
   const apiKeyHeader = req.headers["x-api-key"];
   const authHeader = req.headers["authorization"];
   let bearerKey = "";
   if (typeof authHeader === "string" && authHeader.toLowerCase().startsWith("bearer ")) {
     bearerKey = authHeader.substring(7).trim();
   }
-  const apiKeyQuery = req.query.apiKey || req.query.key;
-  const rawKey = apiKeyHeader || bearerKey || apiKeyQuery;
-  const apiKey = typeof rawKey === "string" ? rawKey : (Array.isArray(rawKey) ? String(rawKey[0]) : (rawKey ? String(rawKey) : ""));
-  
-  const expectedKey = process.env.DEVELOPER_API_KEY || process.env.ADMIN_API_KEY || "pt_sec_packertools_2026_mcp";
-  
-  const isValid = !!apiKey && (
-    safeCompare(apiKey, expectedKey) ||
-    apiKey.startsWith("pk_") ||
-    apiKey.startsWith("pt_") ||
-    apiKey.startsWith("sk_") ||
-    apiKey.length >= 8
-  );
+  const rawKey = apiKeyHeader || bearerKey;
+  const apiKey = typeof rawKey === "string" ? rawKey : (Array.isArray(rawKey) ? String(rawKey[0]) : "");
+
+  let isValid = false;
+  if (apiKey && apiKey.length >= 16 && apiKey.length <= 200) {
+    const expectedKey = getDeveloperApiKey();
+    if (expectedKey && safeEqual(apiKey, expectedKey)) {
+      isValid = true;
+    } else if ((validKeyCache.get(apiKey) || 0) > Date.now()) {
+      isValid = true;
+    } else {
+      try {
+        const snap = await dbAdmin.collection("users").where("apiKey", "==", apiKey).limit(1).get();
+        if (!snap.empty) {
+          isValid = true;
+          validKeyCache.set(apiKey, Date.now() + 60_000);
+        }
+      } catch (e: any) {
+        console.error("[Developer API] key lookup failed:", e.message);
+      }
+    }
+  }
 
   if (!isValid) {
     return res.status(401).json({
       status: "error",
       code: 401,
-      error: "Unauthorized. Valid 'x-api-key' header, 'Authorization: Bearer <key>' header, or 'apiKey' query parameter is required."
+      error: "Unauthorized. A valid 'x-api-key' or 'Authorization: Bearer <key>' header is required."
     });
   }
   (req as any).validatedApiKey = apiKey;
@@ -63,10 +77,10 @@ router.get("/api/developer/ping", requireDevApiKey, (req, res) => {
   return res.json({
     status: "success",
     code: 200,
-    message: "Packer.Tools Developer API v6.0.0 Operational",
+    message: "Packer.Tools Developer API v6.0.2 Operational",
     authenticated: true,
     apiKeyMasked: maskedKey,
-    serverVersion: "6.0.0",
+    serverVersion: "6.0.2",
     timestamp: new Date().toISOString(),
     capabilities: [
       "lists.read",
@@ -309,7 +323,7 @@ router.get("/api/developer/hardware/readers", requireDevApiKey, (req, res) => {
   return res.json({
     status: "success",
     code: 200,
-    serverVersion: "6.0.0",
+    serverVersion: "6.0.2",
     supportedProtocols: [
       {
         protocol: "Web NFC",
@@ -383,7 +397,7 @@ router.get("/api/developer/hardware/scans", requireDevApiKey, async (req, res) =
   return res.json({
     status: "success",
     code: 200,
-    serverVersion: "6.0.0",
+    serverVersion: "6.0.2",
     totalCount: filtered.length,
     events: filtered.slice(0, limit),
     schema: {

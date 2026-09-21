@@ -15,6 +15,9 @@ export function verifyPaddleSignature(req: express.Request, rawBody: string, sec
   }
 
   if (!ts || !h1) return false;
+  // Reject replays: timestamp must be within 5 minutes
+  const tsNum = Number(ts);
+  if (!isFinite(tsNum) || Math.abs(Date.now() / 1000 - tsNum) > 300) return false;
 
   const message = `${ts}:${rawBody}`;
   const computedHash = crypto
