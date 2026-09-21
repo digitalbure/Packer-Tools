@@ -41,6 +41,8 @@ import SignatureCanvas from 'react-signature-canvas';
 import { QRCodeCanvas } from 'qrcode.react';
 import { collection, query, where, getDocs, getDoc, addDoc, deleteDoc, serverTimestamp, doc, updateDoc, onSnapshot, limit, arrayUnion } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, signInWithGoogle } from '../firebase';
+import { authenticatedFetch } from '../lib/api';
+import { findItem, checkOutItem, checkInItem, parseScannedValue, ItemConflictError, type ItemSource } from '../lib/kioskOps';
 import { triggerGoogleChatAlert } from '../services/googleChat';
 import { GearItem, UserProfile, CheckoutRecord, AdminSettings, Container } from '../types';
 import { offlineSync, OfflineOperation } from '../services/offlineSync';
@@ -486,60 +488,11 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       return;
     }
 
-    let decodedValue = scannedValue.trim();
-    if (decodedValue.includes('/gear/')) {
-      try {
-        const urlObj = new URL(decodedValue);
-        const pathParts = urlObj.pathname.split('/');
-        const gearIdx = pathParts.indexOf('gear');
-        if (gearIdx !== -1 && pathParts[gearIdx + 1]) {
-          decodedValue = pathParts[gearIdx + 1];
-        }
-      } catch (e) {
-        const parts = decodedValue.split('/gear/');
-        if (parts[1]) {
-          decodedValue = parts[1].split('?')[0];
-        }
-      }
-    }
+    const decodedValue = parseScannedValue(scannedValue);
 
     try {
-      let foundItem: GearItem | null = null;
-      const directRef = doc(db, 'users', targetUid, 'gearLibrary', decodedValue);
-      const directSnap = await getDoc(directRef);
-      if (directSnap.exists()) {
-        foundItem = { id: directSnap.id, ...directSnap.data() } as GearItem;
-      } else {
-        const qTag = query(
-          collection(db, 'users', targetUid, 'gearLibrary'),
-          where('assetTag', '==', decodedValue),
-          limit(1)
-        );
-        const tagSnap = await getDocs(qTag);
-        if (!tagSnap.empty) {
-          foundItem = { id: tagSnap.docs[0].id, ...tagSnap.docs[0].data() } as GearItem;
-        } else {
-          const qRawTag = query(
-            collection(db, 'users', targetUid, 'gearLibrary'),
-            where('assetTag', '==', scannedValue),
-            limit(1)
-          );
-          const rawTagSnap = await getDocs(qRawTag);
-          if (!rawTagSnap.empty) {
-            foundItem = { id: rawTagSnap.docs[0].id, ...rawTagSnap.docs[0].data() } as GearItem;
-          } else {
-            const qUpperTag = query(
-              collection(db, 'users', targetUid, 'gearLibrary'),
-              where('assetTag', '==', decodedValue.toUpperCase()),
-              limit(1)
-            );
-            const upperTagSnap = await getDocs(qUpperTag);
-            if (!upperTagSnap.empty) {
-              foundItem = { id: upperTagSnap.docs[0].id, ...upperTagSnap.docs[0].data() } as GearItem;
-            }
-          }
-        }
-      }
+      const src: ItemSource = { kind: 'library', ownerUid: targetUid };
+      const foundItem: GearItem | null = await findItem(src, scannedValue);
 
       if (!foundItem) {
         playScanChime('error');
@@ -585,21 +538,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
             label: `Record Check-in ${foundItem.name} (Offline)`
           });
         } else {
-          await updateDoc(userGearRef, {
-            status: 'available',
-            currentHolder: "",
-            lastCheckedIn: serverTimestamp()
-          });
-
-          await addDoc(collection(db, 'checkouts'), {
-            assetId: foundItem.id,
-            assetName: foundItem.name,
-            assetType: 'item',
-            userId: targetUid,
-            userName: foundItem.currentHolder || 'Assigned Holder',
-            userEmail: '',
-            checkInTime: serverTimestamp(),
-            status: 'returned',
+          await checkInItem(src, foundItem, { ownerUid: targetUid, name: initialUser?.displayName || 'PWA Scanner Operator' }, {
             notes: `Checked-in securely via PWA Scanner App`
           });
         }
@@ -645,27 +584,13 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
               userName: holderName,
               userEmail: scannerAssigneeEmail || '',
               checkOutTime: nowMs,
-              status: 'checked_out',
+              status: 'active',
               notes: `Checked-out securely via PWA Scanner App to ${holderName} (Offline)`
             },
             label: `Record Check-out ${foundItem.name} (Offline)`
           });
         } else {
-          await updateDoc(userGearRef, {
-            status: 'in_use',
-            currentHolder: holderName,
-            lastCheckedOut: serverTimestamp()
-          });
-
-          await addDoc(collection(db, 'checkouts'), {
-            assetId: foundItem.id,
-            assetName: foundItem.name,
-            assetType: 'item',
-            userId: targetUid,
-            userName: holderName,
-            userEmail: scannerAssigneeEmail || '',
-            checkOutTime: serverTimestamp(),
-            status: 'checked_out',
+          await checkOutItem(src, foundItem, { ownerUid: targetUid, name: holderName, email: scannerAssigneeEmail || '' }, {
             notes: `Checked-out securely via PWA Scanner App to ${holderName}`
           });
         }
@@ -701,7 +626,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     } catch (err) {
       console.error("PWA Scan execution error:", err);
       playScanChime('error');
-      toast.error("Handheld transition failed.");
+      toast.error(err instanceof ItemConflictError ? err.message : "Handheld transition failed.");
     }
   };
 
@@ -712,84 +637,19 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       return;
     }
 
-    let decodedValue = scannedValue.trim();
-    if (decodedValue.includes('/gear/')) {
-      try {
-        const urlObj = new URL(decodedValue);
-        const pathParts = urlObj.pathname.split('/');
-        const gearIdx = pathParts.indexOf('gear');
-        if (gearIdx !== -1 && pathParts[gearIdx + 1]) {
-          decodedValue = pathParts[gearIdx + 1];
-        }
-      } catch (e) {
-        const parts = decodedValue.split('/gear/');
-        if (parts[1]) {
-          decodedValue = parts[1].split('?')[0];
-        }
-      }
-    }
+    const decodedValue = parseScannedValue(scannedValue);
 
     try {
-      let foundItem: GearItem | null = null;
-      const directRef = doc(db, 'users', targetUid, 'gearLibrary', decodedValue);
-      const directSnap = await getDoc(directRef);
-      if (directSnap.exists()) {
-        foundItem = { id: directSnap.id, ...directSnap.data() } as GearItem;
-      } else {
-        const qTag = query(
-          collection(db, 'users', targetUid, 'gearLibrary'),
-          where('assetTag', '==', decodedValue),
-          limit(1)
-        );
-        const tagSnap = await getDocs(qTag);
-        if (!tagSnap.empty) {
-          foundItem = { id: tagSnap.docs[0].id, ...tagSnap.docs[0].data() } as GearItem;
-        } else {
-          const qRawTag = query(
-            collection(db, 'users', targetUid, 'gearLibrary'),
-            where('assetTag', '==', scannedValue),
-            limit(1)
-          );
-          const rawTagSnap = await getDocs(qRawTag);
-          if (!rawTagSnap.empty) {
-            foundItem = { id: rawTagSnap.docs[0].id, ...rawTagSnap.docs[0].data() } as GearItem;
-          } else {
-            const qUpperTag = query(
-              collection(db, 'users', targetUid, 'gearLibrary'),
-              where('assetTag', '==', decodedValue.toUpperCase()),
-              limit(1)
-            );
-            const upperTagSnap = await getDocs(qUpperTag);
-            if (!upperTagSnap.empty) {
-              foundItem = { id: upperTagSnap.docs[0].id, ...upperTagSnap.docs[0].data() } as GearItem;
-            }
-          }
-        }
-      }
+      const src: ItemSource = { kind: 'library', ownerUid: targetUid };
+      const foundItem: GearItem | null = await findItem(src, scannedValue);
 
       if (!foundItem) {
         toast.error(`No equipment matches asset identifier "${decodedValue}"`);
         return;
       }
 
-      const userGearRef = doc(db, 'users', targetUid, 'gearLibrary', foundItem.id);
-      
       if (foundItem.status === 'in_use') {
-        await updateDoc(userGearRef, {
-          status: 'available',
-          currentHolder: "",
-          lastCheckedIn: serverTimestamp()
-        });
-
-        await addDoc(collection(db, 'checkouts'), {
-          assetId: foundItem.id,
-          assetName: foundItem.name,
-          assetType: 'item',
-          userId: targetUid,
-          userName: foundItem.currentHolder || 'Assigned Holder',
-          userEmail: '',
-          checkInTime: serverTimestamp(),
-          status: 'returned',
+        await checkInItem(src, foundItem, { ownerUid: targetUid, name: initialUser?.displayName || 'Terminal Guest' }, {
           notes: `Auto checked-in via Instant Gear Scanner at ${new Date().toLocaleTimeString()}`
         });
 
@@ -810,21 +670,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
         const holderName = scannerAssignee.trim() || initialUser?.displayName || 'Terminal Guest';
         const holderEmail = scannerAssigneeEmail.trim() || initialUser?.email || 'guest@terminal.local';
 
-        await updateDoc(userGearRef, {
-          status: 'in_use',
-          currentHolder: holderName,
-          lastCheckedOut: serverTimestamp()
-        });
-
-        await addDoc(collection(db, 'checkouts'), {
-          assetId: foundItem.id,
-          assetName: foundItem.name,
-          assetType: 'item',
-          userId: targetUid,
-          userName: holderName,
-          userEmail: holderEmail,
-          checkOutTime: serverTimestamp(),
-          status: 'active',
+        await checkOutItem(src, foundItem, { ownerUid: targetUid, name: holderName, email: holderEmail }, {
           notes: `Auto checked-out via Instant Gear Scanner at ${new Date().toLocaleTimeString()}`
         });
 
@@ -845,7 +691,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       }
     } catch (err) {
       console.error("Auto scan check-in/out error:", err);
-      toast.error("Auto state transition failed.");
+      toast.error(err instanceof ItemConflictError ? err.message : "Auto state transition failed.");
     }
   };
 
@@ -1618,6 +1464,14 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     return doc(db, 'users', targetUid, 'gearLibrary', itemId);
   };
 
+  const getItemSource = (targetUid: string): ItemSource =>
+    activeSourceType === 'customInventory' && terminalInventoryId
+      ? { kind: 'inventory', ownerUid: targetUid, inventoryId: terminalInventoryId }
+      : { kind: 'library', ownerUid: targetUid };
+
+  const conflictMessage = (err: unknown, itemName: string) =>
+    err instanceof ItemConflictError ? `${itemName}: ${err.message}` : null;
+
   const getItemCollectionPath = (itemId: string, targetUid: string) => {
     if (activeSourceType === 'customInventory' && terminalInventoryId) {
       return ['inventories', terminalInventoryId, 'items', itemId];
@@ -1635,137 +1489,10 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     setIsLoading(true);
 
     // Extract ID or tag if a full URL was scanned
-    let decodedValue = scannedValue.trim();
-    if (scannedValue.includes('/gear/')) {
-      try {
-        const urlObj = new URL(scannedValue);
-        const pathParts = urlObj.pathname.split('/');
-        const gearIdx = pathParts.indexOf('gear');
-        if (gearIdx !== -1 && pathParts[gearIdx + 1]) {
-          decodedValue = pathParts[gearIdx + 1];
-        }
-      } catch (e) {
-        const parts = scannedValue.split('/gear/');
-        if (parts[1]) {
-          decodedValue = parts[1].split('?')[0];
-        }
-      }
-    }
+    const decodedValue = parseScannedValue(scannedValue);
 
     try {
-      let foundItem: GearItem | null = null;
-
-      // 1. First try direct document ID lookup (in case the scanned value is the document ID)
-      const directDocRef = getItemDocRef(decodedValue, targetUid);
-      const directDocSnap = await getDoc(directDocRef);
-      if (directDocSnap.exists()) {
-        const dData = directDocSnap.data();
-        if (activeSourceType === 'customInventory') {
-          foundItem = {
-            id: directDocSnap.id,
-            name: dData.name,
-            brand: dData.brand || '',
-            model: dData.model || '',
-            category: dData.category || 'Gear',
-            assetTag: dData.assetTag || dData.id || directDocSnap.id,
-            status: dData.status || 'available',
-            condition: dData.condition || 'good',
-            isSale: dData.isSale || false,
-            price: dData.price || 0,
-            quantity: dData.quantity || 1
-          } as unknown as GearItem;
-        } else {
-          foundItem = { id: directDocSnap.id, ...dData } as GearItem;
-        }
-      } else {
-        // 2. Try looking up by the 'assetTag' field (classic tag search)
-        const colRef = activeSourceType === 'customInventory' && terminalInventoryId
-          ? collection(db, 'inventories', terminalInventoryId, 'items')
-          : collection(db, 'users', targetUid, 'gearLibrary');
-
-        const qTag = query(
-          colRef,
-          where('assetTag', '==', decodedValue),
-          limit(1)
-        );
-        const tagSnap = await getDocs(qTag);
-        if (!tagSnap.empty) {
-          const dData = tagSnap.docs[0].data();
-          if (activeSourceType === 'customInventory') {
-            foundItem = {
-              id: tagSnap.docs[0].id,
-              name: dData.name,
-              brand: dData.brand || '',
-              model: dData.model || '',
-              category: dData.category || 'Gear',
-              assetTag: dData.assetTag || dData.id || tagSnap.docs[0].id,
-              status: dData.status || 'available',
-              condition: dData.condition || 'good',
-              isSale: dData.isSale || false,
-              price: dData.price || 0,
-              quantity: dData.quantity || 1
-            } as unknown as GearItem;
-          } else {
-            foundItem = { id: tagSnap.docs[0].id, ...dData } as GearItem;
-          }
-        } else {
-          // 3. Fallback: search by 'assetTag' using the raw undecoded value in case the tag was custom
-          const qRawTag = query(
-            colRef,
-            where('assetTag', '==', scannedValue),
-            limit(1)
-          );
-          const rawTagSnap = await getDocs(qRawTag);
-          if (!rawTagSnap.empty) {
-            const dData = rawTagSnap.docs[0].data();
-            if (activeSourceType === 'customInventory') {
-              foundItem = {
-                id: rawTagSnap.docs[0].id,
-                name: dData.name,
-                brand: dData.brand || '',
-                model: dData.model || '',
-                category: dData.category || 'Gear',
-                assetTag: dData.assetTag || dData.id || rawTagSnap.docs[0].id,
-                status: dData.status || 'available',
-                condition: dData.condition || 'good',
-                isSale: dData.isSale || false,
-                price: dData.price || 0,
-                quantity: dData.quantity || 1
-              } as unknown as GearItem;
-            } else {
-              foundItem = { id: rawTagSnap.docs[0].id, ...dData } as GearItem;
-            }
-          } else {
-            // 4. Uppercase Tag Fallback
-            const qUpperTag = query(
-              colRef,
-              where('assetTag', '==', decodedValue.toUpperCase()),
-              limit(1)
-            );
-            const upperTagSnap = await getDocs(qUpperTag);
-            if (!upperTagSnap.empty) {
-              const dData = upperTagSnap.docs[0].data();
-              if (activeSourceType === 'customInventory') {
-                foundItem = {
-                  id: upperTagSnap.docs[0].id,
-                  name: dData.name,
-                  brand: dData.brand || '',
-                  model: dData.model || '',
-                  category: dData.category || 'Gear',
-                  assetTag: dData.assetTag || dData.id || upperTagSnap.docs[0].id,
-                  status: dData.status || 'available',
-                  condition: dData.condition || 'good',
-                  isSale: dData.isSale || false,
-                  price: dData.price || 0,
-                  quantity: dData.quantity || 1
-                } as unknown as GearItem;
-              } else {
-                foundItem = { id: upperTagSnap.docs[0].id, ...dData } as GearItem;
-              }
-            }
-          }
-        }
-      }
+      const foundItem: GearItem | null = await findItem(getItemSource(targetUid), scannedValue);
 
       if (!foundItem) {
         toast.error("Asset not found in organization database");
@@ -1854,39 +1581,15 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
             }
           }
         } else {
-          const checkoutData: any = {
-            assetId: item.id,
-            assetName: item.name,
-            assetType: 'item',
-            userId: targetUid,
-            userName: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
-            userEmail: guestInfo.email || initialUser?.email || 'guest@terminal.local',
-            checkOutTime: serverTimestamp(),
-            status: 'active',
+          await checkOutItem(getItemSource(targetUid), item, {
+            ownerUid: targetUid,
+            name: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
+            email: guestInfo.email || initialUser?.email || 'guest@terminal.local',
+            terminalId,
+          }, {
             signature: sigData || null,
             notes: `Bulk checked out via Gear Terminal at ${new Date().toLocaleString()}`
-          };
-
-          await addDoc(collection(db, 'checkouts'), checkoutData);
-          
-          const userGearRef = getItemDocRef(item.id, targetUid);
-          await updateDoc(userGearRef, {
-            status: 'in_use',
-            currentHolder: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
-            lastCheckedOut: serverTimestamp()
           });
-
-          if (item.isKit && item.childItemIds?.length) {
-            for (const childId of item.childItemIds) {
-              const childRef = getItemDocRef(childId, targetUid);
-              await updateDoc(childRef, {
-                status: 'in_use',
-                currentHolder: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
-                lastCheckedOut: serverTimestamp(),
-                kitId: item.id
-              });
-            }
-          }
         }
 
         checkoutItems.push({
@@ -1927,7 +1630,9 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       setStep('item_released');
     } catch (error) {
       console.error(error);
-      toast.error("Bulk check-out failed. Please try again.");
+      toast.error(error instanceof ItemConflictError
+        ? `${error.message} Items scanned before this one were already released; review the list and retry.`
+        : "Bulk check-out failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -1992,40 +1697,12 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
             }
           }
         } else {
-          const q = query(
-            collection(db, 'checkouts'), 
-            where('assetId', '==', item.id), 
-            where('status', '==', 'active')
-          );
-          const snapshot = await getDocs(q);
-
-          if (!snapshot.empty) {
-            for (const d of snapshot.docs) {
-              await updateDoc(doc(db, 'checkouts', d.id), {
-                status: 'returned',
-                checkInTime: serverTimestamp()
-              });
-            }
-          }
-
-          const userGearRef = getItemDocRef(item.id, targetUid);
-          await updateDoc(userGearRef, {
-            status: 'available',
-            currentHolder: null,
-            lastCheckedIn: serverTimestamp()
+          await checkInItem(getItemSource(targetUid), item, {
+            ownerUid: targetUid,
+            name: guestInfo.name || initialUser?.displayName || 'Terminal Guest',
+            email: guestInfo.email || initialUser?.email || '',
+            terminalId,
           });
-
-          if (item.isKit && item.childItemIds?.length) {
-            for (const childId of item.childItemIds) {
-              const childRef = getItemDocRef(childId, targetUid);
-              await updateDoc(childRef, {
-                status: 'available',
-                currentHolder: null,
-                lastCheckedIn: serverTimestamp(),
-                kitId: null
-              });
-            }
-          }
         }
 
         checkinItems.push({
@@ -2069,7 +1746,7 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     if (!lastOrderReceipt) return;
     setIsSendingEmail(true);
     try {
-      const response = await fetch('/api/send-email', {
+      const response = await authenticatedFetch('/api/send-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -2086,15 +1763,16 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       });
       const data = await response.json();
       if (data && data.success) {
-        setEmailModalData(data);
-        setEmailModalOpen(true);
         if (data.simulated) {
+          // Development sandbox only: show the rendered email instead of sending it
+          setEmailModalData(data);
+          setEmailModalOpen(true);
           toast.info("Sandbox email simulated & ready for inspection!");
         } else {
           toast.success(`Handover email successfully sent to ${lastOrderReceipt.userEmail}!`);
         }
       } else {
-        toast.error("Email API returned an error frame.");
+        toast.error(data?.error || "Email could not be sent.");
       }
     } catch (err) {
       console.error(err);
@@ -2150,48 +1828,24 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
 
   const handleFulfillOrder = async (order: any) => {
     setIsLoading(true);
+    const src: ItemSource = { kind: 'library', ownerUid: order.userId };
+    const released: any[] = [];
     try {
-      // 1. Mark order as fulfilled
+      // 1. Release every item first (each release is its own atomic transaction: status + checkout record).
+      for (const item of order.items) {
+        const gearItem = gear.find(g => g.id === item.id);
+        const target: any = { id: item.id, name: item.name, isKit: gearItem?.isKit, childItemIds: gearItem?.childItemIds };
+        await checkOutItem(src, target, {
+          ownerUid: order.userId, name: order.userName, email: order.userEmail, terminalId,
+        }, { notes: `Checked out via Self-Service Kiosk Order ${order.orderNumber}` });
+        released.push(target);
+      }
+
+      // 2. Only after all items were released is the order marked fulfilled.
       await updateDoc(doc(db, 'orders', order.id), {
         status: 'fulfilled',
         fulfilledAt: serverTimestamp()
       });
-
-      // 2. Create actual checkout records and update the gear library status with 'in_use' for each item in the order
-      for (const item of order.items) {
-        await addDoc(collection(db, 'checkouts'), {
-          assetId: item.id,
-          assetName: item.name,
-          assetType: 'item',
-          userId: order.userId,
-          userName: order.userName,
-          userEmail: order.userEmail,
-          checkOutTime: serverTimestamp(),
-          status: 'active',
-          notes: `Checked out via Self-Service Kiosk Order ${order.orderNumber}`
-        });
-
-        const userGearRef = doc(db, 'users', order.userId, 'gearLibrary', item.id);
-        await updateDoc(userGearRef, {
-          status: 'in_use',
-          currentHolder: order.userName,
-          lastCheckedOut: serverTimestamp()
-        });
-
-        // Auto-fulfill kit pieces if any
-        const gearItem = gear.find(g => g.id === item.id);
-        if (gearItem && gearItem.isKit && gearItem.childItemIds?.length) {
-          for (const childId of gearItem.childItemIds) {
-            const childRef = doc(db, 'users', order.userId, 'gearLibrary', childId);
-            await updateDoc(childRef, {
-              status: 'in_use',
-              currentHolder: order.userName,
-              lastCheckedOut: serverTimestamp(),
-              kitId: gearItem.id
-            });
-          }
-        }
-      }
 
       toast.success(`Order ${order.orderNumber} successfully fulfilled and items released!`);
       setIsFulfillDeskOpen(false);
@@ -2199,7 +1853,17 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
       setVerifiedItemsMap({});
     } catch (err) {
       console.error("Fulfill order error:", err);
-      toast.error("Failed to fulfill the order. Try again.");
+      // Roll back anything already released so the order stays pending and consistent.
+      for (const target of released) {
+        try {
+          await checkInItem(src, target, { ownerUid: order.userId, name: order.userName }, { notes: `Rolled back: order ${order.orderNumber} could not be completed` });
+        } catch (rollbackErr) {
+          console.error("Rollback failed for", target.id, rollbackErr);
+        }
+      }
+      toast.error(err instanceof ItemConflictError
+        ? `Order not fulfilled. ${err.message}`
+        : "Failed to fulfill the order. Nothing was released; try again.");
     } finally {
       setIsLoading(false);
     }
