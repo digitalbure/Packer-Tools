@@ -285,18 +285,19 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   const restrictToAvailableCountries = adminSettings?.marketplaceRegionConfig?.restrictToAvailableCountries || false;
 
   const landingConfig = adminSettings?.marketplaceLandingPageConfig || {};
-  const heroTitle = landingConfig.heroTitle || 'The largest, most trusted camera sharing community';
-  const heroSubtitle = landingConfig.heroSubtitle || 'Packer verified marketplace';
-  const heroDescription = landingConfig.heroDescription || 'Professional visual equipment hire & purchase marketplace. Connecting production crews on Viti Levu and beyond.';
-  const showPromotions = landingConfig.showPromotions !== false;
-  const bannerATitle = landingConfig.bannerATitle || 'Packer Insights';
-  const bannerASubtitle = landingConfig.bannerASubtitle || 'Get the latest data on which products rented & sold best across major organizations.';
-  const bannerAButtonText = landingConfig.bannerAButtonText || 'View Report';
-  const bannerAImage = landingConfig.bannerAImage || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400';
-  const bannerBTitle = landingConfig.bannerBTitle || 'Exclusive Student Discounts';
-  const bannerBSubtitle = landingConfig.bannerBSubtitle || 'Are you enrolled in film academy? Enjoy up to a 20% discount as a verified student operator.';
-  const bannerBButtonText = landingConfig.bannerBButtonText || 'Claim Now';
-  const bannerBImage = landingConfig.bannerBImage || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=300';
+  const heroTitle = landingConfig.heroTitle || 'Rent and buy production gear';
+  const heroSubtitle = landingConfig.heroSubtitle || 'Packer marketplace';
+  const heroDescription = landingConfig.heroDescription || 'Professional visual equipment for hire and purchase, listed by production companies and rental houses.';
+  // Promotion banners are admin-configured only. There are no default offers: nothing is shown until a title is set.
+  const bannerATitle = landingConfig.bannerATitle || '';
+  const bannerASubtitle = landingConfig.bannerASubtitle || '';
+  const bannerAButtonText = landingConfig.bannerAButtonText || 'Learn more';
+  const bannerAImage = landingConfig.bannerAImage || '';
+  const bannerBTitle = landingConfig.bannerBTitle || '';
+  const bannerBSubtitle = landingConfig.bannerBSubtitle || '';
+  const bannerBButtonText = landingConfig.bannerBButtonText || 'Learn more';
+  const bannerBImage = landingConfig.bannerBImage || '';
+  const showPromotions = landingConfig.showPromotions !== false && !!(bannerATitle || bannerBTitle);
   const showStaffPicks = landingConfig.showStaffPicks !== false;
   const showFeatured = landingConfig.showFeatured !== false;
   const showShippedToYou = landingConfig.showShippedToYou !== false;
@@ -305,8 +306,6 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   const showCategories = landingConfig.showCategories !== false;
   const showGuarantees = landingConfig.showGuarantees !== false;
   const requiresEduVerification = landingConfig.requiresEduVerification !== false;
-  const partnerLogosText = landingConfig.partnerLogosText || 'Members of Packer Network';
-  const partnerLogosList = landingConfig.partnerLogosList || ['facebook', 'amazon studios', 'HBO', 'Disney'];
 
   const activeCountry = user?.country || launchCountry || 'Fiji';
   const isFiji = activeCountry === 'Fiji';
@@ -1184,17 +1183,17 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       </div>
 
 
-      {/* 3. DUAL ADVERTISING PROMOTION BANNERS (INSIGHTS AND STUDENT DISCOUNTS - MATCHING SCREENSHOT 1) */}
+      {/* 3. DUAL ADVERTISING PROMOTION BANNERS (ADMIN-CONFIGURED ONLY) */}
       {showPromotions && (
         <div id="marketplace-promotions" className="max-w-7xl mx-auto px-6 md:px-12 py-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
-            {/* Banner A */}
+            {bannerATitle && (
             <div className="bg-[#101524] text-white rounded-[2rem] overflow-hidden p-8 flex flex-col md:flex-row justify-between items-center gap-6 border border-neutral-850 shadow-xl relative">
               <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-sky-500/10 blur-[60px] pointer-events-none" />
               <div className="space-y-4 max-w-sm">
                 <span className="inline-block bg-[#ff4f3a] text-white font-extrabold text-[8px] uppercase tracking-widest px-3 py-1 rounded-full">
-                  ★ NEW FOR 2026
+                  Featured
                 </span>
                 <h3 className="text-3xl font-black uppercase tracking-tight leading-tight">
                   {bannerATitle}
@@ -1222,8 +1221,9 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                 </div>
               )}
             </div>
+            )}
 
-            {/* Banner B */}
+            {bannerBTitle && (
             <div className="bg-[#1a1b35] text-white rounded-[2rem] overflow-hidden p-8 flex flex-col md:flex-row justify-between items-center gap-6 border border-neutral-850 shadow-xl relative">
               <div className="absolute bottom-0 left-0 w-[150px] h-[150px] bg-indigo-500/10 blur-[60px] pointer-events-none" />
               <div className="space-y-4 max-w-sm">
@@ -1259,7 +1259,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                 </div>
               )}
             </div>
-
+            )}
           </div>
         </div>
       )}

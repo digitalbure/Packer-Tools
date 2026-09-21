@@ -171,7 +171,6 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
       subItems: user.isSuperAdmin ? [
         { to: '/marketplace', label: 'Browse Marketplace', icon: <ShoppingBag size={16} /> },
         { to: '/admin?tab=listings', label: 'Moderate & Categories', icon: <ListChecks size={16} /> },
-        { to: '/admin?tab=landing', label: 'Marketplace Front', icon: <Layout size={16} /> },
         { to: '/admin?tab=settings', label: 'Geo-Launch Settings', icon: <Settings size={16} /> },
       ] : undefined
     },
@@ -239,7 +238,6 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     { to: '/admin?tab=listings', label: 'Marketplace Listings', icon: <ShoppingBag size={20} /> },
     { to: '/admin?tab=categories', label: 'Categories', icon: <LayoutGrid size={20} /> },
     { to: '/admin?tab=kiosk', label: 'Kiosk Settings', icon: <QrCode size={20} /> },
-    { to: '/admin?tab=landing', label: 'Landing Page', icon: <Layout size={20} /> },
     { to: '/admin/pages', label: 'Custom Pages', icon: <FileText size={20} /> },
     { 
       to: '/admin?tab=settings', 

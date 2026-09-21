@@ -45,7 +45,7 @@ const lazyWithRetry = (importFn: () => Promise<any>) => {
 };
 
 // Lazy-loaded Pages
-const LandingPage = lazyWithRetry(() => import('../pages/LandingPage'));
+const HomePage = lazyWithRetry(() => import('../pages/HomePage'));
 const Dashboard = lazyWithRetry(() => import('../pages/Dashboard'));
 const PackingListDetail = lazyWithRetry(() => import('../pages/PackingListDetail'));
 const PackingListBioView = lazyWithRetry(() => import('../pages/PackingListBioView'));
@@ -155,7 +155,7 @@ export function AnimatedRoutes() {
   return (
     <Suspense fallback={<LazySpinner />}>
       <Routes location={location}>
-        <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate adminSettings={adminSettings} /> : <LandingPage user={user} adminSettings={adminSettings} landingView={landingView} />)} />
+        <Route path="/" element={user ? <Navigate to="/dashboard" /> : (adminSettings?.rootVisibility === 'auth_only' ? <AuthGate adminSettings={adminSettings} /> : <HomePage user={user} adminSettings={adminSettings} landingView={landingView} setLandingView={setLandingView} />)} />
         
         {/* Protected Routes */}
         <Route path="/dashboard" element={<AuthGuard><Dashboard user={user!} adminSettings={adminSettings} /></AuthGuard>} />

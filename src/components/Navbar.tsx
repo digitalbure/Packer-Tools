@@ -46,7 +46,7 @@ export default function Navbar({
     <nav className="bg-paper/80 backdrop-blur-xl border-b border-primary/5 sticky top-0 z-50">
       <div className="w-full max-w-[1700px] mx-auto px-6 h-16 md:h-20 flex items-center justify-between">
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-          <Link to="/" onClick={() => setLandingView?.('saas')} className="flex items-center gap-2 group shrink-0">
+          <Link to="/" onClick={() => setLandingView?.('home')} className="flex items-center gap-2 group shrink-0">
             {adminSettings?.branding?.logo ? (
               <div className="flex items-center gap-2 shrink-0">
                 <img src={adminSettings.branding.logo} className="h-8 sm:h-9 w-auto max-w-[100px] sm:max-w-[140px] object-contain shrink-0 rounded-md" alt="Logo" referrerPolicy="no-referrer" />

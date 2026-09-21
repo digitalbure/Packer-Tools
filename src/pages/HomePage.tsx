@@ -1,23 +1,48 @@
 import React from 'react';
 import type { UserProfile, AdminSettings } from '../types';
 import { useAuth } from '../providers/AuthProvider';
-import CaseHero from './landing/CaseHero';
-import Pricing from './landing/Pricing';
-import { SiteHeader, SiteFooter, startWithGoogle, jumpToSection } from './landing/Chrome';
-import { ClaudeSection, Faq, FinalCta, HowItRuns, Kiosk, Modules, Problems, Versus, Who } from './landing/sections';
-import { activePlans, num, planBadge, trialLabel } from './landing/plans';
-import { useLandingFonts } from './landing/useLandingFonts';
-import './landing/landing.css';
+import Marketplace from './Marketplace';
+import CaseHero from '../components/landing/CaseHero';
+import Pricing from '../components/landing/Pricing';
+import { SiteHeader, SiteFooter, startWithGoogle, jumpToSection } from '../components/landing/Chrome';
+import { ClaudeSection, Faq, FinalCta, HowItRuns, Kiosk, Modules, Problems, Versus, Who } from '../components/landing/sections';
+import { activePlans, num, planBadge, trialLabel } from '../components/landing/plans';
+import { useLandingFonts } from '../components/landing/useLandingFonts';
+import '../components/landing/landing.css';
 
-interface ModernLandingPageProps {
+interface HomePageProps {
   user: UserProfile | null;
   adminSettings: AdminSettings | null;
-  onExploreMarketplace?: () => void;
+  /** 'home' (default) or 'marketplace'. Owned by AuthProvider so the header logo and the page stay in step. */
+  landingView?: string;
+  setLandingView?: (view: string) => void;
 }
 
-/** The public home page. Design plan: docs/landing-design.md. Prices, limits and trials come from adminSettings.plans. */
-export default function ModernLandingPage({ user, adminSettings, onExploreMarketplace }: ModernLandingPageProps) {
+/**
+ * The public home page (route "/", signed-out visitors). Design plan: docs/landing-design.md.
+ * Prices, limits and trials come from adminSettings.plans; all other copy lives in components/landing/content.ts.
+ * This wrapper only chooses the view, so each view keeps its own hooks in a stable order.
+ */
+export default function HomePage(props: HomePageProps) {
+  const { user, adminSettings, landingView = 'home', setLandingView } = props;
+  if (landingView === 'marketplace') {
+    return (
+      <div className="min-h-screen bg-paper text-primary selection:bg-accent selection:text-white bg-grid overflow-x-hidden pt-4">
+        {setLandingView && (
+          <div className="max-w-7xl mx-auto px-4 pb-2">
+            <button type="button" onClick={() => setLandingView('home')} className="text-sm font-bold underline underline-offset-4">Back to Packer Tools</button>
+          </div>
+        )}
+        <Marketplace user={user} adminSettings={adminSettings} />
+      </div>
+    );
+  }
+  return <HomeContent user={user} adminSettings={adminSettings} setLandingView={setLandingView} />;
+}
+
+function HomeContent({ user, adminSettings, setLandingView }: Pick<HomePageProps, 'user' | 'adminSettings' | 'setLandingView'>) {
   useLandingFonts();
+  const onExploreMarketplace = setLandingView ? () => setLandingView('marketplace') : undefined;
   const { selectedCommunity, setIsCommunitySelectorOpen } = useAuth();
   const plans = activePlans(adminSettings);
   const contactEmail = adminSettings?.contactEmail || 'support@packer.tools';
