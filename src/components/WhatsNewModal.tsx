@@ -25,7 +25,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.3.1',
+      version: 'v6.4.0',
       tag: 'Latest',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Claude Connector, Security Hardening, Safer Kiosk Check-outs & Working Email',
@@ -57,6 +57,11 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
           title: 'More Reliable Server Sync',
           desc: 'Fixed the server connecting to the wrong database, which affected billing, webhooks and share pages. Also added automated checks that run on every change.',
           badge: 'Reliability'
+        },
+        {
+          title: 'A New Home Page',
+          desc: 'The public home page has been rebuilt around how crews actually work: an interactive open case, the check-out kiosk, every module, who uses it, and live plan pricing.',
+          badge: 'Website'
         },
         {
           title: 'Live Version Display',

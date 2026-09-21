@@ -358,7 +358,9 @@ export default function LandingPage({
   // Check active landing page type configuration from Admin Settings
   const activeType = adminSettings?.activeLandingPageType || 'modern';
   const isMarketplaceActive = landingView === 'marketplace' || (landingView !== 'main' && landingView !== 'modern' && landingView !== 'saas' && activeType === 'marketplace');
-  const isClassicActive = landingView === 'main' || landingView === 'saas' || (landingView !== 'modern' && (activeType === 'main' || activeType === 'saas'));
+  // The redesigned home page is the default. The classic (admin-editable) page is shown only when an admin
+  // explicitly selects it ('main' / 'saas' landing type) or something navigates to landingView 'main'.
+  const isClassicActive = landingView === 'main' || activeType === 'main' || activeType === 'saas';
 
   if (isMarketplaceActive) {
     return (
@@ -370,7 +372,7 @@ export default function LandingPage({
     );
   }
 
-  if (!isClassicActive && activeType === 'modern') {
+  if (!isClassicActive) {
     return (
       <ModernLandingPage 
         user={user} 

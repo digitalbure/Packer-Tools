@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.3.1`
+## Current Application Version: `v6.4.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,25 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🏠 Feature Release: v6.4.0 (New Public Home Page)
+*Released on: September 22, 2026*
+
+The public home page is rebuilt from scratch. Design rationale and tokens: `docs/landing-design.md`.
+
+- **Message.** "Know where every piece of kit is." Written for crews with a lot of gear (film, broadcast, AV, events, then rental houses, rigging, sports, field teams). Sections: the problem, how a job runs, the kiosk, every module, who uses it, spreadsheet vs Packer Tools, the Claude connector, pricing, FAQ.
+- **Design.** Built from the world of road cases, cut foam, gaffer-tape labels and manifests, not from a SaaS template. The centrepiece is an interactive open case with a tagged item in every foam cutout and one empty slot: tap it to see who has the item, tap "Scan it back in" and the case completes. Fonts: Big Shoulders Display, Barlow, Barlow Semi Condensed, Permanent Marker (loaded on this page only).
+- **Honest by construction.** No invented customer counts, logos or quotes; sample data is labelled as sample. Every capability named exists in the app. **Pricing, limits, trial length and plan badges are read live from `adminSettings.plans`** (the old page hard-coded $49 / $199 and "unlimited", which matched no real plan). The page states that kiosk, signatures, projects and team features start on Pro, and that checkout is billed in USD.
+- **Routing.** `landingView` defaults to `'saas'`, which the old code treated as the classic page, so the "modern" landing component had never actually been shown. The redesigned page is now the default; the classic admin-editable page still appears if an admin selects landing type `main` or `saas`.
+- **Fixes found while building it:**
+  - The install-app popup (`GetAppOverlay`) opened 1.5 seconds after load on every phone, covering the hero for first-time visitors. It no longer auto-opens on the public landing page (still shown inside the app, still openable manually). Its event listener is now also cleaned up correctly.
+  - The app shell wrapped every page in `overflow` containers, which broke `position: sticky`; the landing route now opts out so the header stays put.
+  - In-page anchors (`#how`, `#pricing`) were being read as routes by the hash router and the jump was lost; they now scroll smoothly (instantly with reduced-motion) and close the mobile menu.
+- **Accessibility.** Zero axe-core violations (WCAG 2.1 AA + best-practice) at phone width; visible keyboard focus; reduced-motion respected; contrast fixed (dark text on the orange button, since white on `#FF5500` fails AA); one `<main>` landmark.
+- **Page metadata** in `index.html`: real title, description and social tags.
+- Known follow-ups: real product screenshots and genuine customer proof (logos, quotes) once you have them; the app's viewport meta blocks pinch-zoom (`user-scalable=no`), which is an accessibility problem app-wide.
 
 ---
 
