@@ -14,7 +14,7 @@ import ReminderModal from '../components/ReminderModal';
 import BulkScanModal from '../components/BulkScanModal';
 import { identifyItem, suggestItemMetadata } from '../services/geminiService';
 import { compressImage } from '../lib/imageUtils';
-import QRPrintModal from '../components/QRPrintModal';
+import LabelStudioLauncher from '../components/LabelStudioLauncher';
 import ManualCheckoutModal from '../components/ManualCheckoutModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import { checkLimit } from '../lib/limitUtils';
@@ -369,10 +369,10 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
     }
   }, [list]);
   const [showReminderModal, setShowReminderModal] = useState(false);
-  const [isQRPrintModalOpen, setIsQRPrintModalOpen] = useState(false);
+  const [isLabelStudioOpen, setIsLabelStudioOpen] = useState(false);
   useEffect(() => {
     const handleOpenQRPrint = () => {
-      setIsQRPrintModalOpen(true);
+      setIsLabelStudioOpen(true);
     };
     window.addEventListener('open-qr-print-modal', handleOpenQRPrint);
     return () => window.removeEventListener('open-qr-print-modal', handleOpenQRPrint);
@@ -4153,7 +4153,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setSelectedItems(new Set([item.id]));
-                                          setIsQRPrintModalOpen(true);
+                                          setIsLabelStudioOpen(true);
                                         }}
                                         className="p-1 text-neutral-300 hover:text-emerald-500 transition"
                                         title="Print Label"
@@ -6857,7 +6857,7 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
                     <div className="pt-4 space-y-3">
                       <button
                         type="button"
-                        onClick={() => setIsQRPrintModalOpen(true)}
+                        onClick={() => setIsLabelStudioOpen(true)}
                         className="w-full py-3 bg-neutral-100 text-neutral-600 rounded-xl font-bold hover:bg-neutral-200 transition flex items-center justify-center gap-2"
                       >
                         <QrCode size={18} />
@@ -9890,9 +9890,9 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
         </motion.button>
       )}
 
-      <QRPrintModal 
-        isOpen={isQRPrintModalOpen}
-        onClose={() => setIsQRPrintModalOpen(false)}
+      <LabelStudioLauncher 
+        isOpen={isLabelStudioOpen}
+        onClose={() => setIsLabelStudioOpen(false)}
         items={items}
         user={user}
         initialSelectedIds={selectedItems}

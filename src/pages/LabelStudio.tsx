@@ -3,11 +3,13 @@ import { collection, getDocs, limit, query } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { AdminSettings, GearItem, UserProfile } from '../types';
 import {
-  LABEL_STOCKS, PAGES, PRINTERS, STARTER_TEMPLATES, getPrinter, getStock, renderLabel, renderSheets, tapeItYourselfOptions,
+  FIELD_OPTIONS, LABEL_STOCKS, PAGES, PRINTERS, STARTER_TEMPLATES, getPrinter, getStock, recommendTemplateId, renderLabel, renderSheets, tapeItYourselfOptions,
   type AssetData, type CodeElement, type LabelElement, type LabelSpec, type LabelStock, type Symbology, type TextElement,
 } from '../labels';
 import { canvasMeasure, downloadBlob, printPages, svgToMonoPng } from '../labels/browser';
-import { deleteGlobal, deletePersonal, loadTemplates, publishGlobal, savePersonal, type StoredTemplate } from '../labels/store';
+import { deleteEntry, deleteGlobal, deletePersonal, loadEntries, loadTemplates, publishGlobal, saveEntry, saveOwner, savePersonal, type Owner, type SavedEntry, type StoredTemplate } from '../labels/store';
+import { takeHandoff } from '../labels/handoff';
+import { isFeatureEnabled } from '../lib/featureUtils';
 import { useLandingFonts } from '../components/landing/useLandingFonts';
 import './labelStudio.css';
 
@@ -19,18 +21,51 @@ const DEMO_ITEMS = [
 const GROUPS: Record<LabelStock['group'], string> = { cable: 'Cable wrap labels', tag: 'Tags and cases', roll: 'Rolls', sheet: 'Sheets' };
 const CUSTOM: LabelStock = { id: 'custom', name: 'Custom size', group: 'tag', material: 'Any', colour: 'White', widthMm: 50, heightMm: 30 };
 const SYMBOLS: [Symbology, string][] = [['qr', 'QR code'], ['code128', 'Code 128 barcode'], ['code39', 'Code 39 barcode'], ['ean13', 'EAN-13 barcode'], ['datamatrix', 'Data Matrix']];
-const FIELDS = ['{{asset.name}}', '{{asset.assetTag}}', '{{asset.brand}}', '{{asset.model}}', '{{asset.serial}}', '{{asset.url}}'];
 
 const sameSize = (t: LabelSpec, s: LabelStock) => Math.abs(t.widthMm - s.widthMm) < 0.05 && Math.abs(t.heightMm - s.heightMm) < 0.05 && (t.tailMm ?? 0) === (s.tailMm ?? 0);
-const toAsset = (i: GearItem): AssetData => ({
-  name: i.name, brand: (i as any).brand, model: (i as any).model, assetTag: (i as any).assetTag || i.id, serial: (i as any).serialNumber,
-  url: `${window.location.origin}/gear/${i.id}`,
-});
+const toAsset = (i: GearItem, owner: Owner): AssetData => {
+  const x = i as any;
+  return {
+    name: i.name, brand: x.brand, model: x.model, assetTag: x.assetTag || i.id, serial: x.serialNumber ?? x.serial, category: x.category ?? x.primaryCategory,
+    url: `${window.location.origin}/gear/${i.id}`,
+    ownerName: x.ownerName || owner.name, ownerPhone: x.ownerPhone || owner.phone, ownerEmail: x.ownerEmail || owner.email,
+  };
+};
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
+
+/** Dropdown of what can go in a box, with "Customize" for typed text and a way to save typed text for next time. */
+function ValuePicker({ label, value, onChange, entries, onSave, onDeleteEntry, canSave }: {
+  label: string; value: string; onChange: (v: string) => void; entries: SavedEntry[];
+  onSave: (v: string) => void; onDeleteEntry: (id: string) => void; canSave: boolean;
+}) {
+  const known = FIELD_OPTIONS.some(o => o.value === value) || entries.some(e => e.value === value);
+  const [custom, setCustom] = useState(!known && value !== '');
+  const showInput = custom || !known;
+  const saved = entries.find(e => e.value === value);
+  const groups = ['Item', 'Owner', 'Fixed text'] as const;
+  return (
+    <div className="ls-row">
+      <label>{label}
+        <select value={showInput ? '__custom' : value} onChange={e => { if (e.target.value === '__custom') setCustom(true); else { setCustom(false); onChange(e.target.value); } }}>
+          {groups.map(g => <optgroup key={g} label={g}>{FIELD_OPTIONS.filter(o => o.group === g).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</optgroup>)}
+          {entries.length > 0 && <optgroup label="My saved entries">{entries.map(e => <option key={e.id} value={e.value}>{e.value}</option>)}</optgroup>}
+          <option value="__custom">Customize…</option>
+        </select>
+      </label>
+      {showInput && (
+        <div className="ls-actions">
+          <input type="text" aria-label={`${label}, your own text`} value={value} maxLength={300} placeholder="Type your own text" onChange={e => onChange(e.target.value)} style={{ flex: 1, minWidth: '10rem' }} />
+          {canSave && value.trim() !== '' && !saved && <button type="button" className="ls-btn ls-btn--small" onClick={() => onSave(value.trim())}>Save this entry</button>}
+        </div>
+      )}
+      {saved && canSave && !showInput && <button type="button" className="ls-btn ls-btn--small ls-btn--danger" style={{ justifySelf: 'start' }} onClick={() => onDeleteEntry(saved.id)}>Delete this saved entry</button>}
+    </div>
+  );
+}
 
 interface Props { user: UserProfile | null; adminSettings?: AdminSettings | null; demo?: boolean }
 
-export default function LabelStudio({ user, demo }: Props) {
+export default function LabelStudio({ user, adminSettings, demo }: Props) {
   useLandingFonts();
   const uid = user?.uid;
   const isAdmin = !!user && (user.isSuperAdmin === true || (user as any).role === 'admin');
@@ -40,6 +75,12 @@ export default function LabelStudio({ user, demo }: Props) {
   const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [copies, setCopies] = useState(1);
+  const [owner, setOwner] = useState<Owner>({ name: '', phone: '', email: '' });
+  const [entries, setEntries] = useState<SavedEntry[]>([]);
+  const [autoMode, setAutoMode] = useState(true);
+  const [groupKey, setGroupKey] = useState('');
+  const [footerOn, setFooterOn] = useState(true);
+  const canRemoveFooter = !!demo || (!!user && isFeatureEnabled('branding', user, adminSettings ?? null));
 
   const [stockId, setStockId] = useState('pp-50x30');
   const [custom, setCustom] = useState({ w: 50, h: 30 });
@@ -67,8 +108,19 @@ export default function LabelStudio({ user, demo }: Props) {
       .catch(() => setMessage('Your items could not be loaded. Reload the page to try again.'))
       .finally(() => alive && setLoading(false));
     loadTemplates(uid).then(t => alive && setStored(t));
+    loadEntries(uid).then(e => { if (alive) { setOwner(e.owner); setEntries(e.entries); } });
     return () => { alive = false; };
   }, [uid, demo]);
+
+  // Items sent from the Gear Library, a packing list, an inventory sheet or an item page arrive already selected.
+  useEffect(() => {
+    const h = takeHandoff();
+    if (!h) return;
+    const sent = h.items.map(i => ({ id: i.id, name: i.name, brand: i.brand, model: i.model, assetTag: i.assetTag, serial: i.serial, category: i.category, ownerName: i.ownerName, ownerPhone: i.ownerPhone, ownerEmail: i.ownerEmail }) as unknown as GearItem);
+    setItems(prev => { const ids = new Set(sent.map(x => x.id)); return [...sent, ...prev.filter(p => !ids.has(p.id))]; });
+    setPicked(new Set(h.selected));
+    setLoading(false);
+  }, []);
 
   const allTemplates = useMemo(() => [
     ...STARTER_TEMPLATES.map(spec => ({ key: `starter:${spec.id}`, scope: 'starter' as const, spec })),
@@ -81,10 +133,10 @@ export default function LabelStudio({ user, demo }: Props) {
   const chooseTemplate = (key: string) => {
     const t = allTemplates.find(x => x.key === key);
     if (!t) return;
-    setTemplateKey(key); setDraft(clone(t.spec)); setMessage('');
+    setAutoMode(false); setTemplateKey(key); setDraft(clone(t.spec)); setMessage('');
   };
   const chooseStock = (id: string, c = custom) => {
-    setStockId(id);
+    setAutoMode(false); setStockId(id);
     const s = id === 'custom' ? { ...CUSTOM, widthMm: c.w, heightMm: c.h } : getStock(id)!;
     const first = allTemplates.find(t => sameSize(t.spec, s));
     if (first) { setTemplateKey(first.key); setDraft(clone(first.spec)); }
@@ -99,23 +151,37 @@ export default function LabelStudio({ user, demo }: Props) {
   // ---- what will print ----
   const measure = useMemo(() => canvasMeasure(), []);
   const chosen = useMemo(() => items.filter(i => picked.has(i.id)), [items, picked]);
+  const groups = useMemo(() => {
+    const m = new Map<string, GearItem[]>();
+    for (const i of chosen) { const id = recommendTemplateId(toAsset(i, owner)); m.set(id, [...(m.get(id) || []), i]); }
+    return m;
+  }, [chosen, owner]);
+  // Automatic: the label follows what is selected. Any manual choice below turns this off.
+  useEffect(() => {
+    if (!autoMode || groups.size === 0) return;
+    const key = groups.has(groupKey) ? groupKey : [...groups.keys()][0];
+    if (key !== groupKey) setGroupKey(key);
+    const t = STARTER_TEMPLATES.find(x => x.id === key);
+    if (t) { setTemplateKey(`starter:${t.id}`); setDraft(clone(t)); if (t.stockId) setStockId(t.stockId); }
+  }, [autoMode, groups, groupKey]);
+  const active = autoMode && groups.size > 0 ? groups.get(groupKey) || [] : chosen;
+  const sample = useMemo<AssetData>(() => ({ ...SAMPLE, ownerName: owner.name || 'Your company name', ownerPhone: owner.phone || '+000 000 0000', ownerEmail: owner.email || 'assets@example.com' }), [owner]);
   const jobs = useMemo(() => {
-    const list = chosen.length ? chosen.map(toAsset) : [];
     const out: AssetData[] = [];
-    for (const a of list) for (let c = 0; c < copies && out.length < 500; c++) out.push(a);
+    for (const i of active) { const a = toAsset(i, owner); for (let c = 0; c < copies && out.length < 500; c++) out.push(a); }
     return out;
-  }, [chosen, copies]);
-  const preview = useMemo(() => renderLabel(draft, jobs[0] ?? SAMPLE, { dpi, measure, preview: true }), [draft, jobs, dpi, measure]);
+  }, [active, copies, owner]);
+  const preview = useMemo(() => renderLabel(draft, jobs[0] ?? sample, { dpi, measure, preview: true, footer: footerOn }), [draft, jobs, sample, dpi, measure, footerOn]);
   const issues = useMemo(() => {
     const seen = new Map<string, { level: 'error' | 'warn'; message: string }>();
-    const subjects = chosen.length ? chosen.slice(0, 200).map(toAsset) : [SAMPLE];
-    for (const a of subjects) for (const i of renderLabel(draft, a, { dpi, measure }).issues) seen.set(`${i.level}|${i.message}`, i);
+    const subjects = active.length ? active.slice(0, 200).map(i => toAsset(i, owner)) : [sample];
+    for (const a of subjects) for (const i of renderLabel(draft, a, { dpi, measure, footer: footerOn }).issues) seen.set(`${i.level}|${i.message}`, i);
     return [...seen.values()];
-  }, [draft, chosen, dpi, measure]);
+  }, [draft, active, owner, sample, dpi, measure, footerOn]);
   const blocked = issues.some(i => i.level === 'error') || draft.elements.length === 0;
   const canPrint = jobs.length > 0 && !blocked;
 
-  const rendered = () => jobs.map(a => renderLabel(draft, a, { dpi, measure }));
+  const rendered = () => jobs.map(a => renderLabel(draft, a, { dpi, measure, footer: footerOn }));
   const printRoll = () => printPages(rendered().map(r => ({ svg: r.svg, widthMm: r.widthMm, heightMm: r.feedHeightMm })), 'Labels');
   const printSheet = () => {
     const page = PAGES[pageKey];
@@ -171,16 +237,32 @@ export default function LabelStudio({ user, demo }: Props) {
     } catch { setMessage('The template could not be published.'); }
   };
 
+  const doSaveEntry = async (value: string) => {
+    if (demo) { setEntries(e => [...e, { id: `demo-${Date.now()}`, value }]); setMessage('Entry saved. It now appears in the list.'); return; }
+    if (!uid) return;
+    try { await saveEntry(uid, value); setEntries((await loadEntries(uid)).entries); setMessage('Entry saved. It now appears in the list.'); }
+    catch { setMessage('The entry could not be saved.'); }
+  };
+  const doDeleteEntry = async (id: string) => {
+    if (demo) { setEntries(e => e.filter(x => x.id !== id)); return; }
+    if (!uid) return;
+    try { await deleteEntry(uid, id); setEntries(e => e.filter(x => x.id !== id)); } catch { setMessage('The entry could not be deleted.'); }
+  };
+  const doSaveOwner = async () => {
+    if (!uid) return;
+    try { await saveOwner(uid, owner); setMessage('Owner details saved.'); } catch { setMessage('The owner details could not be saved.'); }
+  };
+
   // ---- element editing ----
-  const upd = (i: number, patch: Partial<LabelElement>) => setDraft(d => ({ ...d, elements: d.elements.map((e, n) => (n === i ? ({ ...e, ...patch } as LabelElement) : e)) }));
-  const remove = (i: number) => setDraft(d => ({ ...d, elements: d.elements.filter((_, n) => n !== i) }));
-  const addEl = (kind: 'text' | 'code' | 'rule') => setDraft(d => {
+  const upd = (i: number, patch: Partial<LabelElement>) => (setAutoMode(false), setDraft(d => ({ ...d, elements: d.elements.map((e, n) => (n === i ? ({ ...e, ...patch } as LabelElement) : e)) })));
+  const remove = (i: number) => (setAutoMode(false), setDraft(d => ({ ...d, elements: d.elements.filter((_, n) => n !== i) })));
+  const addEl = (kind: 'text' | 'code' | 'rule') => (setAutoMode(false), setDraft(d => {
     const id = `e${Date.now().toString(36)}`;
     const w = Math.min(20, d.widthMm - 2), h = Math.min(kind === 'code' ? 20 : 6, d.heightMm - 2);
     const el: LabelElement = kind === 'text' ? { id, kind, x: 2, y: 2, w, h, text: '{{asset.name}}', fontMm: 3 }
       : kind === 'code' ? { id, kind, x: 2, y: 2, w, h: Math.min(w, d.heightMm - 2), symbology: 'qr', value: '{{asset.url}}' } : { id, kind, x: 2, y: 2, w, h: 0.4 };
     return { ...d, elements: [...d.elements, el] };
-  });
+  }));
 
   const shown = items.filter(i => `${i.name} ${(i as any).brand ?? ''} ${(i as any).assetTag ?? ''}`.toLowerCase().includes(search.toLowerCase())).slice(0, 300);
   const num = (v: string) => (v === '' ? 0 : Number(v));
@@ -219,8 +301,35 @@ export default function LabelStudio({ user, demo }: Props) {
             </div>
           </section>
 
+          <section className="ls-panel" aria-labelledby="ls-owner">
+            <h2 id="ls-owner">Owner details</h2>
+            <p className="ls-soft">Printed on labels that show who owns the gear. An owner saved on an item is used for that item.</p>
+            <div className="ls-row ls-row--2">
+              <label>Owner name<input type="text" maxLength={120} value={owner.name} onChange={e => setOwner(o => ({ ...o, name: e.target.value }))} placeholder="Your company or team" /></label>
+              <label>Phone<input type="text" maxLength={40} value={owner.phone} onChange={e => setOwner(o => ({ ...o, phone: e.target.value }))} /></label>
+            </div>
+            <label>Email<input type="text" maxLength={120} value={owner.email} onChange={e => setOwner(o => ({ ...o, email: e.target.value }))} /></label>
+            {!demo && <div className="ls-actions"><button type="button" className="ls-btn ls-btn--small" onClick={doSaveOwner}>Save owner details</button></div>}
+          </section>
+
           <section className="ls-panel" aria-labelledby="ls-label">
             <h2 id="ls-label"><span className="ls-step">2</span>Label and printer</h2>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <input type="checkbox" checked={autoMode} onChange={e => setAutoMode(e.target.checked)} style={{ width: '1.1rem', height: '1.1rem' }} />
+              Choose the label for me, based on each item
+            </label>
+            {autoMode && groups.size > 0 && (
+              <div className="ls-row">
+                <p className="ls-soft">{groups.size === 1 ? 'Best label for your selection:' : 'Your selection needs different labels. Print one group at a time:'}</p>
+                <div className="ls-actions">
+                  {[...groups.entries()].map(([id, list]) => {
+                    const t = STARTER_TEMPLATES.find(x => x.id === id)!;
+                    return <button key={id} type="button" className="ls-btn ls-btn--small" aria-pressed={id === groupKey} style={id === groupKey ? { background: 'var(--ink)', color: 'var(--tape)' } : undefined} onClick={() => setGroupKey(id)}>{t.name} ({list.length})</button>;
+                  })}
+                </div>
+              </div>
+            )}
+            {autoMode && groups.size === 0 && <p className="ls-soft">Select items and the best label is chosen for you. You can change it at any time.</p>}
             <div className="ls-row ls-row--2">
               <label>Printer
                 <select value={printerId} onChange={e => choosePrinter(e.target.value)}>{PRINTERS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
@@ -260,6 +369,10 @@ export default function LabelStudio({ user, demo }: Props) {
             )}
             {stock.note && <p className="ls-soft">{stock.note}</p>}
             {stock.tailMm ? <p className="ls-soft">The {stock.tailMm} mm tail wraps around the cable and is not printed. The printer feeds {stock.heightMm + stock.tailMm} mm per label.</p> : null}
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <input type="checkbox" checked={footerOn || !canRemoveFooter} disabled={!canRemoveFooter} onChange={e => setFooterOn(e.target.checked)} style={{ width: '1.1rem', height: '1.1rem' }} />
+              Show &ldquo;by Packer.Tools&rdquo; on the label{!canRemoveFooter ? ' (removing it is part of the Pro plan)' : ''}
+            </label>
             {isSheet && (
               <div className="ls-row ls-row--2">
                 <label>Paper<select value={pageKey} onChange={e => setPageKey(e.target.value as any)}><option value="a4">A4</option><option value="letter">Letter</option></select></label>
@@ -282,14 +395,14 @@ export default function LabelStudio({ user, demo }: Props) {
                     </header>
                     {el.kind === 'text' && (
                       <div className="ls-row ls-row--2">
-                        <label>Text<input type="text" list="ls-fields" value={(el as TextElement).text} onChange={e => upd(i, { text: e.target.value } as any)} /></label>
+                        <ValuePicker label="Text" value={(el as TextElement).text} onChange={v => upd(i, { text: v } as any)} entries={entries} onSave={doSaveEntry} onDeleteEntry={doDeleteEntry} canSave />
                         <label>Text height (mm)<input type="number" min={1} step={0.1} value={(el as TextElement).fontMm} onChange={e => upd(i, { fontMm: num(e.target.value) } as any)} /></label>
                       </div>
                     )}
                     {el.kind === 'code' && (
                       <div className="ls-row ls-row--2">
                         <label>Type<select value={(el as CodeElement).symbology} onChange={e => upd(i, { symbology: e.target.value as Symbology } as any)}>{SYMBOLS.map(([v, n]) => <option key={v} value={v}>{n}</option>)}</select></label>
-                        <label>Value<input type="text" list="ls-fields" value={(el as CodeElement).value} onChange={e => upd(i, { value: e.target.value } as any)} /></label>
+                        <ValuePicker label="Value" value={(el as CodeElement).value} onChange={v => upd(i, { value: v } as any)} entries={entries} onSave={doSaveEntry} onDeleteEntry={doDeleteEntry} canSave />
                       </div>
                     )}
                     <div className="ls-row ls-row--4">
@@ -305,7 +418,6 @@ export default function LabelStudio({ user, demo }: Props) {
                     )}
                   </div>
                 ))}
-                <datalist id="ls-fields">{FIELDS.map(f => <option key={f} value={f} />)}</datalist>
                 <div className="ls-actions">
                   <button type="button" className="ls-btn ls-btn--small" onClick={() => addEl('text')}>Add text</button>
                   <button type="button" className="ls-btn ls-btn--small" onClick={() => addEl('code')}>Add code</button>

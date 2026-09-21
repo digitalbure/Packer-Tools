@@ -6,3 +6,5 @@ export * from './sheet';
 export * from './printers';
 export * from './presets';
 export * from './sanitize';
+export * from './fields';
+export * from './recommend';

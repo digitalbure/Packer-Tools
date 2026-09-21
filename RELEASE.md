@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.9.0`
+## Current Application Version: `v6.10.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,19 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🏷️ Release: v6.10.0 (Label Studio: Auto-filled Layouts, Owner Details and Old Studio Retired)
+*Released on: September 22, 2026*
+- **Every "print labels" button now opens the new studio with the items already filled in.** The Gear Library, packing lists, inventory sheets, item pages and Quick Actions all hand their selection to `/labels` (`LabelStudioLauncher`); the old pop-up studio (`QRPrintModal`, 5,400 lines), its suggester, its download helper and the mock `/api/labels` server route are deleted. The unused `html-to-image` dependency is removed.
+- **Automatic label choice.** The studio picks the best layout for each item from its category and name (cable, case, battery and small items, flight case, or the general tag). A mixed selection is split into groups, one per label type. Choosing a template, stock or editing a box switches to manual; a checkbox turns automatic back on.
+- **Owner details form** (name, phone, email, saved per user) fills `{{owner.*}}` on the label. Details saved on an item take priority for that item.
+- **New global templates**, including the "Property of" layout from the owner's photographed asset tag (QR and large asset ID on the left, PROPERTY OF and the owner right-aligned): Property of at 50 x 20, 50 x 30 and 40 x 30; If found, return to; Case label 76 x 51; Flight case 100 x 150. Every starter is tested to render without errors at 300 dpi.
+- **"by Packer.Tools" footer** on every starter label. It can be switched off on plans that include branding.
+- **Value dropdown.** Text and code boxes now pick their content from a list (item fields, owner fields, fixed phrases such as PROPERTY OF or IF FOUND, RETURN TO) or "Customize…" for typed text. Typed text can be saved and then appears under "My saved entries" (`users/{uid}/labelEntries`, owner only).
+- 90 label tests; `npm test` now runs 253 checks.
+- Known gap: the old studio's NFC and RFID tabs are gone with it; they will return when they can write to real tags.
 
 ---
 

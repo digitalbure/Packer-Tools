@@ -11,7 +11,6 @@ import developerRouter from "./routes/developer";
 import googleChatRouter from "./routes/googleChat";
 import mcpRouter from "./routes/mcp";
 import shareRouter from "./routes/share";
-import labelsRouter from "./routes/labels";
 import kioskRouter from "./routes/kiosk";
 import { securityHeaders, rateLimit } from "./middleware/security";
 
@@ -41,7 +40,6 @@ async function startServer() {
   app.use(googleChatRouter);
   app.use(mcpRouter);
   app.use(shareRouter);
-  app.use(labelsRouter);
   app.use(kioskRouter);
 
   // Vite development middleware vs Static Production bundle

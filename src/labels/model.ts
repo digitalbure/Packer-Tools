@@ -38,18 +38,27 @@ export interface LabelSpec {
   tailMm?: number;
   /** The stock this label is designed for, see presets.ts. */
   stockId?: string;
+  /** Prints a small "by Packer.Tools" line in the bottom corner. Leave about 2.5 mm free at the bottom. */
+  brandFooter?: boolean;
   elements: LabelElement[];
 }
 
 export interface AssetData {
-  name?: string; brand?: string; model?: string; assetTag?: string; serial?: string; url?: string;
+  name?: string; brand?: string; model?: string; assetTag?: string; serial?: string; url?: string; category?: string;
+  /** Who owns the item. Fills {{owner.name}}, {{owner.phone}} and {{owner.email}}. */
+  ownerName?: string; ownerPhone?: string; ownerEmail?: string;
 }
 
 export interface Issue { level: 'error' | 'warn'; elementId?: string; message: string }
 
-export const PLACEHOLDER = /\{\{\s*asset\.(name|brand|model|assetTag|serial|url)\s*\}\}/g;
+export const PLACEHOLDER = /\{\{\s*(asset|owner)\.(name|brand|model|assetTag|serial|url|category|phone|email)\s*\}\}/g;
 
-/** Fills {{asset.*}} placeholders. Unknown or missing values become empty text. */
+const OWNER_FIELD: Record<string, keyof AssetData> = { name: 'ownerName', phone: 'ownerPhone', email: 'ownerEmail' };
+
+/** Fills {{asset.*}} and {{owner.*}} placeholders. Unknown or missing values become empty text. */
 export function resolvePlaceholders(text: string, data: AssetData): string {
-  return text.replace(PLACEHOLDER, (_m, key: keyof AssetData) => String(data[key] ?? ''));
+  return text.replace(PLACEHOLDER, (_m, scope: string, key: string) => {
+    const field = scope === 'owner' ? OWNER_FIELD[key] : (key as keyof AssetData);
+    return field ? String(data[field] ?? '') : '';
+  });
 }

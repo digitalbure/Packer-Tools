@@ -44,6 +44,7 @@ export function sanitizeSpec(input: unknown): LabelSpec | null {
     widthMm, heightMm,
     tailMm: raw.tailMm ? num(raw.tailMm, 0, 300, 0) : undefined,
     stockId: raw.stockId ? str(raw.stockId, 60) : undefined,
+    brandFooter: raw.brandFooter === true ? true : undefined,
     elements,
   };
 }

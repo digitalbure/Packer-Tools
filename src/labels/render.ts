@@ -102,7 +102,7 @@ function renderCode(el: CodeElement, data: AssetData, dpi: number, issues: Issue
 }
 
 /** Renders one label to vector SVG in millimetres. Same output for preview, print and sheets. */
-export function renderLabel(spec: LabelSpec, data: AssetData, opts: { dpi?: number; measure?: Measure; preview?: boolean } = {}): RenderedLabel {
+export function renderLabel(spec: LabelSpec, data: AssetData, opts: { dpi?: number; measure?: Measure; preview?: boolean; footer?: boolean } = {}): RenderedLabel {
   const dpi = opts.dpi ?? 203;
   const measure = opts.measure ?? approxMeasure;
   const issues: Issue[] = [];
@@ -127,6 +127,9 @@ export function renderLabel(spec: LabelSpec, data: AssetData, opts: { dpi?: numb
       : rot === 270 ? `translate(${num(snap(el.x, dpi))} ${num(snap(el.y + lw, dpi))}) rotate(270)`
       : rot === 180 ? `translate(${num(snap(el.x + lw, dpi))} ${num(snap(el.y + lh, dpi))}) rotate(180)` : '';
     body.push(t ? `<g transform="${t}">${markup}</g>` : markup);
+  }
+  if (opts.footer ?? spec.brandFooter) {
+    body.push(`<text x="${num(spec.widthMm - 1.5)}" y="${num(spec.heightMm - 1)}" text-anchor="end" font-family="${esc(FONT)}" font-size="1.8" fill="#000">by Packer.Tools</text>`);
   }
   const tail = spec.tailMm ?? 0;
   const feed = spec.heightMm + tail;

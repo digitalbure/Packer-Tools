@@ -76,7 +76,7 @@ import { authenticatedFetch } from '../lib/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import NfcScannerModal from '../components/NfcScannerModal';
 import AddPhotoWidget from '../components/AddPhotoWidget';
-import QRPrintModal from '../components/QRPrintModal';
+import LabelStudioLauncher from '../components/LabelStudioLauncher';
 
 interface InventoryModuleProps {
   user: UserProfile | null;
@@ -218,7 +218,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   const [manifestStatus, setManifestStatus] = useState('Draft');
 
   // Label Studio & Manifest filter states
-  const [isQRPrintModalOpen, setIsQRPrintModalOpen] = useState(false);
+  const [isLabelStudioOpen, setIsLabelStudioOpen] = useState(false);
   const [printOnlySelected, setPrintOnlySelected] = useState(false);
 
   useEffect(() => {
@@ -3397,7 +3397,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                       <button
                                         onClick={() => {
                                           setSelectedInventoryItems(new Set([item.id]));
-                                          setIsQRPrintModalOpen(true);
+                                          setIsLabelStudioOpen(true);
                                         }}
                                         className="p-2 text-[#F27D26] hover:text-[#D15F15] hover:bg-orange-50 rounded-lg transition cursor-pointer"
                                         title="Print Label"
@@ -3580,7 +3580,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                                     <button
                                       onClick={() => {
                                         setSelectedInventoryItems(new Set([item.id]));
-                                        setIsQRPrintModalOpen(true);
+                                        setIsLabelStudioOpen(true);
                                       }}
                                       className="min-h-[48px] px-3 text-orange-600 hover:bg-orange-50 bg-orange-50/40 rounded-xl border border-orange-200/60 transition flex items-center justify-center cursor-pointer font-black uppercase text-[10px] tracking-wider gap-1.5 active:scale-95 touch-manipulation"
                                       title="Print Label"
@@ -4030,7 +4030,7 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
                         </button>
 
                         <button 
-                          onClick={() => setIsQRPrintModalOpen(true)}
+                          onClick={() => setIsLabelStudioOpen(true)}
                           className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 transition shadow-lg whitespace-nowrap border border-white/5"
                           title="Send selected items to Label Studio for customization and printing"
                         >
@@ -5771,9 +5771,9 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
         )}
       </AnimatePresence>
 
-      <QRPrintModal
-        isOpen={isQRPrintModalOpen}
-        onClose={() => setIsQRPrintModalOpen(false)}
+      <LabelStudioLauncher
+        isOpen={isLabelStudioOpen}
+        onClose={() => setIsLabelStudioOpen(false)}
         items={printableAllInventoryItems}
         user={user}
         initialSelectedIds={selectedInventoryItems}

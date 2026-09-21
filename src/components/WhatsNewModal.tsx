@@ -25,7 +25,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.9.0',
+      version: 'v6.10.0',
       tag: 'Latest',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Claude Connector, Security Hardening, Safer Kiosk Check-outs & Working Email',
@@ -60,7 +60,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
         },
         {
           title: 'New Label Studio',
-          desc: 'Print labels at exact size on roll printers, label sheets or plain paper with cut lines. Real barcodes, cable wrap labels, and codes that are checked for scannability before you print. Save your own templates.',
+          desc: 'Select gear anywhere in the app and print labels that fill themselves in. The best layout is chosen for each item, with Property of, Return to, case and cable labels, real barcodes, and owner details. Codes are checked for scannability before you print.',
           badge: 'Labels'
         },
         {

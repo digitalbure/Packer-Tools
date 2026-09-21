@@ -1,5 +1,5 @@
 /** Label engine: encoding, dot-aligned fitting, scan-safety rules, vector rendering, sheets. No emulator needed. */
-import { sanitizeSpec, LABEL_STOCKS, STARTER_TEMPLATES, getStock, encodeSymbol, SymbolError, fitSymbol, renderLabel, renderSheets, layoutSheet, PAGES, tapeItYourselfOptions, resolvePlaceholders, esc, mmToDots, PRINTERS, recommendedPrinters, getPrinter, type LabelSpec } from "../src/labels";
+import { recommendTemplateId, FIELD_OPTIONS, sanitizeSpec, LABEL_STOCKS, STARTER_TEMPLATES, getStock, encodeSymbol, SymbolError, fitSymbol, renderLabel, renderSheets, layoutSheet, PAGES, tapeItYourselfOptions, resolvePlaceholders, esc, mmToDots, PRINTERS, recommendedPrinters, getPrinter, type LabelSpec } from "../src/labels";
 
 let pass = 0, failed = 0;
 const check = (name: string, cond: boolean, extra = "") => { cond ? pass++ : failed++; console.log(`${cond ? "PASS" : "FAIL"}  ${name}${cond ? "" : "  <- " + extra}`); };
@@ -93,7 +93,7 @@ check("stock ids are unique", new Set(LABEL_STOCKS.map(s => s.id)).size === LABE
 check("every ordered label fits the 2 inch printer width", ordered.every(id => getStock(id)!.widthMm <= 50.8));
 
 // ---- starter templates must scan on the ordered stock at 300 dpi ----
-const sample = { name: "Cinema camera body", assetTag: "PT-ABC123", brand: "Sony", url: "https://packer.tools/gear/AbCdEfGhIjKlMnOpQrSt" };
+const sample = { name: "Cinema camera body", assetTag: "PT-ABC123", brand: "Sony", url: "https://packer.tools/gear/AbCdEfGhIjKlMnOpQrSt", ownerName: "Australian Broadcasting Corporation", ownerPhone: "+61 2 5550 0100", ownerEmail: "assets@example.com", category: "Camera" };
 for (const t of STARTER_TEMPLATES) {
   const out = renderLabel(t, sample, { dpi: 300 });
   const stock = getStock(t.stockId!)!;
@@ -126,6 +126,20 @@ check("unknown kinds and symbologies are dropped and the count is capped", hosti
 const t0 = hostile.elements[0] as any;
 check("numbers inside elements are clamped and rotation is limited", t0.x === 500 && t0.w === 0.5 && t0.h === 0.5 && t0.fontMm === 60 && t0.rotate === 0, JSON.stringify(t0));
 check("a sanitised hostile template still renders", renderLabel(hostile, {}).svg.startsWith("<svg"));
+
+// ---- owner fields, footer, recommendation ----
+check("owner placeholders fill from the owner fields", resolvePlaceholders("{{owner.name}} / {{owner.phone}} / {{owner.email}}", { ownerName: "ABC", ownerPhone: "1", ownerEmail: "a@b.c" }) === "ABC / 1 / a@b.c");
+const prop = STARTER_TEMPLATES.find(t => t.id === "starter-property-50x20")!;
+const propOut = renderLabel(prop, sample, { dpi: 300 });
+check("the Property of layout (from the owner's photo) shows the owner and asset ID", propOut.svg.includes("PROPERTY OF") && propOut.svg.includes("Australian") && propOut.svg.includes("PT-ABC123"));
+check("every starter carries the by Packer.Tools footer", STARTER_TEMPLATES.every(t => t.brandFooter === true) && renderLabel(prop, sample).svg.includes("by Packer.Tools"));
+check("the footer can be switched off", !renderLabel(prop, sample, { footer: false }).svg.includes("by Packer.Tools"));
+check("there are several starter layouts (property, return, case, flight, cable, barcode)", STARTER_TEMPLATES.length >= 12 && ["property", "return", "case", "flight", "cable", "barcode"].every(k => STARTER_TEMPLATES.some(t => t.id.includes(k))));
+check("each starter's footer stays inside the label", STARTER_TEMPLATES.every(t => t.elements.every(e => e.y + e.h <= t.heightMm + 0.01)));
+check("owner text does not leak when the owner is unknown", !renderLabel(prop, { ...sample, ownerName: "" }).svg.includes("Australian"));
+check("recommendations follow the kind of item", recommendTemplateId({ name: "XLR cable 5m" }) === "starter-cable-25x38" && recommendTemplateId({ name: "Pelican 1510 case" }) === "starter-case-76x51" && recommendTemplateId({ name: "V-mount battery" }) === "starter-small-30x22" && recommendTemplateId({ category: "Flight case" }) === "starter-flight-100x150" && recommendTemplateId({ name: "Sony A7", ownerName: "ABC" }) === "starter-property-50x30" && recommendTemplateId({ name: "Sony A7" }) === "starter-asset-50x30");
+check("every recommended template exists", ["XLR cable", "Pelican case", "battery", "flight case", "camera"].every(n => STARTER_TEMPLATES.some(t => t.id === recommendTemplateId({ name: n }))));
+check("the field dropdown offers item, owner and fixed text values", ["Item", "Owner", "Fixed text"].every(g => FIELD_OPTIONS.some(o => o.group === g)) && new Set(FIELD_OPTIONS.map(o => o.value)).size === FIELD_OPTIONS.length);
 
 console.log(`\n${pass} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

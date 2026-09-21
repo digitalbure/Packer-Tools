@@ -2,7 +2,7 @@
   "name": "packer-tools",
   "private": true,
   "description": "Production operations and equipment packing platform for broadcast, film, AV and event teams.",
-  "version": "6.9.0",
+  "version": "6.10.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server/index.ts",
@@ -41,7 +41,6 @@
     "firebase": "^12.11.0",
     "firebase-admin": "^13.10.0",
     "heic2any": "^0.0.4",
-    "html-to-image": "^1.11.13",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.546.0",

@@ -36,7 +36,7 @@ import {
   Bot
 } from 'lucide-react';
 import { toast } from 'sonner';
-import QRPrintModal from './QRPrintModal';
+import LabelStudioLauncher from './LabelStudioLauncher';
 import DukeyAssistant from './DukeyAssistant';
 import { APP_VERSION } from '../version';
 
@@ -907,7 +907,7 @@ export default function QuickActionsDrawer({ user }: QuickActionsDrawerProps) {
 
 
       {/* DIALOG 1: Asset Tags printable sheet overlay */}
-      <QRPrintModal 
+      <LabelStudioLauncher 
         isOpen={activeModal === 'tags'} 
         onClose={() => setActiveModal('none')} 
         items={gearList} 

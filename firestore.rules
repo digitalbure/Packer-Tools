@@ -639,6 +639,10 @@ service cloud.firestore {
     match /users/{userId}/labelTemplatesV2/{templateId} {
       allow read, write: if isSignedIn() && isOwner(userId);
     }
+    // Owner details and saved custom entries for labels. Owner only.
+    match /users/{userId}/labelEntries/{entryId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
 
     // Server-only collections (Admin SDK bypasses rules). Explicit deny for MCP OAuth state and audit logs.
     match /mcpClients/{id} { allow read, write: if false; }

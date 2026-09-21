@@ -73,7 +73,7 @@ const triggerHaptic = () => {
   hapticLight();
 };
 import { Camera, Sparkles, Wand2, Lightbulb, Check, Layers, Luggage, Box, Briefcase, QrCode, Loader2, RefreshCw, Server, HelpCircle, ClipboardCheck, Building2 } from 'lucide-react';
-import QRPrintModal from '../components/QRPrintModal';
+import LabelStudioLauncher from '../components/LabelStudioLauncher';
 import DuplicateItemModal, { DuplicateModalResult } from '../components/DuplicateItemModal';
 import { cloneGearItemData } from '../utils/duplicateUtils';
 import LazyImage from '../components/LazyImage';
@@ -1740,10 +1740,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
     setAddStep(1);
     setIsDirty(false);
   };
-  const [isQRPrintModalOpen, setIsQRPrintModalOpen] = useState(false);
+  const [isLabelStudioOpen, setIsLabelStudioOpen] = useState(false);
   useEffect(() => {
     const handleOpenQRPrint = () => {
-      setIsQRPrintModalOpen(true);
+      setIsLabelStudioOpen(true);
     };
     window.addEventListener('open-qr-print-modal', handleOpenQRPrint);
     return () => window.removeEventListener('open-qr-print-modal', handleOpenQRPrint);
@@ -8945,9 +8945,9 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
         </div>
       )}
 
-      <QRPrintModal 
-        isOpen={isQRPrintModalOpen}
-        onClose={() => setIsQRPrintModalOpen(false)}
+      <LabelStudioLauncher 
+        isOpen={isLabelStudioOpen}
+        onClose={() => setIsLabelStudioOpen(false)}
         items={gear}
         user={user}
         initialSelectedIds={selectedItems}
@@ -9116,7 +9116,7 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                 </button>
 
                 <button 
-                  onClick={() => setIsQRPrintModalOpen(true)}
+                  onClick={() => setIsLabelStudioOpen(true)}
                   disabled={selectedItems.size === 0}
                   className="shrink-0 flex items-center justify-center gap-2 bg-neutral-800 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-750 border border-white/10 transition shadow-lg whitespace-nowrap"
                   title="Launch Label Studio designer for selected gear items"

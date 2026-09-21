@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import PickupDropoffWidget, { PickupDropoffState } from '../components/PickupDropoffWidget';
 import AssetIdentificationPanel from '../components/AssetIdentificationPanel';
-import QRPrintModal from '../components/QRPrintModal';
+import LabelStudioLauncher from '../components/LabelStudioLauncher';
 
 interface GearBioPageProps {
   user: UserProfile | null;
@@ -45,7 +45,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
   const [editForm, setEditForm] = useState<Partial<GearItem>>({});
   const [ownerProfile, setOwnerProfile] = useState<any>(null);
   const [revealContact, setRevealContact] = useState(false);
-  const [isQRPrintModalOpen, setIsQRPrintModalOpen] = useState(false);
+  const [isLabelStudioOpen, setIsLabelStudioOpen] = useState(false);
   const [userTemplates, setUserTemplates] = useState<any[]>([]);
   const [initialPrintTab, setInitialPrintTab] = useState<'designs' | 'print'>('designs');
 
@@ -470,7 +470,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
     } else {
       setInitialPrintTab('designs');
     }
-    setIsQRPrintModalOpen(true);
+    setIsLabelStudioOpen(true);
   };
 
   const qrValue = item ? `${window.location.origin}/gear/${item.id}?owner=${item.ownerId}` : '';
@@ -1771,7 +1771,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                 {user && (
                   <button
                     type="button"
-                    onClick={() => setIsQRPrintModalOpen(true)}
+                    onClick={() => setIsLabelStudioOpen(true)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition"
                   >
                     <SlidersHorizontal size={12} />
@@ -1932,12 +1932,11 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
         )}
       </AnimatePresence>
 
-      <QRPrintModal
-        isOpen={isQRPrintModalOpen}
-        onClose={() => setIsQRPrintModalOpen(false)}
+      <LabelStudioLauncher
+        isOpen={isLabelStudioOpen}
+        onClose={() => setIsLabelStudioOpen(false)}
         items={printableItems}
         user={user}
-        initialTab={initialPrintTab}
       />
     </div>
   );
