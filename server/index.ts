@@ -5,7 +5,6 @@ import { createServer as createViteServer } from "vite";
 // Import modular routes
 import healthRouter from "./routes/health";
 import billingRouter from "./routes/billing";
-import webhooksRouter from "./routes/webhooks";
 import aiRouter from "./routes/ai";
 import emailRouter from "./routes/email";
 import developerRouter from "./routes/developer";
@@ -28,11 +27,6 @@ async function startServer() {
   app.use("/api", rateLimit("api-global", 600, 60 * 1000, (req) => req.ip || "unknown"));
 
   // Global Middlewares
-  // Note: Webhook routers internally read and parse raw body, so we place JSON parser AFTER webhook routes 
-  // or handle parsing contextually.
-  
-  // Webhooks first to prevent body parser interference with signature verifications
-  app.use(webhooksRouter);
 
   // Parse remaining JSON requests
   app.use(express.json({ limit: "15mb" }));

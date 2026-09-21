@@ -145,7 +145,7 @@ export default function PricesPage({ user, onUpdateUser, adminSettings }: Prices
               Workspace Pricing Plan Tiers
             </h1>
             <p className="text-sm font-semibold text-neutral-500 max-w-2xl leading-relaxed">
-              Transparent, scalable plans for camera logistics, heavy operations, AV rigging, and live sports setups. All processing managed securely by Paddle.
+              Transparent, scalable plans for camera logistics, heavy operations, AV rigging, and live sports setups. Payments are processed by PayPal and billed in US dollars.
             </p>
           </div>
 
@@ -374,7 +374,7 @@ export default function PricesPage({ user, onUpdateUser, adminSettings }: Prices
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
           <div className="space-y-4">
             <h3 className="text-xs uppercase font-mono font-black text-[#ff4f3a] tracking-widest flex items-center gap-2">
-              <QuestionIcon size={14} /> Paddle Frequently Asked Questions
+              <QuestionIcon size={14} /> Frequently Asked Questions
             </h3>
             <h2 className="text-2xl font-black uppercase tracking-tight text-neutral-900">
               Clear & Honest Solutions
@@ -388,14 +388,13 @@ export default function PricesPage({ user, onUpdateUser, adminSettings }: Prices
             <div className="space-y-1.5">
               <h4 className="text-sm font-extrabold uppercase tracking-tight text-neutral-800">Who processes my payments?</h4>
               <p className="text-xs text-neutral-550 leading-relaxed font-semibold">
-                All transactions are processed securely via our payment processor and Merchant of Record, <strong>Paddle</strong>. Paddle handles global billing compliance, secure encryption, active VAT/Fiji taxation rules, and transactional receipts.
-              </p>
+                Payments are processed by <strong>PayPal</strong> and billed in US dollars. Your card or PayPal details go to PayPal, never to Packer Tools.</p>
             </div>
             
             <div className="space-y-1.5">
               <h4 className="text-sm font-extrabold uppercase tracking-tight text-neutral-800">Can I request a full refund?</h4>
               <p className="text-xs text-neutral-550 leading-relaxed font-semibold">
-                Yes! We offer a standard 14-day hassle-free refund window. If you wish to cancel and request a return on subscription costs, please email us directly at <strong>support@packer.tools</strong>, referencing your original Paddle invoice ID.
+                Yes! We offer a standard 14-day hassle-free refund window. If you wish to cancel and request a return on subscription costs, please email us directly at <strong>support@packer.tools</strong>, referencing your original PayPal transaction ID.
               </p>
             </div>
 
@@ -435,7 +434,7 @@ export default function PricesPage({ user, onUpdateUser, adminSettings }: Prices
             </div>
           </div>
 
-          {/* Legal references required by Paddle */}
+          {/* Legal links */}
           <div className="pt-6 border-t border-neutral-800 flex flex-wrap items-center justify-between gap-4 text-[10px] font-mono text-neutral-500 font-bold">
             <div className="flex flex-wrap items-center gap-3">
               <Link to="/pg/privacy-policy" className="hover:text-white transition uppercase">Privacy Policy</Link>

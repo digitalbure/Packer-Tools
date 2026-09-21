@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.5.1`
+## Current Application Version: `v6.6.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,18 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🧹 Release: v6.6.0 (Paddle and Dodo Payments Removed; PayPal Only)
+*Released on: September 22, 2026*
+Paddle does not support marketplace platforms, so Paddle and Dodo Payments are removed. PayPal is the only payment gateway.
+- **Server:** deleted the Paddle/Dodo webhook routes and signature helpers (`server/routes/webhooks.ts`, `server/utils/paddle.ts`) and their mount. The PayPal secret is now read **only** from the server environment (`PAYPAL_SECRET_KEY`), never from the publicly readable settings document. Removed the `PADDLE_*` / `DODO_*` variables from `.env.example`.
+- **Client:** deleted the client-side webhook handlers, the "Billing Dashboard" (it was built on seeded mock Paddle data) and the Paddle billing screen. The payment screen is now a small PayPal-only page (on/off, sandbox, client ID). The checkout modal no longer offers Paddle or Dodo, including the fake "Simulate Instant Dodo Activation" flow. The app no longer seeds placeholder gateway keys into settings.
+- **Copy:** pricing page and the Terms / Privacy / Refund seed texts now name PayPal instead of Paddle, and no longer describe a Merchant of Record.
+- **Data:** the `paddle*` / `dodo*` fields are gone from the types. Old values in Firestore are untouched and unused.
+- **Action for the site owner:** the live Terms and Privacy pages are stored in Firestore (`adminSettings/global.privacyContent` and `termsContent`) and still mention Paddle. Edit them in the admin console. Have the payment and tax wording reviewed, because with PayPal you are the merchant of record, not Paddle.
+- Correction to an earlier note: the `paddleApiKey` seen in the settings document was the app's own placeholder text, not a real key.
 
 ---
 

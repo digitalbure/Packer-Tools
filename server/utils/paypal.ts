@@ -23,9 +23,6 @@ export const getPayPalConfig = async (): Promise<PayPalConfig> => {
         if (config.paypalClientId) {
           clientId = config.paypalClientId;
         }
-        if (config.paypalSecretKey) {
-          secretKey = config.paypalSecretKey;
-        }
         if (config.paypalSandboxMode !== undefined) {
           sandboxMode = !!config.paypalSandboxMode;
         }

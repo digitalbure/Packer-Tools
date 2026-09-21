@@ -13,8 +13,6 @@ import PagesManager from './PagesManager';
 import PackerLogo from '../components/PackerLogo';
 import AdminDocsTab from '../components/AdminDocsTab';
 import FirebaseMigrator from '../components/FirebaseMigrator';
-import BillingSettings from '../components/BillingSettings';
-import BillingDashboard from '../components/BillingDashboard';
 import PaymentGatewaySettings from '../components/PaymentGatewaySettings';
 import { BrandingSettingsTab, BillingSettingsTab, MultiIndustrySettingsTab, MarketplaceSettingsTab, WidgetsSettingsTab, EmailBrandingSettingsTab, SmtpSettingsTab, CommunitiesSettingsTab } from '../components/AdminSettingsPages';
 import EmailTemplates from '../components/EmailTemplates';
@@ -1477,8 +1475,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
     { id: 'users', icon: <Users size={18} />, label: 'Users', description: 'Manage user accounts' },
     { id: 'projects', icon: <Briefcase size={18} />, label: 'All Projects', description: 'Global project oversight' },
     { id: 'plans', icon: <CreditCard size={18} />, label: 'Plans', description: 'Subscription tiers' },
-    { id: 'billing', icon: <CreditCard size={18} />, label: 'Billing Settings', description: 'Paddle integration & payment gateways' },
-    { id: 'billing_dashboard', icon: <TrendingUp size={18} />, label: 'Billing Dashboard', description: 'Subscription analytics & revenue trends' },
+    { id: 'billing', icon: <CreditCard size={18} />, label: 'Billing Settings', description: 'PayPal paymentss' },
     { id: 'features', icon: <Zap size={18} />, label: 'Modules', description: 'Global module & beta releases' },
     { id: 'beta_program', icon: <Compass size={18} />, label: 'Beta Program', description: 'Beta Testing invites, waiting list, questionnaire responses & 3-month trial controls' },
     { id: 'bugs', icon: <Bug size={18} />, label: 'Bug Reports', description: 'User-submitted beta issues' },
@@ -2232,13 +2229,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
 
       {activeTab === 'billing' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <BillingSettings settings={settings} setSettings={setSettings} users={users} />
-        </div>
-      )}
-
-      {activeTab === 'billing_dashboard' && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <BillingDashboard settings={settings} users={users} />
+          <PaymentGatewaySettings settings={settings} setSettings={setSettings} users={users} />
         </div>
       )}
 
@@ -3303,51 +3294,6 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
-              {/* Paddle Merchant Gateway Card */}
-              <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-100 space-y-4 md:col-span-2">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <span className="font-extrabold text-sm text-neutral-900 flex items-center gap-2">
-                      <CreditCard size={18} className="text-primary animate-pulse" />
-                      Paddle Billing & Merchant Sync API Key
-                    </span>
-                    <span className="text-[10px] uppercase font-black tracking-widest text-[#F27D26]">Payment Gateway Authority</span>
-                  </div>
-                  <button 
-                    type="button"
-                    onClick={() => setSettings(s => s ? { ...s, integrationConfig: { ...s.integrationConfig, paddleEnabled: !s.integrationConfig.paddleEnabled } } : null)}
-                    className={`w-12 h-6 rounded-full relative transition-colors ${settings?.integrationConfig?.paddleEnabled ? 'bg-primary' : 'bg-neutral-200'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings?.integrationConfig?.paddleEnabled ? 'right-1' : 'left-1'}`}></div>
-                  </button>
-                </div>
-                
-                <p className="text-xs text-neutral-500 font-medium leading-relaxed font-sans text-left">
-                  Connect your live <strong>Paddle sandbox or production workspace</strong> to process seat metrics, manage active currencies (FJD, AUD, USD), list visuals on peer-to-peer markets, and collect secure payouts.
-                </p>
-
-                <div className="grid sm:grid-cols-1 gap-4 pt-2">
-                  <div className="space-y-2 text-left">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block font-mono font-bold">Paddle Secret Live API Key</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="pdl_live_apikey_..."
-                        value={settings?.integrationConfig?.paddleApiKey || ''}
-                        onChange={(e) => setSettings(s => s ? { ...s, integrationConfig: { ...s.integrationConfig, paddleApiKey: e.target.value } } : null)}
-                        className="w-full pl-4 pr-12 py-3 bg-white border border-neutral-200 rounded-xl outline-none text-xs font-mono font-bold tracking-tight text-neutral-800 focus:border-primary transition"
-                      />
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-[9px] font-black bg-primary/10 text-primary uppercase tracking-widest rounded leading-none">
-                        Live Key
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-neutral-400 font-medium leading-normal font-sans">
-                      Required by <strong>Paddle Merchant of Record</strong> to verify secure ledger handshakes, invoice dispatch orders, and refund requests, serving as checkout master.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               {/* GCP Pricing */}
               <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-100 space-y-4">
                 <div className="flex items-center justify-between">
@@ -7782,7 +7728,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
             >
               <option value="branding">🎨 Branding & Platform Identity</option>
               <option value="emails">✉️ Automated Emails Visual Customizer</option>
-              <option value="payment_gateway">💳 Payment Gateway (Dodo & Paddle)</option>
+              <option value="payment_gateway">💳 Payments (PayPal)</option>
               <option value="billing">💸 Currencies & Commission Settings</option>
               <option value="multi_industry">🏢 Multi-Industry Sandboxes</option>
               <option value="communities">📍 Regional Countries & Communities Portal</option>
@@ -7845,7 +7791,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                   <CreditCard size={16} className={settingsSubTab === 'payment_gateway' ? 'text-indigo-500 animate-pulse' : 'text-neutral-400'} />
                   <div className="min-w-0 flex-1">
                     <p className="font-extrabold text-[11px] leading-none uppercase tracking-wider">Payment Gateway</p>
-                    <span className={`text-[8px] block mt-1 font-sans font-bold leading-none ${settingsSubTab === 'payment_gateway' ? 'text-indigo-400' : 'text-neutral-355'}`}>Dodo & deactivated Paddle</span>
+                    <span className={`text-[8px] block mt-1 font-sans font-bold leading-none ${settingsSubTab === 'payment_gateway' ? 'text-indigo-400' : 'text-neutral-355'}`}>Accept PayPal payments</span>
                   </div>
                 </button>
 

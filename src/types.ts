@@ -96,15 +96,6 @@ export interface Plan {
   trialDays?: number;
   trialEnabled?: boolean;
   isActive?: boolean; // Activate/Deactivate subscription plans
-  paddleProductId?: string;
-  paddlePriceIdMonthly?: string;
-  paddlePriceIdAnnual?: string;
-  paddleCheckoutUrl?: string;
-  dodoProductId?: string;
-  dodoPriceIdMonthly?: string;
-  dodoPriceIdAnnual?: string;
-  dodoCheckoutUrl?: string;
-  dodoCheckoutUrlAnnual?: string;
 }
 
 export interface LeftPanelItemConfig {
@@ -850,12 +841,6 @@ export interface IntegrationConfig {
   compatibilityModel?: string;
   bomLeadServiceEnabled?: boolean;
   bomRiskThreshold?: number;
-  paddleApiKey?: string;
-  paddleEnabled?: boolean;
-  dodoApiKey?: string;
-  dodoEnabled?: boolean;
-  dodoSandboxMode?: boolean;
-  dodoWebhookSecret?: string;
   paypalSecretKey?: string;
   paypalEnabled?: boolean;
   paypalSandboxMode?: boolean;

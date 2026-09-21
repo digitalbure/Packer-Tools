@@ -15,7 +15,7 @@ We collect several types of information from and about users of our App, includi
 ### A. Personal Identification Information
 * **Registration Details:** Your name, email address, password, profile picture, and contact details (including phone number and physical address).
 * **Company/Organization Identity:** Company name, business registration, Tax Identification Number (TIN), business license number, and organization structure for enterprise users.
-* **Payment & Financial Data:** When you initiate subscriptions or transactions via our pricing plans or our payment processor, **Paddle**, we collect transaction identifiers, billing details, and active currency preferences.
+* **Payment & Financial Data:** When you initiate subscriptions or transactions via our pricing plans or our payment processor, **PayPal**, we collect transaction identifiers, billing details, and active currency preferences.
 
 ### B. Equipment & Operational Data
 * **Gear Manifests and Assets:** Photo uploads of equipment, brand/manufacturer metadata, weight configurations, scan history, serial numbers, QR code mapping, and shelf-location coordinates.
@@ -33,7 +33,7 @@ We collect several types of information from and about users of our App, includi
 We process and utilize your information for the following legitimate business purposes:
 * **To Provide and Maintain Packer Tools:** To map your gear inventory, compile visual checklist manifest lists, synchronize travel cases, and run real-time hardware status audits.
 * **To Power the Marketplace:** To enable one-click visual listing of cinematic, industrial, or scientific gear to the network.
-* **Payments and Billing:** To handle subscription upgrades and secure marketplace payments via our merchant of record, **Paddle**.
+* **Payments and Billing:** To handle subscription upgrades and secure marketplace payments via our payment processor, **PayPal**.
 * **Communication and Notifications:** To dispatch maintenance alerts, system status reports, and service notices.
 * **To Comply with Fiji Regulatory Frameworks:** Conducting optional business verification, tax reporting (FRCS), and anti-money laundering checks for registered rental operations on the platform.
 
@@ -49,7 +49,7 @@ Your data is persistently saved and secured using globally hosted cloud platform
 
 We do not sell your personal data. We share your information only in these limited contexts:
 * **With Your Approved Members:** Organization admins, members, and team assignees see shared checklist logs and location dispatch coordinates.
-* **Service Providers:** Payment systems (such as **Paddle**), geolocation tools, and database storage providers.
+* **Service Providers:** Payment systems (such as **PayPal**), geolocation tools, and database storage providers.
 * **Safety and Market Trust:** Marketplace listings show your specified store bio, public username, region, and custom pickup locations to facilitate rentals or sales.
 * **Regulatory/Legal Compliance:** If required under Fiji law, to report transaction summaries to the Fiji Revenue and Customs Service (FRCS) or other authorities.
 
@@ -110,7 +110,7 @@ Super administrators (e.g., verified on-site fleet manager or tech director) hav
 Your subscription level is defined by your chosen Plan (Free, Pro, or Enterprise) as outlined in our admin controls or pricing panel.
 
 ### B. Payment Processor
-We process recurring plan billings, transactions, and licensing fees through **Paddle**, our Merchant of Record and payment gateway. All billing concerns, invoice updates, and gateway complaints are managed securely via Paddle interfaces.
+We process recurring plan billings, transactions, and licensing fees through **PayPal**, our payment processor. All billing concerns, invoice updates, and gateway complaints are managed securely via Paddle interfaces.
 
 ### C. Currency Configurations
 Packer Tools supports dynamic currency configurations (including FJD, AUD, NZD, USD, GBP, and CAD). Local taxes, where applicable (e.g., Fijian Value Added Tax), may be levied at the payment gateway depending on your geographic identification.
@@ -175,7 +175,7 @@ export const refundPolicyMD = `# Refund Policy for Packer Tools
 
 At **Packer Tools** (accessible at **https://packer.tools**), we are committed to providing premium, industrial-grade equipment tracking and visual listing software. This Refund Policy details the terms and conditions governing subscription cancellations, returns, and refund requests for all plans (including Pro and Enterprise tiers) and services rendered via our Platform. 
 
-Packer Tools is a visual product owned by **Street Level Digital Engagement (SLEDIEN) Pte Ltd** (Fiji, Address: **8 Kukusau Road, Nasinu, Fiji**) and engineered by **Digital Bure** (digitalbure.com). All payments are securely routed and handled by our payment gateway and Merchant of Record, **Paddle**.
+Packer Tools is a visual product owned by **Street Level Digital Engagement (SLEDIEN) Pte Ltd** (Fiji, Address: **8 Kukusau Road, Nasinu, Fiji**) and engineered by **Digital Bure** (digitalbure.com). All payments are securely routed and handled by our payment gateway and Merchant of Record, **PayPal**.
 
 By checking our pricing criteria, subscribing to our services, or conducting transactions, you acknowledge that you have read, understood, and agreed to this Refund Policy.
 
@@ -218,11 +218,11 @@ All booking fees, equipment rental charges, and security deposits are establishe
 
 To request a refund for standard subscription packages or marketplace disputes, please follow the steps:
 
-1. **Locate Your Invoice:** Find the purchase reference number from **Paddle** (sent to your email upon payment clearance).
+1. **Locate Your Invoice:** Find the purchase reference number from **PayPal** (sent to your email upon payment clearance).
 2. **Submit Your Request:** Email our billing desk at **policies@packer.tools** with the subject line: *"Refund Application - [Purchase Reference]"*.
 3. **Include Details:** Provide your registered account email, company name, billing region (e.g. Suva, Fiji or Sydney, Australia), and the precise reason you are requesting a refund.
 
-Our financial unit will review your submission in coordination with **Paddle** within three (3) business days. Approved refunds are credited directly back to the original funding source (credit card, commercial gateway, etc.) within five (5) to ten (10) business days, depending on bank processing.
+Our financial unit will review your submission in coordination with **PayPal** within three (3) business days. Approved refunds are credited directly back to the original funding source (credit card, commercial gateway, etc.) within five (5) to ten (10) business days, depending on bank processing.
 
 ---
 

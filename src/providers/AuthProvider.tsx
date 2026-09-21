@@ -134,8 +134,6 @@ export function getDefaultAdminSettings(): AdminSettings {
       callbackUrlDev: `${window.location.origin}/auth/callback`,
       callbackUrlProd: '',
       paypalClientId: '',
-      paddleApiKey: 'mock_paddle_api_key_placeholder_value',
-      paddleEnabled: true
     },
     marketplaceRegionConfig: {
       launchCountry: 'Fiji',
@@ -652,20 +650,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } else {
           const data = settingsSnap.data() || {};
-          if (!data.privacyContent || !data.termsContent || !data.integrationConfig?.paddleApiKey) {
+          if (!data.privacyContent || !data.termsContent) {
             try {
-              const updatedConfig = { ...(data.integrationConfig || {}) };
-              if (!updatedConfig.paddleApiKey) {
-                updatedConfig.paddleApiKey = 'mock_paddle_api_key_placeholder_value';
-                updatedConfig.paddleEnabled = true;
-              }
               await setDoc(settingsRef, {
                 privacyContent: data.privacyContent || privacyPolicyMD,
-                termsContent: data.termsContent || termsOfServiceMD,
-                integrationConfig: updatedConfig
+                termsContent: data.termsContent || termsOfServiceMD
               }, { merge: true });
             } catch (err) {
-              console.warn("Unable to merge-update settings with privacy/terms/paddle content:", err);
+              console.warn("Unable to merge-update settings with privacy/terms content:", err);
             }
           }
         }
