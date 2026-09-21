@@ -57,7 +57,20 @@ Report each step in a table (step, result, photo, notes) in this file.
 5. **Direct printing** per printer after it passes testing: DT60S first, then Zebra (ZPL), Brother, DYMO.
 6. **NFC and RFID**: return only when they write to real tags (Web NFC on supported devices).
 
+## Decisions (from the owner)
+- **Templates have two tiers.** *Global* templates are published by a Packer Tools admin: every user can use them, none can edit them, and any user can copy one into their own set. *Personal* templates belong to the person who made them and never become global. Storage: a global collection (admin write, everyone read) and `users/{uid}/labelTemplates` (owner only). The current public "marketplace templates" collection is retired.
+- **First customer printers:** Zebra and Brother (assumed). Direct printing for them comes after the DT60S bring-up, using the same command layer.
+- **Label sizes** are the printed sticker size, fixed by the roll or sheet. Starter presets (admin can add more, users can enter a custom size):
+
+| Use | Size |
+|---|---|
+| Small item, cable or battery tag | 50 x 25 mm |
+| Item or case label | 40 x 30 mm |
+| Case, bin or shelf label | 76 x 51 mm (3 x 2 in) |
+| Large flight-case label | 100 x 150 mm (4 x 6 in) |
+| Brother roll | 62 mm wide, length per label |
+| A4 sheets | 63.5 x 38.1 mm (3 x 7), 99.1 x 38.1 mm (2 x 7) |
+
 ## Open questions for the owner
-- DT60S model: 203 or 300 dpi, and which label roll sizes will customers use?
-- Which of Zebra, Brother and DYMO do your first customers own?
-- Should saved templates be shared across a workspace, or stay per person?
+- DT60S model: 203 or 300 dpi, and which label roll sizes will customers use with it?
+- Approve or change the starter sizes above.
