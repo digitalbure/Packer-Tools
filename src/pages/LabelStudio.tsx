@@ -165,7 +165,7 @@ export default function LabelStudio({ user, adminSettings, demo }: Props) {
     if (t) { setTemplateKey(`starter:${t.id}`); setDraft(clone(t)); if (t.stockId) setStockId(t.stockId); }
   }, [autoMode, groups, groupKey]);
   const active = autoMode && groups.size > 0 ? groups.get(groupKey) || [] : chosen;
-  const sample = useMemo<AssetData>(() => ({ ...SAMPLE, ownerName: owner.name || 'Your company name', ownerPhone: owner.phone || '+000 000 0000', ownerEmail: owner.email || 'assets@example.com' }), [owner]);
+  const sample = useMemo<AssetData>(() => ({ ...SAMPLE, ownerName: owner.name || 'Packer Tools Production', ownerPhone: owner.phone || '+000 000 0000', ownerEmail: owner.email || 'assets@example.com' }), [owner]);
   const jobs = useMemo(() => {
     const out: AssetData[] = [];
     for (const i of active) { const a = toAsset(i, owner); for (let c = 0; c < copies && out.length < 500; c++) out.push(a); }

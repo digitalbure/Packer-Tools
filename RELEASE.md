@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.10.0`
+## Current Application Version: `v6.10.1`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,12 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### ✏️ Patch: v6.10.1 (Label Studio Sample Owner)
+*Released on: September 22, 2026*
+- The sample owner shown in the label preview (before an owner is entered) is now "Packer Tools Production". Tests use the same name.
 
 ---
 
