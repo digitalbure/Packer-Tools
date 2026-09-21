@@ -49,7 +49,7 @@ export function HowItRuns() {
             <span className="pl-step__no" aria-hidden="true">1</span>
             <div className="pl-step__body">
               <h3 className="pl-h3">Catalogue it once</h3>
-              <p className="pl-body">Add each item with a photo, serial number, category and asset tag. Print QR or barcode labels for the kit and the cases. Already have a spreadsheet? Import the CSV.</p>
+              <p className="pl-body">Add each item with a photo, serial number, category and asset tag. Print QR code labels for the kit and the cases. Already have a spreadsheet? Import the CSV.</p>
             </div>
             <div className="pl-step__art">
               <div className="pl-label" aria-hidden="true">

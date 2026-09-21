@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.6.0`
+## Current Application Version: `v6.6.1`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,12 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### ✏️ Patch: v6.6.1 (Home Page Copy Accuracy: Labels)
+*Released on: September 22, 2026*
+- The home page said labels could be printed as "QR and barcode". Label Studio can print **QR codes only** (the `barcode` element type exists in the code but is never created or rendered, and no barcode library is installed). Copy corrected. Scanning barcodes with the camera is unaffected and remains accurate.
 
 ---
 

@@ -39,7 +39,7 @@ export const MODULE_GROUPS: { title: string; modules: ModuleDef[] }[] = [
       { name: 'Kiosk', feature: 'kioskMode', text: 'Tablet check-out and return with signatures, emailed receipts and an order mode.' },
       { name: 'Scanning', text: 'Camera scanning for QR codes, Code 128 and 39, EAN, UPC, Data Matrix and Aztec, and NFC where the device supports it.' },
       { name: 'RFID tracking', feature: 'rfidTracking', text: 'Read RFID tags for fast sweeps of a room or a case.' },
-      { name: 'Labels', text: 'Design and print QR and barcode labels for items and cases.' },
+      { name: 'Labels', text: 'Design and print QR code labels for items and cases, on label sheets or by the roll.' },
       { name: 'Asset transfer', text: 'Hand kit from one person, team or depot to another, with a record.' },
       { name: 'Logistics dashboard', feature: 'logisticsDashboard', text: 'See what is out, what is due back and what is on the move.' },
       { name: 'Customs and print manifests', text: 'ATA carnet manifests, print sheets and CSV exports.' },
