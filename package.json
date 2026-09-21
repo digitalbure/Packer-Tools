@@ -2,7 +2,7 @@
   "name": "packer-tools",
   "private": true,
   "description": "Production operations and equipment packing platform for broadcast, film, AV and event teams.",
-  "version": "6.6.1",
+  "version": "6.7.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server/index.ts",
@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test": "firebase emulators:exec --only firestore,auth --project packer-tools \"tsx tests/mcp-e2e.mts && tsx tests/billing-e2e.mts && tsx tests/kiosk-ops-e2e.mts && tsx tests/kiosk-api-e2e.mts && tsx tests/kiosk-client-e2e.mts && tsx tests/email-e2e.mts\"",
+    "check:copy": "node scripts/check-copy.mjs",
+    "test": "firebase emulators:exec --only firestore,auth --project packer-tools \"tsx tests/mcp-e2e.mts && tsx tests/billing-e2e.mts && tsx tests/kiosk-ops-e2e.mts && tsx tests/kiosk-api-e2e.mts && tsx tests/kiosk-client-e2e.mts && tsx tests/email-e2e.mts && tsx tests/labels-engine.mts\"",
     "test:mcp": "npm test"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.21",
     "axios": "^1.14.0",
+    "bwip-js": "^4.11.4",
     "canvas-confetti": "^1.9.4",
     "d3": "^7.9.0",
     "date-fns": "^4.1.0",

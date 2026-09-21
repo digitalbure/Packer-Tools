@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.6.1`
+## Current Application Version: `v6.7.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,19 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🏷️ Foundation: v6.7.0 (Label Engine)
+*Released on: September 22, 2026*
+First step of the Label Studio rebuild (plan: `docs/label-studio-rebuild.md`). Nothing in the app screens changes yet; the old studio still runs until the new one replaces it.
+- **New label engine** in `src/labels/`: one millimetre-based label model and one vector renderer that will drive the preview, browser print, sheets and image export. Real barcodes (Code 128, Code 39, EAN-13) and Data Matrix as well as QR, using `bwip-js`.
+- **Labels that scan.** Every symbol is drawn on whole printer dots (crisp on thermal heads) and printing is refused when a code is too small to scan, with the size to aim for.
+- **Sheets and tape-it-yourself pages** for people without a label printer: A4 / Letter grids, printer offsets, dashed cut lines and a wide gap for cutting and taping.
+- **Printer profiles** with honest status. The DETONGER DT60S is "In testing" (54 mm, 203 or 300 dpi, ESC/POS and LPAPI per the vendor); nothing is marked recommended or verified until it passes hands-on testing. Bring-up plan in the docs.
+- **Safety:** all item text is escaped before it reaches the SVG (tested against injected markup).
+- **Copy standard** (`docs/copy-standard.md`) and `npm run check:copy`, which fails on hype wording in the modules that follow the standard. `node scripts/check-copy.mjs --all` shows the rest of the app still needs the cleanup (about 610 lines in 64 files).
+- 39 new tests (`tests/labels-engine.mts`); `npm test` now runs 202 checks.
 
 ---
 
