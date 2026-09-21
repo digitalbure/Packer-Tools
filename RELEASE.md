@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.1.0`
+## Current Application Version: `v6.1.1`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,14 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🛠️ Patch Release: v6.1.1 (CI & Health Version)
+*Released on: September 21, 2026*
+- **CI** (`.github/workflows/ci.yml`): every push/PR now runs install, typecheck, production build and the 42-check MCP end-to-end suite (Firebase emulators). It uses `npm install` and only *warns* on lockfile drift, because AI Studio periodically rewrites `package-lock.json` on its own (it has twice dropped `jspdf` / `html-to-image` and reset the version) which breaks strict `npm ci`. Its own deploys are unaffected.
+- **`/api/health`** now reports the real app version from `package.json` (was hardcoded `1.0.0-beta.1`).
+- If a sync leaves `package-lock.json` out of step: run `npm install` and commit the lockfile.
 
 ---
 

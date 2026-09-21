@@ -1,14 +1,22 @@
 import express from "express";
+import fs from "fs";
+import path from "path";
 import axios from "axios";
 import { authenticateUser } from "../middleware/auth";
 
 const router = express.Router();
 
+// Report the real app version (package.json) instead of a hardcoded string.
+let appVersion = "unknown";
+try {
+  appVersion = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")).version || appVersion;
+} catch { /* keep fallback */ }
+
 router.get("/api/health", (req, res) => {
   res.json({
     status: "healthy",
     timestamp: new Date().toISOString(),
-    version: "1.0.0-beta.1",
+    version: appVersion,
     uptime: process.uptime()
   });
 });
