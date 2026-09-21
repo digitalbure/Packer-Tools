@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.1.1`
+## Current Application Version: `v6.1.2`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,13 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🐞 Patch Release: v6.1.2 (Connector Sign-in Page Hijacked by Service Worker)
+*Released on: September 21, 2026*
+- **Fix**: the PWA service worker (`src/sw.ts`) answered every page navigation with the app shell (`index.html`), so in any browser that had used Packer Tools before, `/oauth/authorize` showed the Packer Tools app instead of the connector's consent page and the Claude connection never completed. The navigation fallback now excludes `/oauth/*`, `/api/*` and `/.well-known/*`.
+- If a browser still shows the app at `/oauth/authorize` after publishing, open packer.tools once (the new worker activates immediately), or unregister the service worker in DevTools → Application.
 
 ---
 

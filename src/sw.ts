@@ -13,7 +13,11 @@ precacheAndRoute(self.__WB_MANIFEST || []);
 // SPA Navigation Fallback (forces offline refreshes of deep-links like /library to fall back to index.html)
 try {
   const handler = createHandlerBoundToURL('/index.html');
-  const navigationRoute = new NavigationRoute(handler);
+  // Server-rendered pages must reach the network: the MCP/OAuth consent page (/oauth/*), discovery
+  // documents (/.well-known/*) and the API. Without this the SPA shell would hijack those navigations.
+  const navigationRoute = new NavigationRoute(handler, {
+    denylist: [/^\/oauth\//, /^\/api\//, /^\/\.well-known\//],
+  });
   registerRoute(navigationRoute);
 } catch (e) {
   console.warn('[SW] NavigationRoute registration failed:', e);
