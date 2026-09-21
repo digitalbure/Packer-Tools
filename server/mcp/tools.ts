@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { admin, dbAdmin } from "../firebaseAdmin";
-import { getServerPlan, sanitizeSeats } from "../utils/plans";
+import { getServerPlan, getPlanRecord, sanitizeSeats } from "../utils/plans";
 
 /** Every scoped tool runs as the signed-in user. There is no `uid` argument anywhere: identity comes from the OAuth token. */
 export interface McpContext { uid: string }
@@ -37,8 +37,9 @@ const num = (v: any, min: number, max: number, fallback: number) => {
 async function gearLimitFor(uid: string): Promise<number | null> {
   const user = (await dbAdmin.collection("users").doc(uid).get()).data() || {};
   const planId = String(user.plan || "free");
-  const planDoc = (await dbAdmin.collection("plans").doc(planId).get()).data();
-  if (planDoc && typeof planDoc.maxGearItems === "number") return planDoc.maxGearItems;
+  const planDoc = await getPlanRecord(planId);
+  const configured = planDoc ? Number(planDoc.maxGearItems) : NaN;
+  if (isFinite(configured) && configured >= 0) return configured;
   return DEFAULT_GEAR_LIMITS[planId] ?? null;
 }
 
