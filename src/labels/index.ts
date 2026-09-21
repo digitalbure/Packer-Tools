@@ -4,3 +4,4 @@ export * from './fit';
 export * from './render';
 export * from './sheet';
 export * from './printers';
+export * from './presets';

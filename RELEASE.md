@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.7.0`
+## Current Application Version: `v6.8.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,19 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🏷️ Release: v6.8.0 (Label Stocks, Cable Labels and Rotation)
+*Released on: September 22, 2026*
+Label engine update. Still no change to app screens; the old studio runs until the new one replaces it.
+- **Printer corrected:** the owner's test unit is the DETONGER **DT60PLUS** (2 inch, 300 dpi), not the DT60S researched earlier. The profile is now `detonger-dt60plus`, "In testing", with no assumed command set.
+- **Cable wrap labels.** A label can have a blank tail (`tailMm`) after its printed area, as on 25 x 38 + 40 and 30 x 45 + 50 cable labels. The renderer reports the full feed length (78 mm and 95 mm) and shows the tail hatched in previews only.
+- **Rotation.** Text and codes can be turned 90, 180 or 270 degrees, on the printer's dot grid. This is what lets a barcode run along the length of a narrow label.
+- **Stock catalogue** (`src/labels/presets.ts`): every stock in the owner's DT60PLUS order (P-cable labels, silver PET, white PP), plus 50 x 25, 76 x 51, 100 x 150, a Brother 62 mm roll and two A4 sheets. Notes flag low-contrast stock (silver, red).
+- **Starter templates** for the ordered stock (QR, barcode and cable layouts), the seed for global templates. Tests prove each renders without errors at 300 dpi with realistic data.
+- Barcodes are confirmed in the engine: Code 128, Code 39 and EAN-13 are drawn, and refused with a clear size when too small to scan (a Code 128 across 25 mm at 300 dpi fails; turned along 38 mm it passes).
+- 62 label tests; `npm test` now runs 225 checks.
 
 ---
 

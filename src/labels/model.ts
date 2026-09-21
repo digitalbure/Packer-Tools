@@ -1,7 +1,11 @@
 /** Label model. All geometry is in millimetres. One model drives the preview, browser print, sheets and image export. */
 export type Symbology = 'qr' | 'code128' | 'code39' | 'ean13' | 'datamatrix';
 
-interface Base { id: string; x: number; y: number; w: number; h: number }
+interface Base {
+  id: string; x: number; y: number; w: number; h: number;
+  /** Turns the element inside its box. 90 and 270 swap the box's width and height. Needed for barcodes on narrow labels. */
+  rotate?: 0 | 90 | 180 | 270;
+}
 export interface TextElement extends Base {
   kind: 'text';
   /** May contain {{asset.name}}, {{asset.assetTag}}, {{asset.brand}}, {{asset.model}}, {{asset.serial}}. */
@@ -27,8 +31,13 @@ export type LabelElement = TextElement | CodeElement | RuleElement;
 export interface LabelSpec {
   id: string;
   name: string;
+  /** Printed area. */
   widthMm: number;
   heightMm: number;
+  /** Blank tail after the printed area, as on wrap-around cable labels (e.g. 25 x 38 + 40). Adds to the feed length only. */
+  tailMm?: number;
+  /** The stock this label is designed for, see presets.ts. */
+  stockId?: string;
   elements: LabelElement[];
 }
 

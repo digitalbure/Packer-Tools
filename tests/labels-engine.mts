@@ -1,5 +1,5 @@
 /** Label engine: encoding, dot-aligned fitting, scan-safety rules, vector rendering, sheets. No emulator needed. */
-import { encodeSymbol, SymbolError, fitSymbol, renderLabel, renderSheets, layoutSheet, PAGES, tapeItYourselfOptions, resolvePlaceholders, esc, mmToDots, PRINTERS, recommendedPrinters, getPrinter, type LabelSpec } from "../src/labels";
+import { LABEL_STOCKS, STARTER_TEMPLATES, getStock, encodeSymbol, SymbolError, fitSymbol, renderLabel, renderSheets, layoutSheet, PAGES, tapeItYourselfOptions, resolvePlaceholders, esc, mmToDots, PRINTERS, recommendedPrinters, getPrinter, type LabelSpec } from "../src/labels";
 
 let pass = 0, failed = 0;
 const check = (name: string, cond: boolean, extra = "") => { cond ? pass++ : failed++; console.log(`${cond ? "PASS" : "FAIL"}  ${name}${cond ? "" : "  <- " + extra}`); };
@@ -79,10 +79,43 @@ check("printer offsets shift the whole grid", layoutSheet(PAGES.a4, { widthMm: 5
 check("corner guides draw four marks per label", (renderSheets(many.slice(0, 1), PAGES.a4, { guides: "corners" })[0].match(/stroke="#8a8a8a"/g) || []).length === 4);
 
 // ---- printers ----
-const dt = getPrinter("detonger-dt60s")!;
-check("DT60S is in testing, not recommended", dt.status === "in-testing" && dt.maxWidthMm === 54);
+const dt = getPrinter("detonger-dt60plus")!;
+check("DT60PLUS is in testing, not recommended, 300 dpi only", dt.status === "in-testing" && dt.dpiOptions.length === 1 && dt.dpiOptions[0] === 300);
 check("no printer is claimed as recommended or verified before hands-on testing", recommendedPrinters().length === 0 && PRINTERS.every(p => p.transports.every(t => t.status !== "works")));
-check("labels for the DT60S can be sized to its 54 mm limit", renderLabel({ ...spec, widthMm: dt.maxWidthMm! }, {}).widthMm === 54);
+check("the old DT60S profile is gone (the ordered unit is the DT60PLUS)", getPrinter("detonger-dt60s") === undefined);
+
+
+// ---- stocks from the owner's order ----
+const ordered = ["pcable-25x38-40-white", "pcable-25x38-40-yellow", "pcable-25x38-40-red", "pcable-30x45-50-white", "pet-30x22", "pet-40x30", "pet-50x30", "pp-40x30", "pp-50x30"];
+check("every stock in the DT60PLUS order is in the catalogue", ordered.every(id => !!getStock(id)));
+check("cable stocks carry their wrap tail", getStock("pcable-25x38-40-white")!.tailMm === 40 && getStock("pcable-30x45-50-white")!.tailMm === 50);
+check("stock ids are unique", new Set(LABEL_STOCKS.map(s => s.id)).size === LABEL_STOCKS.length);
+check("every ordered label fits the 2 inch printer width", ordered.every(id => getStock(id)!.widthMm <= 50.8));
+
+// ---- starter templates must scan on the ordered stock at 300 dpi ----
+const sample = { name: "Cinema camera body", assetTag: "PT-ABC123", brand: "Sony", url: "https://packer.tools/gear/AbCdEfGhIjKlMnOpQrSt" };
+for (const t of STARTER_TEMPLATES) {
+  const out = renderLabel(t, sample, { dpi: 300 });
+  const stock = getStock(t.stockId!)!;
+  check(`${t.name}: matches its stock size`, stock.widthMm === t.widthMm && stock.heightMm === t.heightMm && (stock.tailMm ?? 0) === (t.tailMm ?? 0));
+  check(`${t.name}: no errors at 300 dpi`, out.issues.filter(i => i.level === "error").length === 0, JSON.stringify(out.issues));
+}
+const cable = renderLabel(STARTER_TEMPLATES.find(t => t.id === "starter-cable-25x38")!, sample, { dpi: 300 });
+check("cable label feeds 78 mm: 38 printed plus 40 tail", cable.feedHeightMm === 78 && cable.svg.includes('height="78mm"'));
+check("preview shows the tail hatched, print output does not", renderLabel(STARTER_TEMPLATES[4], sample, { preview: true }).svg.includes("url(#tail)") && !cable.svg.includes("url(#tail)"));
+
+// ---- barcodes on narrow labels: rotation makes them fit ----
+const barSpec = (rotate: 0 | 90): LabelSpec => ({ id: "b", name: "b", widthMm: 25, heightMm: 38, tailMm: 40, elements: [rotate === 0
+  ? { id: "c", kind: "code", symbology: "code128", value: "PT-1042", x: 1, y: 2, w: 23, h: 12 }
+  : { id: "c", kind: "code", symbology: "code128", value: "PT-1042", x: 2, y: 1, w: 12, h: 36, rotate: 90 }] });
+check("a Code 128 barcode across a 25 mm label is too small to scan", renderLabel(barSpec(0), {}, { dpi: 300 }).issues.some(i => i.level === "error"));
+const rotated = renderLabel(barSpec(90), {}, { dpi: 300 });
+check("the same barcode turned along the 38 mm length scans", rotated.issues.length === 0 && rotated.svg.includes("rotate(90)"), JSON.stringify(rotated.issues));
+const rotX = [...rotated.svg.matchAll(/translate\(([\d.]+) ([\d.]+)\)/g)][0];
+check("rotated placement lands on a printer dot", Math.abs(mmToDots(parseFloat(rotX[1]), 300) - Math.round(mmToDots(parseFloat(rotX[1]), 300))) < 0.05);
+const long9 = renderLabel({ ...barSpec(90), elements: [{ id: "c", kind: "code", symbology: "code128", value: "PT-ABC123", x: 2, y: 1, w: 12, h: 36, rotate: 90 }] }, {}, { dpi: 300 });
+check("a longer tag on that label is refused with a size to aim for", long9.issues.some(i => i.level === "error" && /at least/.test(i.message)), JSON.stringify(long9.issues));
+check("rotated text renders too", renderLabel({ ...barSpec(90), elements: [{ id: "t", kind: "text", x: 2, y: 1, w: 8, h: 30, fontMm: 3, text: "PT-ABC123", rotate: 90 }] }, {}).svg.includes("rotate(90)"));
 
 console.log(`\n${pass} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

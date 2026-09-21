@@ -21,7 +21,7 @@ LabelSpec (mm)  ->  renderLabel()  ->  vector SVG  ->  outputs
                                             |--> 1-bit PNG at printer dpi  (vendor apps, share sheet)
                                             |--> printer commands (ESC/POS, ZPL, ...)   [per printer, after testing]
 ```
-- `src/labels/` (built): model, symbol encoding (QR, Code 128, Code 39, EAN-13, Data Matrix), dot-aligned fitting, scan-safety rules, renderer, sheet layout, printer profiles. 39 tests in `tests/labels-engine.mts`.
+- `src/labels/` (built): model, symbol encoding (QR, Code 128, Code 39, EAN-13, Data Matrix), dot-aligned fitting, scan-safety rules, renderer, sheet layout, printer profiles. 62 tests in `tests/labels-engine.mts`.
 - Every module of every symbol is a whole number of printer dots, and printing is blocked when a code is below the scan limit.
 - Printer profiles record what is proven. Nothing is "recommended" or "works" until it passes testing here.
 
@@ -36,16 +36,30 @@ LabelSpec (mm)  ->  renderLabel()  ->  vector SVG  ->  outputs
 
 A web app cannot call a native Android or iOS SDK, so vendor SDKs (including the DT60S's) are used only through a helper or the vendor's own app.
 
-## DETONGER DT60S: bring-up plan
-Vendor listing (unverified until the unit arrives): thermal transfer, up to 54 mm paper, 203 or 300 dpi by model, USB and Bluetooth,
-ESC/POS and LPAPI commands, native Android and iOS SDKs.
+## Test unit and stock: DETONGER DT60PLUS
+Ordered by the owner: 2 inch thermal transfer printer **DT60PLUS, 300 dpi**, 2 x 50 mm x 30 m black ribbon, and the labels below.
+The vendor listing found earlier was for the sibling DT60S (ESC/POS and LPAPI, USB and Bluetooth, native Android and iOS SDKs). Nothing about the DT60PLUS is assumed: confirm printable width, command set and Bluetooth behaviour on the unit.
 
-1. **Record the unit.** Model, dpi, label roll size and gap, firmware. Confirm the dpi on the box.
-2. **Driver print.** Install the vendor driver, print a test label from the browser at 54 x 25 mm. Check size, offset and scan.
-3. **Image print.** Export a 1-bit PNG at the printer's dpi, print it from the vendor's app. Check sharpness and scan with a phone.
-4. **Scan test card.** Print QR codes at 8, 10, 12, 15 and 20 mm and Code 128 at three widths. Record which scan with a phone and a handheld scanner. This sets the printer's own scan limits.
-5. **Printer Lab (only if steps 2 and 3 work).** A diagnostic page for Chrome on Android: list Bluetooth services, send a small ESC/POS raster test, log the result.
-6. **Decide.** Pass = steps 2 to 4 give scannable labels at usable sizes. Then set the profile to "recommended" and add it to the list.
+| Ordered stock | Size (mm) | Notes |
+|---|---|---|
+| Synthetic P-cable label, white / yellow / red | 25 x 38 + 40 | 25 x 38 printed panel, 40 mm tail that wraps the cable. Feed length 78 mm. Black on red has low contrast |
+| Synthetic P-cable label, white | 30 x 45 + 50 | Feed length 95 mm |
+| PET silver matte | 30 x 22, 40 x 30, 50 x 30 | Silver is darker than white, so scan-test |
+| Synthetic white PP | 40 x 30, 50 x 30 | |
+
+Every stock is in `src/labels/presets.ts`, with a starter template for each. Tests prove each template renders without errors at 300 dpi with realistic data.
+Ribbon: synthetic and PET labels are printed with thermal-transfer ribbon. Confirm with the supplier that the ribbon supplied (wax, wax-resin or resin) suits these materials.
+
+**Cable labels and barcodes.** A barcode across a 25 mm panel is too small to scan at 300 dpi (about 0.17 mm per bar), so barcodes on cable labels run along the 38 mm length using element rotation. The studio refuses a code that is too small and says what size to aim for. Short IDs (for example `PT-1042`) fit; longer IDs need the QR code or a longer label.
+
+### Bring-up plan
+1. **Record the unit.** Model, dpi, printable width, firmware, ribbon type. Confirm the dpi on the box.
+2. **Driver print.** Install the vendor driver, print a test label from the browser at 50 x 30 mm. Check size, offset and scan.
+3. **Image print.** Export a 1-bit PNG at 300 dpi, print it from the vendor's app. Check sharpness and scan with a phone.
+4. **Scan test card.** Print QR codes at 8, 10, 12, 15 and 20 mm and Code 128 at three widths on each stock, including silver PET and red synthetic. Record which scan with a phone and a handheld scanner. This sets the printer's own scan limits.
+5. **Cable label test.** Print the 25 x 38 + 40 template. Check the tail feeds and is not printed, and the wrapped label scans.
+6. **Printer Lab (only if steps 2 and 3 work).** A diagnostic page for Chrome on Android: list Bluetooth services, send a small raster test, log the result.
+7. **Decide.** Pass = steps 2 to 5 give scannable labels at usable sizes. Then set the profile to "recommended" and add it to the list.
 
 Report each step in a table (step, result, photo, notes) in this file.
 
@@ -72,5 +86,4 @@ Report each step in a table (step, result, photo, notes) in this file.
 | A4 sheets | 63.5 x 38.1 mm (3 x 7), 99.1 x 38.1 mm (2 x 7) |
 
 ## Open questions for the owner
-- DT60S model: 203 or 300 dpi, and which label roll sizes will customers use with it?
 - Approve or change the starter sizes above.

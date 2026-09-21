@@ -19,7 +19,10 @@ export interface RenderedLabel {
   /** Contents only, for placing on a sheet. */
   inner: string;
   widthMm: number;
+  /** Printed area height. */
   heightMm: number;
+  /** Full feed length: printed area plus any blank tail. Print roll printers at this length. */
+  feedHeightMm: number;
   /** Errors must block printing. Warnings should be shown. */
   issues: Issue[];
 }
@@ -99,7 +102,7 @@ function renderCode(el: CodeElement, data: AssetData, dpi: number, issues: Issue
 }
 
 /** Renders one label to vector SVG in millimetres. Same output for preview, print and sheets. */
-export function renderLabel(spec: LabelSpec, data: AssetData, opts: { dpi?: number; measure?: Measure } = {}): RenderedLabel {
+export function renderLabel(spec: LabelSpec, data: AssetData, opts: { dpi?: number; measure?: Measure; preview?: boolean } = {}): RenderedLabel {
   const dpi = opts.dpi ?? 203;
   const measure = opts.measure ?? approxMeasure;
   const issues: Issue[] = [];
@@ -108,11 +111,30 @@ export function renderLabel(spec: LabelSpec, data: AssetData, opts: { dpi?: numb
     if (el.x < -0.01 || el.y < -0.01 || el.x + el.w > spec.widthMm + 0.01 || el.y + el.h > spec.heightMm + 0.01) {
       issues.push({ level: 'warn', elementId: el.id, message: 'This item reaches past the edge of the label and may be cut off.' });
     }
-    if (el.kind === 'text') body.push(renderText(el, data, measure, issues));
-    else if (el.kind === 'code') body.push(renderCode(el, data, dpi, issues));
-    else body.push(`<rect x="${num(el.x)}" y="${num(el.y)}" width="${num(el.w)}" height="${num(el.thicknessMm ?? el.h)}" fill="#000"/>`);
+    if (el.kind === 'rule') {
+      body.push(`<rect x="${num(el.x)}" y="${num(el.y)}" width="${num(el.w)}" height="${num(el.thicknessMm ?? el.h)}" fill="#000"/>`);
+      continue;
+    }
+    const rot = el.rotate ?? 0;
+    const swap = rot === 90 || rot === 270;
+    const lw = swap ? el.h : el.w;
+    const lh = swap ? el.w : el.h;
+    const local = rot === 0 ? el : { ...el, x: 0, y: 0, w: lw, h: lh };
+    const markup = el.kind === 'text' ? renderText(local as TextElement, data, measure, issues) : renderCode(local as CodeElement, data, dpi, issues);
+    if (!markup) continue;
+    // Turn the box, then put its top-left corner where the element belongs (on the dot grid).
+    const t = rot === 90 ? `translate(${num(snap(el.x + lh, dpi))} ${num(snap(el.y, dpi))}) rotate(90)`
+      : rot === 270 ? `translate(${num(snap(el.x, dpi))} ${num(snap(el.y + lw, dpi))}) rotate(270)`
+      : rot === 180 ? `translate(${num(snap(el.x + lw, dpi))} ${num(snap(el.y + lh, dpi))}) rotate(180)` : '';
+    body.push(t ? `<g transform="${t}">${markup}</g>` : markup);
   }
+  const tail = spec.tailMm ?? 0;
+  const feed = spec.heightMm + tail;
   const inner = `<rect width="${num(spec.widthMm)}" height="${num(spec.heightMm)}" fill="#fff"/>${body.join('')}`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${num(spec.widthMm)}mm" height="${num(spec.heightMm)}mm" viewBox="0 0 ${num(spec.widthMm)} ${num(spec.heightMm)}">${inner}</svg>`;
-  return { svg, inner, widthMm: spec.widthMm, heightMm: spec.heightMm, issues };
+  const tailPreview = opts.preview && tail > 0
+    ? `<defs><pattern id="tail" width="2" height="2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1" height="2" fill="#d6d6d6"/></pattern></defs><rect y="${num(spec.heightMm)}" width="${num(spec.widthMm)}" height="${num(tail)}" fill="url(#tail)"/>`
+    : '';
+  const bg = tail > 0 ? `<rect y="${num(spec.heightMm)}" width="${num(spec.widthMm)}" height="${num(tail)}" fill="#fff"/>` : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${num(spec.widthMm)}mm" height="${num(feed)}mm" viewBox="0 0 ${num(spec.widthMm)} ${num(feed)}">${bg}${tailPreview}${inner}</svg>`;
+  return { svg, inner, widthMm: spec.widthMm, heightMm: spec.heightMm, feedHeightMm: feed, issues };
 }

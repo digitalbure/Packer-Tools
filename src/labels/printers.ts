@@ -32,7 +32,7 @@ export const PRINTERS: PrinterProfile[] = [
     notes: 'Prints one label per page at the exact label size through the printer driver.',
   },
   {
-    id: 'detonger-dt60s', name: 'DETONGER DT60S handheld', kind: 'handheld', dpiOptions: [203, 300], maxWidthMm: 54, languages: ['ESC/POS', 'LPAPI'],
+    id: 'detonger-dt60plus', name: 'DETONGER DT60PLUS (2 inch, 300 dpi)', kind: 'handheld', dpiOptions: [300], maxWidthMm: 50.8, languages: [],
     transports: [
       { type: 'browser-print', status: 'untested' },
       { type: 'image-export', status: 'untested' },
@@ -40,7 +40,7 @@ export const PRINTERS: PrinterProfile[] = [
       { type: 'web-bluetooth', status: 'planned' },
     ],
     status: 'in-testing',
-    notes: 'Thermal transfer, up to 54 mm labels, 203 or 300 dpi depending on model. Vendor lists ESC/POS and LPAPI commands, USB and Bluetooth. Not yet tested with Packer Tools.',
+    notes: 'Owner-ordered unit: 2 inch thermal transfer, 300 dpi, 50 mm black ribbon. Printable width, command set (the sibling DT60S is listed with ESC/POS and LPAPI) and Bluetooth behaviour are not confirmed and must be checked on the unit.',
   },
   { id: 'zebra-zd', name: 'Zebra ZD series', kind: 'roll', dpiOptions: [203, 300], languages: ['ZPL'], transports: [{ type: 'browser-print', status: 'untested' }, { type: 'network-raw', status: 'planned' }], status: 'planned', notes: 'Direct ZPL printing is planned.' },
   { id: 'brother-ql', name: 'Brother QL series', kind: 'roll', dpiOptions: [300], languages: ['Brother raster'], transports: [{ type: 'browser-print', status: 'untested' }], status: 'planned', notes: 'Direct printing is planned.' },
