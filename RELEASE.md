@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.3.0`
+## Current Application Version: `v6.3.1`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -12,6 +12,15 @@ This document provides complete instructions on how to build, run, and tag this 
 ## 📦 Complete Stable Release & Version History
 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
+
+---
+
+### 🚑 Hotfix: v6.3.1 (Server Prices Now Read From the Admin Console Plans)
+*Released on: September 22, 2026*
+- **Bug (introduced in v6.0.2, the server-side billing rewrite):** the server computed PayPal prices from a `plans` collection that is empty and otherwise fell back to hard-coded defaults. Your real prices live in `adminSettings/global.plans` (Pro $19 / $180 per year / $12 per seat; Enterprise $49 / $490 / $9 per seat), which is what the pricing page and admin console use. As a result Enterprise would have been charged **$99 instead of $49**, and seats $10 instead of $12 / $9.
+- **Fix:** `getServerPlan` now reads `adminSettings/global.plans` first (cached 60s; numeric strings tolerated), then the legacy `plans` collection, then built-in defaults. The Claude connector's gear-limit check reads the same source. Price edits in the admin console take effect within a minute.
+- **Tests:** new `tests/billing-e2e.mts` (12 checks) pins the production prices (monthly, annual, seats, seat cap), proves client-supplied amounts are ignored, wrong-amount captures grant nothing, orders capture once, and trial length comes from the plan.
+- **If any customer paid during the affected window** (any PayPal checkout since v6.0.2 went live on September 21, 2026) check the amount charged against their plan and refund or credit any overcharge.
 
 ---
 
