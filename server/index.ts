@@ -13,6 +13,7 @@ import googleChatRouter from "./routes/googleChat";
 import mcpRouter from "./routes/mcp";
 import shareRouter from "./routes/share";
 import labelsRouter from "./routes/labels";
+import kioskRouter from "./routes/kiosk";
 import { securityHeaders, rateLimit } from "./middleware/security";
 
 async function startServer() {
@@ -47,6 +48,7 @@ async function startServer() {
   app.use(mcpRouter);
   app.use(shareRouter);
   app.use(labelsRouter);
+  app.use(kioskRouter);
 
   // Vite development middleware vs Static Production bundle
   if (process.env.NODE_ENV !== "production") { // NOTE: set NODE_ENV=production in deployed environments

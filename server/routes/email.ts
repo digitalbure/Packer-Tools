@@ -276,7 +276,7 @@ function getT(locale: string = 'en') {
   return EMAIL_TRANSLATIONS[loc];
 }
 
-async function dispatchEmailPayload(
+export async function dispatchEmailPayload(
   to: string | string[],
   subject: string,
   htmlContent: string,
@@ -403,7 +403,7 @@ async function dispatchEmailPayload(
 }
 
 /** Builds a safe From header: display names cannot contain quotes, angle brackets or line breaks. */
-function safeFrom(displayName: string, address: string): string {
+export function safeFrom(displayName: string, address: string): string {
   const name = String(displayName || "Packer Tools").replace(/&(amp|lt|gt|quot|#039);/g, "").replace(/["<>\r\n,;]/g, "").trim().slice(0, 60) || "Packer Tools";
   return `${name} <${address}>`;
 }
@@ -923,11 +923,14 @@ router.post("/api/emails/auto/trigger", authenticateUser, async (req, res) => {
   return res.status(400).json({ error: `Unknown trigger eventType: ${eventType}` });
 });
 
-// Legacy Handover Receipt Route (Enhanced with locale support)
-router.post("/api/send-email", authenticateUser, async (req, res) => {
-  const { to, orderNumber, actionType, userName, items, timestamp, expectedReturnDate, locale = 'en' } = req.body;
-  if (!to) return res.status(400).json({ error: "Recipient email is required" });
+export interface KioskReceiptInput {
+  to: string; orderNumber: string; actionType?: string; userName?: string; items?: any[];
+  timestamp?: string; expectedReturnDate?: string; locale?: string;
+}
 
+/** Renders the kiosk hand-over receipt. Callers must pass HTML-escaped strings (see escapeDeep). */
+export function renderKioskReceipt(input: KioskReceiptInput): { subject: string; html: string } {
+  const { to, orderNumber, actionType, userName, items, timestamp, expectedReturnDate, locale = 'en' } = input;
   const t = getT(locale);
   const actionLabel = actionType === 'checkout' ? 'Check-Out' : actionType === 'checkin' ? 'Check-In' : 'Reservation';
   const actionColor = actionType === 'checkout' ? '#2563eb' : actionType === 'checkin' ? '#10b981' : '#1e293b';
@@ -1002,6 +1005,15 @@ router.post("/api/send-email", authenticateUser, async (req, res) => {
     </body>
     </html>
   `;
+  return { subject, html: htmlContent };
+}
+
+// Legacy Handover Receipt Route (Enhanced with locale support)
+router.post("/api/send-email", authenticateUser, async (req, res) => {
+  const { to, orderNumber, actionType, userName, items, timestamp, expectedReturnDate, locale = 'en' } = req.body;
+  if (!to) return res.status(400).json({ error: "Recipient email is required" });
+
+  const { subject, html: htmlContent } = renderKioskReceipt({ to, orderNumber, actionType, userName, items, timestamp, expectedReturnDate, locale });
 
   const result = await dispatchEmailPayload(to, subject, htmlContent, safeFrom("Packer Tools Kiosk", "kiosk-no-reply@packer.tools"), "Packer Tools", undefined, { replyTo: (req as any).user?.email });
   return res.json(result);

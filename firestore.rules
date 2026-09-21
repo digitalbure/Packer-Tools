@@ -638,5 +638,7 @@ service cloud.firestore {
     match /mcpRefresh/{id} { allow read, write: if false; }
     match /paypalOrders/{id} { allow read, write: if false; }
     match /adminAuditLogs/{id} { allow read, write: if false; }
+    match /kioskGrants/{id} { allow read, write: if false; }
+    match /kioskTokens/{id} { allow read, write: if false; }
   }
 }
