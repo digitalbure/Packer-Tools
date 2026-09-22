@@ -30,7 +30,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
-import UpgradeNowModal from '../components/UpgradeNowModal';
 import { Lock, Shield, Crown } from 'lucide-react';
 import OwnerPickupPoints from '../booking/OwnerPickupPoints';
 import { usePickupPoints } from '../booking/usePickupPoints';
@@ -46,7 +45,6 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
   const pointName = (id?: string) => pickupChoices.points.find((pt) => pt.id === id)?.name || 'Saved location';
   const [activeSubTab, setActiveSubTab] = useState<'console' | 'bookings' | 'gear-bookings' | 'settings'>('console');
   const [lists, setLists] = useState<PackingList[]>([]);
-  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [pickupDropoffState, setPickupDropoffState] = useState<PickupDropoffState | null>(null);
 
   // Gear Bookings and Reservation State
@@ -610,21 +608,12 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
           </div>
         </div>
 
-        <button 
-          onClick={() => setIsUpgradeModalOpen(true)}
+        <button
+          onClick={() => navigate('/prices?plan=pro')}
           className="px-8 py-4 bg-neutral-900 hover:bg-black text-white font-extrabold text-xs uppercase tracking-widest rounded-2xl transition shadow-xl hover:shadow-black/10 active:scale-95 cursor-pointer"
         >
           Upgrade Your Workspace
         </button>
-
-        <UpgradeNowModal
-          isOpen={isUpgradeModalOpen}
-          onClose={() => setIsUpgradeModalOpen(false)}
-          user={user}
-          adminSettings={adminSettings}
-          restrictedFeatureName="Marketplace Listings Module"
-          onSuccess={(newPlan) => window.location.reload()}
-        />
       </div>
     );
   }

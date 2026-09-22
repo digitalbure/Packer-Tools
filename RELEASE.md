@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.21.1`
+## Current Application Version: `v6.22.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,13 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🐞 Release: v6.22.0 (Every "Upgrade Now" Button Now Actually Upgrades)
+*Released on: September 22, 2026*
+- Found the same broken pattern from v6.21.1 wired up as the real "Upgrade Now" flow in three more modules, seven trigger points total: the AI token limit warning and two Developer API gates in Profile settings, the marketplace listings paywall, and the org branding / member-invite gates in Organization. All of them opened `UpgradeNowModal`, which wrote `plan` straight to Firestore from the client and was always rejected by `firestore.rules` &mdash; every one of these was a dead end for a real customer trying to pay.
+- Profile settings already had the real, server-verified `PaymentModal` (PayPal create/capture-order) wired up elsewhere on the same page; its three broken triggers now open that instead.
+- Listings and Organization don't have a payment modal of their own, so their four broken triggers now send the person to `/prices?plan=pro`, which (as of v6.21.1) opens the real checkout immediately.
+- Deleted `UpgradeNowModal.tsx` entirely &mdash; nothing references it anymore.
 
 ### 🐞 Patch: v6.21.1 (Dashboard's Kiosk Upgrade Button Actually Upgrades)
 *Released on: September 22, 2026*

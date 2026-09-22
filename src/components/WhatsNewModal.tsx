@@ -25,8 +25,24 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.21.1',
+      version: 'v6.22.0',
       tag: 'Latest',
+      tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Every Upgrade Button Fixed',
+      date: 'September 2026',
+      icon: Zap,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Seven more broken upgrade buttons, fixed',
+          desc: "Profile's AI token and Developer API gates, the marketplace listings paywall, and Organization's branding and member-invite gates all opened the same broken instant-upgrade dialog. They now open real, working checkout.",
+          badge: 'Billing'
+        },
+      ],
+    },
+    {
+      version: 'v6.21.1',
+      tag: 'Stable',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Upgrade Button Fixed',
       date: 'September 2026',

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Building2, 
@@ -51,7 +51,6 @@ import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import { kioskApi, KioskApiError } from '../lib/kioskApi';
 import { compressImage } from '../lib/imageUtils';
-import UpgradeNowModal from '../components/UpgradeNowModal';
 import PackerLogo from '../components/PackerLogo';
 import { getAccessToken, signInWithGoogle, setAccessToken } from '../firebase';
 import { fetchGoogleChatSpaces, sendGoogleChatMessage, ChatSpace, triggerGoogleChatAlert } from '../services/googleChat';
@@ -100,6 +99,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
   const [selectedDeptId, setSelectedDeptId] = useState<string>('');
   const [pairingCodeInput, setPairingCodeInput] = useState('');
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Editing structures
   const [editingNode, setEditingNode] = useState<{
@@ -108,9 +108,6 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
     name: string;
     logoUrl?: string;
   } | null>(null);
-
-  const [isUpgradeNowModalOpen, setIsUpgradeNowModalOpen] = useState(false);
-  const [restrictedFeature, setRestrictedFeature] = useState('Custom Organizational White-Label Branding');
 
   // Deletion States
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -2395,8 +2392,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                         value={org?.settings?.branding?.logo || ''}
                         onChange={async (e) => {
                           if (user?.subscriptionStatus === 'trialing') {
-                            setRestrictedFeature('Custom Corporate White-Label Branding');
-                            setIsUpgradeNowModalOpen(true);
+                            navigate('/prices?plan=pro');
                             return;
                           }
                           const val = e.target.value.trim();
@@ -2411,8 +2407,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                         onClick={(e) => {
                           if (user?.subscriptionStatus === 'trialing') {
                             e.preventDefault();
-                            setRestrictedFeature('Custom Corporate White-Label Branding');
-                            setIsUpgradeNowModalOpen(true);
+                            navigate('/prices?plan=pro');
                           }
                         }}
                       >
@@ -3331,7 +3326,7 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
               <button 
                 onClick={() => {
                   if (!canManageOrgs) {
-                    setIsUpgradeNowModalOpen(true);
+                    navigate('/prices?plan=pro');
                   } else {
                     setIsInviteModalOpen(true);
                   }
@@ -4130,15 +4125,6 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
           </div>
         )}
       </AnimatePresence>
-
-      <UpgradeNowModal
-        isOpen={isUpgradeNowModalOpen}
-        onClose={() => setIsUpgradeNowModalOpen(false)}
-        user={user!}
-        adminSettings={adminSettings}
-        restrictedFeatureName={restrictedFeature}
-        onSuccess={() => {}}
-      />
 
       {/* Invite Member Modal */}
       <AnimatePresence>

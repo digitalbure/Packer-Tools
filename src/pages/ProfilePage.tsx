@@ -11,7 +11,6 @@ import { useIndustry } from '../context/IndustryContext';
 import { User, Mail, Globe, MapPin, Building, Twitter, Instagram, Linkedin, Save, Camera, ShieldCheck, Zap, Sparkles, Package, Server, Home, BarChart3, Key, Copy, Code, RefreshCw, Check, ChevronRight, Plus, AlertCircle, CheckCircle2, Lock, ExternalLink, ShieldAlert, Award, Sun, Moon, Smartphone, Download, Layout, LayoutDashboard, Eye, EyeOff } from 'lucide-react';
 import { getUsage } from '../lib/limitUtils';
 import PaymentModal from '../components/PaymentModal';
-import UpgradeNowModal from '../components/UpgradeNowModal';
 import AITokenUsageChart from '../components/AITokenUsageChart';
 import { useTheme } from '../context/ThemeContext';
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -37,8 +36,6 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
   const [isEditing, setIsEditing] = useState(false);
   const [showProfileApiKey, setShowProfileApiKey] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [isUpgradeNowModalOpen, setIsUpgradeNowModalOpen] = useState(false);
-  const [restrictedFeature, setRestrictedFeature] = useState('Developer API Settings');
   const [loading, setLoading] = useState(false);
   const [usage, setUsage] = useState<any>(null);
   const [formData, setFormData] = useState<Partial<UserProfile>>({
@@ -1607,13 +1604,10 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
             </div>
           </section>
 
-          <AITokenUsageChart 
+          <AITokenUsageChart
             user={user}
             adminSettings={adminSettings}
-            onUpgradeClick={() => {
-              setRestrictedFeature('Generative AI Tokens Boost');
-              setIsUpgradeNowModalOpen(true);
-            }}
+            onUpgradeClick={() => setIsPaymentModalOpen(true)}
           />
         </div>
         )}
@@ -2077,15 +2071,6 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                 onSuccess={(newPlan) => onUpdate({ ...user, plan: newPlan })}
               />
 
-              <UpgradeNowModal
-                isOpen={isUpgradeNowModalOpen}
-                onClose={() => setIsUpgradeNowModalOpen(false)}
-                user={user}
-                adminSettings={adminSettings}
-                restrictedFeatureName={restrictedFeature}
-                onSuccess={(newPlan) => onUpdate({ ...user, plan: newPlan })}
-              />
-
               {usage && (
                 <div className="space-y-4">
                   {[
@@ -2215,10 +2200,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
           {user.subscriptionStatus === 'trialing' && (
             <button
               type="button"
-              onClick={() => {
-                setRestrictedFeature('Developer API Integrations & Webhooks');
-                setIsUpgradeNowModalOpen(true);
-              }}
+              onClick={() => setIsPaymentModalOpen(true)}
               className="self-start sm:self-auto px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 border-none rounded-full text-[10px] font-black uppercase tracking-widest font-mono flex items-center gap-1 cursor-pointer"
             >
               <Lock size={10} />
@@ -2265,8 +2247,7 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                       return;
                     }
                     if (user.subscriptionStatus === 'trialing') {
-                      setRestrictedFeature('Developer API Integrations & Webhooks');
-                      setIsUpgradeNowModalOpen(true);
+                      setIsPaymentModalOpen(true);
                       return;
                     }
                     const newKey = `pk_${Math.random().toString(36).substring(2)}${Math.random().toString(36).substring(2)}`;
@@ -2567,15 +2548,6 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
         onClose={() => setIsPaymentModalOpen(false)}
         user={user}
         adminSettings={adminSettings}
-        onSuccess={(newPlan) => onUpdate({ ...user, plan: newPlan })}
-      />
-
-      <UpgradeNowModal
-        isOpen={isUpgradeNowModalOpen}
-        onClose={() => setIsUpgradeNowModalOpen(false)}
-        user={user}
-        adminSettings={adminSettings}
-        restrictedFeatureName={restrictedFeature}
         onSuccess={(newPlan) => onUpdate({ ...user, plan: newPlan })}
       />
     </div>
