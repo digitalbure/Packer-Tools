@@ -14,6 +14,8 @@ import {
   Phone, Mail, MessageSquare, AlertTriangle, ShieldCheck, SlidersHorizontal, User
 } from 'lucide-react';
 import BookingWidget, { BookingRequest } from '../booking/BookingWidget';
+import '../marketplace/brand.css';
+import '../booking/booking.css';
 import AssetIdentificationPanel from '../components/AssetIdentificationPanel';
 import LabelStudioLauncher from '../components/LabelStudioLauncher';
 
@@ -455,7 +457,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        <p className="mt-4 text-neutral-400 font-mono text-xs">Accessing digital passport...</p>
+        <p className="mt-4 text-neutral-400 font-mono text-xs">Loading this item's page...</p>
       </div>
     );
   }
@@ -463,50 +465,33 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
   if (!item) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-bold">Gear Item Not Found</h2>
+        <h2 className="text-xl font-bold">This item was not found</h2>
         <Link to="/library" className="mt-4 inline-flex items-center gap-2 text-primary font-bold">
-          <ArrowLeft size={16} /> Back to Library
+          <ArrowLeft size={16} /> Back to your library
         </Link>
       </div>
     );
   }
 
   const renderConditionRating = (condition?: 'new' | 'good' | 'fair' | 'poor') => {
-    const ratings = {
-      new: { color: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Pristine (New)' },
-      good: { color: 'bg-blue-50 text-blue-700 border-blue-200', label: 'Excellent (Good)' },
-      fair: { color: 'bg-amber-50 text-amber-700 border-amber-200', label: 'Operational (Fair)' },
-      poor: { color: 'bg-red-50 text-red-700 border-red-200', label: 'Damaged / Poor' }
-    };
-    const current = condition ? ratings[condition] : ratings.good;
-    return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${current.color}`}>
-        {current.label}
-      </span>
-    );
+    const labels: Record<string, string> = { new: 'New', good: 'Good', fair: 'Fair', poor: 'Poor' };
+    return <span className="mk__tag">{labels[condition || 'good']}</span>;
   };
 
   if (item && item.visibility === 'private' && !isOwnerOfItem) {
     return (
-      <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-6 sm:p-12">
-        <div className="max-w-md w-full bg-white border border-neutral-200/60 p-8 sm:p-12 rounded-[2rem] shadow-sm text-center space-y-6">
-          <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto">
+      <div className="mk mk__gate">
+        <div className="mk__card mk__gate-card">
+          <div className="mk__badge mk__badge--bad">
             <ShieldAlert size={24} />
           </div>
-          <div className="space-y-2">
-            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Security Gate</p>
-            <h2 className="text-xl font-black uppercase tracking-tight">🔒 Internal Tool</h2>
+          <div>
+            <h2 className="mk__h1" style={{ fontSize: '1.25rem' }}>This item is private</h2>
+            <p className="mk__lede">The owner has kept this item's page for their own workspace. Sign in if it's yours.</p>
           </div>
-          <p className="text-neutral-500 text-sm leading-relaxed">
-            This equipment is registered as a private internal workspace asset. <span className="font-extrabold text-neutral-900">Please log in to your account to see details.</span>
-          </p>
-          <div className="pt-4 border-t border-neutral-100 flex flex-col gap-3">
-            <Link to="/" className="w-full py-3 bg-black hover:bg-neutral-800 text-white text-xs font-black uppercase tracking-widest rounded-xl transition">
-              Log In to Portal
-            </Link>
-            <Link to="/" className="text-xs font-bold text-neutral-400 hover:text-neutral-600 transition">
-              Return Home
-            </Link>
+          <div style={{ display: 'grid', gap: '.5rem', width: '100%' }}>
+            <Link to="/" className="mk__btn mk__btn--primary" style={{ width: '100%' }}>Sign in</Link>
+            <Link to="/" className="mk__btn" style={{ width: '100%', border: 'none', boxShadow: 'none' }}>Go to Packer Tools</Link>
           </div>
         </div>
       </div>
@@ -518,419 +503,208 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
     const isLost = item.status === 'missing';
 
     return (
-      <div className="min-h-screen bg-neutral-50/50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-2xl mx-auto space-y-8">
-          
-          {/* Header Return/Spec Banner */}
-          <div className="flex flex-col items-center text-center space-y-3">
-            <div className={`w-16 h-16 ${isLost ? 'bg-red-100 text-red-600 shadow-red-100' : 'bg-emerald-100/80 text-emerald-600 shadow-emerald-100'} rounded-3xl flex items-center justify-center shadow-xl`}>
-              {isLost ? <ShieldAlert size={32} strokeWidth={2} /> : <ShieldCheck size={32} strokeWidth={2} />}
+      <div className="mk" style={{ padding: '0 1rem' }}>
+        <div className="mk__wrap">
+
+          <div className="mk__hero">
+            <div className={`mk__badge ${isLost ? 'mk__badge--bad' : 'mk__badge--ok'}`}>
+              {isLost ? <ShieldAlert size={28} strokeWidth={2} /> : <ShieldCheck size={28} strokeWidth={2} />}
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-neutral-900 uppercase">
-                {isLost ? "SAFE RECOVERY PORTAL" : "DIGITAL ASSET PASSPORT"}
-              </h1>
-              <p className="text-xs sm:text-sm text-neutral-500 font-medium max-w-md mx-auto mt-1">
-                {isLost 
-                  ? "You scanned the active digital asset tag of this item. Thank you for helping return it!" 
-                  : "Verified equipment specifications and asset registration certified under Packer Tools."}
+              <p className="mk__eyebrow">Packer Tools</p>
+              <h1 className="mk__h1">{isLost ? "Help return this item" : "Equipment record"}</h1>
+              <p className="mk__lede">
+                {isLost
+                  ? "You scanned this item's tag. It's marked missing — thanks for helping get it back to its owner."
+                  : "Specifications and owner contact details for this piece of equipment."}
               </p>
             </div>
           </div>
 
-          {/* Lost & Found Item Profile Card */}
-          <div className="bg-white border border-neutral-100 rounded-[2.5rem] shadow-xl shadow-neutral-100 overflow-hidden flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-neutral-100">
-            {/* Item Photo & Meta */}
-            <div className="p-8 flex-1 flex flex-col justify-between space-y-6">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
-                  {item.brand || 'No Brand Specified'}
-                </p>
-                <h2 className="text-2xl font-black italic uppercase tracking-tighter mt-1 text-neutral-900 leading-tight">
-                  {item.name}
-                </h2>
-                <div className="mt-3 flex gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 rounded-full text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                    <Tag size={10} />
-                    {item.category || 'Gear Asset'}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 rounded-full text-[10px] font-mono text-neutral-500">
-                    TAG: {item.assetTag}
-                  </span>
-                </div>
+          {/* Item and owner contact */}
+          <div className="mk__card mk__split">
+            <div className="mk__panel">
+              <p className="mk__label">{item.brand || 'No brand set'}</p>
+              <h2 className="mk__h1" style={{ fontSize: '1.375rem' }}>{item.name}</h2>
+              <div style={{ display: 'flex', gap: '.5rem', marginTop: '.75rem', flexWrap: 'wrap' }}>
+                <span className="mk__tag"><Tag size={11} />{item.category || 'Gear'}</span>
+                <span className="mk__tag">Tag {item.assetTag}</span>
               </div>
 
               {item.photoUrls && item.photoUrls.length > 0 ? (
-                <div className="relative aspect-square bg-neutral-50 rounded-[2rem] overflow-hidden border border-neutral-100 group">
-                  <img 
-                    src={item.photoUrls[publicActiveImageIdx] || 'https://picsum.photos/seed/gear/400/400'} 
+                <div className="mk__photo" style={{ marginTop: '1.25rem' }}>
+                  <img
+                    src={item.photoUrls[publicActiveImageIdx] || 'https://picsum.photos/seed/gear/400/400'}
                     alt={`${item.name} image ${publicActiveImageIdx + 1}`}
-                    className="object-cover w-full h-full transition-all duration-350"
                     referrerPolicy="no-referrer"
                   />
-
                   {item.photoUrls.length > 1 && (
                     <>
-                      <button 
-                        type="button"
-                        onClick={() => setPublicActiveImageIdx((prev) => (prev === 0 ? item.photoUrls!.length - 1 : prev - 1))}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-black flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer text-xs font-black z-10 hover:scale-110 border border-neutral-150"
-                      >
-                        ←
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => setPublicActiveImageIdx((prev) => (prev === item.photoUrls!.length - 1 ? 0 : prev + 1))}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-black flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer text-xs font-black z-10 hover:scale-110 border border-neutral-150"
-                      >
-                        →
-                      </button>
-
-                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 bg-black/40 px-3 py-1.5 rounded-full backdrop-blur-sm">
+                      <button type="button" className="mk__photo-nav mk__photo-nav--prev" onClick={() => setPublicActiveImageIdx((prev) => (prev === 0 ? item.photoUrls!.length - 1 : prev - 1))}>←</button>
+                      <button type="button" className="mk__photo-nav mk__photo-nav--next" onClick={() => setPublicActiveImageIdx((prev) => (prev === item.photoUrls!.length - 1 ? 0 : prev + 1))}>→</button>
+                      <div className="mk__photo-dots">
                         {item.photoUrls.map((_, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setPublicActiveImageIdx(idx)}
-                            className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                              publicActiveImageIdx === idx ? 'bg-white scale-125' : 'bg-white/40'
-                            }`}
-                          />
+                          <button key={idx} type="button" onClick={() => setPublicActiveImageIdx(idx)} className={`mk__dot ${publicActiveImageIdx === idx ? 'mk__dot--active' : ''}`} />
                         ))}
                       </div>
                     </>
                   )}
                 </div>
               ) : (
-                <div className="aspect-square bg-neutral-50 rounded-[2rem] overflow-hidden border border-neutral-100 flex items-center justify-center text-neutral-400">
-                  <Camera size={48} className="stroke-1" />
+                <div className="mk__photo mk__photo-empty" style={{ marginTop: '1.25rem' }}>
+                  <Camera size={40} className="stroke-1" />
                 </div>
               )}
             </div>
 
-            {/* Custom Recovery Actions */}
-            <div className="p-8 flex-1 bg-neutral-950 text-white flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-widest text-neutral-400">Recovery Instructions</h3>
-                
-                {recoveryEnabled ? (
-                  <p className="text-sm text-neutral-300 leading-relaxed font-medium italic">
-                    "{item.recoveryInstructions || 'Owner has not provided specific instructions. Please use the contact details below to return this device safely.'}"
-                  </p>
-                ) : (
-                  <p className="text-sm text-neutral-400 leading-relaxed italic">
-                    "Please contact the owner of this device using the information below to settle safe return."
-                  </p>
-                )}
-              </div>
+            <div className="mk__panel mk__panel--dark">
+              <p className="mk__label">{isLost ? "If you've found it" : 'Getting in touch'}</p>
+              <p style={{ marginTop: '.5rem', fontSize: '.875rem', lineHeight: 1.5 }}>
+                {recoveryEnabled
+                  ? (item.recoveryInstructions || 'The owner has not left specific instructions. Use the contact details below to arrange the return.')
+                  : 'Contact the owner using the details below to arrange the return.'}
+              </p>
 
               {recoveryEnabled && (
-                <div className="space-y-4 pt-4 border-t border-neutral-800">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Direct Contact Methods</h4>
-                  
+                <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '2px solid #333' }}>
                   {!revealContact ? (
-                    <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl text-center space-y-3">
-                      <p className="text-[10px] text-neutral-300 font-extrabold uppercase tracking-widest leading-normal">
-                        🔒 Contact details hidden for privacy
-                      </p>
-                      <p className="text-[10px] text-neutral-500 leading-relaxed">
-                        To protect the owner from automated spam bots and web scraping, direct dial and email links are masked until requested.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRevealContact(true);
-                          toast.success("Identity links unlocked successfully.");
-                        }}
-                        className="w-full py-2.5 bg-white text-black hover:bg-neutral-100 transition font-black text-[9px] uppercase tracking-widest rounded-lg cursor-pointer"
-                      >
-                        Reveal Contact Details
+                    <div style={{ display: 'grid', gap: '.5rem' }}>
+                      <p style={{ fontSize: '.8125rem', color: '#9AA1A6' }}>Contact details are hidden until you ask to see them, to keep them off spam lists.</p>
+                      <button type="button" className="mk__btn mk__btn--dark" onClick={() => { setRevealContact(true); toast.success('Contact details shown below.'); }}>
+                        Show contact details
                       </button>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {/* Contact Phone */}
+                    <div style={{ display: 'grid', gap: '.5rem' }}>
                       {item.recoveryContactPhone && (
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <a 
-                            href={`tel:${item.recoveryContactPhone}`}
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-white text-black hover:bg-neutral-100 transition font-bold text-xs rounded-xl text-center"
-                          >
-                            <Phone size={14} />
-                            <span>Call Owner</span>
-                          </a>
-                          <a 
-                            href={`sms:${item.recoveryContactPhone}`}
-                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 transition font-bold text-xs rounded-xl text-white text-center"
-                          >
-                            <MessageSquare size={14} />
-                            <span>Send Text SMS</span>
-                          </a>
+                        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+                          <a href={`tel:${item.recoveryContactPhone}`} className="mk__btn mk__btn--dark" style={{ flex: 1 }}><Phone size={14} /> Call</a>
+                          <a href={`sms:${item.recoveryContactPhone}`} className="mk__btn mk__btn--dark" style={{ flex: 1 }}><MessageSquare size={14} /> Text</a>
                         </div>
                       )}
-
-                      {/* Email */}
                       {(item.recoveryContactEmail || ownerProfile?.email) && (
-                        <a 
-                          href={`mailto:${item.recoveryContactEmail || ownerProfile?.email}`}
-                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 transition font-bold text-xs rounded-xl text-white text-center animate-fade-in"
-                        >
-                          <Mail size={14} />
-                          <span>Email {item.recoveryContactName || ownerProfile?.displayName || 'Owner'}</span>
+                        <a href={`mailto:${item.recoveryContactEmail || ownerProfile?.email}`} className="mk__btn mk__btn--dark" style={{ width: '100%' }}>
+                          <Mail size={14} /> Email {item.recoveryContactName || ownerProfile?.displayName || 'the owner'}
                         </a>
                       )}
-                      
-                      <button
-                        type="button"
-                        onClick={() => setRevealContact(false)}
-                        className="text-[9px] text-neutral-500 hover:text-neutral-400 block text-right mx-auto font-black uppercase tracking-widest pt-1"
-                      >
-                        Lock & Hide Links again
+                      <button type="button" onClick={() => setRevealContact(false)} style={{ background: 'none', border: 'none', color: '#9AA1A6', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', textAlign: 'right' }}>
+                        Hide again
                       </button>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Minimalist Profile Details */}
-              <div className="pt-4 border-t border-neutral-800 flex items-center gap-3">
-                <img 
-                  src={ownerProfile?.photoURL || 'https://picsum.photos/seed/avatar/100/100'} 
-                  className="w-10 h-10 rounded-xl object-cover shrink-0 grayscale border border-neutral-800"
-                />
+              <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '2px solid #333', display: 'flex', alignItems: 'center', gap: '.75rem' }}>
+                <img src={ownerProfile?.photoURL || 'https://picsum.photos/seed/avatar/100/100'} style={{ width: '2.5rem', height: '2.5rem', borderRadius: 4, objectFit: 'cover', border: '2px solid #333' }} />
                 <div>
-                  <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Registered Asset Owner</p>
-                  <p className="font-bold text-sm text-neutral-100">{item.recoveryContactName || ownerProfile?.displayName || 'Private Equipment Manager'}</p>
+                  <p className="mk__label">Owner</p>
+                  <p style={{ fontWeight: 700, fontSize: '.875rem' }}>{item.recoveryContactName || ownerProfile?.displayName || 'Not named'}</p>
                 </div>
               </div>
-
             </div>
           </div>
 
-          {/* Owner Bio & Contact Passport Card */}
-          <div className="bg-white border border-neutral-200/60 rounded-[2.5rem] p-8 shadow-xl shadow-neutral-100/50 space-y-6 text-left">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-              <div>
-                <h3 className="text-base font-black tracking-tight uppercase flex items-center gap-2 text-neutral-800">
-                  <User size={18} className="text-[#ff4f3a]" />
-                  <span>Custodian Passport & Biography</span>
-                </h3>
-                <p className="text-[11px] text-neutral-400 mt-1">
-                  Registered owner biography, logistics profile, and direct recovery coordinates.
-                </p>
-              </div>
-              <span className="px-2.5 py-1 bg-neutral-100 text-neutral-600 rounded-full text-[9px] font-black uppercase tracking-widest">
-                VERIFIED OWNER
-              </span>
-            </div>
-
-            <div className="flex flex-col md:flex-row gap-6 items-start">
-              <img 
-                src={ownerProfile?.photoURL || 'https://picsum.photos/seed/avatar/100/100'} 
-                alt={item.recoveryContactName || ownerProfile?.displayName || 'Custodian'}
-                className="w-20 h-20 rounded-2xl object-cover shrink-0 border border-neutral-200 shadow-sm"
-                referrerPolicy="no-referrer"
-              />
-              <div className="space-y-4 flex-1 w-full font-sans">
-                <div>
-                  <h4 className="text-lg font-black text-neutral-900 leading-none">
-                    {item.recoveryContactName || ownerProfile?.displayName || 'Private Equipment Manager'}
-                  </h4>
-                  {ownerProfile?.company && (
-                    <p className="text-xs text-neutral-400 mt-1 font-bold uppercase tracking-wider">{ownerProfile.company}</p>
+          {/* Owner bio */}
+          <div className="mk__card">
+            <div className="mk__panel">
+              <p className="mk__label"><User size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: -2 }} />About the owner</p>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <img src={ownerProfile?.photoURL || 'https://picsum.photos/seed/avatar/100/100'} alt={item.recoveryContactName || ownerProfile?.displayName || 'Owner'} referrerPolicy="no-referrer" style={{ width: '4rem', height: '4rem', borderRadius: 4, objectFit: 'cover', border: '2px solid var(--ink)' }} />
+                <div style={{ flex: 1, minWidth: '12rem' }}>
+                  <p style={{ fontWeight: 800, fontSize: '1rem' }}>{item.recoveryContactName || ownerProfile?.displayName || 'Not named'}</p>
+                  {ownerProfile?.company && <p className="mk__label" style={{ marginTop: '.125rem' }}>{ownerProfile.company}</p>}
+                  {(item.ownerBio || ownerProfile?.bio) && (
+                    <p className="mk__note" style={{ marginTop: '.75rem' }}>{item.ownerBio || ownerProfile?.bio}</p>
                   )}
-                </div>
-
-                <div className="bg-neutral-50/80 border border-neutral-100 p-4 rounded-2xl">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 mb-1">Biography / Bio</p>
-                  <p className="text-xs text-neutral-600 leading-relaxed font-medium italic">
-                    "{item.ownerBio || ownerProfile?.bio || 'Certified Packer Tools custodian. This device is actively registered under our high-volume logistics setup for professional operations.'}"
-                  </p>
-                </div>
-
-                {/* Direct Contact Details Block */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  <div className="p-3 bg-neutral-50 border border-neutral-100 rounded-xl space-y-1">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Direct Contact Phone</p>
-                    <p className="text-xs font-bold text-neutral-800">
-                      {!revealContact 
-                        ? (item.recoveryContactPhone ? `${item.recoveryContactPhone.slice(0, 5)}••••••` : 'Not Publicly Shared')
-                        : (item.recoveryContactPhone || ownerProfile?.phoneNumber || 'Not Publicly Shared')}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-neutral-50 border border-neutral-100 rounded-xl space-y-1">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Direct Contact Email</p>
-                    <p className="text-xs font-bold text-neutral-800 font-mono">
-                      {!revealContact 
-                        ? (item.recoveryContactEmail || ownerProfile?.email ? `${(item.recoveryContactEmail || ownerProfile?.email).slice(0, 3)}••••@••••.com` : 'Not Publicly Shared')
-                        : (item.recoveryContactEmail || ownerProfile?.email || 'Not Publicly Shared')}
-                    </p>
+                  <div className="mk__form-grid" style={{ marginTop: '.75rem' }}>
+                    <div>
+                      <p className="mk__label">Phone</p>
+                      <p className="mk__value">
+                        {!revealContact
+                          ? (item.recoveryContactPhone ? `${item.recoveryContactPhone.slice(0, 5)}•••••` : 'Not shared')
+                          : (item.recoveryContactPhone || ownerProfile?.phoneNumber || 'Not shared')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="mk__label">Email</p>
+                      <p className="mk__value" style={{ fontFamily: "'Barlow Semi Condensed', sans-serif" }}>
+                        {!revealContact
+                          ? (item.recoveryContactEmail || ownerProfile?.email ? `${(item.recoveryContactEmail || ownerProfile?.email).slice(0, 3)}•••@•••.com` : 'Not shared')
+                          : (item.recoveryContactEmail || ownerProfile?.email || 'Not shared')}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Device Info & Specifications Card */}
-          <div className="bg-white border border-neutral-100 rounded-[2.5rem] p-8 shadow-xl shadow-neutral-100 space-y-6">
-            <div>
-              <h3 className="text-base font-black tracking-tight uppercase flex items-center gap-2 text-neutral-800">
-                <BadgeInfo size={18} className="text-[#ff4f3a]" />
-                <span>Device Info & Specifications</span>
-              </h3>
-              <p className="text-[11px] text-neutral-400 mt-1">
-                Official specifications, condition logs, and tags verified from the active digital registry.
+          {/* Specifications */}
+          <div className="mk__card">
+            <div className="mk__panel">
+              <p className="mk__label"><BadgeInfo size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: -2 }} />Specifications</p>
+              <div className="mk__spec-grid" style={{ marginTop: '.75rem' }}>
+                <div>
+                  <p className="mk__label">Condition</p>
+                  <div style={{ marginTop: '.25rem' }}>{renderConditionRating(item.condition)}</div>
+                </div>
+                {item.brand && <div><p className="mk__label">Brand</p><p className="mk__value">{item.brand}</p></div>}
+                {item.model && <div><p className="mk__label">Model</p><p className="mk__value">{item.model}</p></div>}
+                {item.modelNumber && <div><p className="mk__label">Model number</p><p className="mk__value">{item.modelNumber}</p></div>}
+                {item.serialNumber && <div><p className="mk__label">Serial number</p><p className="mk__value" style={{ fontFamily: 'monospace' }}>{item.serialNumber}</p></div>}
+                <div><p className="mk__label">Category</p><p className="mk__value">{item.primaryCategory || item.category || 'Other'}</p></div>
+                {item.weight ? <div><p className="mk__label">Weight</p><p className="mk__value">{item.weight} {item.weightUnit || 'g'}</p></div> : null}
+                {item.releaseYear && <div><p className="mk__label">Release year</p><p className="mk__value">{item.releaseYear}</p></div>}
+                {item.dimensions && (item.dimensions.length || item.dimensions.width || item.dimensions.height) && (
+                  <div><p className="mk__label">Dimensions</p><p className="mk__value">{item.dimensions.length}×{item.dimensions.width}×{item.dimensions.height} {item.dimensions.unit || 'cm'}</p></div>
+                )}
+              </div>
+              {item.description && <p className="mk__note" style={{ marginTop: '1rem' }}>{item.description}</p>}
+            </div>
+          </div>
+
+          {/* Finder message */}
+          <div className="mk__card">
+            <div className="mk__panel">
+              <p className="mk__label"><MessageSquare size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: -2 }} />Message the owner</p>
+              <p className="mk__lede" style={{ marginTop: '.25rem', textAlign: 'left' }}>
+                Leave your contact details so the owner can reach you to arrange a pickup or drop-off. This goes straight to their dashboard.
               </p>
-            </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 bg-neutral-50 p-6 rounded-[2rem] text-left">
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Condition</p>
-                <div className="mt-1">{renderConditionRating(item.condition)}</div>
-              </div>
-              {item.brand && (
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Brand</p>
-                  <p className="font-semibold text-xs mt-1 text-neutral-800">{item.brand}</p>
-                </div>
-              )}
-              {item.model && (
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Model</p>
-                  <p className="font-semibold text-xs mt-1 text-neutral-800">{item.model}</p>
-                </div>
-              )}
-              {item.modelNumber && (
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Model Number</p>
-                  <p className="font-semibold text-xs mt-1 text-neutral-800">{item.modelNumber}</p>
-                </div>
-              )}
-              {item.serialNumber && (
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Serial Number</p>
-                  <p className="font-mono text-xs mt-1 text-neutral-800 select-all">{item.serialNumber}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Primary Category</p>
-                <span className="inline-flex items-center mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white font-semibold uppercase tracking-wider">
-                  {item.primaryCategory || item.category || 'Other'}
-                </span>
-              </div>
-              {item.weight && (
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Weight</p>
-                  <p className="font-semibold text-xs mt-1 text-neutral-850">
-                    {item.weight} {item.weightUnit || 'g'}
-                  </p>
-                </div>
-              )}
-              {item.releaseYear && (
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Release Year</p>
-                  <p className="font-semibold text-xs mt-1 text-neutral-800">{item.releaseYear}</p>
-                </div>
-              )}
-              {item.dimensions && (item.dimensions.length || item.dimensions.width || item.dimensions.height) && (
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Dimensions</p>
-                  <p className="font-semibold text-xs mt-1 text-neutral-800">
-                    {item.dimensions.length}x{item.dimensions.width}x{item.dimensions.height} {item.dimensions.unit || 'cm'}
-                  </p>
-                </div>
+              {reportSubmitted ? (
+                <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="mk__note" style={{ marginTop: '1rem', textAlign: 'center', borderColor: 'var(--ok)', background: 'var(--ok-bg)' }}>
+                  <Check size={22} strokeWidth={3} style={{ color: 'var(--ok)', margin: '0 auto .5rem' }} />
+                  <p style={{ fontWeight: 700, color: 'var(--ok)' }}>Message sent</p>
+                  <p style={{ marginTop: '.25rem' }}>The owner has your message and contact details. Thanks for reaching out.</p>
+                </motion.div>
+              ) : (
+                <form onSubmit={handleSubmitFinderReport} style={{ marginTop: '1rem', display: 'grid', gap: '.75rem' }}>
+                  <div className="mk__form-grid">
+                    <div>
+                      <label className="mk__label">Your name</label>
+                      <input type="text" required value={finderName} onChange={(e) => setFinderName(e.target.value)} placeholder="e.g. Sina Tabua" className="bk__input" style={{ marginTop: '.25rem', width: '100%' }} />
+                    </div>
+                    <div>
+                      <label className="mk__label">Phone or email</label>
+                      <input type="text" required value={finderContact} onChange={(e) => setFinderContact(e.target.value)} placeholder="e.g. +679 000 0000" className="bk__input" style={{ marginTop: '.25rem', width: '100%' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mk__label">Where is it, or what would you like to say?</label>
+                    <textarea rows={3} value={finderMessage} onChange={(e) => setFinderMessage(e.target.value)} placeholder="e.g. Found at the front desk of the Suva office, ask for security." className="bk__input" style={{ marginTop: '.25rem', width: '100%' }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button type="submit" disabled={submittingReport} className="mk__btn mk__btn--primary">
+                      {submittingReport ? 'Sending...' : 'Send message'}
+                    </button>
+                  </div>
+                </form>
               )}
             </div>
-
-            {item.description && (
-              <div className="bg-neutral-50 p-5 rounded-[1.5rem] border border-neutral-100 text-left">
-                <p className="text-[10px] font-black uppercase tracking-widest text-neutral-450 mb-1">Equipment Description</p>
-                <p className="text-xs text-neutral-600 leading-relaxed font-semibold italic">"{item.description}"</p>
-              </div>
-            )}
           </div>
 
-          {/* Secure Ping Form Card */}
-          <div className="bg-white border border-neutral-100 rounded-[2.5rem] p-8 shadow-xl shadow-neutral-100 space-y-6">
-            <div>
-              <h3 className="text-base font-black tracking-tight uppercase flex items-center gap-2 text-neutral-800">
-                <MessageSquare size={18} className="text-emerald-500" />
-                <span>Send Return Notice / Ping Location</span>
-              </h3>
-              <p className="text-[11px] text-neutral-400 mt-1">
-                Provide your contact details so the owner can contact you and coordinate a drop-off or pickup. This ping is directly logged on their dashboard.
-              </p>
-            </div>
-
-            {reportSubmitted ? (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-emerald-50 border border-emerald-100 p-6 rounded-[2rem] text-center space-y-3"
-              >
-                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto">
-                  <Check size={24} strokeWidth={3} />
-                </div>
-                <h4 className="font-bold text-emerald-900 text-sm">Notice Dispatched!</h4>
-                <p className="text-xs text-emerald-600 max-w-md mx-auto">
-                  Thank you so much! Your location/message has been securely delivered to the owner's log history. Your helpfulness is highly appreciated.
-                </p>
-              </motion.div>
-            ) : (
-              <form onSubmit={handleSubmitFinderReport} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Your Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={finderName}
-                      onChange={(e) => setFinderName(e.target.value)}
-                      placeholder="e.g. John Finder"
-                      className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-2.5 text-xs outline-none focus:ring-2 focus:ring-primary transition"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Your Contact Details (Phone/Email)</label>
-                    <input
-                      type="text"
-                      required
-                      value={finderContact}
-                      onChange={(e) => setFinderContact(e.target.value)}
-                      placeholder="e.g. +1 (555) 0123 / citizen@me.com"
-                      className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-2.5 text-xs outline-none focus:ring-2 focus:ring-primary transition"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Where is the item? / Secure Message</label>
-                  <textarea
-                    rows={3}
-                    value={finderMessage}
-                    onChange={(e) => setFinderMessage(e.target.value)}
-                    placeholder="Provide details about where you found it, e.g., 'Found on table 4 at Starbucks, left with manager Sarah' or 'I have it safe at my office in Soho, call me!'"
-                    className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-primary transition"
-                  />
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <button
-                    type="submit"
-                    disabled={submittingReport}
-                    className="w-full sm:w-auto px-6 py-3 bg-black hover:bg-neutral-800 disabled:opacity-50 text-white font-bold rounded-xl text-xs uppercase tracking-widest transition"
-                  >
-                    {submittingReport ? 'Sending Notice...' : 'Submit Secure Return Notice'}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-
-          {/* Minimal Platform attribution */}
-          <p className="text-center text-[9px] font-black uppercase tracking-widest text-neutral-400">
-            SECURED BY PACKER TOOLS CERTIFIED ASSET SYSTEM
-          </p>
+          <p className="mk__footer-note">Packer Tools</p>
         </div>
       </div>
     );

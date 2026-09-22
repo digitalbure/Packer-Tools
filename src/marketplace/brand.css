@@ -1,0 +1,51 @@
+/* Shared brand for marketplace-facing pages: gear passport, listings, booking. Same tokens as landing.css. */
+.mk { --ink:#14181B; --ink-soft:#4A5257; --concrete:#DDE0DC; --raised:#ECEEEA; --foam:#202427; --foam-deep:#111417; --tape:#F2F0E6; --hazard:#FF5500; --ok:#1F6B42; --ok-bg:#E7F3EC; --bad:#B3261E; --bad-bg:#FBEAE8;
+  font-family: 'Barlow', system-ui, sans-serif; color: var(--ink); }
+.mk__wrap { max-width: 44rem; margin: 0 auto; display: grid; gap: 1.5rem; padding: 2rem 0 4rem; }
+.mk__eyebrow { font: 700 .8125rem 'Barlow Semi Condensed', sans-serif; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); }
+.mk__h1 { font: 800 clamp(1.5rem, 4vw, 2rem)/1.05 'Big Shoulders Display', sans-serif; text-transform: uppercase; letter-spacing: .01em; margin: .25rem 0 0; }
+.mk__lede { color: var(--ink-soft); font-size: .9375rem; max-width: 34rem; margin: .5rem 0 0; }
+.mk__hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .5rem; }
+.mk__badge { width: 3.5rem; height: 3.5rem; border: 2px solid var(--ink); border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--tape); }
+.mk__badge--bad { background: var(--bad-bg); color: var(--bad); border-color: var(--bad); }
+.mk__badge--ok { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+
+.mk__card { background: #fff; border: 2px solid var(--ink); border-radius: 4px; box-shadow: 4px 4px 0 var(--ink); overflow: hidden; }
+.mk__split { display: grid; grid-template-columns: 1fr; }
+@media (min-width: 40rem) { .mk__split { grid-template-columns: 1fr 1fr; } }
+.mk__panel { padding: 1.5rem; }
+.mk__panel + .mk__panel { border-top: 2px solid var(--ink); }
+@media (min-width: 40rem) { .mk__panel + .mk__panel { border-top: none; border-left: 2px solid var(--ink); } }
+.mk__panel--dark { background: var(--foam); color: var(--tape); }
+
+.mk__tag { display: inline-flex; align-items: center; gap: .375rem; padding: .25rem .625rem; border: 2px solid var(--ink); border-radius: 999px; font: 600 .75rem 'Barlow Semi Condensed', sans-serif; background: var(--tape); }
+.mk__panel--dark .mk__tag { border-color: var(--tape); background: transparent; color: var(--tape); }
+.mk__label { font: 700 .75rem 'Barlow Semi Condensed', sans-serif; text-transform: uppercase; letter-spacing: .03em; color: var(--ink-soft); }
+.mk__panel--dark .mk__label { color: #9AA1A6; }
+.mk__value { font: 600 .9375rem 'Barlow', sans-serif; margin-top: .125rem; }
+
+.mk__photo { position: relative; aspect-ratio: 1; border: 2px solid var(--ink); border-radius: 4px; overflow: hidden; background: var(--concrete); }
+.mk__panel--dark .mk__photo { border-color: #333; background: #1a1e21; }
+.mk__photo img { width: 100%; height: 100%; object-fit: cover; }
+.mk__photo-empty { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--ink-soft); }
+.mk__photo-nav { position: absolute; top: 50%; translate: 0 -50%; width: 2rem; height: 2rem; border-radius: 50%; border: 2px solid var(--ink); background: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: 800; }
+.mk__photo-nav--prev { left: .5rem; } .mk__photo-nav--next { right: .5rem; }
+.mk__photo-dots { position: absolute; bottom: .5rem; left: 50%; translate: -50% 0; display: flex; gap: .3rem; padding: .25rem .5rem; background: rgba(20,24,27,.55); border-radius: 999px; }
+.mk__dot { width: .35rem; height: .35rem; border-radius: 50%; background: rgba(255,255,255,.45); }
+.mk__dot--active { background: #fff; }
+
+.mk__btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem; padding: .625rem 1.25rem; border: 2px solid var(--ink); border-radius: 4px; font: 700 .875rem 'Barlow', sans-serif; cursor: pointer; text-decoration: none; color: var(--ink); background: #fff; }
+.mk__btn--primary { background: var(--hazard); box-shadow: 3px 3px 0 var(--ink); }
+.mk__btn--dark { background: transparent; border-color: #fff; color: #fff; }
+.mk__btn--dark:hover { background: rgba(255,255,255,.08); }
+.mk__btn:disabled { opacity: .5; cursor: not-allowed; }
+.mk__btn:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
+
+.mk__gate { min-height: 60vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+.mk__gate-card { max-width: 26rem; text-align: center; padding: 2rem; display: grid; gap: 1rem; justify-items: center; }
+.mk__spec-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; background: var(--raised); border: 2px solid var(--concrete); border-radius: 4px; padding: 1.25rem; }
+@media (min-width: 30rem) { .mk__spec-grid { grid-template-columns: repeat(3, 1fr); } }
+.mk__note { background: var(--raised); border: 2px solid var(--concrete); border-radius: 4px; padding: 1rem; font-size: .8125rem; color: var(--ink-soft); }
+.mk__form-grid { display: grid; grid-template-columns: 1fr; gap: .75rem; }
+@media (min-width: 30rem) { .mk__form-grid { grid-template-columns: 1fr 1fr; } }
+.mk__footer-note { text-align: center; font: 600 .75rem 'Barlow Semi Condensed', sans-serif; letter-spacing: .03em; color: var(--ink-soft); }
