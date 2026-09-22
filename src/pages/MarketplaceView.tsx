@@ -36,10 +36,15 @@ import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../providers/AuthProvider';
+import { computeDeposit } from '../booking/depositPolicy';
+import '../booking/booking.css';
+import '../marketplace/brand.css';
+import { useLandingFonts } from '../components/landing/useLandingFonts';
 
 export default function MarketplaceView() {
+  useLandingFonts();
   const { id } = useParams<{ id: string }>();
-  const { convertCurrency, selectedCurrency } = useAuth();
+  const { convertCurrency, selectedCurrency, user: authUser } = useAuth();
   const [rawList, setList] = useState<PackingList | null>(null);
   const [items, setItems] = useState<PackingItem[]>([]);
   const [recipient, setRecipient] = useState<Contact | null>(null);
@@ -119,17 +124,23 @@ export default function MarketplaceView() {
         setList(listData);
         
         // Update document metadata for better sharing
-        document.title = `${listData.name} | Visual Inventory Marketplace`;
+        document.title = `${listData.name} | Packer Marketplace`;
         const metaDesc = document.querySelector('meta[name="description"]');
         if (metaDesc) {
           metaDesc.setAttribute('content', listData.marketplaceDetails || listData.description || `View visual inventory for ${listData.name}`);
         }
 
-        // Fetch seller profile
+        // Fetch seller profile. Profiles are owner/admin-only, so this fails with
+        // permission-denied for every other visitor — that's expected, not an error,
+        // and must not stop the rest of the listing from loading.
         if (listData.ownerId) {
-          const sellerDoc = await getDoc(doc(db, 'users', listData.ownerId));
-          if (sellerDoc.exists()) {
-            setSellerProfile(sellerDoc.data() as UserProfile);
+          try {
+            const sellerDoc = await getDoc(doc(db, 'users', listData.ownerId));
+            if (sellerDoc.exists()) {
+              setSellerProfile(sellerDoc.data() as UserProfile);
+            }
+          } catch (sellerErr) {
+            console.warn('Seller profile not readable by this visitor:', sellerErr);
           }
         }
 
@@ -142,7 +153,7 @@ export default function MarketplaceView() {
         const ogImageUrl = listData.image || firstItemImage || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400';
         
         // Initialize active media Url
-        setActiveMediaUrl(listData.image || firstItemImage || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400');
+        setActiveMediaUrl(listData.image || firstItemImage || '');
 
         // Update social OG & Twitter tags dynamically
         const updateOrCreateMetaTag = (selector: string, attrName: string, attrVal: string, contentVal: string) => {
@@ -155,10 +166,10 @@ export default function MarketplaceView() {
           element.setAttribute('content', contentVal);
         };
 
-        updateOrCreateMetaTag('meta[property="og:title"]', 'property', 'og:title', `${listData.name} | Visual Inventory Marketplace`);
+        updateOrCreateMetaTag('meta[property="og:title"]', 'property', 'og:title', `${listData.name} | Packer Marketplace`);
         updateOrCreateMetaTag('meta[property="og:description"]', 'property', 'og:description', listData.marketplaceDetails || listData.description || `View visual inventory for ${listData.name}`);
         updateOrCreateMetaTag('meta[property="og:image"]', 'property', 'og:image', ogImageUrl);
-        updateOrCreateMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', `${listData.name} | Visual Inventory Marketplace`);
+        updateOrCreateMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', `${listData.name} | Packer Marketplace`);
         updateOrCreateMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', listData.marketplaceDetails || listData.description || `View visual inventory for ${listData.name}`);
         updateOrCreateMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', ogImageUrl);
 
@@ -206,58 +217,65 @@ export default function MarketplaceView() {
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
+  const activeCountry = authUser?.country || globalSettings?.marketplaceRegionConfig?.launchCountry || 'Fiji';
+  const isFijiBuyer = activeCountry === 'Fiji';
+
   const getCalculatedFees = () => {
-    if (!list) return { subtotal: 0, taxAmount: 0, damageWaiver: 0, totalValue: 0, taxPercent: 15 };
+    if (!list) return { subtotal: 0, taxAmount: 0, deposit: 0, totalValue: 0, taxPercent: 15, isInclusive: true };
     const basePrice = list.marketplacePrice || 0;
-    const isRental = list.transactionType === 'Rental' || !list.transactionType;
+    const isRental = !list.transactionType || !/^sale$/i.test(list.transactionType);
     const days = isRental ? getRentDurationInDays() : 1;
     const subtotal = basePrice * days;
-    const taxPercent = globalSettings?.taxConfig?.fijiVatRate ?? 15;
-    const isVatInclusive = (globalSettings?.taxConfig?.fijiVatType || 'VIP') === 'VIP';
-    
+
+    const taxPercent = isFijiBuyer
+      ? (globalSettings?.taxConfig?.fijiVatRate ?? 15)
+      : (globalSettings?.taxConfig?.otherCountriesTaxRates?.[activeCountry]?.rate ?? 10);
+    const isInclusive = isFijiBuyer
+      ? (globalSettings?.taxConfig?.fijiVatType || 'VIP') === 'VIP'
+      : (globalSettings?.taxConfig?.otherCountriesTaxRates?.[activeCountry]?.type || 'exclusive') === 'inclusive';
+
     let taxAmount = 0;
     let totalValue = subtotal;
-    
-    if (isVatInclusive) {
+    if (isInclusive) {
       taxAmount = subtotal - (subtotal / (1 + (taxPercent / 100)));
     } else {
       taxAmount = subtotal * (taxPercent / 100);
       totalValue = subtotal + taxAmount;
     }
-    const damageWaiver = isRental ? 30 : 0; // standard waiver
-    totalValue += damageWaiver;
 
-    return {
-      subtotal,
-      taxAmount,
-      damageWaiver,
-      totalValue,
-      taxPercent
-    };
+    // Packer Tools does not process payment for this listing, so the deposit shown here is
+    // not charged or held — it follows the admin's deposit policy so the renter and owner
+    // start from the same figure.
+    const deposit = isRental ? computeDeposit(globalSettings?.moduleWidgetConfigs?.depositPolicy, basePrice, list.securityDeposit) : 0;
+    totalValue += deposit;
+
+    return { subtotal, taxAmount, deposit, totalValue, taxPercent, isInclusive };
   };
 
-  // Secure checkout booking handler
+  // Booking / purchase request handler. Nothing is charged: this records a request the owner confirms.
   const handleSecureCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || !list) return;
     if (!bookingClientName.trim()) {
-      toast.error('Please enter your full name for sign-off.');
+      toast.error('Enter your name.');
       return;
     }
-    
+    const clientEmail = bookingClientEmail.trim() || currentUser?.email || '';
+    if (!clientEmail) {
+      toast.error('Enter an email so the owner can reach you.');
+      return;
+    }
+
     setBookingLoading(true);
     try {
-      const isRental = list.transactionType === 'Rental' || !list.transactionType;
-      const { subtotal, taxAmount, damageWaiver, totalValue, taxPercent } = getCalculatedFees();
-      const securityDeposit = list.securityDeposit || 150;
+      const isRental = !list.transactionType || !/^sale$/i.test(list.transactionType);
+      const { taxAmount, deposit, totalValue, taxPercent } = getCalculatedFees();
 
       // Update source Packing List listing status to reflect booking
       await updateDoc(doc(db, 'packingLists', id), {
         bookingClientName: bookingClientName,
-        bookingClientEmail: bookingClientEmail || currentUser?.email || 'guest-operator@packer.com',
-        bookingClientSignature: bookingClientName || 'Digital Verification Signed',
-        bookingPaidAt: new Date().toISOString(),
-        rentalStatus: isRental ? 'awaiting_payment' : 'released',
+        bookingClientEmail: clientEmail,
+        rentalStatus: 'awaiting_owner_confirmation',
         updatedAt: new Date().toISOString()
       });
 
@@ -265,21 +283,21 @@ export default function MarketplaceView() {
       const bookingData = {
         gearId: id,
         gearName: list.name,
-        brand: list.brandName || 'Verified Partner',
+        brand: list.brandName || '',
         ownerId: list.ownerId || 'platform_admin',
         clientName: bookingClientName,
-        clientEmail: bookingClientEmail || currentUser?.email || 'guest-operator@packer.com',
-        clientPhone: bookingClientPhone || '+1 (555) 0199',
+        clientEmail,
+        clientPhone: bookingClientPhone || '',
         startDate: isRental ? bookingStartDate : new Date().toISOString().split('T')[0],
         endDate: isRental ? bookingEndDate : new Date().toISOString().split('T')[0],
-        depositAmount: securityDeposit,
-        paymentStatus: 'Deposit Paid',
+        depositAmount: deposit,
+        paymentStatus: 'Awaiting owner confirmation',
         reservationType: isRental ? 'deposit' : 'custom',
-        customConditions: ['Standard Marketplace Insurance Waiver', 'Owner Verification Complete'],
+        customConditions: [],
         createdAt: new Date().toISOString(),
         totalPrice: totalValue,
         taxAmount,
-        damageWaiver,
+        deposit,
         taxPercent,
         isTaxInclusive: true,
         transactionType: isRental ? 'rent' : 'sale'
@@ -288,10 +306,10 @@ export default function MarketplaceView() {
       await addDoc(collection(db, 'gearBookings'), bookingData);
 
       setBookingSuccess(true);
-      toast.success(isRental ? 'Advanced Booking secured successfully!' : 'Purchase hold locked!');
+      toast.success(isRental ? 'Booking request sent.' : 'Purchase request sent.');
     } catch (err) {
       console.error(err);
-      toast.error('Failed to complete secure transaction.');
+      toast.error('The request did not send. Try again.');
     } finally {
       setBookingLoading(false);
     }
@@ -363,43 +381,52 @@ export default function MarketplaceView() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F5F5F4]">
-        <div className="w-12 h-12 border-4 border-[#ff4f3a] border-t-transparent rounded-full animate-spin" />
+      <div className="mk-browse" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: '3rem', height: '3rem', border: '4px solid var(--hazard)', borderTopColor: 'transparent', borderRadius: '50%' }} className="animate-spin" />
       </div>
     );
   }
 
   if (globalSettings?.marketplaceVisibility === 'signed-in' && !currentUser) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F5F4] p-4 text-center">
-        <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mb-6 text-amber-500 border border-amber-200">
-          <ShieldCheck size={32} />
+      <div className="mk mk__gate">
+        <div className="mk__card mk__gate-card">
+          <div className="mk__badge">
+            <ShieldCheck size={24} />
+          </div>
+          <div>
+            <h1 className="mk__h1" style={{ fontSize: '1.25rem' }}>Sign in to view this listing</h1>
+            <p className="mk__lede">The admin has restricted marketplace listings to signed-in users.</p>
+          </div>
+          <Link to="/" className="mk__btn mk__btn--primary" style={{ width: '100%' }}>Sign in</Link>
         </div>
-        <h1 className="text-3xl font-black uppercase tracking-tighter mb-2">Restricted Access</h1>
-        <p className="text-neutral-500 mb-8 max-w-md mx-auto">This marketplace listing is restricted by the platform administrator. You must be signed in to view this inventory.</p>
-        <Link to="/" className="bg-[#1A1A1A] hover:bg-black text-white px-8 py-3 rounded-full font-bold uppercase text-xs tracking-widest transition-all">
-          Sign In / Create Account
-        </Link>
       </div>
     );
   }
 
   if (error || !rawList) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F5F4] p-4 text-center">
-        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6 text-red-500">
-          <Info size={32} />
+      <div className="mk mk__gate">
+        <div className="mk__card mk__gate-card">
+          <div className="mk__badge mk__badge--bad">
+            <Info size={24} />
+          </div>
+          <div>
+            <h1 className="mk__h1" style={{ fontSize: '1.25rem' }}>{error || 'Something went wrong'}</h1>
+            <p className="mk__lede">This listing may have been removed or set to private.</p>
+          </div>
+          <Link to="/" className="mk__btn mk__btn--primary" style={{ width: '100%' }}>Go to Packer Tools</Link>
         </div>
-        <h1 className="text-3xl font-black uppercase tracking-tighter mb-2">{error || 'Error'}</h1>
-        <p className="text-neutral-500 mb-8">The listing you are looking for might have been removed or set to private.</p>
-        <Link to="/" className="bg-primary text-white px-8 py-3 rounded-full font-bold uppercase text-xs tracking-widest">
-          Go Home
-        </Link>
       </div>
     );
   }
 
-  const convertedList = React.useMemo(() => {
+  const fmtPrice = (n?: number) => (n === undefined || n === null ? null : n.toLocaleString(undefined, { maximumFractionDigits: 2 }));
+
+  // Plain computation, not a hook: this runs after conditional early returns above,
+  // and calling a hook there would change the hook count between renders (loading vs.
+  // loaded) and crash. rawList is never null past the guards above, but stay defensive.
+  const convertedList = (() => {
     if (!rawList) return null;
     const origCurrency = rawList.marketplaceCurrency || rawList.currency || 'USD';
     return {
@@ -407,7 +434,7 @@ export default function MarketplaceView() {
       marketplacePrice: convertCurrency(rawList.marketplacePrice || 0, origCurrency, selectedCurrency),
       securityDeposit: rawList.securityDeposit ? convertCurrency(rawList.securityDeposit, origCurrency, selectedCurrency) : undefined,
     };
-  }, [rawList, selectedCurrency, convertCurrency]);
+  })();
 
   const list = convertedList || rawList;
 
@@ -433,14 +460,12 @@ export default function MarketplaceView() {
     ...itemPhotosList
   ].filter((url, i, self) => url && self.indexOf(url) === i);
 
-  if (galleryList.length === 0) {
-    galleryList.push('https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=600');
-  }
-
   // Check if active media is YouTube/Vimeo embed versus physical image
   const isVideoActive = activeMediaUrl.includes('youtube.com') || activeMediaUrl.includes('youtu.be') || activeMediaUrl.includes('vimeo.com') || activeMediaUrl.endsWith('.mp4');
 
-  const isRentalOffer = list.transactionType === 'Rental' || !list.transactionType;
+  // Owner listings store this lowercase ('rent'/'sale'); accept either case so a real
+  // rental listing doesn't get mislabeled as an outright sale.
+  const isRentalOffer = !list.transactionType || !/^sale$/i.test(list.transactionType);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStartX(e.targetTouches[0].clientX);
@@ -470,612 +495,350 @@ export default function MarketplaceView() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F4] text-[#1A1A1A] font-sans">
-      <main className="grid lg:grid-cols-2 min-h-screen">
-        {/* Left Pane: Info & Media Gallery & Booking Transaction Widget */}
-        <div className="p-6 md:p-12 lg:p-16 flex flex-col justify-start bg-white border-r border-neutral-100 overflow-y-auto max-h-screen">
-          <div className="max-w-xl mx-auto w-full space-y-8">
-            {/* Back Button */}
-            <div>
-              <Link 
-                to="/marketplace" 
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-black uppercase tracking-widest rounded-xl transition"
-                id="back-to-marketplace-btn"
-              >
-                <ArrowLeft size={14} className="stroke-[2.5]" />
-                <span>Back to Marketplace</span>
-              </Link>
-            </div>
+    <div className="mk mk-detail">
+      <div className="mk-detail__pane mk-detail__pane--left">
+        <div className="mk-detail__inner">
+          <Link to="/marketplace" className="mk__btn" style={{ width: 'fit-content' }}>
+            <ArrowLeft size={14} />
+            <span>Back to Marketplace</span>
+          </Link>
 
-            {/* Premium Media Gallery Section */}
-            <div className="space-y-4">
-              <div 
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-                className="aspect-[16/10] bg-neutral-100 rounded-[2rem] overflow-hidden border border-neutral-100 relative group shadow-sm flex items-center justify-center select-none"
-              >
-                {isVideoActive ? (
+          <div>
+            <div
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              className="mk-gallery"
+            >
+              {activeMediaUrl ? (
+                isVideoActive ? (
                   activeMediaUrl.endsWith('.mp4') ? (
-                    <video 
-                      src={activeMediaUrl} 
-                      controls 
-                      className="w-full h-full object-cover"
-                    />
+                    <video src={activeMediaUrl} controls />
                   ) : (
-                    <iframe 
-                      src={activeMediaUrl.replace('watch?v=', 'embed/').split('&')[0]} 
-                      title="Listing Intro Video"
-                      className="w-full h-full border-0"
-                      allowFullScreen
-                    />
+                    <iframe src={activeMediaUrl.replace('watch?v=', 'embed/').split('&')[0]} title="Listing video" allowFullScreen />
                   )
                 ) : (
-                  <img 
-                    src={activeMediaUrl} 
-                    alt={list.name} 
-                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
-                    referrerPolicy="no-referrer"
-                    onError={() => {
-                      // fallback to original listing image or default unsplash
-                      setActiveMediaUrl('https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=600');
-                    }}
-                  />
-                )}
-
-                {/* Left & Right arrow controls overlaid always on mobile, and hovered on desktop */}
-                {galleryList.length > 1 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const currentIndex = galleryList.indexOf(activeMediaUrl);
-                        if (currentIndex !== -1) {
-                          const prevIndex = (currentIndex - 1 + galleryList.length) % galleryList.length;
-                          setActiveMediaUrl(galleryList[prevIndex]);
-                        }
-                      }}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center transition-all z-10 backdrop-blur-sm shadow-sm md:opacity-0 md:group-hover:opacity-100 cursor-pointer border border-white/10"
-                      title="Previous Asset"
-                    >
-                      <ChevronLeft size={16} className="stroke-[2.5]" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const currentIndex = galleryList.indexOf(activeMediaUrl);
-                        if (currentIndex !== -1) {
-                          const nextIndex = (currentIndex + 1) % galleryList.length;
-                          setActiveMediaUrl(galleryList[nextIndex]);
-                        }
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center transition-all z-10 backdrop-blur-sm shadow-sm md:opacity-0 md:group-hover:opacity-100 cursor-pointer border border-white/10"
-                      title="Next Asset"
-                    >
-                      <ChevronRight size={16} className="stroke-[2.5]" />
-                    </button>
-                  </>
-                )}
-                
-                {/* Overlay Indicators */}
-                <span className="absolute bottom-3 right-4 px-3 py-1 bg-black/70 text-white text-[9px] font-black uppercase tracking-widest rounded-full backdrop-blur-sm">
-                  {isVideoActive ? 'Playing Video' : 'Visual Asset View'}
-                </span>
-              </div>
-
-              {/* Thumbnails list */}
-              {galleryList.length > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-                  {galleryList.map((url, index) => {
-                    const isSelected = activeMediaUrl === url;
-                    return (
-                      <button
-                        key={index}
-                        onClick={() => setActiveMediaUrl(url)}
-                        className={`w-14 h-14 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all ${
-                          isSelected ? 'border-[#ff4f3a] scale-95' : 'border-neutral-200 opacity-75 hover:opacity-100'
-                        }`}
-                      >
-                        <img src={url} alt="" className="w-full h-full object-cover h-14" referrerPolicy="no-referrer" />
-                      </button>
-                    );
-                  })}
-                  {(list as any).videoUrl && (
-                    <button
-                      onClick={() => setActiveMediaUrl((list as any).videoUrl)}
-                      className={`w-14 h-14 rounded-xl border-2 flex-shrink-0 flex flex-col items-center justify-center bg-black transition-all ${
-                        activeMediaUrl === (list as any).videoUrl ? 'border-[#ff4f3a] scale-95' : 'border-neutral-800'
-                      }`}
-                    >
-                      <Share2 size={16} className="text-white animate-pulse" />
-                      <span className="text-[7.5px] font-black uppercase text-[#ff4f3a]">VIDEO</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Header info content */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                  list.transactionType === 'Sale' ? 'bg-green-100 text-green-600' :
-                  'bg-blue-100 text-blue-600'
-                }`}>
-                  {list.transactionType || 'Rental'}
-                </span>
-                
-                {list.status && list.status !== 'Draft' && (
-                  <span className="text-[10px] font-bold uppercase tracking-widest bg-neutral-100 text-neutral-600 px-3 py-1 rounded-full">
-                    Package Status: {list.status}
-                  </span>
-                )}
-              </div>
-
-              <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase leading-[0.9] text-neutral-900 border-b border-neutral-50 pb-5">
-                {list.name}
-              </h1>
-
-              {/* Verified Seller Storefront */}
-              {list.ownerId && (
-                <div className="p-5 bg-neutral-50 rounded-[1.5rem] border border-neutral-100">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-[#ff4f3a] block mb-1">Verified Storefront Vendor</span>
-                      <h3 className="font-extrabold text-neutral-800 uppercase tracking-tight text-md">
-                        {sellerProfile?.storeName || sellerProfile?.displayName || (list.ownerEmail ? list.ownerEmail.split('@')[0] : 'Packer Verified Partner')}
-                      </h3>
-                      <p className="text-[11px] text-neutral-400 font-semibold">{sellerProfile?.storeBio || 'Premium visual inventory operator.'}</p>
-                    </div>
-
-                    <a 
-                      href={`#/shop/${list.ownerId}`}
-                      className="flex items-center gap-2 px-3.5 py-2 bg-[#ff4f3a]/10 hover:bg-[#ff4f3a]/20 text-[#ff4f3a] font-black uppercase text-[9px] tracking-widest rounded-xl transition"
-                    >
-                      <span>Visit Store</span>
-                      <ExternalLink size={10} className="stroke-[2.5]" />
-                    </a>
-                  </div>
-                </div>
-              )}
-
-              {/* Description Output */}
-              <div className="space-y-2 pt-2">
-                <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Description Overview</div>
-                <div className="text-neutral-600 leading-relaxed font-medium text-sm prose max-w-none">
-                  <ReactMarkdown>{list.marketplaceDetails || list.description || 'No detailed specs listed yet by merchant.'}</ReactMarkdown>
-                </div>
-              </div>
-            </div>
-
-            {/* Rates & Financial breakdown */}
-            <div className="grid grid-cols-2 gap-8 py-6 border-y border-neutral-100">
-              <div>
-                <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Financial Rates</div>
-                <div className="text-3xl font-black tracking-tight text-neutral-900">
-                  {list.marketplacePrice ? `${currencySymbol}${list.marketplacePrice}` : 'Free / Gift'}
-                  <span className="text-xs font-semibold text-neutral-400 lowercase italic">
-                    {isRentalOffer ? ' / day' : ' outright'}
-                  </span>
-                </div>
-              </div>
-              {list.securityDeposit ? (
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Security Deposit Holds</div>
-                  <div className="text-xl font-bold font-mono text-neutral-700">
-                    {currencySymbol}{list.securityDeposit}
-                    <span className="text-[9px] block text-neutral-400 uppercase font-sans tracking-wider font-bold">100% Fully Refundable escrow</span>
-                  </div>
-                </div>
+                  <img src={activeMediaUrl} alt={list.name} referrerPolicy="no-referrer" onError={() => setActiveMediaUrl('')} />
+                )
               ) : (
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Fiji Region VAT Status</div>
-                  <div className="text-sm font-black text-neutral-700 uppercase">
-                    {(globalSettings?.taxConfig?.fijiVatType || 'VIP') === 'VIP' ? 'VAT Inclusive (VIP)' : 'VAT Exclusive (VEP)'}
-                  </div>
+                <div className="mk-gallery-empty">
+                  <Package size={32} className="stroke-1" />
+                  <span>No photos added yet</span>
                 </div>
+              )}
+
+              {galleryList.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className="mk__photo-nav mk__photo-nav--prev"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const currentIndex = galleryList.indexOf(activeMediaUrl);
+                      if (currentIndex !== -1) setActiveMediaUrl(galleryList[(currentIndex - 1 + galleryList.length) % galleryList.length]);
+                    }}
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    className="mk__photo-nav mk__photo-nav--next"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const currentIndex = galleryList.indexOf(activeMediaUrl);
+                      if (currentIndex !== -1) setActiveMediaUrl(galleryList[(currentIndex + 1) % galleryList.length]);
+                    }}
+                  >
+                    →
+                  </button>
+                </>
               )}
             </div>
 
-            {/* Dynamic Interactive Transaction Widget Section */}
-            <div className="bg-neutral-50/50 border border-neutral-150 p-6 rounded-[2rem] space-y-6">
-              {/* Tabs selector */}
-              <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-100 rounded-2xl">
-                <button
-                  type="button"
-                  onClick={() => setActiveActionTab('checkout')}
-                  className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                    activeActionTab === 'checkout' 
-                      ? 'bg-white text-[#ff4f3a] shadow-sm' 
-                      : 'text-neutral-505 hover:text-neutral-905'
-                  }`}
-                >
-                  {isRentalOffer ? '🔒 Secure Hold Rent' : '🛒 Buy Outright'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveActionTab('enquiry')}
-                  className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                    activeActionTab === 'enquiry' 
-                      ? 'bg-white text-[#ff4f3a] shadow-sm' 
-                      : 'text-neutral-505 hover:text-neutral-905'
-                  }`}
-                >
-                  💬 Send Enquiry
-                </button>
+            {galleryList.length > 1 && (
+              <div className="mk-thumbs" style={{ marginTop: '.5rem' }}>
+                {galleryList.map((url, index) => (
+                  <button key={index} type="button" className="mk-thumb" aria-current={activeMediaUrl === url} onClick={() => setActiveMediaUrl(url)}>
+                    <img src={url} alt="" referrerPolicy="no-referrer" />
+                  </button>
+                ))}
+                {(list as any).videoUrl && (
+                  <button type="button" className="mk-thumb" aria-current={activeMediaUrl === (list as any).videoUrl} onClick={() => setActiveMediaUrl((list as any).videoUrl)} style={{ background: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Share2 size={16} color="#fff" />
+                  </button>
+                )}
               </div>
+            )}
+          </div>
 
-              {/* ACTION TAB 1: Checkout Form */}
-              {activeActionTab === 'checkout' && (
-                <div className="space-y-4">
-                  {/* Auth Shield conditional logic rendering */}
-                  {!currentUser ? (
-                    <div className="p-6 bg-white border border-neutral-200/60 rounded-[1.5rem] shadow-sm space-y-4 text-center">
-                      <div className="w-12 h-12 bg-[#ff4f3a]/10 text-[#ff4f3a] rounded-full flex items-center justify-center mx-auto">
-                        <Lock size={20} />
-                      </div>
-                      <div className="space-y-1">
-                        <h4 className="font-extrabold uppercase text-xs tracking-wider text-neutral-800">Operator Authentication Required</h4>
-                        <p className="text-[11px] text-neutral-500 max-w-xs mx-auto">Please sign-in or create a packer identity below to unlock booking schedules and contract checkout triggers.</p>
-                      </div>
+          <div>
+            <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+              <span className="mk__tag">{list.transactionType || 'Rental'}</span>
+              {list.status && !/^draft$/i.test(list.status) && <span className="mk__tag">{list.status}</span>}
+            </div>
+            <h1 className="mk__h1" style={{ marginTop: '.5rem' }}>{list.name}</h1>
+          </div>
 
-                      {/* Guest Sign-in Signup Sub-Toggles */}
-                      <div className="flex justify-center border-b border-neutral-100 pb-3 gap-4">
-                        <button 
-                          onClick={() => setAuthTab('signin')} 
-                          className={`text-[10px] font-black uppercase tracking-widest ${authTab === 'signin' ? 'text-[#ff4f3a] border-b-2 border-[#ff4f3a]' : 'text-neutral-400'}`}
-                        >
-                          Sign In
-                        </button>
-                        <button 
-                          onClick={() => setAuthTab('register')} 
-                          className={`text-[10px] font-black uppercase tracking-widest ${authTab === 'register' ? 'text-[#ff4f3a] border-b-2 border-[#ff4f3a]' : 'text-neutral-400'}`}
-                        >
-                          Create Account
-                        </button>
-                      </div>
+          {list.ownerId && (
+            <div className="mk__note" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+              <div>
+                <p className="mk__label">Seller</p>
+                <p style={{ fontWeight: 700, color: 'var(--ink)' }}>
+                  {sellerProfile?.storeName || sellerProfile?.displayName || (list.ownerEmail ? list.ownerEmail.split('@')[0] : 'Not named')}
+                </p>
+                {sellerProfile?.storeBio && <p style={{ marginTop: '.125rem' }}>{sellerProfile.storeBio}</p>}
+              </div>
+              <a href={`#/shop/${list.ownerId}`} className="mk__btn" style={{ minHeight: '2.25rem', padding: '.375rem .875rem', fontSize: '.75rem', flex: 'none' }}>
+                Visit store
+              </a>
+            </div>
+          )}
 
-                      <form onSubmit={handleInlineAuth} className="space-y-3 text-left">
-                        {authTab === 'register' && (
-                          <div className="space-y-1">
-                            <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-400">Full Public Operator Name</label>
-                            <input
-                              type="text"
-                              required
-                              placeholder="e.g. Epeli Qele"
-                              value={authDisplayName}
-                              onChange={(e) => setAuthDisplayName(e.target.value)}
-                              className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-900"
-                            />
-                          </div>
-                        )}
+          <div>
+            <p className="mk__label">Description</p>
+            <div style={{ marginTop: '.375rem', fontSize: '.875rem', lineHeight: 1.6 }} className="prose max-w-none">
+              <ReactMarkdown>{list.marketplaceDetails || list.description || 'No description added yet.'}</ReactMarkdown>
+            </div>
+          </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-400">Operator Email Address</label>
-                          <input
-                            type="email"
-                            required
-                            placeholder="epeli@packertools.com"
-                            value={authEmail}
-                            onChange={(e) => setAuthEmail(e.target.value)}
-                            className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-900"
-                          />
-                        </div>
+          <div className="mk-rates">
+            <div>
+              <p className="mk__label">Price</p>
+              <p className="mk-price">
+                {list.marketplacePrice ? `${currencySymbol}${fmtPrice(list.marketplacePrice)}` : 'Ask seller'}
+                {list.marketplacePrice ? <span> {isRentalOffer ? '/day' : 'outright'}</span> : null}
+              </p>
+            </div>
+            <div>
+              <p className="mk__label">{isFijiBuyer ? 'Fiji VAT' : 'Tax'}</p>
+              <p style={{ fontWeight: 700 }}>
+                {isFijiBuyer
+                  ? `${globalSettings?.taxConfig?.fijiVatRate ?? 15}% (${(globalSettings?.taxConfig?.fijiVatType || 'VIP') === 'VIP' ? 'included' : 'added at checkout'})`
+                  : `${globalSettings?.taxConfig?.otherCountriesTaxRates?.[activeCountry]?.rate ?? 10}%`}
+              </p>
+            </div>
+          </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-400">Access Key Password</label>
-                          <input
-                            type="password"
-                            required
-                            placeholder="••••••••"
-                            value={authPassword}
-                            onChange={(e) => setAuthPassword(e.target.value)}
-                            className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-900 animate-none"
-                          />
-                        </div>
+          <div className="bk">
+            <div className="mk-tabs" style={{ margin: '1rem' }}>
+              <button type="button" aria-selected={activeActionTab === 'checkout'} onClick={() => setActiveActionTab('checkout')}>
+                {isRentalOffer ? 'Book' : 'Buy'}
+              </button>
+              <button type="button" aria-selected={activeActionTab === 'enquiry'} onClick={() => setActiveActionTab('enquiry')}>
+                Message seller
+              </button>
+            </div>
 
-                        <button
-                          type="submit"
-                          disabled={authFormLoading}
-                          className="w-full py-3 bg-[#ff4f3a] hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] rounded-xl shadow transition flex items-center justify-center gap-2"
-                        >
-                          {authFormLoading ? 'Verifying Credentials...' : authTab === 'signin' ? 'Verify Sign-In Account' : 'Register Operator Card'}
-                        </button>
-                      </form>
+            {activeActionTab === 'checkout' && (
+              <div className="bk__body" style={{ paddingTop: 0 }}>
+                {!currentUser ? (
+                  <div style={{ display: 'grid', gap: '1rem', textAlign: 'center' }}>
+                    <div>
+                      <Lock size={22} style={{ margin: '0 auto .5rem', color: 'var(--hazard)' }} />
+                      <h4 style={{ fontWeight: 800, fontSize: '.875rem' }}>Sign in to book</h4>
+                      <p className="bk__note" style={{ marginTop: '.25rem' }}>Sign in or create an account to send a request.</p>
                     </div>
-                  ) : bookingSuccess ? (
-                    <div className="p-6 bg-green-50/50 border border-green-200 rounded-2xl text-center space-y-3">
-                      <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
-                        <CheckCircle2 size={24} />
-                      </div>
-                      <h4 className="font-extrabold uppercase text-xs tracking-wider text-green-800">Booking Reservation Held!</h4>
-                      <p className="text-[11px] text-green-700">Digital escrow holds secured. The verified seller has been notified. Check your operational listing panel or mailbox for instructions.</p>
-                      <button 
-                        onClick={() => setBookingSuccess(false)}
-                        className="text-[10px] font-black uppercase tracking-widest text-[#ff4f3a] hover:underline block mx-auto pt-2"
-                      >
-                        Secure another Hold
-                      </button>
+
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', borderBottom: '2px solid var(--concrete)', paddingBottom: '.75rem' }}>
+                      <button type="button" onClick={() => setAuthTab('signin')} className="mk__label" style={{ background: 'none', border: 'none', cursor: 'pointer', color: authTab === 'signin' ? 'var(--hazard)' : 'var(--ink-soft)' }}>Sign in</button>
+                      <button type="button" onClick={() => setAuthTab('register')} className="mk__label" style={{ background: 'none', border: 'none', cursor: 'pointer', color: authTab === 'register' ? 'var(--hazard)' : 'var(--ink-soft)' }}>Create account</button>
                     </div>
-                  ) : (
-                    <form onSubmit={handleSecureCheckout} className="space-y-4">
-                      {/* Dates selections ONLY if rental */}
-                      {isRentalOffer && (
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-400 flex items-center gap-1">
-                              <Calendar size={11} /> Start Hire Date
-                            </label>
-                            <input
-                              type="date"
-                              required
-                              value={bookingStartDate}
-                              onChange={(e) => setBookingStartDate(e.target.value)}
-                              className="w-full p-3 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-900 font-mono"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-400 flex items-center gap-1">
-                              <Calendar size={11} /> End Hire Date
-                            </label>
-                            <input
-                              type="date"
-                              required
-                              value={bookingEndDate}
-                              onChange={(e) => setBookingEndDate(e.target.value)}
-                              className="w-full p-3 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-900 font-mono"
-                            />
-                          </div>
+
+                    <form onSubmit={handleInlineAuth} style={{ display: 'grid', gap: '.75rem', textAlign: 'left' }}>
+                      {authTab === 'register' && (
+                        <div className="bk__field">
+                          <label className="bk__label" htmlFor="mv-name">Your name</label>
+                          <input id="mv-name" className="bk__input" type="text" required placeholder="e.g. Epeli Qele" value={authDisplayName} onChange={(e) => setAuthDisplayName(e.target.value)} />
                         </div>
                       )}
-
-                      {/* Personal Contact verify signoffs */}
-                      <div className="p-4 bg-white border border-neutral-150 rounded-2xl space-y-3">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400 block mb-1">Contractor Co-Signee Details</span>
-                        
-                        <div className="space-y-1">
-                          <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-400">Co-Signee Legal Name</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Epeli Qele"
-                            value={bookingClientName}
-                            onChange={(e) => setBookingClientName(e.target.value)}
-                            className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-900"
-                          />
+                      <div className="bk__field">
+                        <label className="bk__label" htmlFor="mv-email">Email</label>
+                        <input id="mv-email" className="bk__input" type="email" required value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
+                      </div>
+                      <div className="bk__field">
+                        <label className="bk__label" htmlFor="mv-pass">Password</label>
+                        <input id="mv-pass" className="bk__input" type="password" required value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} />
+                      </div>
+                      <button type="submit" disabled={authFormLoading} className="bk__btn">
+                        {authFormLoading ? 'Checking...' : authTab === 'signin' ? 'Sign in' : 'Create account'}
+                      </button>
+                    </form>
+                  </div>
+                ) : bookingSuccess ? (
+                  <div className="bk__done">
+                    <h4>Request sent</h4>
+                    <p>The seller has your details and will confirm with you directly.</p>
+                    <button type="button" className="bk__btn bk__btn--quiet" onClick={() => setBookingSuccess(false)}>Send another request</button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSecureCheckout} style={{ display: 'grid', gap: '1rem' }}>
+                    {isRentalOffer && (
+                      <div className="bk__row">
+                        <div className="bk__field">
+                          <label className="bk__label" htmlFor="mv-start"><Calendar size={11} style={{ display: 'inline', marginRight: 3, verticalAlign: -1 }} />Pickup date</label>
+                          <input id="mv-start" className="bk__input" type="date" required value={bookingStartDate} onChange={(e) => setBookingStartDate(e.target.value)} />
                         </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-400">Contractor Email</label>
-                            <input
-                              type="email"
-                              required
-                              placeholder="epeli@gmail.com"
-                              value={bookingClientEmail}
-                              onChange={(e) => setBookingClientEmail(e.target.value)}
-                              className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-900"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-400">Operator Phone</label>
-                            <input
-                              type="text"
-                              required
-                              placeholder="+679 999 5555"
-                              value={bookingClientPhone}
-                              onChange={(e) => setBookingClientPhone(e.target.value)}
-                              className="w-full p-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-900"
-                            />
-                          </div>
+                        <div className="bk__field">
+                          <label className="bk__label" htmlFor="mv-end"><Calendar size={11} style={{ display: 'inline', marginRight: 3, verticalAlign: -1 }} />Return date</label>
+                          <input id="mv-end" className="bk__input" type="date" required value={bookingEndDate} onChange={(e) => setBookingEndDate(e.target.value)} />
                         </div>
                       </div>
+                    )}
 
-                      {/* Financial Quote breakdowns */}
-                      {getCalculatedFees().subtotal > 0 && (
-                        <div className="border border-neutral-100 p-4 rounded-xl bg-white space-y-2">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400">Subtotal Hire Breakdown</span>
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-neutral-500 font-medium">Daily Value Total:</span>
-                            <span className="font-bold text-neutral-900 font-mono">{currencySymbol}{getCalculatedFees().subtotal}</span>
+                    <fieldset className="bk__fs">
+                      <legend>Your details</legend>
+                      <div className="bk__field">
+                        <label className="bk__label" htmlFor="mv-cname">Name</label>
+                        <input id="mv-cname" className="bk__input" type="text" required value={bookingClientName} onChange={(e) => setBookingClientName(e.target.value)} />
+                      </div>
+                      <div className="bk__row">
+                        <div className="bk__field">
+                          <label className="bk__label" htmlFor="mv-cemail">Email</label>
+                          <input id="mv-cemail" className="bk__input" type="email" required value={bookingClientEmail} onChange={(e) => setBookingClientEmail(e.target.value)} />
+                        </div>
+                        <div className="bk__field">
+                          <label className="bk__label" htmlFor="mv-cphone">Phone (optional)</label>
+                          <input id="mv-cphone" className="bk__input" type="text" value={bookingClientPhone} onChange={(e) => setBookingClientPhone(e.target.value)} />
+                        </div>
+                      </div>
+                    </fieldset>
+
+                    {getCalculatedFees().subtotal > 0 && (() => {
+                      const fees = getCalculatedFees();
+                      return (
+                        <div className="bk__sum">
+                          <div className="bk__line">
+                            <span>{isRentalOffer ? `${currencySymbol}${fmtPrice(list.marketplacePrice)} × ${getRentDurationInDays()} ${getRentDurationInDays() === 1 ? 'day' : 'days'}` : 'Purchase price'}</span>
+                            <span>{currencySymbol}{fees.subtotal.toLocaleString()}</span>
                           </div>
-                          {isRentalOffer && (
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="text-neutral-500 font-medium">Full Comprehensive Waiver:</span>
-                              <span className="font-bold text-neutral-900 font-mono">{currencySymbol}30</span>
+                          {fees.deposit > 0 && (
+                            <div className="bk__line">
+                              <span>Refundable deposit</span>
+                              <span>{currencySymbol}{fees.deposit.toLocaleString()}</span>
                             </div>
                           )}
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-neutral-500 font-medium">Estimated tax ({getCalculatedFees().taxPercent}%):</span>
-                            <span className="font-bold text-neutral-900 font-mono">{currencySymbol}{getCalculatedFees().taxAmount.toFixed(2)}</span>
+                          <div className="bk__line">
+                            <span>{isFijiBuyer ? 'Fiji VAT' : 'Tax'} ({fees.taxPercent}%){fees.isInclusive ? ' included' : ''}</span>
+                            <span>{fees.isInclusive ? '' : '+'}{currencySymbol}{fees.taxAmount.toFixed(2)}</span>
                           </div>
-                          <div className="flex justify-between items-center text-xs border-t border-neutral-100 pt-2">
-                            <span className="text-neutral-800 font-extrabold uppercase tracking-tight">Est. Total:</span>
-                            <span className="font-black text-md text-[#ff4f3a] font-mono">{currencySymbol}{getCalculatedFees().totalValue.toFixed(2)}</span>
+                          <div className="bk__line bk__line--total">
+                            <span>Estimated total</span>
+                            <span>{currencySymbol}{fees.totalValue.toFixed(2)}</span>
                           </div>
+                          <p className="bk__note">The seller confirms this request. Nothing is charged here.</p>
                         </div>
-                      )}
+                      );
+                    })()}
 
-                      <button
-                        type="submit"
-                        disabled={bookingLoading}
-                        className="w-full py-4 bg-black hover:bg-neutral-900 text-white font-black uppercase tracking-widest text-[10px] rounded-[1.5rem] shadow-xl transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer"
-                      >
-                        {bookingLoading ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <>
-                            <span>{isRentalOffer ? '🔒 Secure Interactive Hold' : '🛒 Fast Buy Outright'}</span>
-                            <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
-                          </>
-                        )}
-                      </button>
-                    </form>
-                  )}
-                </div>
-              )}
+                    <button type="submit" disabled={bookingLoading} className="bk__btn">
+                      {bookingLoading ? 'Sending...' : (isRentalOffer ? 'Send booking request' : 'Send purchase request')}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
 
-              {/* ACTION TAB 2: Enquiry Form */}
-              {activeActionTab === 'enquiry' && (
-                <div className="space-y-4">
-                  {enquirySuccess ? (
-                    <div className="p-6 bg-amber-50 border border-amber-250 rounded-2xl text-center space-y-2">
-                      <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
-                        <MessageSquare size={24} />
-                      </div>
-                      <h4 className="font-extrabold uppercase text-xs tracking-wider text-amber-800 font-black">Enquiry Sent!</h4>
-                      <p className="text-[11px] text-amber-700">Your message was successfully transmitted to the verified vendor. We will alert you when a reply arrives.</p>
-                      <button 
-                        onClick={() => setEnquirySuccess(false)}
-                        className="text-[10px] font-black uppercase tracking-widest text-[#ff4f3a] hover:underline block mx-auto pt-2"
-                      >
-                        Send another massage
-                      </button>
+            {activeActionTab === 'enquiry' && (
+              <div className="bk__body" style={{ paddingTop: 0 }}>
+                {enquirySuccess ? (
+                  <div className="bk__done">
+                    <h4>Message sent</h4>
+                    <p>The seller has your message and will reply to your account email.</p>
+                    <button type="button" className="bk__btn bk__btn--quiet" onClick={() => setEnquirySuccess(false)}>Send another message</button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSendEnquiry} style={{ display: 'grid', gap: '1rem' }}>
+                    <div className="bk__field">
+                      <label className="bk__label" htmlFor="mv-enquiry">Message to the seller</label>
+                      <textarea id="mv-enquiry" className="bk__input" rows={4} required value={enquiryMessage} onChange={(e) => setEnquiryMessage(e.target.value)} placeholder="Ask about availability, terms, or pickup" />
                     </div>
+                    <button type="submit" disabled={enquiryLoading} className="bk__btn">
+                      {enquiryLoading ? 'Sending...' : 'Send message'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mk-detail__pane mk-detail__pane--dark">
+        <div className="mk-detail__inner">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '2px solid #333', paddingBottom: '1rem' }}>
+            <div>
+              <h2 className="mk__h1" style={{ fontSize: '1.5rem', color: 'var(--tape)' }}>Included items</h2>
+              <p style={{ color: '#9AA1A6', fontSize: '.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.03em' }}>{items.length} {items.length === 1 ? 'item' : 'items'}</p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
+              <button
+                onClick={() => {
+                  navigator.share({
+                    title: `${list.name} | Packer Marketplace`,
+                    text: list.marketplaceDetails || list.description,
+                    url: window.location.href
+                  }).catch(() => {
+                    navigator.clipboard.writeText(window.location.href);
+                    toast.success('Link copied.');
+                  });
+                }}
+                className="mk-modal__close"
+                style={{ background: 'transparent', borderColor: '#333', color: '#fff' }}
+                title="Share"
+              >
+                <Share2 size={16} />
+              </button>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: '.6875rem', color: '#9AA1A6', fontWeight: 700, textTransform: 'uppercase' }}>Price</p>
+                <p className="mk-price" style={{ fontSize: '1.25rem', color: 'var(--tape)' }}>{list.marketplacePrice ? `${currencySymbol}${fmtPrice(list.marketplacePrice)}` : 'Ask seller'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mk-included">
+            {items.map((item, index) => (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+                key={item.id}
+                className="mk-included-item"
+              >
+                <div className="mk-included-item__thumb">
+                  {item.photoUrls?.[0] ? (
+                    <img src={item.photoUrls[0]} alt={item.name} referrerPolicy="no-referrer" />
                   ) : (
-                    <form onSubmit={handleSendEnquiry} className="space-y-4">
-                      <div className="space-y-1">
-                        <label className="text-[8.5px] font-black uppercase tracking-widest text-neutral-400">Message to merchant</label>
-                        <textarea
-                          rows={4}
-                          required
-                          value={enquiryMessage}
-                          onChange={(e) => setEnquiryMessage(e.target.value)}
-                          placeholder="Ask about rental slots, custom terms, pricing flexibility or pickup variations..."
-                          className="w-full p-4 bg-white border border-neutral-200 rounded-2xl text-xs font-medium outline-none text-neutral-800 resize-none"
-                        />
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={enquiryLoading}
-                        className="w-full py-4 bg-neutral-900 hover:bg-neutral-800 text-white font-black uppercase tracking-widest text-[10px] rounded-[1.5rem] transition shadow flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        {enquiryLoading ? 'Dispatched hold...' : '💬 Send Enquiry Mailbox'}
-                      </button>
-                    </form>
+                    <Package size={22} style={{ color: '#666' }} />
                   )}
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Pane: Included Items List */}
-        <div className="bg-[#1A1A1A] text-white p-6 md:p-12 lg:p-16 overflow-y-auto max-h-screen">
-          <div className="max-w-xl mx-auto space-y-12">
-            <header className="flex justify-between items-end border-b border-white/5 pb-6">
-              <div>
-                <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Included Items</h2>
-                <p className="text-[10.5px] uppercase tracking-widest text-neutral-500 font-bold">{items.length} Fully cataloged kit pieces</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <button 
-                  onClick={() => {
-                    navigator.share({
-                      title: `${list.name} | Marketplace`,
-                      text: list.marketplaceDetails || list.description,
-                      url: window.location.href
-                    }).catch(() => {
-                      navigator.clipboard.writeText(window.location.href);
-                      toast.success('Listing URL copied to clipboard!');
-                    });
-                  }}
-                  className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 transition text-white/80 hover:text-white"
-                  title="Share Item"
-                >
-                  <Share2 size={20} />
-                </button>
-                <div className="text-right">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-neutral-500 mb-0.5">Valuation</div>
-                  <div className="text-2xl font-black font-sans tracking-tight">
-                    {list.marketplacePrice ? `${currencySymbol}${list.marketplacePrice}` : 'N/A'}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h4 style={{ fontWeight: 700, color: 'var(--tape)', fontSize: '.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</h4>
+                  <div style={{ display: 'flex', gap: '.5rem', marginTop: '.25rem', flexWrap: 'wrap' }}>
+                    <span className="mk__tag" style={{ borderColor: '#444', fontSize: '.625rem' }}>{item.assetTag || 'No tag'}</span>
+                    {item.aiLabel && <span className="mk__tag" style={{ borderColor: '#444', fontSize: '.625rem' }}>{item.aiLabel}</span>}
                   </div>
-                </div>
-              </div>
-            </header>
-
-            {/* Render Visual Items Cards */}
-            <div className="space-y-4">
-              {items.map((item, index) => (
-                <motion.div 
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  key={item.id}
-                  className="bg-white/5 border border-white/10 p-5 rounded-[2rem] flex items-center gap-6 hover:bg-white/10 transition-all group"
-                >
-                  <div className="w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 border border-white/5">
-                    {item.photoUrls?.[0] ? (
-                      <img 
-                        src={item.photoUrls[0]} 
-                        alt={item.name} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <Package size={28} className="text-white/20" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-extrabold uppercase tracking-tight text-md text-white truncate">{item.name}</h4>
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-white/50 bg-white/5 px-2.5 py-1 rounded-md">
-                        TAG: {item.assetTag || 'NO-TAG'}
-                      </span>
-                      {item.aiLabel && (
-                        <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-white/10 px-2 py-0.5 rounded-full">
-                          {item.aiLabel}
-                        </span>
-                      )}
+                  {item.relatedItemIds && item.relatedItemIds.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.375rem', marginTop: '.5rem', alignItems: 'center' }}>
+                      <Link2 size={10} style={{ color: '#666' }} />
+                      {item.relatedItemIds.map(relatedId => {
+                        const relatedItem = items.find(i => i.id === relatedId);
+                        if (!relatedItem) return null;
+                        return <span key={relatedId} className="mk__tag" style={{ borderColor: '#444', fontSize: '.625rem' }}>{relatedItem.name}</span>;
+                      })}
                     </div>
-                    {item.relatedItemIds && item.relatedItemIds.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2.5 items-center">
-                        <Link2 size={10} className="text-white/40" />
-                        {item.relatedItemIds.map(relatedId => {
-                          const relatedItem = items.find(i => i.id === relatedId);
-                          if (!relatedItem) return null;
-                          return (
-                            <span 
-                              key={relatedId}
-                              className="text-[8.5px] font-bold uppercase tracking-widest text-white/60 bg-white/5 px-2 py-0.5 rounded-full border border-white/10"
-                            >
-                              {relatedItem.name}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <div className={`w-3 h-3 rounded-full ${
-                      item.status === 'packed' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-neutral-600'
-                    }`} />
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            <footer className="pt-12 border-t border-white/10 text-center space-y-4">
-              <p className="text-white/40 text-xs leading-relaxed max-w-sm mx-auto">
-                This packing list is powered by <a href="https://packer.tools" target="_blank" rel="noopener noreferrer" className="text-white font-bold hover:underline">Packer Tools</a>. 
-                Scan the QR code on the physical package to verify contents.
-              </p>
-              <div className="flex justify-center gap-3">
-                <a 
-                  href="https://packer.tools" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition text-white/60 hover:text-white"
-                >
-                  <ExternalLink size={18} />
-                </a>
-              </div>
-            </footer>
+                  )}
+                </div>
+                <div style={{ width: '.625rem', height: '.625rem', borderRadius: '50%', flex: 'none', background: item.status === 'packed' ? 'var(--ok)' : '#555' }} />
+              </motion.div>
+            ))}
           </div>
+
+          <footer style={{ paddingTop: '2rem', borderTop: '2px solid #333', textAlign: 'center', display: 'grid', gap: '1rem' }}>
+            <p style={{ color: '#9AA1A6', fontSize: '.75rem', lineHeight: 1.6, maxWidth: '22rem', margin: '0 auto' }}>
+              This listing is managed with <a href="https://packer.tools" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--tape)', fontWeight: 700 }}>Packer Tools</a>.
+            </p>
+          </footer>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
