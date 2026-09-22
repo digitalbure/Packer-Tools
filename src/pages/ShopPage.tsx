@@ -81,8 +81,10 @@ export default function ShopPage() {
           console.error("ShopPage: Error loading global settings currency:", settingsError);
         }
 
-        // 2. Fetch user profile
-        const userDocSnap = await getDoc(doc(db, 'users', uid));
+        // 2. Fetch the seller's public storefront profile. users/{uid} holds the full
+        // account (email, plan, API keys) and is owner/admin-only, so a shopfront reads
+        // the public copy the owner has published instead.
+        const userDocSnap = await getDoc(doc(db, 'publicProfiles', uid));
         if (!userDocSnap.exists()) {
           setError("This shopfront does not exist or has been disabled.");
           setLoading(false);
@@ -273,21 +275,21 @@ export default function ShopPage() {
                 </div>
                 <div className="min-w-0">
                   <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400 block">Website</span>
-                  {shopOwner.storeWebsite || shopOwner.website ? (
+                  {shopOwner.storeWebsite ? (
                     <a 
-                      href={shopOwner.storeWebsite || shopOwner.website} 
+                      href={shopOwner.storeWebsite} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="font-bold text-xs text-neutral-700 hover:text-[#ff4f3a] transition truncate block"
                     >
-                      {(shopOwner.storeWebsite || shopOwner.website)?.replace(/^https?:\/\/(www\.)?/, '')}
+                      {(shopOwner.storeWebsite)?.replace(/^https?:\/\/(www\.)?/, '')}
                     </a>
                   ) : (
                     <span className="text-neutral-400 text-xs italic">Not configured</span>
                   )}
                 </div>
               </div>
-              {(shopOwner.storeWebsite || shopOwner.website) && (
+              {(shopOwner.storeWebsite) && (
                 <ExternalLink size={12} className="text-neutral-300 group-hover:text-neutral-500 transition shrink-0" />
               )}
             </div>
@@ -300,11 +302,11 @@ export default function ShopPage() {
                 </div>
                 <div className="min-w-0">
                   <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400 block">Direct Email</span>
-                  <a 
-                    href={`mailto:${shopOwner.storeEmail || shopOwner.email}`}
+                  <a
+                    href={`mailto:${shopOwner.storeEmail}`}
                     className="font-bold text-xs text-neutral-700 hover:text-[#ff4f3a] transition truncate block"
                   >
-                    {shopOwner.storeEmail || shopOwner.email || "No email listed"}
+                    {shopOwner.storeEmail || "No email listed"}
                   </a>
                 </div>
               </div>
@@ -542,7 +544,7 @@ export default function ShopPage() {
                 {/* 2. Direct Email Action */}
                 <div className="flex items-center gap-4 p-5 bg-rose-50/30 hover:bg-rose-50/70 border border-rose-100 rounded-2xl group transition relative">
                   <a
-                    href={`mailto:${shopOwner.storeEmail || shopOwner.email}`}
+                    href={`mailto:${shopOwner.storeEmail}`}
                     className="absolute inset-0 z-0"
                   />
                   <div className="w-12 h-12 bg-[#ff4f3a] text-white rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-rose-500/10 z-10">
@@ -550,12 +552,12 @@ export default function ShopPage() {
                   </div>
                   <div className="flex-1 text-left z-10">
                     <span className="text-[8px] font-black tracking-widest uppercase text-[#ff4f3a] block">Email Inbox</span>
-                    <span className="font-extrabold text-neutral-800 text-xs truncate block max-w-[180px]">{shopOwner.storeEmail || shopOwner.email || "No email listed"}</span>
+                    <span className="font-extrabold text-neutral-800 text-xs truncate block max-w-[180px]">{shopOwner.storeEmail || "No email listed"}</span>
                   </div>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigator.clipboard.writeText(shopOwner.storeEmail || shopOwner.email || '');
+                      navigator.clipboard.writeText(shopOwner.storeEmail || '');
                       toast.success("Email copied to clipboard!");
                     }}
                     className="p-2 hover:bg-white text-neutral-400 hover:text-neutral-600 rounded-lg transition z-20"

@@ -130,17 +130,17 @@ export default function MarketplaceView() {
           metaDesc.setAttribute('content', listData.marketplaceDetails || listData.description || `View visual inventory for ${listData.name}`);
         }
 
-        // Fetch seller profile. Profiles are owner/admin-only, so this fails with
-        // permission-denied for every other visitor — that's expected, not an error,
-        // and must not stop the rest of the listing from loading.
+        // Fetch the seller's public storefront profile. users/{uid} is owner/admin-only;
+        // publicProfiles/{uid} holds only what the seller has chosen to publish, so a
+        // missing doc (seller hasn't set up a storefront) is normal, not an error.
         if (listData.ownerId) {
           try {
-            const sellerDoc = await getDoc(doc(db, 'users', listData.ownerId));
+            const sellerDoc = await getDoc(doc(db, 'publicProfiles', listData.ownerId));
             if (sellerDoc.exists()) {
               setSellerProfile(sellerDoc.data() as UserProfile);
             }
           } catch (sellerErr) {
-            console.warn('Seller profile not readable by this visitor:', sellerErr);
+            console.warn('Public profile not available for this seller:', sellerErr);
           }
         }
 

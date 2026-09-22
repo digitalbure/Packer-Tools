@@ -203,6 +203,14 @@ service cloud.firestore {
              (!('notes' in data) || (data.notes is string && data.notes.size() < 300));
     }
 
+    function isValidPublicProfile(data) {
+      return data.keys().hasOnly([
+        'displayName', 'photoURL', 'storeName', 'storeBio', 'storeLogo', 'storeCoverImage',
+        'storeWebsite', 'storeEmail', 'storePhone', 'storeTwitter', 'storeInstagram',
+        'storeLinkedin', 'storeFacebook', 'location', 'createdAt'
+      ]);
+    }
+
     function isValidOrganization(data) {
       return data.keys().hasAll(['name', 'slug']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
@@ -256,6 +264,13 @@ service cloud.firestore {
     // ===============================================================
 
     // 1. User Profiles & Subcollections
+    // Storefront fields a seller has chosen to make public (name, bio, contact links).
+    // Never holds email, plan, role or API keys — those stay on users/{userId} below.
+    match /publicProfiles/{userId} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isValidPublicProfile(incoming());
+    }
+
     match /users/{userId} {
       // Profiles contain email, plan, role and API keys: owner/admin only (was world-readable).
       allow read: if isOwner(userId) || isAdmin();

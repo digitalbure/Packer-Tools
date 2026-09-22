@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import OwnerDepositSetting from '../booking/OwnerDepositSetting';
+import { syncPublicProfile, backfillPublicProfileIfMissing } from '../marketplace/publicProfile';
 import { useLocation } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
@@ -119,10 +120,9 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
         storeFacebook
       };
       await updateDoc(userRef, updateData);
-      onUpdate({
-        ...user,
-        ...updateData
-      });
+      const updatedUser = { ...user, ...updateData };
+      onUpdate(updatedUser);
+      await syncPublicProfile(user.uid, updatedUser);
       toast.success("Shopfront profile updated successfully!");
     } catch (err) {
       console.error("Error saving store profile:", err);
@@ -168,6 +168,13 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
     };
     fetchUsage();
   }, [user, adminSettings]);
+
+  // One-time backfill: accounts with a storefront set up before publicProfiles existed
+  // get synced the first time they open this page, so their shopfront and seller card
+  // work without requiring them to re-save anything.
+  useEffect(() => {
+    if (user.uid) backfillPublicProfileIfMissing(user.uid, user);
+  }, [user.uid]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
