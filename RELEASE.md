@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.20.0`
+## Current Application Version: `v6.21.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,12 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🧹 Release: v6.21.0 (Dashboard: Removed the Fake Industry Sandboxes)
+*Released on: September 22, 2026*
+- Audited the main app Dashboard. Removed three panels — Construction "Safety & OSHA Audit Console", Automotive "Fleet Dispatch & Intake Tracker", and Sports "Game Day Athletic Training & Roster Console" — that showed realistic, interactive-looking management UI backed by nothing real: hardcoded compliance scores, a vehicle roster including placeholder names, a sports roster using real athletes' names, and "log" buttons that wrote random canned strings to component state that vanished on refresh. None of it ever touched Firestore.
+- Removed the now-dead `showSafetyConsole` / `showFleetDispatch` layout-preference toggles from Profile settings and `UserProfile.layoutPreferences`, since the panels they controlled no longer exist.
+- Dashboard bundle: 158.9 kB → 140.3 kB gzipped (29.2 kB), ~480 fewer lines in `Dashboard.tsx`.
 
 ### 🔧 Release: v6.20.0 (Kiosk Pairing, Actually Straightforward)
 *Released on: September 22, 2026*

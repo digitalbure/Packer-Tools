@@ -25,8 +25,24 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.20.0',
+      version: 'v6.21.0',
       tag: 'Latest',
+      tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Dashboard Cleanup',
+      date: 'September 2026',
+      icon: Sparkles,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Removed the fake industry sandboxes',
+          desc: "The Construction, Automotive and Sports dashboard panels showed realistic-looking OSHA compliance scores, fleet dispatch and team rosters that were never real — nothing persisted, and taps just wrote made-up log lines. They're gone.",
+          badge: 'Dashboard'
+        },
+      ],
+    },
+    {
+      version: 'v6.20.0',
+      tag: 'Stable',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Straightforward Kiosk Pairing',
       date: 'September 2026',
