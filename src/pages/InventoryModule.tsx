@@ -95,6 +95,9 @@ export interface CustomInventory {
     teamIds: string[];
   };
   collaborators?: { email: string; role: 'editor' | 'viewer' }[];
+  // Flat, queryable mirror of collaborators[].email (kept in sync on save) — lets `where('collaboratorEmails', 'array-contains', ...)`
+  // find "shared with me" inventories instead of downloading the whole collection to filter client-side.
+  collaboratorEmails?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -897,6 +900,9 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
         teamIds: visibilityTeams
       },
       collaborators: inventoryCollaborators,
+      // Flat, queryable mirror of collaborators[].email — lets dashboards `where('collaboratorEmails', 'array-contains', ...)`
+      // instead of downloading every inventory in the app to filter client-side.
+      collaboratorEmails: inventoryCollaborators.map(c => c.email.toLowerCase()),
       updatedAt: new Date().toISOString()
     };
 

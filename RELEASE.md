@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.22.0`
+## Current Application Version: `v6.22.1`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,12 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### ⚡ Patch: v6.22.1 (Dashboard's Inventories Listener, Scoped)
+*Released on: September 22, 2026*
+- Dashboard's Lists Hub listened to the entire `inventories` collection (every customer's custom inventories, platform-wide, in real time) and filtered down to "yours" in JavaScript after the fact. Replaced with three scoped listeners &mdash; owned (`where ownerId`), shared (`where collaboratorEmails array-contains`), and org-visible (`where visibility.orgIds array-contains`) &mdash; merged client-side. Platform admins keep the full listen, which they legitimately need.
+- Added `collaboratorEmails` (a flat, queryable mirror of `collaborators[].email`) to the inventory document, written whenever an inventory is saved, so "shared with me" can actually be queried instead of requiring a full scan. Existing inventories pick it up next time they're saved.
+- The Firestore rule for `inventories` is still fully open to any signed-in user (`allow read: if isSignedIn() || publicSharingEnabled`) &mdash; this patch stops the app's own well-behaved client from over-fetching, but doesn't close that off at the rules layer yet. Doing that safely also requires updating five more call sites (`InventoryModule.tsx`, `GearLibrary.tsx`, `KioskMode.tsx`, `PackingListDetail.tsx`, `DukeyAssistant.tsx`, `OrganizationModule.tsx`) that listen to the same unscoped collection, or a rules tightening would break them outright.
 
 ### 🐞 Release: v6.22.0 (Every "Upgrade Now" Button Now Actually Upgrades)
 *Released on: September 22, 2026*

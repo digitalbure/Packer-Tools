@@ -25,8 +25,24 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.22.0',
+      version: 'v6.22.1',
       tag: 'Latest',
+      tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Faster Dashboard Loads',
+      date: 'September 2026',
+      icon: Zap,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Dashboard loads fewer inventories you can’t see',
+          desc: "The dashboard used to load every customer's custom inventories to figure out which ones were yours. It now asks for just yours, ones shared with you, and ones your org can see.",
+          badge: 'Performance'
+        },
+      ],
+    },
+    {
+      version: 'v6.22.0',
+      tag: 'Stable',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Every Upgrade Button Fixed',
       date: 'September 2026',

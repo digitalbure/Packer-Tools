@@ -468,23 +468,47 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       handleFirestoreError(error, OperationType.LIST, 'bugs');
     });
 
-    // Real-time custom inventories subscriber for Lists Hub
-    const qInvs = query(collection(db, 'inventories'));
-    const unsubscribeInvs = onSnapshot(qInvs, (snapshot) => {
-      const fetchedInvs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const visible = fetchedInvs.filter((inv: any) => {
-        const isOrgAdmin = user?.role === 'owner' || user?.role === 'admin';
-        if (isOrgAdmin) return true;
-        if (inv.ownerId === user.uid) return true;
-        if (inv.ownerEmail && inv.ownerEmail.toLowerCase() === user.email?.toLowerCase()) return true;
-        if (inv.collaborators?.some((c: any) => c.email && c.email.toLowerCase() === user.email?.toLowerCase())) return true;
-        if (inv.visibility?.orgIds?.includes(user.orgId || '')) return true;
-        return false;
-      });
-      setInventories(visible);
-    }, (error) => {
-      console.error("Dashboard: Error listening to inventories:", error);
-    });
+    // Real-time custom inventories subscriber for Lists Hub. Scoped per-owner/collaborator/org instead
+    // of listening to the whole `inventories` collection and filtering client-side — that pulled every
+    // customer's inventories into every open dashboard (the read rule allows it for any signed-in user).
+    // Platform admins keep the unscoped listen; they legitimately need to see everything.
+    const isPlatformAdmin = user?.role === 'owner' || user?.role === 'admin';
+    const invUnsubs: Array<() => void> = [];
+
+    if (isPlatformAdmin) {
+      invUnsubs.push(onSnapshot(collection(db, 'inventories'), (snapshot) => {
+        setInventories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      }, (error) => console.error("Dashboard: Error listening to inventories:", error)));
+    } else {
+      let ownedInvs: any[] = [];
+      let sharedInvs: any[] = [];
+      let orgInvs: any[] = [];
+      const publishInvs = () => {
+        const merged = new Map<string, any>();
+        [...ownedInvs, ...sharedInvs, ...orgInvs].forEach(inv => merged.set(inv.id, inv));
+        setInventories(Array.from(merged.values()));
+      };
+
+      invUnsubs.push(onSnapshot(query(collection(db, 'inventories'), where('ownerId', '==', user.uid)), (snapshot) => {
+        ownedInvs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        publishInvs();
+      }, (error) => console.error("Dashboard: Error listening to owned inventories:", error)));
+
+      if (user.email) {
+        invUnsubs.push(onSnapshot(query(collection(db, 'inventories'), where('collaboratorEmails', 'array-contains', user.email.toLowerCase())), (snapshot) => {
+          sharedInvs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          publishInvs();
+        }, (error) => console.error("Dashboard: Error listening to shared inventories:", error)));
+      }
+
+      if (user.orgId) {
+        invUnsubs.push(onSnapshot(query(collection(db, 'inventories'), where('visibility.orgIds', 'array-contains', user.orgId)), (snapshot) => {
+          orgInvs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          publishInvs();
+        }, (error) => console.error("Dashboard: Error listening to org inventories:", error)));
+      }
+    }
+    const unsubscribeInvs = () => invUnsubs.forEach(unsub => unsub());
 
     return () => {
       unsubscribeLists();
