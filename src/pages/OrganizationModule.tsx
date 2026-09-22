@@ -3187,9 +3187,9 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
                     <span>How it works</span>
                   </h4>
                   <p className="text-[10px] text-neutral-400 leading-relaxed italic">
-                    1. Open the app on your kiosk tablet.<br/>
-                    2. Go to /kiosk to see the activation code.<br/>
-                    3. Enter that code here to link the device to your gear library.
+                    1. On the tablet, open Packer Tools and tap "Launch Fullscreen Kiosk" from the Kiosk page.<br/>
+                    2. It shows a 6-digit code that rotates every minute.<br/>
+                    3. Enter that code here (or on the Kiosk page's Manage Pairing Keys tab — same result) to link the device to your gear library.
                   </p>
                 </div>
               </div>

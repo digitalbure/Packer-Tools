@@ -156,10 +156,11 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
   
-  // Terminal creation & list states
-  const [showAddTerminalModal, setShowAddTerminalModal] = useState<boolean>(false);
-  const [newTerminalName, setNewTerminalName] = useState<string>('');
-  const [newTerminalMode, setNewTerminalMode] = useState<'both' | 'checkout' | 'checkin'>('both');
+  // Pairing a new tablet: the tablet shows a 6-digit code (see step 'activate' below); the owner types
+  // it in here. This is the only device-pairing path — there is no owner-side "create a kiosk" step,
+  // because a terminal doesn't exist until the tablet itself generates its code.
+  const [dashboardPairingCode, setDashboardPairingCode] = useState<string>('');
+  const [isAuthorizingTerminal, setIsAuthorizingTerminal] = useState<boolean>(false);
 
   // Scanner state for instant checkin/out
   const [isInstantScannerActive, setIsInstantScannerActive] = useState<boolean>(false);
@@ -700,59 +701,23 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     processAutoCheckInOut(scannedValue);
   };
 
-  const handleAddNewTerminal = async (e: React.FormEvent) => {
+  /** Owner types in the 6-digit code the tablet is showing. Server finds the pending terminal with that
+   *  code and hands it to this account — the only real pairing step in the whole flow. */
+  const handleAuthorizeTerminal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!initialUser?.uid) return;
-    if (!newTerminalName.trim()) {
-      toast.error("Please specify a terminal location or device name!");
+    if (dashboardPairingCode.trim().length !== 6) {
+      toast.error("Enter the 6-digit code shown on the tablet.");
       return;
     }
-
-    setIsLoading(true);
+    setIsAuthorizingTerminal(true);
     try {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      await addDoc(collection(db, 'terminals'), {
-        ownerUid: initialUser.uid,
-        deviceName: newTerminalName.trim(),
-        pairingCode: code,
-        status: 'pending',
-        lastActive: new Date().toISOString(),
-        settings: {
-          mode: newTerminalMode
-        },
-        customPreferences: {
-          welcomeMessage: kioskWelcomeMessage,
-          showBrand: showBrandSetting,
-          showCondition: showConditionSetting,
-          showHolder: showHolderSetting,
-          showCategory: showCategorySetting,
-          showQR: showQRSetting,
-          showTimestamp: showTimestampSetting
-        }
-      });
-
-      toast.success(`Kiosk "${newTerminalName}" successfully registered!`);
-      setNewTerminalName('');
-      setShowAddTerminalModal(false);
+      const result = await kioskApi.activateTerminal(dashboardPairingCode.trim());
+      toast.success(`"${result.deviceName}" is paired and ready!`);
+      setDashboardPairingCode('');
     } catch (err) {
-      console.error("Error creating terminal record:", err);
-      toast.error("Failed to register Kiosk device.");
+      toast.error(err instanceof KioskApiError ? err.message : "Pairing failed. Double-check the code and try again.");
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRegeneratePin = async (tId: string, deviceName: string) => {
-    try {
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      await updateDoc(doc(db, 'terminals', tId), {
-        pairingCode: code,
-        lastActive: new Date().toISOString()
-      });
-      toast.success(`Pairing PIN successfully rotated for ${deviceName}!`);
-    } catch (err) {
-      console.error("Error regenerating pairing PIN:", err);
-      toast.error("Failed to rotate pairing PIN.");
+      setIsAuthorizingTerminal(false);
     }
   };
 
@@ -2237,19 +2202,53 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
               exit={{ opacity: 0, y: -12 }}
               className="space-y-6"
             >
-              {/* Device Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-3xl border border-neutral-200 p-6 shadow-sm">
+              {/* Pair a tablet: the tablet generates the code, the owner enters it here. That's the whole flow. */}
+              <div className="bg-white rounded-3xl border border-neutral-200 p-6 shadow-sm space-y-6">
                 <div>
-                  <h3 className="text-base font-black uppercase tracking-tight text-neutral-955 text-neutral-900">Add & Manage Kiosk Devices</h3>
-                  <p className="text-xs text-neutral-400 font-medium">Register standalone android tablets or warehouse devices. Pair using security rotating PIN keys.</p>
+                  <h3 className="text-base font-black uppercase tracking-tight text-neutral-900">Pair a New Kiosk Tablet</h3>
+                  <p className="text-xs text-neutral-400 font-medium">Two steps: open the kiosk on the tablet, then enter its code here.</p>
                 </div>
-                <button
-                  onClick={() => setShowAddTerminalModal(true)}
-                  className="px-5 py-3 bg-[#F27D26] text-white hover:bg-[#F27D05] rounded-2xl text-xs font-black uppercase tracking-widest transition flex items-center gap-2 cursor-pointer"
-                >
-                  <Plus size={16} />
-                  Add Kiosk Device
-                </button>
+
+                <div className="grid sm:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <span className="w-6 h-6 shrink-0 rounded-full bg-neutral-900 text-white text-[11px] font-black flex items-center justify-center">1</span>
+                      <p className="text-xs text-neutral-600 font-medium leading-relaxed">
+                        On the tablet, open Packer Tools and tap <strong>Launch Fullscreen Kiosk</strong> above — or scan this QR code with the tablet's camera to jump straight there.
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span className="w-6 h-6 shrink-0 rounded-full bg-neutral-900 text-white text-[11px] font-black flex items-center justify-center">2</span>
+                      <p className="text-xs text-neutral-600 font-medium leading-relaxed">
+                        It'll show a 6-digit code. Type that code on the right and tap Authorize — the tablet connects immediately, no refresh needed.
+                      </p>
+                    </div>
+                    <div className="bg-white p-3 rounded-2xl border border-neutral-200 inline-flex flex-col items-center gap-2 mt-2">
+                      <QRCodeCanvas value={`${window.location.origin}/#/kiosk?fullscreen=true`} size={110} level="H" />
+                      <span className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest">Scan on the tablet</span>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleAuthorizeTerminal} className="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 space-y-3 self-start">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Code shown on the tablet</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="000000"
+                      value={dashboardPairingCode}
+                      onChange={(e) => setDashboardPairingCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      maxLength={6}
+                      className="w-full bg-white border border-neutral-250 rounded-2xl p-4 text-xl font-mono font-black tracking-[0.3em] text-center outline-none focus:border-[#F27D26]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isAuthorizingTerminal || dashboardPairingCode.length !== 6}
+                      className="w-full py-3.5 bg-[#F27D26] text-white hover:bg-[#F27D05] disabled:opacity-50 disabled:cursor-not-allowed rounded-2xl text-xs font-black uppercase tracking-widest transition cursor-pointer"
+                    >
+                      {isAuthorizingTerminal ? 'Authorizing…' : 'Authorize Device'}
+                    </button>
+                  </form>
+                </div>
               </div>
 
               {/* Terminals list Grid */}
@@ -2259,9 +2258,9 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                     <Tv size={32} />
                   </div>
                   <div className="space-y-1.5">
-                    <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800">No Terminals Registered</h4>
+                    <h4 className="text-sm font-black uppercase tracking-wider text-neutral-800">No Terminals Paired Yet</h4>
                     <p className="text-xs text-neutral-400 max-w-sm mx-auto font-medium leading-relaxed">
-                      Add a device tablet above to authorize standalone self-checkout stations without granting full account access.
+                      Follow the two steps above on a tablet to add your first self-checkout station.
                     </p>
                   </div>
                 </div>
@@ -2344,10 +2343,9 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
 
                           {terminal.status === 'pending' && (
                             <div className="bg-amber-50/50 border border-dashed border-amber-200 rounded-2xl p-4 text-center space-y-1">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-[#F27D26] block">Terminal Pairing Pin Key</span>
-                              <span className="text-2xl font-mono font-black tracking-widest text-neutral-800 block">{terminal.pairingCode}</span>
-                              <span className="text-[9px] text-amber-600/85 leading-normal block pt-1 font-semibold select-all">
-                                Enter this verification number on your new station panel to complete secure handshake activation.
+                              <span className="text-[10px] font-black uppercase tracking-widest text-[#F27D26] block">Waiting to be paired</span>
+                              <span className="text-[9px] text-amber-600/85 leading-normal block pt-1 font-semibold">
+                                This tablet hasn't been authorized yet — enter its code above.
                               </span>
                             </div>
                           )}
@@ -2355,14 +2353,8 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
 
                         <div className="flex gap-2 border-t border-neutral-100 pt-4">
                           <button
-                            onClick={() => handleRegeneratePin(terminal.id, terminal.deviceName)}
-                            className="flex-1 py-2.5 bg-neutral-50 border border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 rounded-xl text-[10px] font-black uppercase tracking-wider transition cursor-pointer"
-                          >
-                            Regen PIN
-                          </button>
-                          <button
                             onClick={() => handleRevokeTerminal(terminal.id, terminal.deviceName)}
-                            className="px-3.5 py-2.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 rounded-xl text-[10px] font-black uppercase tracking-wider transition cursor-pointer"
+                            className="flex-1 py-2.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 rounded-xl text-[10px] font-black uppercase tracking-wider transition cursor-pointer"
                           >
                             Revoke
                           </button>
@@ -2740,72 +2732,6 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
           )}
         </AnimatePresence>
 
-        {/* Modal: Register New Kiosk device */}
-        <AnimatePresence>
-          {showAddTerminalModal && (
-            <div className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-md flex items-center justify-center p-4">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="max-w-md w-full bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 space-y-6 shadow-2xl text-neutral-900"
-              >
-                <div className="flex justify-between items-center border-b border-neutral-100 pb-4">
-                  <h3 className="text-lg font-black uppercase tracking-tight text-neutral-900">Add Kiosk Station</h3>
-                  <button
-                    onClick={() => setShowAddTerminalModal(false)}
-                    className="p-1.5 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-neutral-600 hover:text-neutral-900 transition cursor-pointer"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-
-                <form onSubmit={handleAddNewTerminal} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Terminal Location / Device Label</label>
-                    <input
-                      type="text"
-                      required
-                      value={newTerminalName}
-                      onChange={(e) => setNewTerminalName(e.target.value)}
-                      placeholder="e.g. South Warehouse Tablet B"
-                      className="w-full bg-neutral-50 border border-neutral-250 rounded-2xl p-4 text-xs font-semibold text-neutral-800 outline-none focus:border-[#F27D26]"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-[#F27D26]">Initial Default Operational Mode</label>
-                    <select
-                      value={newTerminalMode}
-                      onChange={(e) => setNewTerminalMode(e.target.value as any)}
-                      className="w-full bg-neutral-50 border border-neutral-250 rounded-2xl p-4 text-xs font-semibold uppercase tracking-wider text-neutral-800 outline-none"
-                    >
-                      <option value="both">Both (Checkout & Check-In)</option>
-                      <option value="checkout">Checkout Only</option>
-                      <option value="checkin">Check-In Only</option>
-                    </select>
-                  </div>
-
-                  <div className="pt-4 flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowAddTerminalModal(false)}
-                      className="flex-1 py-3 border border-neutral-200 hover:bg-neutral-50 text-neutral-600 rounded-2xl text-xs font-black uppercase tracking-widest transition cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 py-4 bg-[#F27D26] hover:bg-[#F27D26]/95 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition cursor-pointer"
-                    >
-                      Create Pin Key
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
       </div>
     );
   }
@@ -3447,15 +3373,15 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
                 <div className="w-24 h-24 bg-white text-black rounded-[2rem] flex items-center justify-center mx-auto mb-8">
                   <ShieldCheck size={48} />
                 </div>
-                <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">Activate Terminal</h2>
-                <p className="text-neutral-400 font-medium font-bold">To use this device as a digital Gear Terminal, enter this activation code in your organization settings.</p>
+                <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter">Pair This Tablet</h2>
+                <p className="text-neutral-400 font-medium font-bold">On your dashboard, go to Kiosk → Manage Pairing Keys and enter the code below.</p>
               </div>
 
               <div className="flex flex-col items-center justify-center gap-6 bg-black/40 py-8 px-4 rounded-[2rem] border border-white/5">
                 <div className="text-4xl md:text-7xl font-mono font-black tracking-[0.2em] text-white">
                   {pairingCode}
                 </div>
-                
+
                 {/* Security Rotation Visual Countdown */}
                 <div className="flex items-center gap-2 justify-center bg-black/45 px-4 py-2 rounded-full border border-white/5 w-fit">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
@@ -3464,24 +3390,24 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
 
                 {pairingCode && (
                   <div className="bg-white p-4 rounded-2xl inline-block shadow-lg hover:scale-105 transition duration-300">
-                    <QRCodeCanvas 
+                    <QRCodeCanvas
                        value={`${window.location.origin}/organization?pair=${pairingCode}`}
                       size={140}
                       level="H"
                     />
-                    <p className="text-[9px] text-neutral-800 font-bold uppercase tracking-widest mt-2">Scan to auto-pair mobile device</p>
+                    <p className="text-[9px] text-neutral-800 font-bold uppercase tracking-widest mt-2">Or scan with your phone to pair from there</p>
                   </div>
                 )}
               </div>
 
               <div className="space-y-4">
-                <button 
+                <p className="text-[10px] text-neutral-500 uppercase tracking-[0.2em] font-black">Waiting for the code above to be entered...</p>
+                <button
                   onClick={handleActivate}
-                  className="w-full py-6 bg-white text-black rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition shadow-lg"
+                  className="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 text-neutral-300 rounded-2xl font-black uppercase tracking-widest text-xs transition"
                 >
-                  Instant Active Account Handshake
+                  Or pair instantly with the account signed in here
                 </button>
-                <p className="text-[10px] text-neutral-500 uppercase tracking-[0.2em] font-black">Waiting for secure handshake...</p>
               </div>
             </motion.div>
           ) : null}

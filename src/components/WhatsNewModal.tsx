@@ -25,8 +25,29 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.19.1',
+      version: 'v6.20.0',
       tag: 'Latest',
+      tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Straightforward Kiosk Pairing',
+      date: 'September 2026',
+      icon: QrCode,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Pairing a tablet actually works now',
+          desc: "Rebuilt kiosk setup around the one flow that was always meant to work: the tablet shows a 6-digit code, you type it into Kiosk → Manage Pairing Keys. Removed the old \"Add Kiosk Device\" button, which generated a PIN that no device could ever use.",
+          badge: 'Kiosk'
+        },
+        {
+          title: 'Scan to pair',
+          desc: 'A QR code on the Manage Pairing Keys tab opens the kiosk screen directly on a new tablet’s camera — no typing a URL by hand.',
+          badge: 'Kiosk'
+        },
+      ],
+    },
+    {
+      version: 'v6.19.1',
+      tag: 'Stable',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Claude Connector, Security Hardening, Safer Kiosk Check-outs & Working Email',
       date: 'September 2026',

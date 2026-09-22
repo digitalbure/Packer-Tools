@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.19.1`
+## Current Application Version: `v6.20.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,15 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🔧 Release: v6.20.0 (Kiosk Pairing, Actually Straightforward)
+*Released on: September 22, 2026*
+- Fixed the core disconnect in kiosk setup: the dashboard's old "Add Kiosk Device" button created a PIN with no device to match it to — no tablet could ever consume it. Removed it entirely.
+- Pairing is now one direction only, matching how it actually works server-side: the tablet (on `/kiosk`, fullscreen) generates and shows a 6-digit code; the owner types that code into Kiosk → Manage Pairing Keys on the dashboard to claim it. Same server-verified `kioskApi.activateTerminal` call used by Organization → Terminals.
+- Added a QR code on the Manage Pairing Keys tab that opens the fullscreen kiosk screen directly on a new tablet's camera.
+- Removed the now-pointless "Regen PIN" control and the dead pending-terminal PIN card (both existed only to service the broken flow).
+- Rewrote the on-device activation screen's copy to say exactly where to enter its code, and relabeled the same-device self-pair shortcut so it reads as the alternate path it is, not the primary one.
+- Aligned the wording on Organization → Terminals with the same steps so the two pairing entry points no longer describe the flow differently.
 
 ### 🏷️ Release: v6.11.0 (Marketplace: Booking Request Widget and Pickup Points)
 *Released on: September 22, 2026*
