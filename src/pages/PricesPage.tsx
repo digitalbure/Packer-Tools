@@ -4,7 +4,7 @@ import { db, signInWithGoogle } from '../firebase';
 import { AdminSettings, Plan, UserProfile } from '../types';
 import { motion } from 'motion/react';
 import { Check, HelpCircle, ArrowLeft, ShieldCheck, Mail, RefreshCw, Sparkles, CreditCard, ExternalLink, HelpCircle as QuestionIcon } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import Paywall from '../components/Paywall';
 
@@ -20,6 +20,20 @@ export default function PricesPage({ user, onUpdateUser, adminSettings }: Prices
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [paywallPlanId, setPaywallPlanId] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Arriving from a feature gate elsewhere in the app (e.g. /prices?plan=pro) opens checkout
+  // directly instead of making the person find and click the plan card themselves.
+  useEffect(() => {
+    const requestedPlan = searchParams.get('plan');
+    if (requestedPlan) {
+      if (!user) {
+        toast.info("Sign in first, then pick a plan to upgrade.");
+        return;
+      }
+      setPaywallPlanId(requestedPlan);
+    }
+  }, [searchParams, user]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'adminSettings', 'global'), (docSnap) => {

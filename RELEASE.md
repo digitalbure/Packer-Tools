@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.21.0`
+## Current Application Version: `v6.21.1`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,11 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🐞 Patch: v6.21.1 (Dashboard's Kiosk Upgrade Button Actually Upgrades)
+*Released on: September 22, 2026*
+- The Kiosk Terminal Hub's "Simulate Instant Upgrade to Pro" button wrote `plan: 'pro'` straight to Firestore from the client. Your own security rules correctly block that for non-admins (`isUnchanged('plan')`), so it always failed with "Failed to upgrade plan." for every real user. Replaced it with a real "Upgrade to Pro" button that sends the person to `/prices?plan=pro`.
+- `/prices` now opens the real, server-verified checkout (PayPal or the free-plan activation endpoint) immediately when arriving with a `?plan=` query param, instead of requiring the person to find and click the plan card themselves.
 
 ### 🧹 Release: v6.21.0 (Dashboard: Removed the Fake Industry Sandboxes)
 *Released on: September 22, 2026*

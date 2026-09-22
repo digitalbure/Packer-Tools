@@ -1591,20 +1591,11 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
                           <span>Your active {user.plan || 'Free'} plan does not include Kiosk Station licensing.</span>
                         </div>
                         <button
-                          onClick={async () => {
-                            try {
-                              const userRef = doc(db, 'users', user.uid);
-                              await updateDoc(userRef, { plan: 'pro' });
-                              toast.success("Simulated upgrade successful! Kiosk Mode is now unlocked. Reloading to apply changes.");
-                              window.location.reload();
-                            } catch (e) {
-                              toast.error("Failed to upgrade plan.");
-                            }
-                          }}
+                          onClick={() => navigate('/prices?plan=pro')}
                           className="px-5 py-3 bg-neutral-900 border border-neutral-800 hover:bg-black text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition duration-150 flex items-center gap-2 shadow-lg"
                         >
                           <Zap size={14} className="text-amber-400 fill-amber-400" />
-                          <span>Simulate Instant Upgrade to Pro</span>
+                          <span>Upgrade to Pro</span>
                         </button>
                       </div>
                     ) : (
