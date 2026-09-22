@@ -1,4 +1,4 @@
-# Kiosk API (v6.12.1)
+# Kiosk API (v6.13.0)
 
 Server endpoints that let a kiosk device act for **one** owner without holding that owner's account.
 Source: `server/routes/kiosk.ts`, `server/kiosk/*`. Tests: `tests/kiosk-api-e2e.mts`.

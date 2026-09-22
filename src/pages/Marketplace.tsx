@@ -112,13 +112,13 @@ interface CrewItem {
 }
 
 const CATEGORIES: CategoryItem[] = [
-  { id: 'cinema-cameras', name: 'Cinema Cameras', count: 18960, image: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=400' },
-  { id: 'cinema-lenses', name: 'Cinema Lenses', count: 10646, image: 'https://images.unsplash.com/photo-1617005082133-5c8cdd97eadd?auto=format&fit=crop&q=80&w=400' },
-  { id: 'photography-lenses', name: 'Photography Lenses', count: 6830, image: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400' },
-  { id: 'still-hybrid', name: 'Still / Hybrid Cameras', count: 3055, image: 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?auto=format&fit=crop&q=80&w=400' },
-  { id: 'lighting-electric', name: 'Lighting / Electric', count: 16502, image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&q=80&w=400' },
-  { id: 'audio', name: 'Audio Gear', count: 8620, image: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&q=80&w=400' },
-  { id: 'ge-packages', name: 'G&E Packages', count: 618, image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=400' },
+  { id: 'cinema-cameras', name: 'Cinema Cameras', count: 0, image: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=400' },
+  { id: 'cinema-lenses', name: 'Cinema Lenses', count: 0, image: 'https://images.unsplash.com/photo-1617005082133-5c8cdd97eadd?auto=format&fit=crop&q=80&w=400' },
+  { id: 'photography-lenses', name: 'Photography Lenses', count: 0, image: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400' },
+  { id: 'still-hybrid', name: 'Still / Hybrid Cameras', count: 0, image: 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?auto=format&fit=crop&q=80&w=400' },
+  { id: 'lighting-electric', name: 'Lighting / Electric', count: 0, image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&q=80&w=400' },
+  { id: 'audio', name: 'Audio Gear', count: 0, image: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&q=80&w=400' },
+  { id: 'ge-packages', name: 'G&E Packages', count: 0, image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=400' },
 ];
 
 const POPULAR_PRODUCTS: ProductItem[] = [];
@@ -234,8 +234,8 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
           category: data.category || 'cinema-cameras',
           price: Number(data.marketplacePrice || 0),
           originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
-          rating: 5.0,
-          reviews: 1,
+          rating: 0,
+          reviews: 0,
           image: data.image || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400',
           ownerName: data.ownerEmail ? data.ownerEmail.split('@')[0] : 'Owner',
           ownerId: data.ownerId || '',
@@ -514,7 +514,8 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     }, 0) * (selectedProduct.isSale ? 1 : bookingDays);
     const subtotal = baseSubtotal + addonsSum;
     
-    const damageWaiver = selectedProduct.isSale ? 0 : (isFiji ? 30 : 15);
+    // No platform damage waiver is charged; owners and renters agree on any deposit or damage cover themselves.
+    const damageWaiver = 0;
     
     let taxPercent = 0;
     let isInclusive = true;
@@ -1469,9 +1470,11 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                       className="w-full h-full object-cover transform hover:scale-110 transition duration-300"
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute bottom-1.5 right-1.5 bg-neutral-900/80 text-white font-mono text-[7.5px] font-bold uppercase tracking-widest px-2 py-0.5 rounded">
-                      {cat.count.toLocaleString()} Listings
-                    </div>
+                    {cat.count > 0 && (
+                      <div className="absolute bottom-1.5 right-1.5 bg-neutral-900/80 text-white font-mono text-[7.5px] font-bold uppercase tracking-widest px-2 py-0.5 rounded">
+                        {cat.count.toLocaleString()} listings
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-0.5 px-0.5">
                     <p className="text-[10px] font-black uppercase text-neutral-800 line-clamp-1 truncate">{cat.name}</p>
@@ -1775,11 +1778,13 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
                       <div className="space-y-2">
                         {/* Rating row */}
-                        <div className="flex items-center gap-1">
-                          <Star size={10} className="fill-amber-400 text-amber-400 shrink-0" />
-                          <span className="text-[9.5px] font-black text-neutral-700">{product.rating}</span>
-                          <span className="text-[8.5px] text-neutral-400 font-bold uppercase">({product.reviews} reviews)</span>
-                        </div>
+                        {product.rating > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Star size={10} className="fill-amber-400 text-amber-400 shrink-0" />
+                            <span className="text-[9.5px] font-black text-neutral-700">{product.rating}</span>
+                            <span className="text-[8.5px] text-neutral-400 font-bold uppercase">({product.reviews} reviews)</span>
+                          </div>
+                        )}
 
                         {/* Owner details */}
                         {product.ownerName && (
@@ -2125,7 +2130,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                           <span className="text-[8.5px] text-neutral-400 font-semibold uppercase">/day</span>
                         </div>
                         <span className="text-[8.5px] text-neutral-400 font-bold uppercase tracking-wider">
-                          {product.ownerName || 'Verified List'}
+                          {product.ownerName || 'Owner'}
                         </span>
                       </div>
                     </div>
@@ -2191,10 +2196,12 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                         <span className="text-sm font-black text-[#ff4f3a]">{currencySymbol}{product.price}</span>
                         <span className="text-[8.5px] text-neutral-400 font-semibold uppercase">/day</span>
                       </div>
-                      <span className="text-[8.5px] text-neutral-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                        <Star size={10} className="fill-amber-400 text-amber-400 text-yellow-500" />
-                        <span>4.9 ({product.reviews || 12})</span>
-                      </span>
+                      {product.rating > 0 && (
+                        <span className="text-[8.5px] text-neutral-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                          <Star size={10} className="fill-amber-400 text-amber-400 text-yellow-500" />
+                          <span>{product.rating} ({product.reviews})</span>
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2280,7 +2287,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                 Rent or Sell your Camera Gear
               </h2>
               <p className="text-neutral-550 text-xs font-semibold leading-relaxed max-w-2xl mx-auto uppercase tracking-wider text-neutral-400">
-                Join thousands of gear owners who have listed over <span className="font-extrabold text-neutral-900">$1 billion</span> worth of professional gear catalogued.
+                List gear you own for other crews to rent, or find what you need nearby.
               </p>
             </div>
 
@@ -2307,7 +2314,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                 <div className="space-y-1.5">
                   <h4 className="text-xs font-black uppercase text-neutral-800 tracking-wider">Sell your gear, keep more of your money</h4>
                   <p className="text-[10px] text-[#ff4f3a] leading-relaxed font-black uppercase">
-                    Promote your gear to a vibrant community of filmmakers and photographers nationwide, enjoy significant seller protections, and only pay a 5% fee - with a maximum cap of $500.
+                    List gear for other crews to rent or buy. Packer Tools does not take a cut of the sale; you and the buyer arrange payment directly.
                   </p>
                 </div>
               </div>
@@ -2318,9 +2325,9 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                   <CheckCircle2 size={18} />
                 </div>
                 <div className="space-y-1.5">
-                  <h4 className="text-xs font-black uppercase text-neutral-800 tracking-wider">Renter & Seller Guarantees</h4>
+                  <h4 className="text-xs font-black uppercase text-neutral-800 tracking-wider">You arrange the details</h4>
                   <p className="text-[10px] text-neutral-500 leading-relaxed font-semibold uppercase">
-                    Integrate premium insurance coverages. Packer Tools offers an extensive selection of coverage options as well as renter and seller guarantees to ensure everyone feels safe and protected.
+                    Packer Tools does not provide insurance or hold payment in escrow. Agree on deposit, damage cover and payment directly with the other party before handover.
                   </p>
                 </div>
               </div>
@@ -2405,12 +2412,14 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                   <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
                 <div className="space-y-1 my-auto">
-                  <div className="flex items-center gap-1">
-                    <Star size={10} className="fill-amber-400 text-amber-400" />
-                    <span className="text-[10px] font-black text-neutral-700">{selectedProduct.rating} ({selectedProduct.reviews} reviews)</span>
-                  </div>
-                  <p className="text-[10px] text-neutral-400 font-bold uppercase mt-0.5 font-mono">Listed Price: {currencySymbol}{selectedProduct.price}{selectedProduct.isSale ? '' : '/day'}</p>
-                  <p className="text-[9px] text-[#ff4f3a] font-extrabold uppercase">Owner Verified: {selectedProduct.ownerName || 'Verified Partner'}</p>
+                  {selectedProduct.rating > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Star size={10} className="fill-amber-400 text-amber-400" />
+                      <span className="text-[10px] font-black text-neutral-700">{selectedProduct.rating} ({selectedProduct.reviews} reviews)</span>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase mt-0.5 font-mono">Listed price: {currencySymbol}{selectedProduct.price}{selectedProduct.isSale ? '' : '/day'}</p>
+                  <p className="text-[9px] text-[#ff4f3a] font-extrabold uppercase">Owner: {selectedProduct.ownerName || 'Not named'}</p>
                 </div>
               </div>
 
@@ -2562,8 +2571,8 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                   </div>
                 ) : (
                   <div className="bg-rose-50/50 p-4 border border-rose-100/50 rounded-2xl text-[10px] text-neutral-500 leading-relaxed">
-                    <span className="font-black uppercase text-[#ff4f3a]">Buy Out Option Selected</span><br/>
-                    Standard seller security escorting is active. An invoice and escrow voucher will generate for you upon dispatch request.
+                    <span className="font-black uppercase text-[#ff4f3a]">Buy out selected</span><br/>
+                    The owner will contact you directly to arrange payment and dispatch.
                   </div>
                 )}
 
@@ -2588,10 +2597,12 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                         </div>
                       )}
 
-                      <div className="flex justify-between items-center text-xs text-neutral-600 border-b border-rose-100 pb-1.5 font-sans">
-                        <span className="font-semibold uppercase text-[9px]">Platform Service / Damage Waiver Fees</span>
-                        <span className="font-bold text-neutral-700">{currencySymbol}{damageWaiver.toLocaleString()}</span>
-                      </div>
+                      {damageWaiver > 0 && (
+                        <div className="flex justify-between items-center text-xs text-neutral-600 border-b border-rose-100 pb-1.5 font-sans">
+                          <span className="font-semibold uppercase text-[9px]">Damage cover</span>
+                          <span className="font-bold text-neutral-700">{currencySymbol}{damageWaiver.toLocaleString()}</span>
+                        </div>
+                      )}
 
                       {/* Dynamic Tax Component displaying exact VAT % / GST config details */}
                       <div className="flex justify-between items-center text-xs text-neutral-600 pb-1.5 font-sans border-b border-neutral-200/60">
@@ -2716,7 +2727,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                 <div className="p-4 bg-blue-50/40 rounded-2xl border border-blue-100/50 flex gap-3 text-[10px] text-blue-800 leading-relaxed">
                   <Info size={16} className="shrink-0 mt-0.5 text-blue-600" />
                   <p>
-                    All communication is logged for security protection. Packer Marketplace guarantees payment safety escrows and visual damage waivers for on-set accidents.
+                    This message goes straight to {selectedCrew.name.split(' ')[0]}. Agree on rate, dates and payment directly with them.
                   </p>
                 </div>
 
