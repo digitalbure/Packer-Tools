@@ -723,7 +723,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
         <button
           onClick={() => {
             navigator.clipboard.writeText(qrValue);
-            toast.success("Passport bio link copied to clipboard");
+            toast.success("Link copied.");
           }}
           className="p-2 hover:bg-neutral-100 rounded-xl transition text-neutral-500 hover:text-black"
           title="Share Gear Bio Link"
@@ -830,8 +830,8 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
         <div className="md:col-span-7 p-6 md:p-8 space-y-8">
           <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
             <div>
-              <h2 className="text-sm font-black uppercase tracking-widest text-neutral-400">Gear Biography Passport</h2>
-              <p className="text-[10px] text-neutral-400 italic">Full maintenance, rental capability, and specification logging</p>
+              <h2 className="text-sm font-black uppercase tracking-widest text-neutral-400">Equipment details</h2>
+              <p className="text-[10px] text-neutral-400 italic">Specs, condition, and rental settings for this item</p>
             </div>
             
             <button
@@ -952,7 +952,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                   className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary transition"
                 >
                   <option value="public">🌐 Public (Accessible via QR scan & sharing)</option>
-                  <option value="private">🔒 Private (Owner only; locks out external access)</option>
+                  <option value="private">Private (only you can see it)</option>
                 </select>
                 <p className="text-[9px] text-neutral-400 mt-0.5">
                   Private kits are prepped for specific internal planning/projects and block scan reports from public finders.
@@ -1211,7 +1211,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
               {/* Description & AI labels */}
               {item.description && (
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Equipment Bio & Description</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Description</p>
                   <p className="text-xs text-neutral-600 leading-relaxed bg-neutral-50 p-4 rounded-xl">
                     {item.description}
                   </p>
@@ -1223,7 +1223,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                 <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-[1.5rem] flex gap-3">
                   <Heart className="text-amber-500 shrink-0 mt-0.5" size={16} />
                   <div>
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-900">Onboarding AI Advice</h4>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-900">Suggested by Packer Tools</h4>
                     <p className="text-xs text-amber-700 mt-1 leading-normal italic">
                       "{item.organizationTip}"
                     </p>
@@ -1240,7 +1240,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                 <div>
                   <h3 className="text-sm font-black uppercase tracking-widest text-neutral-800 flex items-center gap-2">
                     <User size={18} className="text-[#ff4f3a]" />
-                    <span>Custodian Passport & Biography</span>
+                    <span>Owner details</span>
                   </h3>
                   <p className="text-[10px] text-neutral-400 mt-1">
                     How scanners and visitors view your identity brief and direct contact details.
@@ -1273,7 +1273,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                       </div>
                       
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Owner Biography / Bio</label>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">About you (shown to renters and finders)</label>
                         <textarea
                           rows={3}
                           value={editForm.ownerBio || ''}
@@ -1318,9 +1318,9 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                       </div>
 
                       <div className="bg-neutral-50/80 border border-neutral-100 p-4 rounded-2xl">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 mb-1">Biography / Bio</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 mb-1">About</p>
                         <p className="text-xs text-neutral-600 leading-relaxed font-medium italic">
-                          "{item.ownerBio || ownerProfile?.bio || 'Certified Packer Tools custodian. This device is actively registered under our high-volume logistics setup for professional operations.'}"
+                          {item.ownerBio || ownerProfile?.bio || 'No bio added yet.'}
                         </p>
                       </div>
 
