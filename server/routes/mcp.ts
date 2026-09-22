@@ -369,7 +369,7 @@ async function executeMcpTool(toolName: string, args: Record<string, any> = {}, 
         const targetIndustry = (args.industry as string | undefined)?.toLowerCase();
         const kit = {
           brand: "Packer Tools",
-          version: "v6.13.0",
+          version: "v6.14.0",
           canonicalPositioning: "signed, bidirectional manifest",
           tagline: "Production Logistics OS for Professional Crews",
           valuePropositions: [
@@ -628,7 +628,7 @@ async function readMcpResource(uri: string, ctx: McpContext) {
     try {
       content = fs.readFileSync(filePath, "utf-8");
     } catch {
-      content = "# Release Notes\n\nCurrent Version: v6.13.0";
+      content = "# Release Notes\n\nCurrent Version: v6.14.0";
     }
     return {
       contents: [{ uri, mimeType: "text/markdown", text: content }]
@@ -753,7 +753,7 @@ function createMcpServer(ctx: McpContext): Server {
   const mcpServer = new Server(
     {
       name: "packer-tools-mcp",
-      version: "6.13.0",
+      version: "6.14.0",
     },
     {
       capabilities: {

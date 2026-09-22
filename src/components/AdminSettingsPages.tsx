@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PickupPointsAdminCard } from '../booking/PickupPointsAdminCard';
+import { DepositPolicyAdminCard } from '../booking/DepositPolicyAdminCard';
 import { db, auth } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import {
@@ -2091,6 +2092,8 @@ export function WidgetsSettingsTab({ settings, setSettings }: SettingsTabProps) 
           </div>
 
           <PickupPointsAdminCard settings={settings} setSettings={setSettings} />
+
+          <DepositPolicyAdminCard settings={settings} setSettings={setSettings} />
 
           {/* Standardized Add Photo Widget Panel */}
           <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/60 space-y-4 sm:col-span-2">

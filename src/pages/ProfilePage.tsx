@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import OwnerDepositSetting from '../booking/OwnerDepositSetting';
 import { useLocation } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
 import { toast } from 'sonner';
@@ -419,6 +420,8 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
                   );
                 })}
               </div>
+
+              <OwnerDepositSetting user={user} onUpdate={onUpdate} adminSettings={adminSettings} />
 
               {/* Geographical Operating Region for User */}
               <div className="pt-8 border-t border-neutral-100 space-y-4">

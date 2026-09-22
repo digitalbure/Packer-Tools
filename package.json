@@ -2,7 +2,7 @@
   "name": "packer-tools",
   "private": true,
   "description": "Production operations and equipment packing platform for broadcast, film, AV and event teams.",
-  "version": "6.13.0",
+  "version": "6.14.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server/index.ts",
@@ -13,7 +13,7 @@
     "lint": "tsc --noEmit",
     "check:copy": "node scripts/check-copy.mjs",
     "test:rules": "firebase emulators:exec --config firebase.rules-test.json --only firestore,auth --project packer-tools \"tsx tests/pickup-rules-e2e.mts\"",
-    "test": "firebase emulators:exec --only firestore,auth --project packer-tools \"tsx tests/mcp-e2e.mts && tsx tests/billing-e2e.mts && tsx tests/kiosk-ops-e2e.mts && tsx tests/kiosk-api-e2e.mts && tsx tests/kiosk-client-e2e.mts && tsx tests/email-e2e.mts && tsx tests/labels-engine.mts && tsx tests/booking-pricing.mts && tsx tests/pickup-points.mts\"",
+    "test": "firebase emulators:exec --only firestore,auth --project packer-tools \"tsx tests/mcp-e2e.mts && tsx tests/billing-e2e.mts && tsx tests/kiosk-ops-e2e.mts && tsx tests/kiosk-api-e2e.mts && tsx tests/kiosk-client-e2e.mts && tsx tests/email-e2e.mts && tsx tests/labels-engine.mts && tsx tests/booking-pricing.mts && tsx tests/pickup-points.mts && tsx tests/deposit-policy.mts\"",
     "test:mcp": "npm test"
   },
   "dependencies": {

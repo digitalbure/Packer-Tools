@@ -166,6 +166,7 @@ export interface UserProfile {
   isProfilePublic?: boolean;
   selectedStarters?: string[];
   activeMarketplaceCurrencies?: string[]; // Currencies activated for renting equipment in marketplace
+  marketplaceDepositAmount?: number; // Owner's own deposit default, used when the admin's deposit policy is 'owner_choice'
   defaultBookingFee?: number; // User custom default booking fee % or amount
   defaultSecurityDeposit?: number; // User custom default fixed security deposit
   country?: string; // User selected marketplace country
@@ -1017,6 +1018,7 @@ export interface AdminSettings {
       enforceSupervisorApproval: boolean;
     };
     pickupPoints?: import('./booking/pickupPoints').PickupConfig;
+    depositPolicy?: import('./booking/depositPolicy').DepositPolicy;
     photoWidget?: {
       restrictByPlan?: boolean;
       allowUrlPasteLite?: boolean;

@@ -14,6 +14,7 @@ import {
   Phone, Mail, MessageSquare, AlertTriangle, ShieldCheck, SlidersHorizontal, User
 } from 'lucide-react';
 import BookingWidget, { BookingRequest } from '../booking/BookingWidget';
+import { computeDeposit } from '../booking/depositPolicy';
 import '../marketplace/brand.css';
 import '../booking/booking.css';
 import AssetIdentificationPanel from '../components/AssetIdentificationPanel';
@@ -1197,7 +1198,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
               {item.secondaryCategories?.includes('Rentable') && (
                 <BookingWidget
                   dailyRate={item.rentalPrice}
-                  deposit={item.rentalDeposit}
+                  deposit={computeDeposit(adminSettings?.moduleWidgetConfigs?.depositPolicy, item.rentalPrice || 0, item.rentalDeposit || ownerProfile?.marketplaceDepositAmount)}
                   format={(n) => formatCurrency(n, item.currency || 'USD')}
                   conditions={bookingConditions}
                   ownerId={queryOwnerId || item.ownerId}

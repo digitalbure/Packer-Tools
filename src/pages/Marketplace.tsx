@@ -11,6 +11,7 @@ import { useAuth } from '../providers/AuthProvider';
 import { db, handleFirestoreError, OperationType, signInWithGoogle } from '../firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDocs } from 'firebase/firestore';
 import PackerLogo from '../components/PackerLogo';
+import { computeDeposit } from '../booking/depositPolicy';
 import PickupDropoffWidget, { PickupDropoffState } from '../components/PickupDropoffWidget';
 import { 
   Search, 
@@ -504,7 +505,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
   const calculateTaxAndTotal = () => {
     if (!selectedProduct) {
-      return { subtotal: 0, taxAmount: 0, damageWaiver: 0, totalQuote: 0, isInclusive: true, taxPercent: 0 };
+      return { subtotal: 0, taxAmount: 0, deposit: 0, totalQuote: 0, isInclusive: true, taxPercent: 0 };
     }
     
     const baseSubtotal = selectedProduct.price * (selectedProduct.isSale ? 1 : bookingDays);
@@ -514,8 +515,13 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     }, 0) * (selectedProduct.isSale ? 1 : bookingDays);
     const subtotal = baseSubtotal + addonsSum;
     
-    // No platform damage waiver is charged; owners and renters agree on any deposit or damage cover themselves.
-    const damageWaiver = 0;
+    // Packer Tools does not charge or hold this deposit; it's shown so the renter knows what the
+    // owner will ask for, and the two arrange it directly.
+    const deposit = selectedProduct.isSale ? 0 : computeDeposit(
+      adminSettings?.moduleWidgetConfigs?.depositPolicy,
+      selectedProduct.price,
+      selectedProduct.securityDeposit
+    );
     
     let taxPercent = 0;
     let isInclusive = true;
@@ -534,16 +540,16 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     
     if (isInclusive) {
       taxAmount = subtotal - (subtotal / (1 + (taxPercent / 100)));
-      totalQuote = subtotal + damageWaiver;
+      totalQuote = subtotal + deposit;
     } else {
       taxAmount = subtotal * (taxPercent / 100);
-      totalQuote = subtotal + damageWaiver + taxAmount;
+      totalQuote = subtotal + deposit + taxAmount;
     }
     
     return {
       subtotal,
       taxAmount,
-      damageWaiver,
+      deposit,
       totalQuote,
       isInclusive,
       taxPercent
@@ -581,15 +587,18 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     try {
       const taxAndTotal = calculateTaxAndTotal();
 
+      if (!user?.email) {
+        toast.error('Add an email to your account before requesting a booking.');
+        return;
+      }
+
       if (selectedProduct.isUserListing) {
         // Real update to user packing list document to reflect the booking!
         const listRef = doc(db, 'packingLists', selectedProduct.id);
         await updateDoc(listRef, {
-          bookingClientName: user?.displayName || user?.email?.split('@')[0] || 'Active Operator',
-          bookingClientEmail: user?.email || 'guest-operator@packer.com',
-          bookingClientSignature: user?.displayName || 'Digital Signature Signed',
-          bookingPaidAt: new Date().toISOString(),
-          rentalStatus: selectedProduct.isSale ? 'returned' : 'awaiting_payment',
+          bookingClientName: user.displayName || user.email.split('@')[0],
+          bookingClientEmail: user.email,
+          rentalStatus: 'awaiting_owner_confirmation',
           updatedAt: new Date().toISOString()
         });
       }
@@ -598,21 +607,21 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       const bookingData = {
         gearId: selectedProduct.id,
         gearName: selectedProduct.name,
-        brand: selectedProduct.brand || 'Packer Partner',
+        brand: selectedProduct.brand || '',
         ownerId: selectedProduct.ownerId || 'platform_admin',
-        clientName: user?.displayName || user?.email?.split('@')[0] || 'Active Operator',
-        clientEmail: user?.email || 'guest-operator@packer.com',
-        clientPhone: (user as any)?.phone || '+1 (555) 0199',
+        clientName: user.displayName || user.email.split('@')[0],
+        clientEmail: user.email,
+        clientPhone: (user as any)?.phone || '',
         startDate: rentStartDate,
         endDate: rentEndDate,
-        depositAmount: selectedProduct.securityDeposit || 0,
-        paymentStatus: 'Deposit Paid',
+        depositAmount: taxAndTotal.deposit,
+        paymentStatus: 'Awaiting owner confirmation',
         reservationType: selectedProduct.isSale ? 'custom' : 'deposit',
-        customConditions: ['Standard Marketplace Insurance Waiver', 'Owner Verification Complete'],
+        customConditions: [],
         createdAt: new Date().toISOString(),
         totalPrice: taxAndTotal.totalQuote,
         taxAmount: taxAndTotal.taxAmount,
-        damageWaiver: taxAndTotal.damageWaiver,
+        deposit: taxAndTotal.deposit,
         taxPercent: taxAndTotal.taxPercent,
         isTaxInclusive: taxAndTotal.isInclusive,
         transactionType: selectedProduct.isSale ? 'sale' : 'rent',
@@ -634,7 +643,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       
       await addDoc(collection(db, 'gearBookings'), bookingData);
 
-      toast.success(`Booking request finalized & synced! Total Estimated cost: ${currencySymbol}${taxAndTotal.totalQuote.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+      toast.success(`Booking request sent. Estimated total: ${currencySymbol}${taxAndTotal.totalQuote.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
     } catch (error) {
       console.error("Error creating synced booking:", error);
       toast.error("Failed to complete marketplace booking sync.");
@@ -2578,7 +2587,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
                 {/* Submitting booking checkout summary details */}
                 {(() => {
-                  const { subtotal, taxAmount, damageWaiver, totalQuote, isInclusive, taxPercent } = calculateTaxAndTotal();
+                  const { subtotal, taxAmount, deposit, totalQuote, isInclusive, taxPercent } = calculateTaxAndTotal();
                   return (
                     <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100 space-y-2">
                       <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500">Estimate Pricing Breakdown</p>
@@ -2597,10 +2606,10 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                         </div>
                       )}
 
-                      {damageWaiver > 0 && (
+                      {deposit > 0 && (
                         <div className="flex justify-between items-center text-xs text-neutral-600 border-b border-rose-100 pb-1.5 font-sans">
-                          <span className="font-semibold uppercase text-[9px]">Damage cover</span>
-                          <span className="font-bold text-neutral-700">{currencySymbol}{damageWaiver.toLocaleString()}</span>
+                          <span className="font-semibold uppercase text-[9px]">Refundable deposit</span>
+                          <span className="font-bold text-neutral-700">{currencySymbol}{deposit.toLocaleString()}</span>
                         </div>
                       )}
 
