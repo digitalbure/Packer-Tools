@@ -52,12 +52,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
   // Gear Bookings and Reservation State
   const [gearBookings, setGearBookings] = useState<any[]>([]);
   const [userGear, setUserGear] = useState<any[]>([]);
-  const [customConditions, setCustomConditions] = useState<string[]>([
-    "Paid Deposit Confirmed", 
-    "Valid ID Verified on Checkout", 
-    "Signed Equipment Indemnity Contract", 
-    "COI (Certificate of Insurance) on file"
-  ]);
+  const [customConditions, setCustomConditions] = useState<string[]>([]);
   const [newCondition, setNewCondition] = useState("");
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
 
@@ -524,8 +519,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
             Marketplace Listings Locked
           </h1>
           <p className="text-neutral-500 text-sm font-medium leading-relaxed">
-            Your current subscription tier does not permit listing rental/sale inventory on the public Rent & Buy Marketplace.
-            Upgrade to a premium tier to begin publishing gear packages, accepting manual deposits, and managing escrow booking contracts.
+            Your current plan does not include listing gear for rent or sale on the marketplace.
+            Upgrade to publish listings and take booking requests.
           </p>
         </div>
 
@@ -546,8 +541,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
               <Check size={18} />
             </div>
             <div>
-              <div className="text-xs font-black uppercase tracking-tight">Escrow Hires Tracking</div>
-              <div className="text-[10px] text-neutral-400 font-semibold mt-0.5">Automated deposit guarantees & conditions logs.</div>
+              <div className="text-xs font-black uppercase tracking-tight">Booking requests</div>
+              <div className="text-[10px] text-neutral-400 font-semibold mt-0.5">Renters send a request with dates and deposit; you confirm it.</div>
             </div>
           </div>
         </div>
@@ -637,7 +632,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
           }`}
         >
           <Sliders size={16} />
-          <span>Pricing & Escrow Limits</span>
+          <span>Marketplace settings</span>
         </button>
       </div>
 
@@ -883,7 +878,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                   <span>Live client reservations</span>
                 </h3>
                 <span className="text-xs bg-neutral-150 font-bold px-3 py-1 rounded-full text-neutral-600">
-                  {bookingRentals.length} active escrows
+                  {bookingRentals.length} active bookings
                 </span>
               </div>
 
@@ -891,7 +886,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                 <div className="text-center py-20 bg-white rounded-3xl border border-neutral-100 shadow-sm">
                   <Clock className="mx-auto text-neutral-200 mb-4 animate-spin duration-3000" size={44} />
                   <h4 className="font-extrabold uppercase text-xs tracking-wider text-neutral-700">No Active Hires Received</h4>
-                  <p className="text-xs text-neutral-450 mt-1 max-w-sm mx-auto">When production crews rent your kit, active leases, security holds, and digital logs appear right here!</p>
+                  <p className="text-xs text-neutral-450 mt-1 max-w-sm mx-auto">Booking requests from renters will show up here.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -992,7 +987,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                             {item.rentalStatus === 'returned' && (
                               <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 p-2.5 rounded-xl font-bold uppercase tracking-wider">
                                 <CheckCircle2 size={14} />
-                                <span>Escrow Released & Complete</span>
+                                <span>Marked as returned</span>
                               </div>
                             )}
                           </div>
@@ -1370,57 +1365,49 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
             </div>
           )}
 
-          {/* TAB 3: Pricing & Escrow Limits */}
+          {/* TAB 3: Marketplace settings */}
           {activeSubTab === 'settings' && (
             <div className="bg-white p-8 sm:p-10 rounded-[2.5rem] border border-neutral-100 shadow-sm space-y-8 text-left">
               <div className="space-y-2 border-b border-neutral-100 pb-6">
                 <h3 className="text-2xl font-black text-neutral-900 tracking-tight flex items-center gap-2">
                   <Globe size={22} className="text-primary" />
-                  <span>Marketplace Escrow Controls</span>
+                  <span>Marketplace settings</span>
                 </h3>
-                <p className="text-neutral-500 text-xs">Verify which fiat currencies are onboarded on your Profile to receive digital bookings from local networks.</p>
+                <p className="text-neutral-500 text-xs">Currencies you accept for rentals and sales, set on your Profile.</p>
               </div>
 
               <div className="grid md:grid-cols-2 gap-8">
                 {/* Active settings review */}
                 <div className="space-y-6">
-                  <h4 className="text-sm font-black uppercase tracking-widest text-neutral-400">Merchant Settings</h4>
+                  <h4 className="text-sm font-black uppercase tracking-widest text-neutral-400">Account</h4>
                   <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-150 space-y-4">
                     <div className="flex justify-between items-center pb-3 border-b border-neutral-250">
-                      <span className="text-xs text-neutral-500 font-semibold">Merchant Country:</span>
-                      <strong className="text-sm font-black text-neutral-800 uppercase tracking-tight">{user.country || "Fiji Island Hub"}</strong>
-                    </div>
-                    <div className="flex justify-between items-center pb-3 border-b border-neutral-250">
-                      <span className="text-xs text-neutral-500 font-semibold">Active Currencies:</span>
-                      <strong className="text-sm font-black text-[#ff4f3a] font-mono">{activeCurrencies.join(', ')}</strong>
-                    </div>
-                    <div className="flex justify-between items-center pb-3 border-b border-neutral-250">
-                      <span className="text-xs text-neutral-500 font-semibold">Custom default booking Fee:</span>
-                      <strong className="text-sm font-black text-neutral-800 font-mono">{user.defaultBookingFee ?? 10}%</strong>
+                      <span className="text-xs text-neutral-500 font-semibold">Country:</span>
+                      <strong className="text-sm font-black text-neutral-800 uppercase tracking-tight">{user.country || "Not set"}</strong>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-neutral-500 font-semibold">Default Security Deposit:</span>
-                      <strong className="text-sm font-black text-neutral-800 font-mono">${user.defaultSecurityDeposit ?? 150}</strong>
+                      <span className="text-xs text-neutral-500 font-semibold">Active currencies:</span>
+                      <strong className="text-sm font-black text-[#ff4f3a] font-mono">{activeCurrencies.join(', ')}</strong>
                     </div>
                   </div>
                   <button
                     onClick={() => navigate('/profile')}
                     className="px-5 py-3.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow transition text-center inline-block cursor-pointer"
                   >
-                    Adjust Merchant Settings inside Profile
+                    Edit currencies and deposit default on Profile
                   </button>
                 </div>
 
                 {/* Direct info note card */}
                 <div className="bg-primary/5 p-6 sm:p-8 rounded-3xl border border-primary/10 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
-                    <h4 className="font-extrabold uppercase text-xs tracking-wider text-primary">SLA & Financial Escrow protections</h4>
+                    <h4 className="font-extrabold uppercase text-xs tracking-wider text-primary">How payment and deposits work</h4>
                     <p className="text-xs text-neutral-600 leading-relaxed font-medium">
-                      All transaction payouts are executed via local bank wires aligned by Packer Tools Fiji Escrow logs. Renters pay the booking fee and the safety security deposit. The security deposit is held in high-security escrow until the operator triggers the "Check-in Complete" returned flag. If items are missing, the security deposit is subject to claim.
+                      Packer Tools does not process payment or hold a deposit for you. A renter's booking request shows the deposit set by the platform's deposit policy (or your own figure, if the admin allows owners to set one — see Rental Marketplace Settings on your Profile). You collect payment and the deposit directly from the renter, and mark it received when you take it.
                     </p>
                   </div>
                   <div className="p-4 bg-white/60 border border-primary/10 rounded-2xl text-[10px] text-neutral-500 font-semibold italic leading-relaxed">
-                    *Tip: Maintain photographs inside your Gear Library before dispatching items to verify claims smoothly.
+                    Tip: photograph gear before it goes out, so condition is on record if something comes back damaged.
                   </div>
                 </div>
               </div>
@@ -1726,7 +1713,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Assigned Escrow Deposit</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Deposit</label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
                     <input
@@ -2222,8 +2209,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                       className="rounded text-emerald-600 focus:ring-0 cursor-pointer h-4 w-4"
                     />
                     <div className="text-left">
-                      <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest block">Security Deposit Paid In Advance?</span>
-                      <span className="text-[9px] text-[#0066cc] block">Marks holding fee escrow as paid.</span>
+                      <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest block">Deposit already collected?</span>
+                      <span className="text-[9px] text-[#0066cc] block">Record only — mark this if you have already taken the deposit from the renter yourself.</span>
                     </div>
                   </label>
                 )}
