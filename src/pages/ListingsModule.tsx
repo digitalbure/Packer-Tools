@@ -76,10 +76,10 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
 
   // New Listing Form Field States
   const [newListName, setNewListName] = useState('');
-  const [newListPrice, setNewListPrice] = useState(120);
+  const [newListPrice, setNewListPrice] = useState(0);
   const [newListCurrency, setNewListCurrency] = useState('USD');
   const [newListDetails, setNewListDetails] = useState('');
-  const [newListDeposit, setNewListDeposit] = useState(150);
+  const [newListDeposit, setNewListDeposit] = useState(0);
   const [newListCategory, setNewListCategory] = useState('cinema-cameras');
   const [newListTransactionType, setNewListTransactionType] = useState<'rent' | 'sale'>('rent');
   const [newListPickupType, setNewListPickupType] = useState<'preset' | 'custom'>('preset');
@@ -362,8 +362,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
       setIsCreatingListing(false);
       setNewListName('');
       setNewListDetails('');
-      setNewListPrice(120);
-      setNewListDeposit(150);
+      setNewListPrice(0);
+      setNewListDeposit(0);
       navigate(`/list/${docRef.id}`);
     } catch (error) {
       console.error("Error creating quick listing:", error);
@@ -373,6 +373,10 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
 
   // Convert regular Packing List to Marketplace Listing
   const handleToggleMarketplace = async (list: PackingList, enabled: boolean) => {
+    if (enabled && !list.marketplacePrice) {
+      toast.error("Set a rental price before listing this live. Use Edit Offer.");
+      return;
+    }
     try {
       let mainImageUrl = "";
       if (list.items && list.items.length > 0) {
@@ -398,9 +402,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
       const listRef = doc(db, 'packingLists', list.id);
       await updateDoc(listRef, {
         marketplaceEnabled: enabled,
-        marketplacePrice: list.marketplacePrice || 100,
         marketplaceCurrency: list.marketplaceCurrency || user.activeMarketplaceCurrencies?.[0] || 'USD',
-        securityDeposit: list.securityDeposit || 120,
         updatedAt: new Date().toISOString(),
         ...(mainImageUrl ? { image: mainImageUrl } : {})
       });
@@ -409,6 +411,66 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
       console.error("Error toggling marketplace listing:", error);
       toast.error("Failed to update listing marketplace availability.");
     }
+  };
+
+  // Opens the offer-editing modal, prefilled from an existing list (or blank price fields
+  // for a list that has never been listed). Saving from here also publishes the listing.
+  const openEditOfferModal = (list: PackingList) => {
+    setEditPrice(list.marketplacePrice || 0);
+    setEditDeposit(list.securityDeposit || 0);
+    setEditDetails(list.marketplaceDetails || '');
+    setEditCurrency(list.marketplaceCurrency || user.activeMarketplaceCurrencies?.[0] || 'USD');
+    setEditCategory(list.category || 'cinema-cameras');
+    setEditTransactionType(list.transactionType === 'Sale' ? 'sale' : 'rent');
+    setEditPickupType(list.pickupType || 'preset');
+    setEditPickupLocationId(list.pickupLocationId || '');
+    setEditPickupCustomAddress(list.pickupCustomAddress || '');
+    setEditDropoffType(list.dropoffType || 'preset');
+    setEditDropoffLocationId(list.dropoffLocationId || '');
+    setEditDropoffCustomAddress(list.dropoffCustomAddress || '');
+    setEditImage(list.image || '');
+    setEditVideoUrl((list as any).videoUrl || '');
+
+    const listBrand = list.brand || '';
+    const listModel = list.model || '';
+    const listLensType = list.lensType || '';
+    const listLensMount = list.lensMount || '';
+    const listFocalLength = list.focalLength || '';
+    const listMaxAperture = list.maxAperture || '';
+    const listFormatCoverage = list.formatCoverage || '';
+    const listFocusType = list.focusType || '';
+
+    setEditBrand(listBrand);
+    setEditModel(listModel);
+    setEditLensType(listLensType);
+    setEditLensMount(listLensMount);
+    setEditFocalLength(listFocalLength);
+    setEditMaxAperture(listMaxAperture);
+    setEditFormatCoverage(listFormatCoverage);
+    setEditFocusType(listFocusType);
+
+    if (!listBrand || !listModel || !listLensType || !listLensMount || !listFocalLength || !listMaxAperture || !listFormatCoverage || !listFocusType) {
+      getDocs(collection(db, 'packingLists', list.id, 'items')).then(itemsSnap => {
+        const items = itemsSnap.docs.map(doc => doc.data() as any);
+        const lensItem = items.find(it =>
+          (it.aiLabel || '').toLowerCase().includes('lens') ||
+          (it.category || '').toLowerCase().includes('lens') ||
+          it.lensType || it.lensMount
+        );
+        if (lensItem) {
+          if (!listBrand) setEditBrand(lensItem.brand || lensItem.name?.split(' ')?.[0] || '');
+          if (!listModel) setEditModel(lensItem.model || lensItem.name || '');
+          if (!listLensType) setEditLensType(lensItem.lensType || '');
+          if (!listLensMount) setEditLensMount(lensItem.lensMount || '');
+          if (!listFocalLength) setEditFocalLength(lensItem.focalLength || '');
+          if (!listMaxAperture) setEditMaxAperture(lensItem.maxAperture || '');
+          if (!listFormatCoverage) setEditFormatCoverage(lensItem.formatCoverage || '');
+          if (!listFocusType) setEditFocusType(lensItem.focusType || '');
+        }
+      }).catch(err => console.warn("Failed to fetch sub-items for auto-population:", err));
+    }
+
+    setShowEditPriceModal(list);
   };
 
   // Handle Edit Price Form Save
@@ -438,6 +500,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
 
       const listRef = doc(db, 'packingLists', showEditPriceModal.id);
       await updateDoc(listRef, {
+        marketplaceEnabled: true,
         marketplacePrice: Number(editPrice),
         securityDeposit: Number(editDeposit),
         marketplaceDetails: editDetails,
@@ -718,7 +781,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                               <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
                                 isMarketActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-neutral-100 text-neutral-600'
                               }`}>
-                                {isMarketActive ? '🟢 Live on Marketplace' : '⚫ Private / Inactive'}
+                                {isMarketActive ? 'Live on marketplace' : 'Private'}
                               </span>
                               <span className="text-[10px] text-neutral-405 font-semibold font-mono">
                                 List v{list.version || 1}
@@ -740,17 +803,18 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                 <div className="flex justify-between items-center">
                                   <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Rate</span>
                                   <span className="font-black text-neutral-900 text-base font-mono">
-                                    {getCurrencySymbol(list.marketplaceCurrency)}
-                                    {list.marketplacePrice || 120} / day
+                                    {list.marketplacePrice ? `${getCurrencySymbol(list.marketplaceCurrency)}${list.marketplacePrice} / day` : 'Not set'}
                                   </span>
                                 </div>
-                                <div className="flex justify-between items-center text-[10px] text-neutral-400 font-semibold leading-none pt-1 border-t border-neutral-150">
-                                  <span>Deposit fee:</span>
-                                  <span className="font-mono text-neutral-800">
-                                    {getCurrencySymbol(list.marketplaceCurrency)}
-                                    {list.securityDeposit || 150}
-                                  </span>
-                                </div>
+                                {!!list.securityDeposit && (
+                                  <div className="flex justify-between items-center text-[10px] text-neutral-400 font-semibold leading-none pt-1 border-t border-neutral-150">
+                                    <span>Deposit:</span>
+                                    <span className="font-mono text-neutral-800">
+                                      {getCurrencySymbol(list.marketplaceCurrency)}
+                                      {list.securityDeposit}
+                                    </span>
+                                  </div>
+                                )}
                                 <div className="flex justify-between items-center text-[10px] text-neutral-400 font-semibold leading-none pt-1">
                                   <span>Pickup Preference:</span>
                                   <span className="text-neutral-800 font-bold max-w-[120px] truncate text-right">
@@ -776,77 +840,28 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                             <button
                               type="button"
                               onClick={() => {
-                                handleToggleMarketplace(list, !isMarketActive);
+                                if (isMarketActive) {
+                                  handleToggleMarketplace(list, false);
+                                } else if (list.marketplacePrice) {
+                                  handleToggleMarketplace(list, true);
+                                } else {
+                                  // No price set yet: open the offer form instead of publishing with an invented price.
+                                  openEditOfferModal(list);
+                                }
                               }}
                               className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer flex-1 text-center ${
-                                isMarketActive 
-                                  ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200' 
+                                isMarketActive
+                                  ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                                   : 'bg-[#ff4f3a] text-white hover:bg-primary/90 shadow-sm'
                               }`}
                             >
-                              {isMarketActive ? 'Take Down' : 'List Live'}
+                              {isMarketActive ? 'Take Down' : list.marketplacePrice ? 'List Live' : 'Set Price & List'}
                             </button>
 
                             {isMarketActive ? (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setEditPrice(list.marketplacePrice || 120);
-                                  setEditDeposit(list.securityDeposit || 150);
-                                  setEditDetails(list.marketplaceDetails || '');
-                                  setEditCurrency(list.marketplaceCurrency || 'USD');
-                                  setEditCategory(list.category || 'cinema-cameras');
-                                  setEditTransactionType(list.transactionType === 'Sale' ? 'sale' : 'rent');
-                                  setEditPickupType(list.pickupType || 'preset');
-                                  setEditPickupLocationId(list.pickupLocationId || '');
-                                  setEditPickupCustomAddress(list.pickupCustomAddress || '');
-                                  setEditDropoffType(list.dropoffType || 'preset');
-                                  setEditDropoffLocationId(list.dropoffLocationId || '');
-                                  setEditDropoffCustomAddress(list.dropoffCustomAddress || '');
-                                  setEditImage(list.image || '');
-                                  setEditVideoUrl((list as any).videoUrl || '');
-
-                                  const listBrand = list.brand || '';
-                                  const listModel = list.model || '';
-                                  const listLensType = list.lensType || '';
-                                  const listLensMount = list.lensMount || '';
-                                  const listFocalLength = list.focalLength || '';
-                                  const listMaxAperture = list.maxAperture || '';
-                                  const listFormatCoverage = list.formatCoverage || '';
-                                  const listFocusType = list.focusType || '';
-
-                                  setEditBrand(listBrand);
-                                  setEditModel(listModel);
-                                  setEditLensType(listLensType);
-                                  setEditLensMount(listLensMount);
-                                  setEditFocalLength(listFocalLength);
-                                  setEditMaxAperture(listMaxAperture);
-                                  setEditFormatCoverage(listFormatCoverage);
-                                  setEditFocusType(listFocusType);
-
-                                  if (!listBrand || !listModel || !listLensType || !listLensMount || !listFocalLength || !listMaxAperture || !listFormatCoverage || !listFocusType) {
-                                    getDocs(collection(db, 'packingLists', list.id, 'items')).then(itemsSnap => {
-                                      const items = itemsSnap.docs.map(doc => doc.data() as any);
-                                      const lensItem = items.find(it => 
-                                        (it.aiLabel || '').toLowerCase().includes('lens') || 
-                                        (it.category || '').toLowerCase().includes('lens') ||
-                                        it.lensType || it.lensMount
-                                      );
-                                      if (lensItem) {
-                                        if (!listBrand) setEditBrand(lensItem.brand || lensItem.name?.split(' ')?.[0] || '');
-                                        if (!listModel) setEditModel(lensItem.model || lensItem.name || '');
-                                        if (!listLensType) setEditLensType(lensItem.lensType || '');
-                                        if (!listLensMount) setEditLensMount(lensItem.lensMount || '');
-                                        if (!listFocalLength) setEditFocalLength(lensItem.focalLength || '');
-                                        if (!listMaxAperture) setEditMaxAperture(lensItem.maxAperture || '');
-                                        if (!listFormatCoverage) setEditFormatCoverage(lensItem.formatCoverage || '');
-                                        if (!listFocusType) setEditFocusType(lensItem.focusType || '');
-                                      }
-                                    }).catch(err => console.warn("Failed to fetch sub-items for auto-population:", err));
-                                  }
-
-                                  setShowEditPriceModal(list);
-                                }}
+                                onClick={() => openEditOfferModal(list)}
                                 className="px-4 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow transition"
                               >
                                 Edit Offer
@@ -945,14 +960,15 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                         {/* Column 3: Hire pricing and dispatch triggers */}
                         <div className="md:col-span-4 flex flex-col justify-center items-end sm:items-end gap-3 text-right">
                           <div className="space-y-0.5 pb-2">
-                            <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest block leading-none">Rental Earning</span>
+                            <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest block leading-none">Rental rate</span>
                             <h3 className="text-2xl font-black text-neutral-950 font-mono">
-                              {getCurrencySymbol(item.marketplaceCurrency)}
-                              {item.marketplacePrice || 120}
+                              {item.marketplacePrice ? `${getCurrencySymbol(item.marketplaceCurrency)}${item.marketplacePrice}` : 'Not set'}
                             </h3>
-                            <span className="text-[9px] text-neutral-400 font-medium block">
-                              Holds Security Deposit: {getCurrencySymbol(item.marketplaceCurrency)}{item.securityDeposit ?? 150}
-                            </span>
+                            {!!item.securityDeposit && (
+                              <span className="text-[9px] text-neutral-400 font-medium block">
+                                Deposit: {getCurrencySymbol(item.marketplaceCurrency)}{item.securityDeposit}
+                              </span>
+                            )}
                           </div>
 
                           {/* Order State Controllers */}
@@ -1127,10 +1143,10 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                   ))}
                                   {dayBookings.length > 2 && (
                                     <div className="text-[7.5px] font-bold text-amber-600 font-mono leading-none">
-                                      + {dayBookings.length - 2} more...
+                                      + {dayBookings.length - 2} more
                                     </div>
                                   )}
-                                operational conditions</div>
+                                </div>
                               )}
                             </div>
                           );
@@ -1185,7 +1201,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                     <div className="space-y-1">
                                       <div className="flex items-center gap-1.5 font-bold">
-                                        <span className="text-emerald-600">🏁 Pickup:</span>
+                                        <span className="text-emerald-600">Pickup:</span>
                                         <span className="text-neutral-800">
                                           {booking.pickupDropoff.pickupType === 'preset' 
                                             ? (booking.pickupDropoff.pickupLabel || 'Saved location')
@@ -1194,7 +1210,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                         <span className="text-[10px] text-neutral-450 uppercase font-black font-mono">({booking.pickupDropoff.pickupTimeSlot})</span>
                                       </div>
                                       <div className="flex items-center gap-1.5 font-bold">
-                                        <span className="text-red-500">🛑 Dropoff:</span>
+                                        <span className="text-red-500">Dropoff:</span>
                                         <span className="text-neutral-800">
                                           {booking.pickupDropoff.dropoffType === 'preset' 
                                             ? (booking.pickupDropoff.dropoffLabel || 'Saved location')
@@ -1223,7 +1239,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                 <div className="flex flex-wrap gap-1 pt-1">
                                   {booking.customConditions.map((cond: string, cIdx: number) => (
                                     <span key={cIdx} className="text-[8px] font-black uppercase bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-md">
-                                      ✓ {cond}
+                                      {cond}
                                     </span>
                                   ))}
                                 </div>
@@ -1346,7 +1362,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                     <div className="space-y-2 pt-2">
                       {customConditions.map((cond, idx) => (
                         <div key={idx} className="flex items-center justify-between p-2.5 bg-neutral-50 border border-neutral-150 rounded-xl text-left">
-                          <span className="text-[10px] text-neutral-700 font-bold">✓ {cond}</span>
+                          <span className="text-[10px] text-neutral-700 font-bold">{cond}</span>
                           <button
                             type="button"
                             onClick={() => handleDeleteCondition(idx)}
@@ -1704,6 +1720,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
                     <input
                       type="number"
+                      min="1"
                       required
                       value={editPrice}
                       onChange={(e) => setEditPrice(Number(e.target.value))}
@@ -1928,7 +1945,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                     <div className="border border-[#10b981]/20 p-4 rounded-2xl bg-[#10b981]/5 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="text-[10px] font-black uppercase tracking-wider text-[#10b981] flex items-center gap-1">
-                          <span>🔍 Optics & Smart Lens Specs</span>
+                          <span>Optics & lens specs</span>
                         </h4>
                         <span className="text-[8px] bg-[#10b981]/15 text-[#059669] px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
                           Auto-Populated from List
