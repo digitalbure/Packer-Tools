@@ -614,6 +614,14 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
 
+    // Beta invitations: admin invites an email address to a 3-month enterprise trial.
+    // The signed-in user may only read the one doc matching their own email (its doc id);
+    // only the admin creates or removes invitations.
+    match /betaInvitations/{email} {
+      allow read: if isSignedIn() && (email == request.auth.token.email.lower() || isAdmin());
+      allow write: if isAdmin();
+    }
+
     // 28. Platform Audit Activity Logs
     match /activityLogs/{logId} {
       allow read: if isSignedIn() && (resource == null || isOwner(resource.data.userId) || isAdmin());
