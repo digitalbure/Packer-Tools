@@ -12,6 +12,9 @@ import { db, handleFirestoreError, OperationType, signInWithGoogle } from '../fi
 import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDocs } from 'firebase/firestore';
 import PackerLogo from '../components/PackerLogo';
 import { computeDeposit } from '../booking/depositPolicy';
+import '../booking/booking.css';
+import '../marketplace/brand.css';
+import { useLandingFonts } from '../components/landing/useLandingFonts';
 import PickupDropoffWidget, { PickupDropoffState } from '../components/PickupDropoffWidget';
 import { 
   Search, 
@@ -180,6 +183,7 @@ interface MarketplaceProps {
 }
 
 export default function Marketplace({ user, adminSettings }: MarketplaceProps = {}) {
+  useLandingFonts();
   const navigate = useNavigate();
   const { formatCurrency, convertCurrency, selectedCurrency } = useAuth();
   const [currentMode, setCurrentMode] = useState<'rent' | 'buy'>('rent');
@@ -787,50 +791,39 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
   };
 
   return (
-    <div 
-      id="marketplace-landing-root" 
+    <div
+      id="marketplace-landing-root"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="min-h-screen bg-white text-neutral-900 pb-20 font-sans selection:bg-neutral-900 selection:text-white relative"
+      className="mk-browse min-h-screen pb-20 relative"
     >
-      {/* Mobile Pull-to-Refresh Visual Indicator */}
-      <div 
+      {/* Mobile pull-to-refresh indicator */}
+      <div
         style={{ height: isRefreshing ? '50px' : `${pullProgress * 0.4}px`, opacity: isRefreshing || pullProgress > 10 ? 1 : 0 }}
-        className="w-full flex items-center justify-center overflow-hidden transition-all duration-155 bg-white/40 rounded-2xl border border-neutral-200/50 text-neutral-600 gap-2 text-xs font-mono font-black uppercase tracking-wider select-none mb-4"
+        className="w-full flex items-center justify-center overflow-hidden transition-all duration-155 select-none"
       >
-        <RefreshCw size={14} className={`text-primary ${isRefreshing ? 'animate-spin' : ''}`} style={{ transform: isRefreshing ? 'none' : `rotate(${pullProgress * 3.6}deg)` }} />
-        <span>{isRefreshing ? 'Synchronizing...' : pullProgress >= 85 ? 'Release to Sync' : 'Pull to Refresh'}</span>
+        <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} style={{ color: 'var(--hazard)', transform: isRefreshing ? 'none' : `rotate(${pullProgress * 3.6}deg)` }} />
+        <span className="mk-browse__eyebrow" style={{ marginLeft: '.5rem' }}>{isRefreshing ? 'Refreshing...' : pullProgress >= 85 ? 'Release to refresh' : 'Pull to refresh'}</span>
       </div>
-      
-      {/* Clean Modern Symmetrical Top Navigation & Scheduler Section */}
-      <div className="max-w-7xl mx-auto px-6 md:px-12 py-8 space-y-6">
-        
-        {/* Compact custom header row specifying live workspace shift */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-neutral-100">
-          <div className="flex items-center gap-2">
+
+      <div className="mk-browse__inner">
+        <div className="mk-browse__header">
+          <div className="mk-browse__brand">
             <PackerLogo variant="symbol-only" size={32} />
             <div>
-              <span className="font-extrabold uppercase tracking-widest text-[#ff4f3a] text-[9px] block font-mono">Peer-To-Peer Hire</span>
-              <span className="font-bold uppercase tracking-wider text-sm text-neutral-900 block -mt-0.5">Packer Marketplace</span>
+              <span className="mk-browse__eyebrow">Rent gear from other crews</span>
+              <span className="mk-browse__wordmark" style={{ display: 'block', marginTop: '.125rem' }}>Packer Marketplace</span>
             </div>
           </div>
 
           {user && (
-            <div className="flex bg-neutral-100 p-1 rounded-2xl border border-neutral-200/40">
-              <button 
+            <div className="mk-browse__switch">
+              <button type="button" aria-pressed="true">Marketplace</button>
+              <button
                 type="button"
-                className="px-5 py-2 rounded-xl text-[10px] font-black bg-[#ff4f3a] text-white shadow-sm uppercase tracking-wider transition-all"
-              >
-                Marketplace Hub
-              </button>
-              <button 
-                type="button"
-                onClick={() => {
-                  navigate('/dashboard');
-                  toast.success("Switched to Packer Tools Workspace!");
-                }}
-                className="px-5 py-2 rounded-xl text-[10px] font-black text-neutral-500 hover:text-neutral-900 uppercase tracking-wider transition-all"
+                aria-pressed="false"
+                onClick={() => navigate('/dashboard')}
               >
                 Packer Tools
               </button>
@@ -838,117 +831,64 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
           )}
         </div>
 
-        {/* Dynamic Launch Notifications */}
         {!isAuthorized && (
-          <div id="unauthorized-launch-ribbon" className="bg-neutral-950 text-amber-500 border border-amber-900/30 rounded-2xl p-3 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2.5 shadow-md">
-            <Globe size={12} className="shrink-0 text-amber-500" />
-            <span>⚠️ Soft Launch Notice: Active marketplace services are prioritized in {launchCountry}. Some features may be restricted for {user?.country || 'your current region'}.</span>
+          <div id="unauthorized-launch-ribbon" className="mk-browse__notice">
+            The marketplace is live first in {launchCountry}. Some listings may not reach {user?.country || 'your region'} yet.
           </div>
         )}
 
-        {/* Compact search & date duration board */}
-        <div className="bg-neutral-900 text-white rounded-[2rem] p-6 md:p-8 space-y-6 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-3xl rounded-full pointer-events-none" />
-
-          {/* Mode switch header row */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-neutral-800 pb-5">
+        <div className="mk-hero">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
             <div>
-              <h1 className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
-                <span>Find & Reserve Premium Equipment</span>
-              </h1>
-              <p className="text-xs text-neutral-400 mt-1 uppercase font-bold tracking-wider">Instant deployment near {locationQuery} for organization members</p>
+              <h1 className="mk-hero__title">{heroTitle}</h1>
+              <p className="mk-hero__sub">{heroSubtitle} — browsing near {locationQuery}.</p>
             </div>
 
-            {/* Mode Switcher Rent vs Buy */}
-            <div className="bg-neutral-950 p-1 rounded-xl flex items-center border border-neutral-800 self-start lg:self-auto">
+            <div className="mk-browse__switch" style={{ background: 'transparent', borderColor: '#3a3f43' }}>
               <button
                 type="button"
-                onClick={() => {
-                  setCurrentMode('rent');
-                  toast.info("Switched to Rent mode");
-                }}
-                className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ${currentMode === 'rent' ? 'bg-[#ff4f3a] text-white shadow-md' : 'text-neutral-400 hover:text-white'}`}
+                aria-pressed={currentMode === 'rent'}
+                onClick={() => setCurrentMode('rent')}
+                style={currentMode === 'rent' ? { background: 'var(--hazard)', color: 'var(--ink)' } : { color: '#9AA1A6' }}
               >
-                Rent Gear
+                Rent
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setCurrentMode('buy');
-                  toast.info("Switched to Buy & Sell mode");
-                }}
-                className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ${currentMode === 'buy' ? 'bg-[#ff4f3a] text-white shadow-md' : 'text-neutral-400 hover:text-white'}`}
+                aria-pressed={currentMode === 'buy'}
+                onClick={() => setCurrentMode('buy')}
+                style={currentMode === 'buy' ? { background: 'var(--hazard)', color: 'var(--ink)' } : { color: '#9AA1A6' }}
               >
-                Buy / Sale
+                Buy
               </button>
             </div>
           </div>
 
-          {/* Form Filter Row spanning search keyword config and location preferences */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 bg-neutral-950/80 border border-neutral-800/65 p-3 rounded-2xl shadow-inner">
-            
-            {/* 1. Keyword search input */}
-            <div className="lg:col-span-6 flex items-center gap-2.5 px-3 py-1.5 border-b lg:border-b-0 lg:border-r border-neutral-800/60 shrink-0">
-              <Search size={16} className="text-[#ff4f3a] shrink-0" />
-              <div className="flex flex-col w-full">
-                <label className="text-[8px] font-black uppercase tracking-widest text-[#ff4f3a]">Search Equipment</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Sony FX6, RED, Arri..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-transparent text-white text-xs outline-none focus:ring-0 placeholder-neutral-600 font-bold mt-0.5"
-                />
-              </div>
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="p-1 hover:bg-neutral-800 rounded-full text-neutral-400 shrink-0">
-                  <X size={10} />
-                </button>
-              )}
+          <div className="mk-hero__row">
+            <div className="mk-hero__field">
+              <label htmlFor="mk-search">Search equipment</label>
+              <input
+                id="mk-search"
+                type="text"
+                placeholder="e.g. Sony FX6, RED, Arri"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-
-            {/* 2. Location Select */}
-            <div className="lg:col-span-4 flex items-center gap-2.5 px-3 py-1.5 shrink-0">
-              <MapPin size={16} className="text-[#ff4f3a] shrink-0" />
-              <div className="flex flex-col w-full">
-                <label className="text-[8px] font-black uppercase tracking-widest text-neutral-500 font-bold">Dispatch Location</label>
-                <input
-                  type="text"
-                  value={locationQuery}
-                  onChange={(e) => setLocationQuery(e.target.value)}
-                  className="w-full bg-transparent text-white text-xs outline-none focus:ring-0 font-bold mt-0.5"
-                />
-              </div>
+            <div className="mk-hero__field">
+              <label htmlFor="mk-location">Near</label>
+              <input
+                id="mk-location"
+                type="text"
+                value={locationQuery}
+                onChange={(e) => setLocationQuery(e.target.value)}
+              />
             </div>
-
-            {/* 3. Search Trigger button */}
-            <div className="lg:col-span-2 flex items-center justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSearchDrawerOpen(true);
-                  toast.success(`Refined filters loaded for "${searchQuery || 'all equipment'}"!`);
-                }}
-                className="w-full bg-[#ff4f3a] hover:bg-[#e43f2a] active:scale-95 text-white font-black uppercase tracking-wider text-[10px] py-3 rounded-xl transition duration-150 flex items-center justify-center gap-1.5 shadow-md"
-              >
-                <Search size={12} />
-                <span>Search</span>
-              </button>
-            </div>
-
+            <button type="button" className="mk__btn mk__btn--primary" onClick={() => setIsSearchDrawerOpen(true)}>
+              <SlidersHorizontal size={14} />
+              <span>Filters</span>
+            </button>
           </div>
-        </div>
-
-        {/* Dynamic drawer activation indicator trigger button floating on side */}
-        <div className="relative z-25 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setIsSearchDrawerOpen(true)}
-            className="flex items-center gap-2 bg-[#ff4f3a] text-white text-[10px] font-black uppercase tracking-widest py-2.5 px-4 rounded-xl opacity-90 hover:opacity-100 transition shadow-lg shrink-0 mt-2"
-          >
-            <SlidersHorizontal size={12} />
-            <span>Open Filters Drawer</span>
-          </button>
         </div>
       </div>
 
@@ -1104,91 +1044,67 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       </AnimatePresence>
 
 
-      {/* 2. EXPLORE LAYOUT PANEL (Rentals, Buy-Sell, Gigs, Locations - MATCHING SCREENSHOT 1) */}
-      <div id="explore-cards-section" className="max-w-7xl mx-auto px-6 md:px-12 py-12 space-y-6">
-        <div>
-          <h2 className="text-xl font-extrabold tracking-tight text-neutral-900 uppercase">Explore Packer Marketplace</h2>
-          <p className="text-xs text-neutral-400 font-semibold uppercase mt-1 tracking-wider">On-demand production components & services</p>
-        </div>
+      <div id="explore-cards-section" className="mk-browse__inner" style={{ paddingTop: 0 }}>
+        <h2 className="mk-rail__title">Get started</h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          {/* Card 1: Rentals */}
-          <div 
+        <div className="mk-links">
+          <button
+            type="button"
+            className="mk-link"
             onClick={() => {
               setCurrentMode('rent');
               setSearchQuery('');
               setSelectedCategory(null);
-              toast.info("Viewing local gear rentals.");
-              const section = document.getElementById('marketplace-products-display');
-              if (section) section.scrollIntoView({ behavior: 'smooth' });
+              document.getElementById('marketplace-products-display')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="group cursor-pointer border border-neutral-100 bg-neutral-50/40 hover:bg-white hover:border-neutral-200 p-5 rounded-2xl transition duration-200 flex items-start gap-4 shadow-xs"
           >
-            <div className="w-10 h-10 bg-indigo-50 text-[#ff4f3a] rounded-xl flex items-center justify-center shrink-0 shadow-inner">
-              <Camera size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase text-neutral-800 tracking-tight">Rentals</p>
-              <p className="text-[10px] text-neutral-400 font-semibold uppercase mt-0.5">Local gear rentals</p>
-            </div>
-          </div>
+            <span className="mk-link__icon"><Camera size={16} /></span>
+            <span>
+              <span className="mk-link__name">Rentals</span>
+              <span className="mk-link__desc">Local gear rentals</span>
+            </span>
+          </button>
 
-          {/* Card 2: Buy & Sell */}
-          <div 
+          <button
+            type="button"
+            className="mk-link"
             onClick={() => {
               setCurrentMode('buy');
               setSearchQuery('');
               setSelectedCategory(null);
-              toast.info("Viewing buy & sell marketplace.");
-              const section = document.getElementById('marketplace-products-display');
-              if (section) section.scrollIntoView({ behavior: 'smooth' });
+              document.getElementById('marketplace-products-display')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="group cursor-pointer border border-neutral-100 bg-neutral-50/40 hover:bg-white hover:border-neutral-200 p-5 rounded-2xl transition duration-200 flex items-start gap-4 shadow-xs"
           >
-            <div className="w-10 h-10 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center shrink-0 shadow-inner">
-              <ShoppingBag size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase text-neutral-800 tracking-tight">Buy & Sell</p>
-              <p className="text-[10px] text-neutral-400 font-semibold uppercase mt-0.5">New & used gear</p>
-            </div>
-          </div>
+            <span className="mk-link__icon"><ShoppingBag size={16} /></span>
+            <span>
+              <span className="mk-link__name">Buy &amp; sell</span>
+              <span className="mk-link__desc">New and used gear</span>
+            </span>
+          </button>
 
-          {/* Card 3: Gigs (Hiring) */}
-          <div 
-            onClick={() => {
-              toast.info("Scrolling down to active Freelancers directory");
-              const section = document.getElementById('marketplace-crew-display');
-              if (section) section.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="group cursor-pointer border border-neutral-100 bg-neutral-50/40 hover:bg-white hover:border-neutral-200 p-5 rounded-2xl transition duration-200 flex items-start gap-4 shadow-xs"
+          <button
+            type="button"
+            className="mk-link"
+            onClick={() => document.getElementById('marketplace-crew-display')?.scrollIntoView({ behavior: 'smooth' })}
           >
-            <div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center shrink-0 shadow-inner">
-              <UserCheck size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase text-neutral-800 tracking-tight">Gigs</p>
-              <p className="text-[10px] text-neutral-400 font-semibold uppercase mt-0.5">Hire local creatives</p>
-            </div>
-          </div>
+            <span className="mk-link__icon"><UserCheck size={16} /></span>
+            <span>
+              <span className="mk-link__name">Gigs</span>
+              <span className="mk-link__desc">Hire local creatives</span>
+            </span>
+          </button>
 
-          {/* Card 4: Locations */}
-          <div 
-            onClick={() => {
-              toast.info("Opening map visualization. Over 1,500 qualified studios catalogued");
-            }}
-            className="group cursor-pointer border border-neutral-100 bg-neutral-50/40 hover:bg-white hover:border-neutral-200 p-5 rounded-2xl transition duration-200 flex items-start gap-4 shadow-xs"
+          <button
+            type="button"
+            className="mk-link"
+            onClick={() => toast.info('A map view is not built yet.')}
           >
-            <div className="w-10 h-10 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center shrink-0 shadow-inner">
-              <MapPin size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-black uppercase text-neutral-800 tracking-tight">Locations</p>
-              <p className="text-[10px] text-neutral-400 font-semibold uppercase mt-0.5">For Film, Photo & Editing</p>
-            </div>
-          </div>
-
+            <span className="mk-link__icon"><MapPin size={16} /></span>
+            <span>
+              <span className="mk-link__name">Locations</span>
+              <span className="mk-link__desc">Film, photo and editing spaces</span>
+            </span>
+          </button>
         </div>
       </div>
 
@@ -1212,7 +1128,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                   {bannerASubtitle}
                 </p>
                 <button 
-                  onClick={() => toast.success("Feature action simulated inside this sandbox!")}
+                  onClick={() => toast.info("This banner is informational only.")}
                   className="bg-white hover:bg-neutral-100 text-neutral-900 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition transform active:scale-95 text-center block md:inline-block"
                 >
                   {bannerAButtonText}
@@ -1250,7 +1166,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                   {bannerBSubtitle}
                 </p>
                 <button 
-                  onClick={() => toast.success("Verification dialog activated in user workspace.")}
+                  onClick={() => toast.info("This banner is informational only.")}
                   className="bg-[#ff4f3a] hover:bg-[#e43f2a] text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition transform active:scale-95 text-center block md:inline-block"
                 >
                   {bannerBButtonText}
@@ -1355,102 +1271,53 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
         </div>
       </div>
 
-      {/* 4. DESIGN BROWSE CATEGORIES CAROUSEL (MATCHING SCREENSHOT 3) */}
       {showCategories && (
-        <div id="marketplace-categories-section" className="max-w-7xl mx-auto px-6 md:px-12 py-10 space-y-6">
-          <div className="flex items-end justify-between border-b border-neutral-100 pb-4">
+        <div id="marketplace-categories-section" className="mk-browse__inner mk-rail" style={{ paddingTop: 0, paddingBottom: 0 }}>
+          <div className="mk-rail__head">
             <div>
-              <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight">Browse Categories</h2>
-              <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">Near {locationQuery}</p>
+              <h2 className="mk-rail__title">Browse categories</h2>
+              <p className="mk-browse__eyebrow" style={{ marginTop: '.25rem' }}>Near {locationQuery}</p>
             </div>
-            
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  setSelectedCategory(null);
-                  toast.success("Filters reset: showing all categories.");
-                }}
-                className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 hover:text-black transition"
-              >
-                View All Categories
+            {selectedCategory && (
+              <button type="button" onClick={() => setSelectedCategory(null)} className="mk__btn" style={{ minHeight: '2.25rem', padding: '.375rem .875rem', fontSize: '.75rem' }}>
+                Clear category
               </button>
-              <div className="flex gap-1">
-                <button 
-                  onClick={() => toast.info("Hold & drag to scroll categories horizontally.")}
-                  className="w-7 h-7 bg-neutral-50 hover:bg-neutral-100 rounded-full flex items-center justify-center border border-neutral-200 text-neutral-600 transition"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-                <button 
-                  onClick={() => toast.info("Swipe panels to review more items.")}
-                  className="w-7 h-7 bg-neutral-50 hover:bg-neutral-100 rounded-full flex items-center justify-center border border-neutral-200 text-neutral-600 transition"
-                >
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Brand Logo Directory Horizontal Slider */}
           {dbBrands.length > 0 && (
-            <div className="space-y-3 bg-neutral-50/50 p-5 rounded-[2rem] border border-neutral-150 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-neutral-800">Filter by Brand Directory</h3>
-                  <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider">Quickly drill down to equipment from your favorite manufacturer</p>
-                </div>
+            <div style={{ marginTop: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 className="mk__label" style={{ fontSize: '.8125rem' }}>Filter by brand</h3>
                 {selectedBrandId && (
-                  <button
-                    onClick={() => {
-                      setSelectedBrandId(null);
-                      toast.success("Cleared brand filter");
-                    }}
-                    className="text-[10px] font-black uppercase tracking-wider text-rose-500 hover:text-rose-600 transition"
-                  >
-                    Clear Filter
+                  <button type="button" onClick={() => setSelectedBrandId(null)} className="mk__label" style={{ color: 'var(--bad)', cursor: 'pointer', background: 'none', border: 'none' }}>
+                    Clear
                   </button>
                 )}
               </div>
-              <div className="flex overflow-x-auto gap-3 py-1 pr-4 scrollbar-hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div className="mk-rail__scroll">
                 {dbBrands.map((brand) => {
                   const isSelected = selectedBrandId === brand.id;
                   const brandListingsCount = userListings.filter(l => l.brand?.toLowerCase() === brand.name?.toLowerCase() || l.brand?.toLowerCase() === brand.id?.toLowerCase()).length;
                   return (
                     <button
                       key={brand.id}
-                      onClick={() => {
-                        if (isSelected) {
-                          setSelectedBrandId(null);
-                          toast.success("Cleared brand filter");
-                        } else {
-                          setSelectedBrandId(brand.id);
-                          toast.success(`Filtering by ${brand.name}`);
-                        }
-                      }}
-                      className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl border transition duration-200 shrink-0 text-left ${
-                        isSelected
-                          ? 'border-primary bg-primary/5 shadow-sm text-neutral-900'
-                          : 'border-neutral-100 bg-white hover:border-neutral-200 hover:bg-neutral-50 text-neutral-600'
-                      }`}
+                      onClick={() => setSelectedBrandId(isSelected ? null : brand.id)}
+                      className="mk-cat"
+                      aria-pressed={isSelected}
+                      style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '.5rem', padding: '.5rem .75rem' }}
                     >
-                      <div className="w-6 h-6 rounded-lg overflow-hidden bg-white border border-neutral-150 flex items-center justify-center p-0.5 shrink-0">
+                      <span style={{ width: '1.5rem', height: '1.5rem', borderRadius: 4, overflow: 'hidden', background: 'var(--tape)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
                         {brand.logo ? (
-                          <img
-                            src={brand.logo}
-                            alt={brand.name}
-                            className="max-w-full max-h-full object-contain"
-                            referrerPolicy="no-referrer"
-                          />
+                          <img src={brand.logo} alt={brand.name} referrerPolicy="no-referrer" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-neutral-400 bg-neutral-100 text-[8px] font-black uppercase">
-                            {brand.name.slice(0, 2)}
-                          </div>
+                          <span style={{ fontSize: '.625rem', fontWeight: 800 }}>{brand.name.slice(0, 2)}</span>
                         )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-tight leading-none">{brand.name}</p>
-                        <p className="text-[8px] text-neutral-400 font-bold uppercase mt-0.5 font-mono">{brandListingsCount} listings</p>
-                      </div>
+                      </span>
+                      <span style={{ textAlign: 'left' }}>
+                        <span className="mk-cat__name" style={{ padding: 0, display: 'block' }}>{brand.name}</span>
+                        {brandListingsCount > 0 && <span className="mk-browse__eyebrow" style={{ fontSize: '.625rem' }}>{brandListingsCount} listings</span>}
+                      </span>
                     </button>
                   );
                 })}
@@ -1458,37 +1325,23 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
             </div>
           )}
 
-          {/* Categories grid horizontal layout */}
-          <div className="flex overflow-x-auto gap-4 py-2 pr-4 scrollbar-hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div className="mk-rail__scroll">
             {activeCategories.map((cat) => {
               const isSelected = selectedCategory === cat.id;
               return (
-                <div 
+                <button
                   key={cat.id}
-                  onClick={() => {
-                    setSelectedCategory(isSelected ? null : cat.id);
-                    toast.success(isSelected ? "Cleared category filter" : `Showing ${cat.name} only`);
-                  }}
-                  className={`flex-none w-[170px] bg-neutral-50 hover:bg-white cursor-pointer rounded-2xl p-3 border hover:border-neutral-300 hover:shadow-md transition duration-200 space-y-3 shrink-0 ${isSelected ? 'border-[#ff4f3a] bg-rose-50/10' : 'border-neutral-100'}`}
+                  type="button"
+                  onClick={() => setSelectedCategory(isSelected ? null : cat.id)}
+                  className="mk-cat"
+                  aria-pressed={isSelected}
                 >
-                  {/* Category block thumb */}
-                  <div className="w-full h-24 overflow-hidden rounded-xl bg-neutral-100 relative">
-                    <img 
-                      src={cat.image} 
-                      alt={cat.name} 
-                      className="w-full h-full object-cover transform hover:scale-110 transition duration-300"
-                      referrerPolicy="no-referrer"
-                    />
-                    {cat.count > 0 && (
-                      <div className="absolute bottom-1.5 right-1.5 bg-neutral-900/80 text-white font-mono text-[7.5px] font-bold uppercase tracking-widest px-2 py-0.5 rounded">
-                        {cat.count.toLocaleString()} listings
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-0.5 px-0.5">
-                    <p className="text-[10px] font-black uppercase text-neutral-800 line-clamp-1 truncate">{cat.name}</p>
-                  </div>
-                </div>
+                  <span className="mk-cat__thumb">
+                    <img src={cat.image} alt="" referrerPolicy="no-referrer" />
+                    {cat.count > 0 && <span className="mk-cat__count">{cat.count.toLocaleString()}</span>}
+                  </span>
+                  <span className="mk-cat__name">{cat.name}</span>
+                </button>
               );
             })}
           </div>
@@ -1505,7 +1358,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#ff4f3a]" />
               <h3 className="text-xs font-black uppercase tracking-wider text-neutral-800">
-                Viewing: {currentMode === 'rent' ? 'Popular Equipment for Rent' : 'Hot Equipment Listings for Sale'}
+                Showing: {currentMode === 'rent' ? 'Equipment for rent' : 'Equipment for sale'}
               </h3>
             </div>
             <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
@@ -1610,7 +1463,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
         <div className="space-y-6">
           <div className="flex items-center justify-between uppercase">
             <h3 className="text-sm font-black tracking-widest text-[#ff4f3a]">
-              {currentMode === 'rent' ? 'Popular Products for Rent' : 'Equipment Listed for Sale'}
+              {currentMode === 'rent' ? 'Equipment for rent' : 'Equipment for sale'}
             </h3>
             <span className="text-[9px] font-mono font-bold text-neutral-400">Total Items: {loadingListings ? 'Loading...' : filteredProducts.length}</span>
           </div>
@@ -1658,27 +1511,32 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
               </div>
             )
           ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-16 border-2 border-dashed border-neutral-100 rounded-[2rem] space-y-4">
-              <ShieldAlert size={32} className="mx-auto text-neutral-300 animate-pulse" />
-              <p className="text-[10px] font-black tracking-widest uppercase">No exact matches in catalog database</p>
+            <div className="mk-empty">
+              <p>No listings match these filters yet.</p>
               <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory(null);
-                  toast.success("Filters cleared!");
-                }}
-                className="bg-neutral-900 text-white rounded-xl py-2 px-4 text-[9px] font-black tracking-widest uppercase"
+                type="button"
+                onClick={() => { setSearchQuery(''); setSelectedCategory(null); }}
+                className="mk__btn"
+                style={{ margin: '.75rem auto 0', minHeight: '2.25rem', padding: '.375rem 1rem', fontSize: '.75rem' }}
               >
-                Reset Searches
+                Clear filters
               </button>
             </div>
           ) : viewType === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            <div className="mk-grid">
               {filteredProducts.map((product) => {
                 const isFav = favoriteItems.has(product.id);
+                const flag = product.sponsored ? 'Sponsored'
+                  : product.featured ? 'Featured'
+                  : product.isSale ? 'For sale'
+                  : product.instantBook ? 'Instant book'
+                  : 'Daily rent';
                 return (
-                  <div 
+                  <div
                     key={product.id}
+                    className="mk-item"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       if (product.isUserListing) {
                         navigate('/marketplace/' + product.id);
@@ -1687,139 +1545,62 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                         setIsBookingModalOpen(true);
                       }
                     }}
-                    className={`group cursor-pointer bg-white rounded-2xl overflow-hidden hover:shadow-xl transition duration-300 flex flex-col justify-between ${
-                      product.sponsored ? 'border-2 border-indigo-600/30 bg-indigo-50/5' :
-                      product.featured ? 'border-2 border-amber-500/30' : 'border border-neutral-100'
-                    }`}
                   >
-                    {/* Item Image with favorite trigger */}
-                    <div className="h-44 w-full bg-neutral-50 relative overflow-hidden shrink-0">
-                      <img 
-                        src={product.image} 
-                        alt={product.name} 
-                        className="w-full h-full object-cover object-center transform group-hover:scale-105 transition duration-500"
-                        referrerPolicy="no-referrer"
-                      />
-                      
-                      {/* Top elements */}
-                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
-                        {product.sponsored ? (
-                          <span className="bg-indigo-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wide shadow-sm flex items-center gap-1">
-                            <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
-                            Sponsored Ad
-                          </span>
-                        ) : product.featured ? (
-                          <span className="bg-amber-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wide shadow-sm">
-                            ★ Staff Pick
-                          </span>
-                        ) : product.isSale ? (
-                          <span className="bg-[#ff4f3a] text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wide shadow-sm">
-                            For Sale
-                          </span>
-                        ) : product.instantBook ? (
-                          <span className="bg-emerald-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wide shadow-sm">
-                            Instant Book
-                          </span>
-                        ) : (
-                          <span className="bg-neutral-900/60 text-white text-[7.5px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide backdrop-blur-md">
-                            Daily Rent
-                          </span>
-                        )}
-
-                        <button
-                          onClick={(e) => toggleFavorite(product.id, e)}
-                          className="w-7 h-7 bg-white/90 rounded-full flex items-center justify-center text-neutral-500 hover:text-[#ff4f3a] transition shadow shadow-neutral-350"
-                        >
-                          <Heart size={14} className={isFav ? 'fill-red-500 text-red-500' : ''} />
-                        </button>
-                      </div>
-
-                      {/* Bottom shipping banner */}
+                    <div className="mk-item__photo">
+                      <img src={product.image} alt={product.name} referrerPolicy="no-referrer" />
+                      <span className="mk-item__flag">{flag}</span>
+                      <button
+                        onClick={(e) => toggleFavorite(product.id, e)}
+                        aria-label={isFav ? 'Remove from saved' : 'Save this listing'}
+                        style={{ position: 'absolute', top: '.5rem', right: '.5rem', width: '1.75rem', height: '1.75rem', borderRadius: '50%', background: '#fff', border: '2px solid var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Heart size={13} className={isFav ? 'fill-red-500 text-red-500' : ''} />
+                      </button>
                       {product.isShipped && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-blue-650/90 bg-indigo-900 text-white text-center py-1 text-[7.5px] uppercase tracking-widest font-black">
-                          🚚 {product.shippingDays}-5 Days Shipped Delivery
-                        </div>
+                        <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--ink)', color: '#fff', textAlign: 'center', padding: '.1875rem 0', fontSize: '.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.03em' }}>
+                          Ships in {product.shippingDays}–5 days
+                        </span>
                       )}
                     </div>
 
-                    {/* Meta data */}
-                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          {product.brand && (() => {
-                            const brandObj = dbBrands.find(b => b.name?.toLowerCase() === product.brand.toLowerCase() || b.id?.toLowerCase() === product.brand.toLowerCase());
-                            return brandObj?.logo ? (
-                              <img
-                                src={brandObj.logo}
-                                alt={product.brand}
-                                className="h-3 w-auto object-contain rounded opacity-75 shrink-0"
-                                referrerPolicy="no-referrer"
-                              />
-                            ) : null;
-                          })()}
-                          <p className="text-[9px] font-mono font-bold text-neutral-400 uppercase tracking-widest truncate">
-                            {product.brand}
-                          </p>
-                        </div>
-                        <h4 className="text-[10.5px] font-black uppercase text-neutral-800 line-clamp-2 leading-snug group-hover:text-black" title={product.name}>
-                          {product.name}
-                        </h4>
+                    <div className="mk-item__body">
+                      <div>
+                        <p className="mk-item__brand">{product.brand}</p>
+                        <h4 className="mk-item__name" title={product.name}>{product.name}</h4>
                         {(product.category === 'cinema-lenses' || product.category === 'photography-lenses') && (product.lensType || product.lensMount) && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {product.lensType && (
-                              <span className="px-1.5 py-0.5 bg-neutral-100 text-neutral-600 rounded text-[7.5px] font-black uppercase tracking-wider font-sans border border-neutral-150">
-                                {product.lensType}
-                              </span>
-                            )}
-                            {product.lensMount && (
-                              <span className="px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded text-[7.5px] font-black uppercase tracking-wider font-sans">
-                                {product.lensMount}
-                              </span>
-                            )}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.25rem', marginTop: '.375rem' }}>
+                            {product.lensType && <span className="mk__tag" style={{ fontSize: '.625rem', padding: '.0625rem .375rem' }}>{product.lensType}</span>}
+                            {product.lensMount && <span className="mk__tag" style={{ fontSize: '.625rem', padding: '.0625rem .375rem' }}>{product.lensMount}</span>}
                           </div>
                         )}
                         {product.sponsored && product.adHeadline && (
-                          <div className="mt-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-lg text-[8px] font-extrabold text-indigo-700 select-none leading-normal">
-                            📢 {product.adHeadline}
-                          </div>
+                          <p className="mk__note" style={{ marginTop: '.375rem', padding: '.375rem .5rem', fontSize: '.6875rem' }}>{product.adHeadline}</p>
                         )}
                       </div>
 
-                      <div className="space-y-2">
-                        {/* Rating row */}
-                        {product.rating > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Star size={10} className="fill-amber-400 text-amber-400 shrink-0" />
-                            <span className="text-[9.5px] font-black text-neutral-700">{product.rating}</span>
-                            <span className="text-[8.5px] text-neutral-400 font-bold uppercase">({product.reviews} reviews)</span>
-                          </div>
-                        )}
-
-                        {/* Owner details */}
-                        {product.ownerName && (
-                          <div className="flex items-center gap-1 border-t border-neutral-100 pt-1.5 text-[8.5px] text-neutral-400 font-bold uppercase tracking-wider">
-                            <span>Owner: </span>
-                            <span className="text-neutral-600 truncate">{product.ownerName}</span>
-                          </div>
-                        )}
-
-                        {/* Pricing details */}
-                        <div className="flex items-baseline justify-between pt-1 border-t border-neutral-50">
-                          <div>
-                            <span className="text-sm font-black text-neutral-900">
-                              {currencySymbol}{product.price ? product.price.toLocaleString() : 'Call'}
-                            </span>
-                            <span className="text-[8.5px] text-neutral-400 font-bold uppercase ml-0.5">
-                              {product.isSale ? '' : '/day'}
-                            </span>
-                          </div>
-                          
-                          {product.originalPrice && (
-                            <span className="text-[9px] text-neutral-400 line-through font-bold">
-                              {currencySymbol}{product.originalPrice.toLocaleString()}
-                            </span>
-                          )}
+                      {product.rating > 0 && (
+                        <div className="mk-item__rating">
+                          <Star size={10} className="fill-amber-400 text-amber-400" />
+                          <span>{product.rating} ({product.reviews})</span>
                         </div>
+                      )}
+
+                      {product.ownerName && (
+                        <p className="mk-item__brand" style={{ borderTop: '2px dashed var(--concrete)', paddingTop: '.375rem' }}>
+                          {product.ownerName}
+                        </p>
+                      )}
+
+                      <div className="mk-item__foot">
+                        <span className="mk-item__price">
+                          {currencySymbol}{product.price ? product.price.toLocaleString() : 'Call'}
+                          {!product.isSale && <span> /day</span>}
+                        </span>
+                        {product.originalPrice && (
+                          <span style={{ fontSize: '.6875rem', color: 'var(--ink-soft)', textDecoration: 'line-through' }}>
+                            {currencySymbol}{product.originalPrice.toLocaleString()}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
