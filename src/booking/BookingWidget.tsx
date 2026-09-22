@@ -19,6 +19,7 @@ interface Props {
   deposit?: number;
   format: (amount: number) => string;
   conditions: string[];
+  ownerId?: string;
   submitting: boolean;
   done: boolean;
   onSubmit: (req: BookingRequest) => void;
@@ -33,7 +34,7 @@ const PROBLEM_TEXT = {
   past: 'The pickup date has already passed.',
 } as const;
 
-export default function BookingWidget({ dailyRate, deposit, format, conditions, submitting, done, onSubmit, onReset }: Props) {
+export default function BookingWidget({ dailyRate, deposit, format, conditions, ownerId, submitting, done, onSubmit, onReset }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -101,7 +102,7 @@ export default function BookingWidget({ dailyRate, deposit, format, conditions, 
 
           <div className="bk__field">
             <span className="bk__label">Pickup and return</span>
-            <PickupDropoffWidget onChange={setRoute} />
+            <PickupDropoffWidget onChange={setRoute} ownerId={ownerId} />
           </div>
 
           {conditions.length > 0 && (

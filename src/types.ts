@@ -1,4 +1,4 @@
-export type FeatureKey = 'aiWizard' | 'gearLibrary' | 'reminders' | 'versionHistory' | 'branding' | 'qrSharing' | 'toolingLists' | 'organizer' | 'travelCases' | 'logisticsDashboard' | 'movingDashboard' | 'rackingDashboard' | 'marketplace' | 'marketplaceListings' | 'kioskMode' | 'orgManagement' | 'departments' | 'teams' | 'inventoryManagement' | 'projectCost' | 'supplierManagement' | 'bomManagement' | 'customBarcodes' | 'automaticDepreciation' | 'digitalSignatures' | 'clientPortal' | 'apiIntegrations' | 'weightAnalytics' | 'kioskOrderMode' | 'kioskDirectCheckout' | 'rfidTracking' | 'assetTransfer' | 'nfcPassportModule' | 'rfidSledSweep' | 'hardwareAuditTrail' | 'batteryLifecycle';
+export type FeatureKey = 'aiWizard' | 'gearLibrary' | 'reminders' | 'versionHistory' | 'branding' | 'qrSharing' | 'toolingLists' | 'organizer' | 'travelCases' | 'logisticsDashboard' | 'movingDashboard' | 'rackingDashboard' | 'marketplace' | 'marketplaceListings' | 'kioskMode' | 'orgManagement' | 'departments' | 'teams' | 'inventoryManagement' | 'projectCost' | 'supplierManagement' | 'bomManagement' | 'customBarcodes' | 'automaticDepreciation' | 'digitalSignatures' | 'clientPortal' | 'apiIntegrations' | 'weightAnalytics' | 'kioskOrderMode' | 'kioskDirectCheckout' | 'rfidTracking' | 'assetTransfer' | 'nfcPassportModule' | 'rfidSledSweep' | 'hardwareAuditTrail' | 'batteryLifecycle' | 'pickupPoints';
 
 export type UserRole = 'owner' | 'admin' | 'manager' | 'technician' | 'viewer';
 
@@ -1016,6 +1016,7 @@ export interface AdminSettings {
       idleTimerSeconds: number;
       enforceSupervisorApproval: boolean;
     };
+    pickupPoints?: import('./booking/pickupPoints').PickupConfig;
     photoWidget?: {
       restrictByPlan?: boolean;
       allowUrlPasteLite?: boolean;

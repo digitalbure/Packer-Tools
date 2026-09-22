@@ -251,10 +251,10 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
           securityDeposit: data.securityDeposit || 0,
           bookingClientName: data.bookingClientName || null,
           pickupType: data.pickupType || 'preset',
-          pickupLocationId: data.pickupLocationId || 'suva_depot',
+          pickupLocationId: data.pickupLocationId || '',
           pickupCustomAddress: data.pickupCustomAddress || '',
           dropoffType: data.dropoffType || 'preset',
-          dropoffLocationId: data.dropoffLocationId || 'suva_depot',
+          dropoffLocationId: data.dropoffLocationId || '',
           dropoffCustomAddress: data.dropoffCustomAddress || '',
           status: data.status || 'Active',
         };
@@ -2495,10 +2495,10 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                         onChange={setPickupDropoffState} 
                         initialState={{
                           pickupType: selectedProduct?.pickupType || 'preset',
-                          pickupLocationId: selectedProduct?.pickupLocationId || 'suva_depot',
+                          pickupLocationId: selectedProduct?.pickupLocationId || '',
                           pickupCustomAddress: selectedProduct?.pickupCustomAddress || '',
                           dropoffType: selectedProduct?.dropoffType || 'preset',
-                          dropoffLocationId: selectedProduct?.dropoffLocationId || 'suva_depot',
+                          dropoffLocationId: selectedProduct?.dropoffLocationId || '',
                           dropoffCustomAddress: selectedProduct?.dropoffCustomAddress || '',
                         }}
                       />

@@ -292,7 +292,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
         customConditions: req.conditions,
         createdAt: new Date().toISOString(),
         pickupDropoff: pd ? {
-          pickupType: pd.pickupType, pickupLocationId: pd.pickupLocationId, pickupCustomAddress: pd.pickupCustomAddress,
+          pickupType: pd.pickupType, pickupLocationId: pd.pickupLocationId, pickupLabel: pd.pickupLabel || '', dropoffLabel: pd.dropoffLabel || '', pickupCustomAddress: pd.pickupCustomAddress,
           pickupTimeSlot: pd.pickupTimeSlot, pickupNotes: pd.pickupNotes, dropoffType: pd.dropoffType,
           dropoffLocationId: pd.dropoffLocationId, dropoffCustomAddress: pd.dropoffCustomAddress,
           dropoffTimeSlot: pd.dropoffTimeSlot, dropoffNotes: pd.dropoffNotes, distanceKm: pd.distanceKm, transitCost: pd.transitCost,
@@ -1426,6 +1426,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                   deposit={item.rentalDeposit}
                   format={(n) => formatCurrency(n, item.currency || 'USD')}
                   conditions={bookingConditions}
+                  ownerId={queryOwnerId || item.ownerId}
                   submitting={bookingLoading}
                   done={bookingSuccess}
                   onSubmit={handleBookReservation}

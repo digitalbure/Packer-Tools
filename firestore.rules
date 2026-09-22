@@ -195,6 +195,14 @@ service cloud.firestore {
              data.endDate is string;
     }
 
+    function isValidPickupPoint(data) {
+      return data.keys().hasAll(['name', 'address']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.address is string && data.address.size() > 0 && data.address.size() < 300 &&
+             (!('city' in data) || (data.city is string && data.city.size() < 100)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() < 300));
+    }
+
     function isValidOrganization(data) {
       return data.keys().hasAll(['name', 'slug']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
@@ -294,6 +302,15 @@ service cloud.firestore {
       match /bookingConditions/{conditionId} {
         allow read: if true;
         allow create, update: if isOwner(userId) && isValidBookingCondition(incoming());
+        allow delete: if isOwner(userId);
+      }
+
+      // Owner pickup and return points. Owners may write only when the admin
+      // has set pickup points to owner-managed.
+      match /pickupPoints/{pointId} {
+        allow read: if true;
+        allow create, update: if isOwner(userId) && isValidPickupPoint(incoming()) &&
+          get(/databases/$(database)/documents/adminSettings/global).data.get('moduleWidgetConfigs', {}).get('pickupPoints', {}).get('mode', 'platform') == 'owners';
         allow delete: if isOwner(userId);
       }
 

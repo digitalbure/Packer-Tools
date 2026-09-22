@@ -32,6 +32,8 @@ import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import UpgradeNowModal from '../components/UpgradeNowModal';
 import { Lock, Shield, Crown } from 'lucide-react';
+import OwnerPickupPoints from '../booking/OwnerPickupPoints';
+import { usePickupPoints } from '../booking/usePickupPoints';
 import PickupDropoffWidget, { PickupDropoffState } from '../components/PickupDropoffWidget';
 
 interface ListingsModuleProps {
@@ -40,6 +42,8 @@ interface ListingsModuleProps {
 }
 
 export default function ListingsModule({ user, adminSettings }: ListingsModuleProps) {
+  const pickupChoices = usePickupPoints(user.uid);
+  const pointName = (id?: string) => pickupChoices.points.find((pt) => pt.id === id)?.name || 'Saved location';
   const [activeSubTab, setActiveSubTab] = useState<'console' | 'bookings' | 'gear-bookings' | 'settings'>('console');
   const [lists, setLists] = useState<PackingList[]>([]);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -84,10 +88,10 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
   const [newListCategory, setNewListCategory] = useState('cinema-cameras');
   const [newListTransactionType, setNewListTransactionType] = useState<'rent' | 'sale'>('rent');
   const [newListPickupType, setNewListPickupType] = useState<'preset' | 'custom'>('preset');
-  const [newListPickupLocationId, setNewListPickupLocationId] = useState('suva_depot');
+  const [newListPickupLocationId, setNewListPickupLocationId] = useState('');
   const [newListPickupCustomAddress, setNewListPickupCustomAddress] = useState('');
   const [newListDropoffType, setNewListDropoffType] = useState<'preset' | 'custom'>('preset');
-  const [newListDropoffLocationId, setNewListDropoffLocationId] = useState('suva_depot');
+  const [newListDropoffLocationId, setNewListDropoffLocationId] = useState('');
   const [newListDropoffCustomAddress, setNewListDropoffCustomAddress] = useState('');
 
   // Edit Price Form State
@@ -98,10 +102,10 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
   const [editCategory, setEditCategory] = useState('cinema-cameras');
   const [editTransactionType, setEditTransactionType] = useState<'rent' | 'sale'>('rent');
   const [editPickupType, setEditPickupType] = useState<'preset' | 'custom'>('preset');
-  const [editPickupLocationId, setEditPickupLocationId] = useState('suva_depot');
+  const [editPickupLocationId, setEditPickupLocationId] = useState('');
   const [editPickupCustomAddress, setEditPickupCustomAddress] = useState('');
   const [editDropoffType, setEditDropoffType] = useState<'preset' | 'custom'>('preset');
-  const [editDropoffLocationId, setEditDropoffLocationId] = useState('suva_depot');
+  const [editDropoffLocationId, setEditDropoffLocationId] = useState('');
   const [editDropoffCustomAddress, setEditDropoffCustomAddress] = useState('');
   const [editImage, setEditImage] = useState('');
   const [editVideoUrl, setEditVideoUrl] = useState('');
@@ -757,7 +761,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                   <span className="text-neutral-800 font-bold max-w-[120px] truncate text-right">
                                     {list.pickupType === 'custom' 
                                       ? (list.pickupCustomAddress || 'Custom Site') 
-                                      : (list.pickupLocationId === 'suva_depot' ? 'Suva Depot' : list.pickupLocationId === 'nadi_airport' ? 'Nadi Airport' : list.pickupLocationId === 'pac_harbour' ? 'Pac Harbour' : 'Suva Depot')}
+                                      : pointName(list.pickupLocationId)}
                                   </span>
                                 </div>
                                 <div className="flex justify-between items-center text-[10px] text-neutral-400 font-semibold leading-none pt-1">
@@ -765,7 +769,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                   <span className="text-neutral-800 font-bold max-w-[120px] truncate text-right">
                                     {list.dropoffType === 'custom' 
                                       ? (list.dropoffCustomAddress || 'Custom Site') 
-                                      : (list.dropoffLocationId === 'suva_depot' ? 'Suva Depot' : list.dropoffLocationId === 'nadi_airport' ? 'Nadi Airport' : list.dropoffLocationId === 'pac_harbour' ? 'Pac Harbour' : 'Suva Depot')}
+                                      : pointName(list.dropoffLocationId)}
                                   </span>
                                 </div>
                               </div>
@@ -799,10 +803,10 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                   setEditCategory(list.category || 'cinema-cameras');
                                   setEditTransactionType(list.transactionType === 'Sale' ? 'sale' : 'rent');
                                   setEditPickupType(list.pickupType || 'preset');
-                                  setEditPickupLocationId(list.pickupLocationId || 'suva_depot');
+                                  setEditPickupLocationId(list.pickupLocationId || '');
                                   setEditPickupCustomAddress(list.pickupCustomAddress || '');
                                   setEditDropoffType(list.dropoffType || 'preset');
-                                  setEditDropoffLocationId(list.dropoffLocationId || 'suva_depot');
+                                  setEditDropoffLocationId(list.dropoffLocationId || '');
                                   setEditDropoffCustomAddress(list.dropoffCustomAddress || '');
                                   setEditImage(list.image || '');
                                   setEditVideoUrl((list as any).videoUrl || '');
@@ -1189,7 +1193,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                         <span className="text-emerald-600">🏁 Pickup:</span>
                                         <span className="text-neutral-800">
                                           {booking.pickupDropoff.pickupType === 'preset' 
-                                            ? (booking.pickupDropoff.pickupLocationId === 'suva_depot' ? 'Suva Depot' : booking.pickupDropoff.pickupLocationId === 'nadi_airport' ? 'Nadi Airport' : 'Pacific Harbour Camera Lounge') 
+                                            ? (booking.pickupDropoff.pickupLabel || 'Saved location')
                                             : booking.pickupDropoff.pickupCustomAddress || 'Custom Place'}
                                         </span>
                                         <span className="text-[10px] text-neutral-450 uppercase font-black font-mono">({booking.pickupDropoff.pickupTimeSlot})</span>
@@ -1198,7 +1202,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                         <span className="text-red-500">🛑 Dropoff:</span>
                                         <span className="text-neutral-800">
                                           {booking.pickupDropoff.dropoffType === 'preset' 
-                                            ? (booking.pickupDropoff.dropoffLocationId === 'suva_depot' ? 'Suva Depot' : booking.pickupDropoff.dropoffLocationId === 'nadi_airport' ? 'Nadi Airport' : 'Pacific Harbour Camera Lounge') 
+                                            ? (booking.pickupDropoff.dropoffLabel || 'Saved location')
                                             : booking.pickupDropoff.dropoffCustomAddress || 'Custom Place'}
                                         </span>
                                         <span className="text-[10px] text-neutral-450 uppercase font-black font-mono">({booking.pickupDropoff.dropoffTimeSlot})</span>
@@ -1207,7 +1211,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                                     <div className="text-left sm:text-right text-[10px] font-mono shrink-0">
                                       <span className="text-[8px] text-neutral-400 font-bold block uppercase">Routing Hold</span>
                                       <span className="font-extrabold text-[#0066cc] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 block mt-0.5">
-                                        {booking.pickupDropoff.distanceKm > 0 ? `${booking.pickupDropoff.distanceKm} km (Est. FJ$ ${booking.pickupDropoff.transitCost})` : 'Self-Serve Collect'}
+                                        {booking.pickupDropoff.distanceKm > 0 ? `${booking.pickupDropoff.distanceKm} km` : 'Arranged with renter'}
                                       </span>
                                     </div>
                                   </div>
@@ -1312,6 +1316,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                       )}
                     </div>
                   </div>
+
+                  <OwnerPickupPoints user={user} adminSettings={adminSettings} />
 
                   {/* Customize Conditions Setup */}
                   <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6 text-left">
@@ -1581,9 +1587,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                           onChange={(e) => setNewListPickupLocationId(e.target.value)}
                           className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-800"
                         >
-                          <option value="suva_depot">Suva Film Studio Depot</option>
-                          <option value="nadi_airport">Nadi Aviation Terminal</option>
-                          <option value="pac_harbour">Pacific Harbour Lounge</option>
+                          {pickupChoices.points.length === 0 && <option value="">No saved points</option>}
+                          {pickupChoices.points.map((pt) => <option key={pt.id} value={pt.id}>{pt.name}</option>)}
                         </select>
                       </div>
                     ) : (
@@ -1622,9 +1627,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                           onChange={(e) => setNewListDropoffLocationId(e.target.value)}
                           className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-800"
                         >
-                          <option value="suva_depot">Suva Film Studio Depot</option>
-                          <option value="nadi_airport">Nadi Aviation Terminal</option>
-                          <option value="pac_harbour">Pacific Harbour Lounge</option>
+                          {pickupChoices.points.length === 0 && <option value="">No saved points</option>}
+                          {pickupChoices.points.map((pt) => <option key={pt.id} value={pt.id}>{pt.name}</option>)}
                         </select>
                       </div>
                     ) : (
@@ -1812,9 +1816,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                           onChange={(e) => setEditPickupLocationId(e.target.value)}
                           className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-800"
                         >
-                          <option value="suva_depot">Suva Film Studio Depot</option>
-                          <option value="nadi_airport">Nadi Aviation Terminal</option>
-                          <option value="pac_harbour">Pacific Harbour Lounge</option>
+                          {pickupChoices.points.length === 0 && <option value="">No saved points</option>}
+                          {pickupChoices.points.map((pt) => <option key={pt.id} value={pt.id}>{pt.name}</option>)}
                         </select>
                       </div>
                     ) : (
@@ -1853,9 +1856,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                           onChange={(e) => setEditDropoffLocationId(e.target.value)}
                           className="w-full p-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-bold outline-none text-neutral-800"
                         >
-                          <option value="suva_depot">Suva Film Studio Depot</option>
-                          <option value="nadi_airport">Nadi Aviation Terminal</option>
-                          <option value="pac_harbour">Pacific Harbour Lounge</option>
+                          {pickupChoices.points.length === 0 && <option value="">No saved points</option>}
+                          {pickupChoices.points.map((pt) => <option key={pt.id} value={pt.id}>{pt.name}</option>)}
                         </select>
                       </div>
                     ) : (

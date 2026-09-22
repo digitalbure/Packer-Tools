@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.10.1`
+## Current Application Version: `v6.11.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,16 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🏷️ Release: v6.11.0 (Marketplace: Booking Request Widget and Pickup Points)
+*Released on: September 22, 2026*
+- New booking request widget: pickup and return dates, day count, refundable deposit and estimated total. Dates are checked, and the wording says the owner confirms the request.
+- Removed the invented $45 default daily rate. With no rate set, the widget tells the renter the owner will quote.
+- Removed the sample depots (Suva Film Studio, Nadi Aviation, Pacific Harbour) that were shown to renters. Removed the simulated distance and dispatch cost estimate.
+- Admin: new Pickup and return points setting under module widget rules. Choose platform points only, owners manage their own, or off. In owner mode, plan access is set per plan with the new feature Own Pickup Points, with a points-per-owner limit and an option to also offer platform points.
+- Owners on a qualifying plan save their own points under Listings settings.
+- Firestore rules: `users/{uid}/pickupPoints` accepts owner writes only while the admin mode is owner-managed. Deploy the updated rules.
+- Tests: pricing (13), point resolution (10), rules (9, `npm run test:rules`).
 
 ### ✏️ Patch: v6.10.1 (Label Studio Sample Owner)
 *Released on: September 22, 2026*

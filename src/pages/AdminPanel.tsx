@@ -57,6 +57,7 @@ export const MODULE_METADATA: {
   clientPortal: { name: 'Client Approval Portals', description: 'Share dynamic and secure manifest approvals directly with external clients.', icon: 'Globe', version: 'v1.8.0', category: 'Operations' },
   apiIntegrations: { name: 'Developer Webhooks & API', description: 'Provides custom developer tokens and real-time webhook push updates.', icon: 'Cpu', version: 'v2.0.0', category: 'Integrations' },
   weightAnalytics: { name: 'Gross Weight Calculators', description: 'Real-time total list weight calculators to keep transit vehicles safe.', icon: 'TrendingUp', version: 'v1.2.3', category: 'Logistics' },
+  pickupPoints: { name: 'Own Pickup Points', description: 'Lets owners save their own pickup and return points for rentals. Applies when pickup points are set to owner-managed.', icon: 'MapPin', version: 'v1.0.0', category: 'Operations' },
   kioskOrderMode: { name: 'Kiosk Order Basket Mode', description: 'Allow renters to bundle item baskets to submit order checkouts.', icon: 'Package', version: 'v2.1.2', category: 'Kiosk' },
   kioskDirectCheckout: { name: 'Kiosk Direct Auto-Checkout', description: 'Automates scanning to instant self check-out without confirmation.', icon: 'Check', version: 'v2.2.0', category: 'Kiosk' },
   rfidTracking: { name: 'UHF RFID Tracking', description: 'Integrates Zebra RFD40 readers for high-volume passive asset audits.', icon: 'Cpu', version: 'v3.0.0', category: 'Operations' },
@@ -70,6 +71,7 @@ export const renderModuleIcon = (iconName: string) => {
   const props = { className: "text-neutral-500 shrink-0", size: 22 };
   switch (iconName) {
     case 'Cpu': return <Cpu {...props} />;
+    case 'MapPin': return <MapPin {...props} />;
     case 'Layers': return <Layers {...props} />;
     case 'Calendar': return <Calendar {...props} />;
     case 'GitBranch': return <GitBranch {...props} />;
@@ -2160,7 +2162,7 @@ export default function AdminPanel({ user, onMenuClick }: { user: UserProfile, o
                 <div className="space-y-4">
                   <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Included Features</p>
                   <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2">
-                    {(['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'branding', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'marketplaceListings', 'kioskMode', 'orgManagement', 'departments', 'teams', 'inventoryManagement', 'projectCost', 'supplierManagement', 'bomManagement', 'customBarcodes', 'automaticDepreciation', 'digitalSignatures', 'clientPortal', 'apiIntegrations', 'weightAnalytics', 'kioskOrderMode', 'kioskDirectCheckout', 'rfidTracking'] as const).map(feature => (
+                    {(['aiWizard', 'gearLibrary', 'reminders', 'versionHistory', 'branding', 'qrSharing', 'toolingLists', 'organizer', 'travelCases', 'logisticsDashboard', 'movingDashboard', 'rackingDashboard', 'marketplace', 'marketplaceListings', 'kioskMode', 'orgManagement', 'departments', 'teams', 'inventoryManagement', 'projectCost', 'supplierManagement', 'bomManagement', 'customBarcodes', 'automaticDepreciation', 'digitalSignatures', 'clientPortal', 'apiIntegrations', 'weightAnalytics', 'kioskOrderMode', 'kioskDirectCheckout', 'rfidTracking', 'pickupPoints'] as const).map(feature => (
                       <label key={feature} className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl border border-neutral-100 cursor-pointer hover:bg-neutral-100 transition">
                         <input
                           type="checkbox"
