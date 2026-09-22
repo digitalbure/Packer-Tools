@@ -2147,7 +2147,7 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       {/* DETAIL DIALOG / BOOKING MODAL FOR PRODUCTS */}
       <AnimatePresence>
         {isBookingModalOpen && selectedProduct && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -2156,292 +2156,237 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                 setIsBookingModalOpen(false);
                 setSelectedProduct(null);
               }}
-              className="absolute inset-0 bg-neutral-900/60 backdrop-blur-xs"
+              className="mk-modal__backdrop"
             />
 
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-lg bg-white rounded-[2.5rem] p-8 border border-neutral-100 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-[8px] font-black uppercase tracking-widest text-[#ff4f3a] flex items-center gap-1.5">
-                    {selectedProduct.brand && (() => {
-                      const brandObj = dbBrands.find(b => b.name?.toLowerCase() === selectedProduct.brand.toLowerCase() || b.id?.toLowerCase() === selectedProduct.brand.toLowerCase());
-                      return brandObj?.logo ? (
-                        <img
-                          src={brandObj.logo}
-                          alt={selectedProduct.brand}
-                          className="h-2.5 w-auto object-contain rounded opacity-75 inline"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : null;
-                    })()}
-                    <span>{selectedProduct.brand} • {selectedProduct.model || 'GENERIC'}</span>
-                  </span>
-                  <h3 className="text-lg font-black uppercase tracking-tighter text-neutral-800 mt-1">
-                    Book Placement: {selectedProduct.name}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsBookingModalOpen(false);
-                    setSelectedProduct(null);
-                  }}
-                  className="bg-neutral-105 hover:bg-neutral-200 text-neutral-600 p-1 px-1.5 rounded-lg text-xs transition"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-
-              {/* Product Preview box */}
-              <div className="flex gap-4 border-y border-neutral-100 py-4">
-                <div className="w-20 h-20 bg-neutral-50 rounded-xl overflow-hidden shrink-0">
-                  <img src={selectedProduct.image} alt={selectedProduct.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                </div>
-                <div className="space-y-1 my-auto">
-                  {selectedProduct.rating > 0 && (
-                    <div className="flex items-center gap-1">
-                      <Star size={10} className="fill-amber-400 text-amber-400" />
-                      <span className="text-[10px] font-black text-neutral-700">{selectedProduct.rating} ({selectedProduct.reviews} reviews)</span>
-                    </div>
-                  )}
-                  <p className="text-[10px] text-neutral-400 font-bold uppercase mt-0.5 font-mono">Listed price: {currencySymbol}{selectedProduct.price}{selectedProduct.isSale ? '' : '/day'}</p>
-                  <p className="text-[9px] text-[#ff4f3a] font-extrabold uppercase">Owner: {selectedProduct.ownerName || 'Not named'}</p>
-                </div>
-              </div>
-
-              {/* Form Input fields */}
-              <form onSubmit={handleBookingSubmit} className="space-y-4">
-                {!selectedProduct.isSale ? (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Rental duration (Days)</label>
-                      <div className="grid grid-cols-4 gap-2 text-center">
-                        {[1, 3, 7, 14].map((days) => (
-                          <button
-                            key={days}
-                            type="button"
-                            onClick={() => {
-                              setBookingDays(days);
-                              const start = new Date(rentStartDate);
-                              const newEnd = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
-                              setRentEndDate(newEnd.toISOString().split('T')[0]);
-                            }}
-                            className={`py-2 rounded-xl text-xs font-black transition-all ${bookingDays === days ? 'bg-[#ff4f3a] text-white shadow-md' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700'}`}
-                          >
-                            {days} {days === 1 ? 'Day' : 'Days'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Compact Date/Time inputs inside Booking Process */}
-                    <div className="grid grid-cols-2 gap-3 pt-1 border-t border-neutral-100/65 text-left">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Pick-up Date</label>
-                        <input 
-                          type="date"
-                          value={rentStartDate}
-                          onChange={(e) => {
-                            setRentStartDate(e.target.value);
-                            const start = new Date(e.target.value);
-                            const end = new Date(rentEndDate);
-                            if (end <= start) {
-                              const newEnd = new Date(start.getTime() + bookingDays * 24 * 60 * 60 * 1000);
-                              setRentEndDate(newEnd.toISOString().split('T')[0]);
-                            }
-                          }}
-                          className="w-full bg-neutral-50 hover:bg-neutral-100 text-neutral-800 text-xs font-bold border border-neutral-200/60 rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-[#ff4f3a]"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Drop-off Date</label>
-                        <input 
-                          type="date"
-                          value={rentEndDate}
-                          onChange={(e) => {
-                            setRentEndDate(e.target.value);
-                            const start = new Date(rentStartDate);
-                            const end = new Date(e.target.value);
-                            if (end > start) {
-                              const diffTime = end.getTime() - start.getTime();
-                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                              setBookingDays(diffDays > 0 ? diffDays : 1);
-                            }
-                          }}
-                          className="w-full bg-neutral-50 hover:bg-neutral-100 text-neutral-800 text-xs font-bold border border-neutral-200/60 rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-[#ff4f3a]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 text-left">
-                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Pick-up Time</label>
-                      <input 
-                        type="time"
-                        value={rentTime}
-                        onChange={(e) => setRentTime(e.target.value)}
-                        className="w-full bg-neutral-50 hover:bg-neutral-100 text-neutral-800 text-xs font-bold border border-neutral-200/60 rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-[#ff4f3a]"
-                      />
-                    </div>
-
-                    {/* Customizable Pickup and Dropoff Widget */}
-                    <div className="space-y-1 text-left">
-                      <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Dispatch Routing Logistics</label>
-                      <PickupDropoffWidget 
-                        onChange={setPickupDropoffState} 
-                        initialState={{
-                          pickupType: selectedProduct?.pickupType || 'preset',
-                          pickupLocationId: selectedProduct?.pickupLocationId || '',
-                          pickupCustomAddress: selectedProduct?.pickupCustomAddress || '',
-                          dropoffType: selectedProduct?.dropoffType || 'preset',
-                          dropoffLocationId: selectedProduct?.dropoffLocationId || '',
-                          dropoffCustomAddress: selectedProduct?.dropoffCustomAddress || '',
-                        }}
-                      />
-                    </div>
-
-                    {/* Optional Rental Add-ons Checklist */}
-                    {selectedProduct.addOns && selectedProduct.addOns.length > 0 && (
-                      <div className="space-y-2 border-t border-neutral-100 pt-3 text-left">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-[#ff4f3a]">Optional Rental Add-Ons</label>
-                        <p className="text-[10px] text-neutral-400 leading-normal">Rent these bundled accessories at heavily promotional rates:</p>
-                        <div className="border border-neutral-100 rounded-2xl divide-y divide-neutral-100 overflow-hidden bg-neutral-50/50">
-                          {selectedProduct.addOns.map((add, idx) => {
-                            const isSelected = selectedAddOns.has(idx);
-                            return (
-                              <label key={idx} className="flex items-center justify-between p-2.5 hover:bg-neutral-50 cursor-pointer select-none transition">
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => {
-                                      const updated = new Set(selectedAddOns);
-                                      if (isSelected) {
-                                        updated.delete(idx);
-                                      } else {
-                                        updated.add(idx);
-                                      }
-                                      setSelectedAddOns(updated);
-                                    }}
-                                    className="h-4 w-4 text-[#ff4f3a] border-neutral-300 rounded focus:ring-0 cursor-pointer"
-                                  />
-                                  <div className="flex flex-col">
-                                    <span className="font-bold text-[11px] text-neutral-800">{add.name}</span>
-                                    {add.notes && (
-                                      <span className="text-[9px] text-neutral-400 font-medium italic">{add.notes}</span>
-                                    )}
-                                    <span className="text-[9px] text-[#ff4f3a]/80 font-bold uppercase tracking-wide">
-                                      {add.type ? (() => {
-                                        switch (add.type) {
-                                          case 'Organizer': return '🎒 Organizer';
-                                          case 'Accessory': return '🕶️ Accessory';
-                                          case 'Consumable': return '🔋 Consumable';
-                                          case 'Attachment': return '⛓️ Attachment';
-                                          case 'Add On': return '🔌 Add-On';
-                                          case 'Software': return '💿 Software';
-                                          case 'Mod': return '🔧 Custom Mod';
-                                          default: return '📦 Ancillary';
-                                        }
-                                      })() : '🕶️ Accessory'}
-                                    </span>
-                                  </div>
-                                </div>
-                                <span className="font-extrabold text-xs text-emerald-600">
-                                  {add.price === 0 ? 'FREE' : `+ ${currencySymbol}${add.price}/day`}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+            <div className="mk-modal__wrap">
+              <motion.div
+                initial={{ scale: 0.97, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.97, opacity: 0 }}
+                className="mk-modal__panel mk"
+              >
+                <div className="mk-modal__head">
+                  <div>
+                    <span className="mk__label" style={{ display: 'flex', alignItems: 'center', gap: '.375rem' }}>
+                      {selectedProduct.brand && (() => {
+                        const brandObj = dbBrands.find(b => b.name?.toLowerCase() === selectedProduct.brand.toLowerCase() || b.id?.toLowerCase() === selectedProduct.brand.toLowerCase());
+                        return brandObj?.logo ? (
+                          <img src={brandObj.logo} alt={selectedProduct.brand} referrerPolicy="no-referrer" style={{ height: '.75rem', width: 'auto', objectFit: 'contain', opacity: .8 }} />
+                        ) : null;
+                      })()}
+                      <span>{selectedProduct.brand}{selectedProduct.model ? ` · ${selectedProduct.model}` : ''}</span>
+                    </span>
+                    <h3 className="mk-modal__title">{selectedProduct.isSale ? 'Buy' : 'Book'}: {selectedProduct.name}</h3>
                   </div>
-                ) : (
-                  <div className="bg-rose-50/50 p-4 border border-rose-100/50 rounded-2xl text-[10px] text-neutral-500 leading-relaxed">
-                    <span className="font-black uppercase text-[#ff4f3a]">Buy out selected</span><br/>
-                    The owner will contact you directly to arrange payment and dispatch.
-                  </div>
-                )}
-
-                {/* Submitting booking checkout summary details */}
-                {(() => {
-                  const { subtotal, taxAmount, deposit, totalQuote, isInclusive, taxPercent } = calculateTaxAndTotal();
-                  return (
-                    <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-100 space-y-2">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-neutral-500">Estimate Pricing Breakdown</p>
-                      
-                      <div className="flex justify-between items-center text-xs text-neutral-600">
-                        <span className="font-semibold uppercase text-[9px]">{selectedProduct.isSale ? 'Outright purchase cost' : `Daily Rate x ${bookingDays} Days`}</span>
-                        <span className="font-black text-neutral-900">{currencySymbol}{(selectedProduct.price * (selectedProduct.isSale ? 1 : bookingDays)).toLocaleString()}</span>
-                      </div>
-
-                      {!selectedProduct.isSale && selectedAddOns.size > 0 && (
-                        <div className="flex justify-between items-center text-xs text-neutral-600">
-                          <span className="font-semibold uppercase text-[9px]">Add-Ons ({selectedAddOns.size} selected)</span>
-                          <span className="font-black text-emerald-600">
-                            + {currencySymbol}{(Array.from(selectedAddOns).reduce((sum, idx) => sum + (selectedProduct.addOns?.[idx]?.price || 0), 0) * bookingDays).toLocaleString()}
-                          </span>
-                        </div>
-                      )}
-
-                      {deposit > 0 && (
-                        <div className="flex justify-between items-center text-xs text-neutral-600 border-b border-rose-100 pb-1.5 font-sans">
-                          <span className="font-semibold uppercase text-[9px]">Refundable deposit</span>
-                          <span className="font-bold text-neutral-700">{currencySymbol}{deposit.toLocaleString()}</span>
-                        </div>
-                      )}
-
-                      {/* Dynamic Tax Component displaying exact VAT % / GST config details */}
-                      <div className="flex justify-between items-center text-xs text-neutral-600 pb-1.5 font-sans border-b border-neutral-200/60">
-                        <div className="flex flex-col">
-                          <span className="font-semibold uppercase text-[9.5px] text-neutral-700">Tax Platform Service Fees</span>
-                          <span className="text-[7.5px] uppercase text-neutral-400 font-bold -mt-0.5 leading-none">
-                            {isFiji 
-                              ? `Fiji VAT (${taxPercent}%) ${isInclusive ? 'Included (VIP)' : 'VEP added'}` 
-                              : `Tax / GST (${taxPercent}%) ${isInclusive ? 'Included' : 'Exclusive'}`}
-                          </span>
-                        </div>
-                        <span className="font-bold text-neutral-700">
-                          {isInclusive ? '(Included) ' : '+ '}{currencySymbol}{taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center text-xs text-neutral-800 pt-1">
-                        <span className="font-black uppercase text-[10px]">Total Quote</span>
-                        <span className="font-black text-sm text-[#ff4f3a]">
-                          {currencySymbol}{totalQuote.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                <div className="flex gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsBookingModalOpen(false);
-                      setSelectedProduct(null);
-                    }}
-                    className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 font-black uppercase tracking-widest text-[9px] py-3.5 rounded-xl transition"
+                    className="mk-modal__close"
+                    onClick={() => { setIsBookingModalOpen(false); setSelectedProduct(null); }}
+                    aria-label="Close"
                   >
-                    Close
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!isAuthorized && restrictToAvailableCountries}
-                    className={`flex-1 font-black uppercase tracking-widest text-[9px] py-3.5 rounded-xl transition shadow ${(!isAuthorized && restrictToAvailableCountries) ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed' : 'bg-neutral-900 hover:bg-[#ff4f3a] text-white'}`}
-                  >
-                    {!isAuthorized && restrictToAvailableCountries 
-                      ? 'Service Unavailable in Region' 
-                      : (selectedProduct.isSale ? 'Send Purchase Request' : 'Send Booking Request')}
+                    <X size={14} />
                   </button>
                 </div>
-              </form>
-            </motion.div>
+
+                <div className="mk-modal__body">
+                  <div className="mk-modal__preview">
+                    <div className="mk-modal__thumb">
+                      <img src={selectedProduct.image} alt={selectedProduct.name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <div style={{ display: 'grid', gap: '.25rem', alignContent: 'center' }}>
+                      {selectedProduct.rating > 0 && (
+                        <span className="mk-item__rating">
+                          <Star size={11} className="fill-amber-400 text-amber-400" />
+                          <span>{selectedProduct.rating} ({selectedProduct.reviews} reviews)</span>
+                        </span>
+                      )}
+                      <span className="mk-item__price">{currencySymbol}{selectedProduct.price}{selectedProduct.isSale ? '' : <span> /day</span>}</span>
+                      <span className="mk__label">Owner: {selectedProduct.ownerName || 'Not named'}</span>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleBookingSubmit} style={{ display: 'grid', gap: '1.25rem' }}>
+                    {!selectedProduct.isSale ? (
+                      <div style={{ display: 'grid', gap: '1rem' }}>
+                        <div>
+                          <label className="mk__label">Rental length</label>
+                          <div className="mk-days" style={{ marginTop: '.375rem' }}>
+                            {[1, 3, 7, 14].map((days) => (
+                              <button
+                                key={days}
+                                type="button"
+                                aria-pressed={bookingDays === days}
+                                onClick={() => {
+                                  setBookingDays(days);
+                                  const start = new Date(rentStartDate);
+                                  const newEnd = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+                                  setRentEndDate(newEnd.toISOString().split('T')[0]);
+                                }}
+                              >
+                                {days} {days === 1 ? 'day' : 'days'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="bk__row">
+                          <div className="bk__field">
+                            <label className="bk__label" htmlFor="mk-pickup-date">Pickup date</label>
+                            <input
+                              id="mk-pickup-date"
+                              className="bk__input"
+                              type="date"
+                              value={rentStartDate}
+                              onChange={(e) => {
+                                setRentStartDate(e.target.value);
+                                const start = new Date(e.target.value);
+                                const end = new Date(rentEndDate);
+                                if (end <= start) {
+                                  const newEnd = new Date(start.getTime() + bookingDays * 24 * 60 * 60 * 1000);
+                                  setRentEndDate(newEnd.toISOString().split('T')[0]);
+                                }
+                              }}
+                            />
+                          </div>
+                          <div className="bk__field">
+                            <label className="bk__label" htmlFor="mk-return-date">Return date</label>
+                            <input
+                              id="mk-return-date"
+                              className="bk__input"
+                              type="date"
+                              value={rentEndDate}
+                              onChange={(e) => {
+                                setRentEndDate(e.target.value);
+                                const start = new Date(rentStartDate);
+                                const end = new Date(e.target.value);
+                                if (end > start) {
+                                  const diffTime = end.getTime() - start.getTime();
+                                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                  setBookingDays(diffDays > 0 ? diffDays : 1);
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="bk__field">
+                          <label className="bk__label" htmlFor="mk-pickup-time">Pickup time</label>
+                          <input id="mk-pickup-time" className="bk__input" type="time" value={rentTime} onChange={(e) => setRentTime(e.target.value)} />
+                        </div>
+
+                        <div className="bk__field">
+                          <span className="bk__label">Pickup and return</span>
+                          <PickupDropoffWidget
+                            onChange={setPickupDropoffState}
+                            ownerId={selectedProduct.ownerId}
+                            initialState={{
+                              pickupType: selectedProduct?.pickupType || 'preset',
+                              pickupLocationId: selectedProduct?.pickupLocationId || '',
+                              pickupCustomAddress: selectedProduct?.pickupCustomAddress || '',
+                              dropoffType: selectedProduct?.dropoffType || 'preset',
+                              dropoffLocationId: selectedProduct?.dropoffLocationId || '',
+                              dropoffCustomAddress: selectedProduct?.dropoffCustomAddress || '',
+                            }}
+                          />
+                        </div>
+
+                        {selectedProduct.addOns && selectedProduct.addOns.length > 0 && (
+                          <fieldset className="bk__fs">
+                            <legend>Optional extras from the owner</legend>
+                            {selectedProduct.addOns.map((add, idx) => {
+                              const isSelected = selectedAddOns.has(idx);
+                              return (
+                                <label key={idx} className="mk-addon">
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => {
+                                        const updated = new Set(selectedAddOns);
+                                        if (isSelected) updated.delete(idx); else updated.add(idx);
+                                        setSelectedAddOns(updated);
+                                      }}
+                                    />
+                                    <span>
+                                      <span style={{ display: 'block', fontWeight: 700, fontSize: '.8125rem' }}>{add.name}</span>
+                                      {add.notes && <span style={{ display: 'block', fontSize: '.6875rem', color: 'var(--ink-soft)' }}>{add.notes}</span>}
+                                    </span>
+                                  </span>
+                                  <span style={{ fontWeight: 800, fontSize: '.8125rem', color: 'var(--ok)' }}>
+                                    {add.price === 0 ? 'Free' : `+${currencySymbol}${add.price}/day`}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </fieldset>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="mk__note">The owner will contact you directly to arrange payment and dispatch.</p>
+                    )}
+
+                    {(() => {
+                      const { taxAmount, deposit, totalQuote, isInclusive, taxPercent } = calculateTaxAndTotal();
+                      return (
+                        <div className="bk__sum">
+                          <div className="bk__line">
+                            <span>{selectedProduct.isSale ? 'Purchase price' : `${currencySymbol}${selectedProduct.price} × ${bookingDays} ${bookingDays === 1 ? 'day' : 'days'}`}</span>
+                            <span>{currencySymbol}{(selectedProduct.price * (selectedProduct.isSale ? 1 : bookingDays)).toLocaleString()}</span>
+                          </div>
+
+                          {!selectedProduct.isSale && selectedAddOns.size > 0 && (
+                            <div className="bk__line">
+                              <span>Extras ({selectedAddOns.size})</span>
+                              <span>+{currencySymbol}{(Array.from(selectedAddOns).reduce((sum, idx) => sum + (selectedProduct.addOns?.[idx]?.price || 0), 0) * bookingDays).toLocaleString()}</span>
+                            </div>
+                          )}
+
+                          {deposit > 0 && (
+                            <div className="bk__line">
+                              <span>Refundable deposit</span>
+                              <span>{currencySymbol}{deposit.toLocaleString()}</span>
+                            </div>
+                          )}
+
+                          <div className="bk__line">
+                            <span>{isFiji ? `Fiji VAT (${taxPercent}%)` : `Tax (${taxPercent}%)`}{isInclusive ? ' included' : ''}</span>
+                            <span>{isInclusive ? '' : '+'}{currencySymbol}{taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+
+                          <div className="bk__line bk__line--total">
+                            <span>Estimated total</span>
+                            <span>{currencySymbol}{totalQuote.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                          <p className="bk__note">The owner confirms this request. Nothing is charged here.</p>
+                        </div>
+                      );
+                    })()}
+
+                    <div style={{ display: 'flex', gap: '.75rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => { setIsBookingModalOpen(false); setSelectedProduct(null); }}
+                        className="mk__btn"
+                        style={{ flex: 1 }}
+                      >
+                        Close
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!isAuthorized && restrictToAvailableCountries}
+                        className="mk__btn mk__btn--primary"
+                        style={{ flex: 1 }}
+                      >
+                        {!isAuthorized && restrictToAvailableCountries
+                          ? 'Not available in your region'
+                          : (selectedProduct.isSale ? 'Send purchase request' : 'Send booking request')}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </motion.div>
+            </div>
           </div>
         )}
       </AnimatePresence>

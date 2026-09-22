@@ -111,3 +111,21 @@
 .mk-link__icon { width: 2.25rem; height: 2.25rem; border: 2px solid var(--ink); border-radius: 4px; background: var(--tape); color: var(--ink); display: flex; align-items: center; justify-content: center; flex: none; }
 .mk-link__name { font: 700 .8125rem 'Barlow', sans-serif; }
 .mk-link__desc { font: 500 .6875rem 'Barlow Semi Condensed', sans-serif; color: var(--ink-soft); margin-top: .125rem; }
+
+/* Checkout / booking modal */
+.mk-modal__backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(20,24,27,.6); backdrop-filter: blur(2px); }
+.mk-modal__wrap { position: fixed; inset: 0; z-index: 1001; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.mk-modal__panel { width: 100%; max-width: 32rem; max-height: 90vh; overflow-y: auto; background: #fff; border: 2px solid var(--ink); border-radius: 4px; box-shadow: 5px 5px 0 var(--ink); font-family: 'Barlow', sans-serif; color: var(--ink); }
+.mk-modal__head { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; padding: 1.25rem 1.25rem 1rem; border-bottom: 2px solid var(--ink); background: var(--tape); }
+.mk-modal__title { font: 800 1.25rem/1.1 'Big Shoulders Display', sans-serif; text-transform: uppercase; margin: .25rem 0 0; }
+.mk-modal__close { border: 2px solid var(--ink); background: #fff; border-radius: 4px; width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; cursor: pointer; flex: none; }
+.mk-modal__body { padding: 1.25rem; display: grid; gap: 1.25rem; }
+.mk-modal__preview { display: flex; gap: .875rem; padding-bottom: 1.25rem; border-bottom: 2px dashed var(--concrete); }
+.mk-modal__thumb { width: 4.5rem; height: 4.5rem; border: 2px solid var(--ink); border-radius: 4px; overflow: hidden; flex: none; background: var(--concrete); }
+.mk-modal__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.mk-days { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; }
+.mk-days button { border: 2px solid var(--ink); border-radius: 4px; background: #fff; padding: .5rem 0; font: 700 .8125rem 'Barlow', sans-serif; cursor: pointer; }
+.mk-days button[aria-pressed="true"] { background: var(--hazard); }
+.mk-addon { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .625rem; border: 2px solid var(--concrete); border-radius: 4px; cursor: pointer; }
+.mk-addon + .mk-addon { margin-top: .5rem; }
+.mk-addon input { width: 1.125rem; height: 1.125rem; accent-color: var(--ink); flex: none; }
