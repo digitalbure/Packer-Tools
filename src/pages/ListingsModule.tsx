@@ -1298,7 +1298,8 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                               <div>
                                 <h5 className="text-[11px] font-black text-neutral-900 truncate">{item.brand} {item.model || item.name}</h5>
                                 <p className="text-[9px] text-neutral-400 font-mono mt-0.5">
-                                  Price: {item.currency || '$'}{item.rentalPrice || 45}/day • Hourly: {item.currency || '$'}{item.rentalHourlyPrice || 10}/hr
+                                  {item.rentalPrice ? `Price: ${item.currency || '$'}${item.rentalPrice}/day` : 'Price: not set'}
+                                  {item.rentalHourlyPrice ? ` • Hourly: ${item.currency || '$'}${item.rentalHourlyPrice}/hr` : ''}
                                 </p>
                               </div>
                               <div className="flex gap-1.5">
@@ -1508,22 +1509,17 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Currency</label>
-                    <select
-                      value={newListCurrency}
-                      onChange={(e) => setNewListCurrency(e.target.value)}
-                      className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-bold outline-none text-neutral-800"
-                    >
-                      {activeCurrencies.map(code => (
-                        <option key={code} value={code}>{code}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="pt-5 text-[10px] text-neutral-400 font-semibold italic leading-snug">
-                    *Default limits are aligned by currency settings
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Currency</label>
+                  <select
+                    value={newListCurrency}
+                    onChange={(e) => setNewListCurrency(e.target.value)}
+                    className="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-bold outline-none text-neutral-800"
+                  >
+                    {activeCurrencies.map(code => (
+                      <option key={code} value={code}>{code}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -2123,7 +2119,7 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                     <option value="">-- Choose rentable gear item --</option>
                     {userGear.filter(g => g.secondaryCategories?.includes('Rentable') || g.isAvailableForRent).map((g) => (
                       <option key={g.id} value={g.id}>
-                        {g.brand} {g.model || g.name} ({g.currency || '$'}{g.rentalPrice || 45}/day)
+                        {g.brand} {g.model || g.name} ({g.rentalPrice ? `${g.currency || '$'}${g.rentalPrice}/day` : 'price not set'})
                       </option>
                     ))}
                   </select>
