@@ -55,6 +55,7 @@ import PackerLogo from '../components/PackerLogo';
 import { getAccessToken, signInWithGoogle, setAccessToken } from '../firebase';
 import { fetchGoogleChatSpaces, sendGoogleChatMessage, ChatSpace, triggerGoogleChatAlert } from '../services/googleChat';
 import { MessageSquare, Send, RefreshCw, Layers3, Link2 } from 'lucide-react';
+import { useVisibleInventories } from '../hooks/useVisibleInventories';
 
 interface OrganizationModuleProps {
   user: UserProfile | null;
@@ -78,7 +79,12 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
   const [isPinging, setIsPinging] = useState(false);
   const [editingTerminalId, setEditingTerminalId] = useState<string | null>(null);
 
-  const [inventories, setInventories] = useState<any[]>([]);
+  const inventories = useVisibleInventories({
+    uid: user?.uid,
+    email: user?.email,
+    orgId: user?.orgId,
+    isPlatformAdmin: user?.role === 'owner' || user?.role === 'admin'
+  });
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
   const [isLoading, setIsLoading] = useState(true);
   const [showSelector, setShowSelector] = useState(false);
@@ -565,17 +571,6 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
       handleFirestoreError(error, OperationType.LIST, 'terminals');
     });
 
-    const unsubInventories = onSnapshot(collection(db, 'inventories'), (snap) => {
-      const allInvs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const orgInvs = allInvs.filter((inv: any) => 
-        inv.ownerId === user.uid || 
-        (inv.visibility?.orgIds && inv.visibility.orgIds.includes(user.orgId))
-      );
-      setInventories(orgInvs);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'inventories');
-    });
-
     setIsLoading(false);
 
     return () => {
@@ -585,7 +580,6 @@ const OrganizationModule: React.FC<OrganizationModuleProps> = ({ user, adminSett
       unsubMembers();
       unsubGear();
       unsubTerminals();
-      unsubInventories();
     };
   }, [user?.orgId]);
 

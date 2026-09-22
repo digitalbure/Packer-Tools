@@ -289,10 +289,20 @@ export default function NfcScannerModal({
           return;
         }
 
-        // 3. Query inventories
-        const inventoriesColRef = collection(db, 'inventories');
-        const inventoriesSnapshot = await getDocs(inventoriesColRef);
-        for (const invDoc of inventoriesSnapshot.docs) {
+        // 3. Query inventories — scoped to what currentUser can actually see (owned/shared/org), not the
+        // whole collection: the security rule rejects an unscoped read unless every inventory is yours.
+        const isPlatformAdmin = currentUser?.role === 'owner' || currentUser?.role === 'admin';
+        const invQueries = isPlatformAdmin
+          ? [getDocs(collection(db, 'inventories'))]
+          : [
+              getDocs(query(collection(db, 'inventories'), where('ownerId', '==', currentUser?.uid || ''))),
+              ...(currentUser?.email ? [getDocs(query(collection(db, 'inventories'), where('collaboratorEmails', 'array-contains', currentUser.email.toLowerCase())))] : []),
+              ...(currentUser?.orgId ? [getDocs(query(collection(db, 'inventories'), where('visibility.orgIds', 'array-contains', currentUser.orgId)))] : []),
+            ];
+        const invSnaps = await Promise.all(invQueries);
+        const inventoriesById = new Map<string, any>();
+        invSnaps.forEach(snap => snap.docs.forEach(d => inventoriesById.set(d.id, d)));
+        for (const invDoc of inventoriesById.values()) {
           const itemsColRef = collection(db, 'inventories', invDoc.id, 'items');
           const itemQuery = query(itemsColRef, where('nfcTag', '==', result.serialNumber));
           const itemSnapshot = await getDocs(itemQuery);

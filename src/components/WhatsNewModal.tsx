@@ -25,8 +25,24 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.22.1',
+      version: 'v6.23.0',
       tag: 'Latest',
+      tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Inventory Privacy, Locked Down',
+      date: 'September 2026',
+      icon: Zap,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Custom inventories are private by default now',
+          desc: "Every screen that shows your custom inventories now only ever asks for yours, ones shared with you, or ones your org can see — and the database itself now enforces it, not just the app's screens.",
+          badge: 'Security'
+        },
+      ],
+    },
+    {
+      version: 'v6.22.1',
+      tag: 'Stable',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Faster Dashboard Loads',
       date: 'September 2026',

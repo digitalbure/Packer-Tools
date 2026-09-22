@@ -51,6 +51,7 @@ import PackerLogo from '../components/PackerLogo';
 import { toast } from 'sonner';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import { hapticHeavy, hapticScanSuccess, hapticError } from '../utils/haptics';
+import { useVisibleInventories } from '../hooks/useVisibleInventories';
 
 interface KioskModeProps {
   user: UserProfile | null;
@@ -739,7 +740,13 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
-  const [inventories, setInventories] = useState<any[]>([]);
+  const targetUser = pairedUser || initialUser;
+  const inventories = useVisibleInventories({
+    uid: pairedUid || initialUser?.uid,
+    email: targetUser?.email,
+    orgId: targetUser?.orgId,
+    isPlatformAdmin: targetUser?.role === 'owner' || targetUser?.role === 'admin'
+  });
 
   // Setup options selection
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
@@ -875,16 +882,10 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScannedKioskQrRef = useRef<{ code: string; time: number } | null>(null);
 
-  // Synchronically load organizations, departments, teams, custom inventories
+  // Synchronically load organizations (custom inventories are loaded via useVisibleInventories above)
   useEffect(() => {
     const targetUid = pairedUid || initialUser?.uid;
     if (!targetUid) return;
-
-    // Load custom inventories
-    const qInvs = query(collection(db, 'inventories'));
-    const unsubInvs = onSnapshot(qInvs, (snap) => {
-      setInventories(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (err) => console.warn("Invs load warning:", err));
 
     // Load organizations
     const qOrgs = query(collection(db, 'organizations'), where('ownerId', '==', targetUid));
@@ -893,7 +894,6 @@ const KioskMode: React.FC<KioskModeProps> = ({ user: initialUser, adminSettings 
     }, (err) => console.warn("Orgs load warning:", err));
 
     return () => {
-      unsubInvs();
       unsubOrgs();
     };
   }, [pairedUid, initialUser?.uid]);

@@ -14,6 +14,7 @@ import { db } from '../firebase';
 import { UserProfile } from '../types';
 import Markdown from 'react-markdown';
 import { authenticatedFetch } from '../lib/api';
+import { useVisibleInventories } from '../hooks/useVisibleInventories';
 
 interface Message {
   id: string;
@@ -49,6 +50,7 @@ export default function DukeyAssistant({
   // Real-time states to sync with Gemini
   const [gearItems, setGearItems] = useState<any[]>([]);
   const [packingLists, setPackingLists] = useState<any[]>([]);
+  const visibleInventories = useVisibleInventories({ uid: user?.uid, email: user?.email, orgId: user?.orgId });
   const [customInventories, setCustomInventories] = useState<any[]>([]);
   const [containers, setContainers] = useState<any[]>([]);
 
@@ -84,36 +86,6 @@ export default function DukeyAssistant({
       console.warn("DukeyAssistant: Error listening to packing lists:", error);
     });
 
-    const qInvs = query(collection(db, 'inventories'));
-    const unsubInvs = onSnapshot(qInvs, async (snapshot) => {
-      const allInvs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-      const userInvs = allInvs.filter((inv: any) => 
-        inv.ownerId === user.uid ||
-        inv.ownerEmail?.toLowerCase() === user.email?.toLowerCase() ||
-        inv.collaborators?.some((c: any) => c.email?.toLowerCase() === user.email?.toLowerCase())
-      );
-      
-      try {
-        const resolvedInvs = await Promise.all(
-          userInvs.map(async (inv) => {
-            try {
-              const itemsSnap = await getDocs(collection(db, 'inventories', inv.id, 'items'));
-              const items = itemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-              return { ...inv, items };
-            } catch (e) {
-              console.error("Error fetching items for inventory", inv.id, e);
-              return { ...inv, items: [] };
-            }
-          })
-        );
-        setCustomInventories(resolvedInvs);
-      } catch (err) {
-        console.error("Error subresolving inventories", err);
-      }
-    }, (error) => {
-      console.warn("DukeyAssistant: Error listening to inventories:", error);
-    });
-
     const qContainers = query(collection(db, 'users', user.uid, 'containers'));
     const unsubContainers = onSnapshot(qContainers, (snapshot) => {
       const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -125,10 +97,39 @@ export default function DukeyAssistant({
     return () => {
       unsubGear();
       unsubList();
-      unsubInvs();
       unsubContainers();
     };
   }, [user]);
+
+  // Resolve items for each visible inventory (kept separate from the scoped inventories listener above,
+  // since it does its own per-inventory subcollection fetches).
+  useEffect(() => {
+    if (visibleInventories.length === 0) {
+      setCustomInventories([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const resolvedInvs = await Promise.all(
+          visibleInventories.map(async (inv: any) => {
+            try {
+              const itemsSnap = await getDocs(collection(db, 'inventories', inv.id, 'items'));
+              const items = itemsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              return { ...inv, items };
+            } catch (e) {
+              console.error("Error fetching items for inventory", inv.id, e);
+              return { ...inv, items: [] };
+            }
+          })
+        );
+        if (!cancelled) setCustomInventories(resolvedInvs);
+      } catch (err) {
+        console.error("Error subresolving inventories", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [visibleInventories]);
 
   // Handle global shortcut/trigger to open Dukey assistant
   useEffect(() => {

@@ -1553,22 +1553,35 @@ export default function PackingListDetail({ user, adminSettings }: { user: UserP
 
   // --- POWER IMPORT DYNAMIC DATA LOADERS ---
   useEffect(() => {
-    if (showPowerImportModal && user) {
-      setLoadingInventories(true);
-      const qInvs = query(collection(db, 'inventories'));
-      getDocs(qInvs).then(snap => {
-        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setUserInventories(list);
-        if (list.length > 0) {
-          setBrowseInventoryId(list[0].id);
-        }
-        setLoadingInventories(false);
-      }).catch(err => {
-        console.error("Error loading inventories:", err);
-        setUserInventories([]);
-        setLoadingInventories(false);
-      });
-    }
+    if (!showPowerImportModal || !user) return;
+
+    setLoadingInventories(true);
+    // Scoped instead of downloading the whole `inventories` collection — the security rule only allows
+    // reading inventories you own, collaborate on, or your org can see (or everything, if you're a
+    // platform admin).
+    const isPlatformAdmin = user.role === 'owner' || user.role === 'admin';
+    const queries = isPlatformAdmin
+      ? [getDocs(collection(db, 'inventories'))]
+      : [
+          getDocs(query(collection(db, 'inventories'), where('ownerId', '==', user.uid))),
+          ...(user.email ? [getDocs(query(collection(db, 'inventories'), where('collaboratorEmails', 'array-contains', user.email.toLowerCase())))] : []),
+          ...(user.orgId ? [getDocs(query(collection(db, 'inventories'), where('visibility.orgIds', 'array-contains', user.orgId)))] : []),
+        ];
+
+    Promise.all(queries).then(snaps => {
+      const merged = new Map<string, any>();
+      snaps.forEach(snap => snap.docs.forEach(doc => merged.set(doc.id, { id: doc.id, ...doc.data() })));
+      const list = Array.from(merged.values());
+      setUserInventories(list);
+      if (list.length > 0) {
+        setBrowseInventoryId(list[0].id);
+      }
+      setLoadingInventories(false);
+    }).catch(err => {
+      console.error("Error loading inventories:", err);
+      setUserInventories([]);
+      setLoadingInventories(false);
+    });
   }, [showPowerImportModal, user]);
 
   useEffect(() => {

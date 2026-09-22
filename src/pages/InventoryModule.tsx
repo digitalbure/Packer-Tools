@@ -60,7 +60,8 @@ import {
   setDoc,
   limit,
   startAfter,
-  getCountFromServer
+  getCountFromServer,
+  documentId
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, GearItem, Organization, Department, Team, AdminSettings } from '../types';
@@ -725,49 +726,75 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
       setLoadingInventories(false);
     }, 2500);
 
-    // Real-time custom inventories subscriber
-    const inventoriesQuery = query(collection(db, 'inventories'));
-    const unsubInvs = onSnapshot(inventoriesQuery, (snap) => {
-      const allInvs = snap.docs.map(d => ({ id: d.id, ...d.data() } as CustomInventory));
-      
-      // Filter list: user is developer/admin, list owner, or is listed in visibilities targets
-      const visible = allInvs.filter(inv => {
-        const isOrgAdmin = user?.role === 'owner' || user?.role === 'admin';
-        const userLocPermissions = user?.permissions?.locations || {};
-        
-        // If explicit role is set to none or restricted, filter out (for standard members)
-        if (!isOrgAdmin && userLocPermissions[inv.id] === 'none') {
-          return false;
-        }
-        
-        // If they have reader, editor, or auditor, always show
-        if (!isOrgAdmin && userLocPermissions[inv.id] && ['reader', 'editor', 'auditor'].includes(userLocPermissions[inv.id])) {
-          return true;
-        }
+    // Real-time custom inventories subscriber. Scoped instead of listening to the whole collection —
+    // the security rule only allows reading inventories you own, collaborate on, or your org can see
+    // (plus anything explicitly granted below), so an unscoped listen is rejected for non-admins.
+    const isOrgAdmin = user?.role === 'owner' || user?.role === 'admin';
+    const userLocPermissions = user?.permissions?.locations || {};
+    // Explicit per-inventory grants live on the user doc, keyed by inventory id — not queryable by a
+    // `where` on the inventory itself, so fetch those specific docs by id instead.
+    const explicitlyGrantedIds = Object.entries(userLocPermissions)
+      .filter(([, role]) => ['reader', 'editor', 'auditor'].includes(role as string))
+      .map(([id]) => id);
+    const explicitlyDeniedIds = new Set(
+      Object.entries(userLocPermissions).filter(([, role]) => role === 'none').map(([id]) => id)
+    );
+    // A 'none' grant is a hard deny that overrides ownership/collaborator/org visibility too.
+    const applyExplicitDenies = (invs: CustomInventory[]) =>
+      isOrgAdmin ? invs : invs.filter(inv => !explicitlyDeniedIds.has(inv.id));
 
-        if (inv.ownerId === user.uid) return true;
-        if (inv.ownerEmail && inv.ownerEmail.toLowerCase() === user.email?.toLowerCase()) return true;
-        
-        // Collaborator check
-        if (inv.collaborators?.some(c => c.email && c.email.toLowerCase() === user.email?.toLowerCase())) return true;
-
-        if (inv.visibility?.orgIds?.includes(user.orgId || '')) return true;
-        
-        // Find if user is in target departments / teams (Note: check against standard user info)
-        const inDept = inv.visibility?.deptIds?.some(did => departments.some(dept => dept.id === did && dept.orgId === user.orgId));
-        if (inDept) return true;
-
-        const inTeam = inv.visibility?.teamIds?.some(tid => teams.some(t => t.id === tid && t.orgId === user.orgId));
-        if (inTeam) return true;
-
-        return false;
-      });
+    const invUnsubs: Array<() => void> = [];
+    let ownedInvs: CustomInventory[] = [];
+    let sharedInvs: CustomInventory[] = [];
+    let orgInvs: CustomInventory[] = [];
+    let grantedInvs: CustomInventory[] = [];
+    const publishInvs = () => {
+      const merged = new Map<string, CustomInventory>();
+      [...ownedInvs, ...sharedInvs, ...orgInvs, ...grantedInvs].forEach(inv => merged.set(inv.id, inv));
+      const visible = applyExplicitDenies(Array.from(merged.values()));
       setInventories(visible);
       offlineSync.cacheInventories(user.uid, visible);
       setLoadingInventories(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'inventories');
-    });
+    };
+
+    if (isOrgAdmin) {
+      invUnsubs.push(onSnapshot(collection(db, 'inventories'), (snap) => {
+        const visible = snap.docs.map(d => ({ id: d.id, ...d.data() } as CustomInventory));
+        setInventories(visible);
+        offlineSync.cacheInventories(user.uid, visible);
+        setLoadingInventories(false);
+      }, (error) => handleFirestoreError(error, OperationType.LIST, 'inventories')));
+    } else {
+      invUnsubs.push(onSnapshot(query(collection(db, 'inventories'), where('ownerId', '==', user.uid)), (snap) => {
+        ownedInvs = snap.docs.map(d => ({ id: d.id, ...d.data() } as CustomInventory));
+        publishInvs();
+      }, (error) => handleFirestoreError(error, OperationType.LIST, 'inventories (owned)')));
+
+      if (user.email) {
+        invUnsubs.push(onSnapshot(query(collection(db, 'inventories'), where('collaboratorEmails', 'array-contains', user.email.toLowerCase())), (snap) => {
+          sharedInvs = snap.docs.map(d => ({ id: d.id, ...d.data() } as CustomInventory));
+          publishInvs();
+        }, (error) => handleFirestoreError(error, OperationType.LIST, 'inventories (shared)')));
+      }
+
+      if (user.orgId) {
+        invUnsubs.push(onSnapshot(query(collection(db, 'inventories'), where('visibility.orgIds', 'array-contains', user.orgId)), (snap) => {
+          orgInvs = snap.docs.map(d => ({ id: d.id, ...d.data() } as CustomInventory));
+          publishInvs();
+        }, (error) => handleFirestoreError(error, OperationType.LIST, 'inventories (org)')));
+      }
+
+      // 'in' queries cap at 30 ids — batch just in case a user has an unusually large explicit grant list.
+      for (let i = 0; i < explicitlyGrantedIds.length; i += 30) {
+        const batchIds = explicitlyGrantedIds.slice(i, i + 30);
+        invUnsubs.push(onSnapshot(query(collection(db, 'inventories'), where(documentId(), 'in', batchIds)), (snap) => {
+          const batchInvs = snap.docs.map(d => ({ id: d.id, ...d.data() } as CustomInventory));
+          grantedInvs = [...grantedInvs.filter(inv => !batchIds.includes(inv.id)), ...batchInvs];
+          publishInvs();
+        }, (error) => handleFirestoreError(error, OperationType.LIST, 'inventories (granted)')));
+      }
+    }
+    const unsubInvs = () => invUnsubs.forEach(unsub => unsub());
 
     // Subscriptions to existing organizations, departments, teams, users for multi-selectors
     const unsubOrgs = onSnapshot(query(collection(db, 'organizations'), where('ownerId', '==', user.uid)), (snap) => {
@@ -1661,15 +1688,27 @@ export default function InventoryModule({ user, adminSettings }: InventoryModule
   };
 
   const toggleFormVisibilityDept = (id: string) => {
-    setVisibilityDepts(prev => 
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
+    const wasSelected = visibilityDepts.includes(id);
+    setVisibilityDepts(prev => wasSelected ? prev.filter(item => item !== id) : [...prev, id]);
+    // Sharing with a department implies sharing with its org (the security rule only checks
+    // visibility.orgIds — this keeps dept-only sharing actually readable by the people it's shared with).
+    if (!wasSelected) {
+      const orgId = departments.find(d => d.id === id)?.orgId;
+      if (orgId && !visibilityOrgs.includes(orgId)) {
+        setVisibilityOrgs(prev => [...prev, orgId]);
+      }
+    }
   };
 
   const toggleFormVisibilityTeam = (id: string) => {
-    setVisibilityTeams(prev => 
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
+    const wasSelected = visibilityTeams.includes(id);
+    setVisibilityTeams(prev => wasSelected ? prev.filter(item => item !== id) : [...prev, id]);
+    if (!wasSelected) {
+      const orgId = teams.find(t => t.id === id)?.orgId;
+      if (orgId && !visibilityOrgs.includes(orgId)) {
+        setVisibilityOrgs(prev => [...prev, orgId]);
+      }
+    }
   };
 
   // Tab 2: Retro active allocations control toggle actions

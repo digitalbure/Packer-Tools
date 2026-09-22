@@ -7,6 +7,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { UserProfile, PackingList, Reminder, AdminSettings, FeatureKey, GearItem, Organization, Workspace, INDUSTRIES, Project } from '../types';
+import { useVisibleInventories } from '../hooks/useVisibleInventories';
 import { motion, AnimatePresence } from 'motion/react';
 import { updateDoc, getDoc, arrayUnion } from 'firebase/firestore';
 import { isFeatureEnabled } from '../lib/featureUtils';
@@ -67,7 +68,12 @@ function compressAndResizeImage(file: File, maxWidth = 800, maxHeight = 600, qua
 
 export default function Dashboard({ user, adminSettings: propAdminSettings }: { user: UserProfile, adminSettings: AdminSettings | null }) {
   const [lists, setLists] = useState<PackingList[]>([]);
-  const [inventories, setInventories] = useState<any[]>([]);
+  const inventories = useVisibleInventories({
+    uid: user.uid,
+    email: user.email,
+    orgId: user.orgId,
+    isPlatformAdmin: user?.role === 'owner' || user?.role === 'admin'
+  });
   const [createIsTemplate, setCreateIsTemplate] = useState(false);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [adminSettings, setAdminSettings] = useState<AdminSettings | null>(propAdminSettings);
@@ -468,48 +474,6 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       handleFirestoreError(error, OperationType.LIST, 'bugs');
     });
 
-    // Real-time custom inventories subscriber for Lists Hub. Scoped per-owner/collaborator/org instead
-    // of listening to the whole `inventories` collection and filtering client-side — that pulled every
-    // customer's inventories into every open dashboard (the read rule allows it for any signed-in user).
-    // Platform admins keep the unscoped listen; they legitimately need to see everything.
-    const isPlatformAdmin = user?.role === 'owner' || user?.role === 'admin';
-    const invUnsubs: Array<() => void> = [];
-
-    if (isPlatformAdmin) {
-      invUnsubs.push(onSnapshot(collection(db, 'inventories'), (snapshot) => {
-        setInventories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      }, (error) => console.error("Dashboard: Error listening to inventories:", error)));
-    } else {
-      let ownedInvs: any[] = [];
-      let sharedInvs: any[] = [];
-      let orgInvs: any[] = [];
-      const publishInvs = () => {
-        const merged = new Map<string, any>();
-        [...ownedInvs, ...sharedInvs, ...orgInvs].forEach(inv => merged.set(inv.id, inv));
-        setInventories(Array.from(merged.values()));
-      };
-
-      invUnsubs.push(onSnapshot(query(collection(db, 'inventories'), where('ownerId', '==', user.uid)), (snapshot) => {
-        ownedInvs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        publishInvs();
-      }, (error) => console.error("Dashboard: Error listening to owned inventories:", error)));
-
-      if (user.email) {
-        invUnsubs.push(onSnapshot(query(collection(db, 'inventories'), where('collaboratorEmails', 'array-contains', user.email.toLowerCase())), (snapshot) => {
-          sharedInvs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          publishInvs();
-        }, (error) => console.error("Dashboard: Error listening to shared inventories:", error)));
-      }
-
-      if (user.orgId) {
-        invUnsubs.push(onSnapshot(query(collection(db, 'inventories'), where('visibility.orgIds', 'array-contains', user.orgId)), (snapshot) => {
-          orgInvs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          publishInvs();
-        }, (error) => console.error("Dashboard: Error listening to org inventories:", error)));
-      }
-    }
-    const unsubscribeInvs = () => invUnsubs.forEach(unsub => unsub());
-
     return () => {
       unsubscribeLists();
       unsubscribeReminders();
@@ -519,7 +483,6 @@ export default function Dashboard({ user, adminSettings: propAdminSettings }: { 
       unsubscribeUsers();
       unsubscribeOrgs();
       unsubscribeBugs();
-      unsubscribeInvs();
     };
   }, [user.uid]);
 

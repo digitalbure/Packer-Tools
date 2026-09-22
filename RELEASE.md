@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.22.1`
+## Current Application Version: `v6.23.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,15 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🔒 Release: v6.23.0 (Inventories: the Rule Is Actually Tightened Now)
+*Released on: September 23, 2026*
+- Follow-up to v6.22.1. Scoped the five other call sites that listened to the whole `inventories` collection unscoped: `InventoryModule.tsx` (the main inventory feature, including its per-inventory explicit reader/editor/auditor grants and its department/team visibility), `GearLibrary.tsx`, `KioskMode.tsx`, `OrganizationModule.tsx`, `DukeyAssistant.tsx`, plus two more found while sweeping for stragglers: a guest-to-real-account data migration in `AuthProvider.tsx` and the NFC "find by tag" scan in `NfcScannerModal.tsx`. All now share one hook, `useVisibleInventories`, or its `getDocs` equivalent for one-off fetches.
+- **Tightened the Firestore rule for `inventories`** from `isSignedIn() || publicSharingEnabled` (any signed-in user could read any inventory on the platform) to owner / named collaborator / org visibility / an explicit per-user grant / admin &mdash; matching exactly what the app's own queries now ask for. Added a narrow, documented exception so the seeded demo account's starter inventory still migrates to a brand-new sign-in, same as its orgs and gear library already do.
+- `InventoryModule.tsx`: sharing an inventory with a department or team now also adds that department's/team's org to `visibility.orgIds` automatically &mdash; the security rule only checks org-level visibility, so this is what makes department/team-only sharing actually work for the people it's shared with (existing inventories set up that way need a re-save to pick this up).
+- **Known, pre-existing bugs found and documented but not fixed here** (out of scope for a read-rule change, flagged in the rules file itself): the `update` rule for inventories and their items checks a field the app never writes (`orgId` instead of `visibility.orgIds`), so today only the owner or a platform admin can actually edit a shared inventory or its items &mdash; org-visibility and collaborator "editor" access exist in the UI but don't functionally work. Separately, the demo-account migration's inventory-ownership transfer was already silently failing before this release for the same underlying reason (not something this release changed).
+- Added `tests/inventories-rules-e2e.mts` (10 checks against the Firestore emulator with the real rules loaded) to `npm run test:rules`.
+- **Deployment note:** this release's `firestore.rules` change must not go live before the matching app code does &mdash; the previously-deployed app still runs the old unscoped queries and would start failing to load inventories the moment the rule is tightened. Deploy the app first, then the rules.
 
 ### ⚡ Patch: v6.22.1 (Dashboard's Inventories Listener, Scoped)
 *Released on: September 22, 2026*

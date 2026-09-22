@@ -54,6 +54,7 @@ import Papa from 'papaparse';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { triggerGoogleChatAlert } from '../services/googleChat';
 import { UserProfile, GearItem, GearItemVersion, GearIncident, AdminSettings, Container, Organization, Department, Team, Group, GearLibraryEntity } from '../types';
+import { useVisibleInventories } from '../hooks/useVisibleInventories';
 import { logActivity } from '../services/activityLog';
 import { offlineSync, OfflineOperation } from '../services/offlineSync';
 import { toast } from 'sonner';
@@ -205,27 +206,17 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
   const [cellInputValue, setCellInputValue] = useState('');
 
   // States for pulling from custom inventories
-  const [inventories, setInventories] = useState<any[]>([]);
+  const inventories = useVisibleInventories({
+    uid: user?.uid,
+    email: user?.email,
+    orgId: user?.orgId,
+    isPlatformAdmin: user?.role === 'owner' || user?.role === 'admin'
+  });
   const [selectedSyncInventory, setSelectedSyncInventory] = useState<any | null>(null);
   const [syncInventoryItems, setSyncInventoryItems] = useState<any[]>([]);
   const [loadingSyncItems, setLoadingSyncItems] = useState(false);
   const [selectedSyncItemIds, setSelectedSyncItemIds] = useState<Set<string>>(new Set());
   const [syncSearch, setSyncSearch] = useState('');
-
-  useEffect(() => {
-    if (!user) return;
-    const qInvs = query(collection(db, 'inventories'));
-    const unsub = onSnapshot(qInvs, (snap) => {
-      const allInvs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const userInvs = allInvs.filter((inv: any) => 
-        inv.ownerId === user.uid ||
-        inv.ownerEmail?.toLowerCase() === user.email?.toLowerCase() ||
-        inv.collaborators?.some((c: any) => c.email?.toLowerCase() === user.email?.toLowerCase())
-      );
-      setInventories(userInvs);
-    });
-    return unsub;
-  }, [user]);
 
   useEffect(() => {
     if (!selectedSyncInventory) {

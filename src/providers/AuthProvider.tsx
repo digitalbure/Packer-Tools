@@ -268,18 +268,16 @@ async function migrateDemoDataToUser(fromUid: string, toUid: string) {
       }
     }
 
-    const inventoriesCol = collection(db, 'inventories');
-    const inventoriesSnap = await getDocs(inventoriesCol);
+    // Scoped to fromUid's own inventories — the security rule doesn't allow reading the whole
+    // collection unless every document happens to be yours.
+    const inventoriesSnap = await getDocs(query(collection(db, 'inventories'), where('ownerId', '==', fromUid)));
     if (!inventoriesSnap.empty) {
       const batch = writeBatch(db);
       let updatedCount = 0;
       for (const d of inventoriesSnap.docs) {
-        const data = d.data();
-        if (data.ownerId === fromUid) {
-          const invRef = doc(db, 'inventories', d.id);
-          batch.update(invRef, { ownerId: toUid });
-          updatedCount++;
-        }
+        const invRef = doc(db, 'inventories', d.id);
+        batch.update(invRef, { ownerId: toUid });
+        updatedCount++;
       }
       if (updatedCount > 0) {
         await batch.commit();

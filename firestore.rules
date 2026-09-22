@@ -55,6 +55,35 @@ service cloud.firestore {
       return signedIn() && getUserOrgId() == orgId;
     }
 
+    function isOrgMemberOfAny(orgIds) {
+      return signedIn() && orgIds is list && getUserOrgId() in orgIds;
+    }
+
+    // Per-inventory role an admin can assign a user directly (users/{uid}.permissions.locations[inventoryId]):
+    // 'reader' | 'editor' | 'auditor' to grant, 'none' to explicitly deny, '' (default) if never set.
+    function inventoryGrant(inventoryId) {
+      return (signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('permissions', {}).get('locations', {}).get(inventoryId, '')
+        : '';
+    }
+
+    // Who can read an inventory: an explicit 'none' grant is a hard deny (admins still can); otherwise
+    // owner, an explicit reader/editor/auditor grant, a named collaborator, org visibility, or admin.
+    function canReadInventory(inv, inventoryId) {
+      let grant = inventoryGrant(inventoryId);
+      return grant == 'none' ? isAdmin() : (
+        isAdmin() ||
+        isOwner(inv.ownerId) ||
+        (grant in ['reader', 'editor', 'auditor']) ||
+        (signedIn() && request.auth.token.email in inv.get('collaboratorEmails', [])) ||
+        isOrgMemberOfAny(inv.get('visibility', {}).get('orgIds', [])) ||
+        // The seeded demo account's data (orgs, gearLibrary) is already effectively world-readable by
+        // this ruleset elsewhere — matching that here is what lets a brand-new sign-in read (then
+        // migrate) demo-super-admin's starter inventories, same as it already reads their demo orgs/gear.
+        (signedIn() && inv.ownerId == 'demo-super-admin')
+      );
+    }
+
     function isOrgAdmin(orgId) {
       return signedIn() && (
         isSuperAdmin() ||
@@ -571,17 +600,25 @@ service cloud.firestore {
 
     // 24. Sheet Inventories & Subcollections (Items)
     match /inventories/{inventoryId} {
-      allow read: if isSignedIn() || resource.data.publicSharingEnabled == true;
+      // Was `isSignedIn() || publicSharingEnabled`, i.e. any signed-in user could read every inventory
+      // on the platform. Scoped to owner/explicit grant/collaborator/org-visibility/admin, matching who
+      // the app's own UI shows an inventory to (see the matching scoped queries in Dashboard.tsx,
+      // InventoryModule.tsx, GearLibrary.tsx, KioskMode.tsx, OrganizationModule.tsx, DukeyAssistant.tsx,
+      // PackingListDetail.tsx, and the shared useVisibleInventories hook).
+      allow read: if resource.data.publicSharingEnabled == true || canReadInventory(resource.data, inventoryId);
       allow create: if isSignedIn() && isOwner(incoming().ownerId);
+      // NOTE: pre-existing bug, not introduced or fixed here — this checks resource.data.orgId, a field
+      // the app never writes (inventories store visibility.orgIds, an array). In practice this means
+      // only the owner or a platform admin can update an inventory today; org-visibility "editor" access
+      // and collaborator/explicit-grant "editor" access don't actually work despite existing in the UI.
       allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isOrgMember(resource.data.orgId) || isAdmin());
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
 
       match /items/{itemId} {
-        allow read: if resource.data.publicSharingEnabled == true || (isSignedIn() && (
-          isOwner(get(/databases/$(database)/documents/inventories/$(inventoryId)).data.ownerId) ||
-          isOrgMember(get(/databases/$(database)/documents/inventories/$(inventoryId)).data.orgId) ||
-          isAdmin()
-        ));
+        allow read: if resource.data.publicSharingEnabled == true || (isSignedIn() &&
+          canReadInventory(get(/databases/$(database)/documents/inventories/$(inventoryId)).data, inventoryId)
+        );
+        // Same pre-existing orgId bug as the parent update rule above.
         allow write: if isSignedIn() && (
           isOwner(get(/databases/$(database)/documents/inventories/$(inventoryId)).data.ownerId) ||
           isOrgMember(get(/databases/$(database)/documents/inventories/$(inventoryId)).data.orgId) ||
