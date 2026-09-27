@@ -25,8 +25,24 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.23.0',
+      version: 'v6.24.0',
       tag: 'Latest',
+      tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Pick More Than One Industry',
+      date: 'September 2026',
+      icon: CheckCircle2,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Onboarding’s industry step is real multi-select now',
+          desc: "Run more than one kind of operation? Pick every industry that applies — picking a second one used to silently replace the first.",
+          badge: 'Onboarding'
+        },
+      ],
+    },
+    {
+      version: 'v6.23.0',
+      tag: 'Stable',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Inventory Privacy, Locked Down',
       date: 'September 2026',

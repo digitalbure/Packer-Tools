@@ -133,7 +133,12 @@ const AVAILABLE_FEATURES: { key: FeatureKey; label: string; desc: string; catego
 
 export default function Onboarding({ user, onComplete, onClose }: OnboardingProps) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [selectedIndustryId, setSelectedIndustryId] = useState(user.selectedIndustry || 'production');
+  // Multi-select: an owner running more than one kind of operation (e.g. video production and their own
+  // construction crew) picks every industry that applies. The first one picked stays "primary" — it's
+  // what drives terminology (IndustryContext) and the suggested workspace name, same as before this was multi-select.
+  const [selectedIndustryIds, setSelectedIndustryIds] = useState<Set<string>>(
+    new Set([user.selectedIndustry || 'production'])
+  );
   const [workspaceName, setWorkspaceName] = useState('Primary Video Lab');
   const [userRole, setUserRole] = useState(user.role || 'Operator / Gear Lead');
   
@@ -151,18 +156,38 @@ export default function Onboarding({ user, onComplete, onClose }: OnboardingProp
     new Set(AVAILABLE_FEATURES.map(f => f.key))
   );
 
-  // Auto pre-fill workspace sandbox names based on industry selected
-  const handleIndustrySelect = (indId: string) => {
-    setSelectedIndustryId(indId);
-    if (indId === 'production') setWorkspaceName('Primary Video Lab');
-    else if (indId === 'construction') setWorkspaceName('Contracting & Tools Hub');
-    else if (indId === 'costume') setWorkspaceName('Wardrobe Dressing Room');
-    else if (indId === 'car_rental') setWorkspaceName('Car Fleet Garage');
-    else if (indId === 'it') setWorkspaceName('Hardware Server Rack');
-    else if (indId === 'event') setWorkspaceName('Main Event Banquet Store');
-    else if (indId === 'sports') setWorkspaceName('Championship Athletic Locker');
-    else if (indId === 'outdoors') setWorkspaceName('Expedition Basecamp Pack');
-    else setWorkspaceName('My General Inventory Hub');
+  const workspaceNameFor = (indId: string) => {
+    if (indId === 'production') return 'Primary Video Lab';
+    if (indId === 'construction') return 'Contracting & Tools Hub';
+    if (indId === 'costume') return 'Wardrobe Dressing Room';
+    if (indId === 'car_rental') return 'Car Fleet Garage';
+    if (indId === 'it') return 'Hardware Server Rack';
+    if (indId === 'event') return 'Main Event Banquet Store';
+    if (indId === 'sports') return 'Championship Athletic Locker';
+    if (indId === 'outdoors') return 'Expedition Basecamp Pack';
+    return 'My General Inventory Hub';
+  };
+
+  // Toggle one industry on/off (multi-select) — at least one must stay selected, same guard as toggleIntent.
+  const toggleIndustry = (indId: string) => {
+    setSelectedIndustryIds(prev => {
+      const next = new Set(prev);
+      if (next.has(indId)) {
+        if (next.size > 1) {
+          next.delete(indId);
+        } else {
+          toast.info("Select at least one industry.");
+          return prev;
+        }
+      } else {
+        next.add(indId);
+        // Re-suggest the workspace name off the newly-added industry, but only while it still matches
+        // an earlier auto-suggestion — don't clobber a name the person already typed themselves.
+        const previouslySuggested = Array.from(prev).some(id => workspaceNameFor(id) === workspaceName) || workspaceName.trim() === '';
+        if (previouslySuggested) setWorkspaceName(workspaceNameFor(indId));
+      }
+      return next;
+    });
   };
 
   const toggleIntent = (intentId: string) => {
@@ -252,10 +277,13 @@ export default function Onboarding({ user, onComplete, onClose }: OnboardingProp
   const handleFinishConfig = async () => {
     try {
       const generatedWorkspaceId = `ws_${Math.random().toString(36).substring(2, 11)}`;
+      const selectedIndustryList = Array.from(selectedIndustryIds);
+      const primaryIndustry = selectedIndustryList[0] || 'general';
       const activeWorkspace = {
         id: generatedWorkspaceId,
         name: workspaceName.trim() || 'Default Workspace',
-        industry: selectedIndustryId,
+        industry: primaryIndustry,
+        industries: selectedIndustryList,
         createdAt: new Date().toISOString()
       };
 
@@ -269,14 +297,16 @@ export default function Onboarding({ user, onComplete, onClose }: OnboardingProp
       await updateDoc(doc(db, 'users', user.uid), {
         onboardingCompleted: true,
         configOnboardingCompleted: true,
-        selectedIndustry: selectedIndustryId,
+        selectedIndustry: primaryIndustry,
+        selectedIndustries: selectedIndustryList,
         role: userRole.trim() || 'Operator',
         activeWorkspaceId: generatedWorkspaceId,
         workspaces: [activeWorkspace],
         disabledFeatures: disabledList,
         activeWorkspacePreset: configChoice === 'auto' ? 'smart_auto' : configChoice,
         onboardingConfig: {
-          industry: selectedIndustryId,
+          industry: primaryIndustry,
+          industries: selectedIndustryList,
           role: userRole.trim() || 'Operator',
           intents: selectedIntentsList,
           customPrompt: customGoalPrompt.trim(),
@@ -387,13 +417,16 @@ export default function Onboarding({ user, onComplete, onClose }: OnboardingProp
                 {currentStep === 0 && (
                   <div className="space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 max-h-[260px] overflow-y-auto pr-1">
-                      {INDUSTRIES.map((ind) => (
+                      {INDUSTRIES.map((ind) => {
+                        const isSelected = selectedIndustryIds.has(ind.id);
+                        return (
                         <button
                           key={ind.id}
                           type="button"
-                          onClick={() => handleIndustrySelect(ind.id)}
+                          aria-pressed={isSelected}
+                          onClick={() => toggleIndustry(ind.id)}
                           className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all flex gap-3 items-center min-h-[52px] cursor-pointer touch-manipulation active:scale-[0.99] ${
-                            selectedIndustryId === ind.id
+                            isSelected
                               ? 'border-[#ff4f3a] bg-rose-50/20 ring-2 ring-[#ff4f3a]/15 shadow-sm'
                               : 'border-neutral-200 hover:bg-neutral-50 hover:border-neutral-300'
                           }`}
@@ -401,14 +434,20 @@ export default function Onboarding({ user, onComplete, onClose }: OnboardingProp
                           <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center shrink-0">
                             {getIndustryIcon(ind.icon)}
                           </div>
-                          <div className="space-y-0.5 min-w-0">
+                          <div className="space-y-0.5 min-w-0 flex-1">
                             <p className="text-xs font-black tracking-tight text-neutral-800">{ind.name}</p>
                             <p className="text-[10px] text-neutral-400 font-semibold truncate leading-relaxed">
                               {ind.gearLabelPlural} &middot; {ind.listLabelSingular}
                             </p>
                           </div>
+                          <div className={`w-5 h-5 rounded-md border shrink-0 flex items-center justify-center ${
+                            isSelected ? 'bg-[#ff4f3a] border-[#ff4f3a] text-white' : 'border-neutral-300'
+                          }`}>
+                            {isSelected && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                          </div>
                         </button>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     <div className="p-4 sm:p-5 bg-neutral-50 rounded-2xl border border-neutral-200/80 space-y-3">
@@ -689,9 +728,9 @@ export default function Onboarding({ user, onComplete, onClose }: OnboardingProp
 
                     <div className="max-w-md mx-auto grid grid-cols-2 gap-2.5 pb-1">
                       <div className="bg-neutral-50 p-3 rounded-2xl border border-neutral-200 text-left">
-                        <span className="text-[8px] font-black uppercase text-neutral-400 tracking-wider">INDUSTRY HUB</span>
+                        <span className="text-[8px] font-black uppercase text-neutral-400 tracking-wider">INDUSTRY HUB{selectedIndustryIds.size > 1 ? 'S' : ''}</span>
                         <p className="text-xs font-black truncate mt-0.5 text-neutral-800">
-                          {INDUSTRIES.find(it => it.id === selectedIndustryId)?.name || 'General Operations'}
+                          {Array.from(selectedIndustryIds).map(id => INDUSTRIES.find(it => it.id === id)?.name).filter(Boolean).join(', ') || 'General Operations'}
                         </p>
                       </div>
 

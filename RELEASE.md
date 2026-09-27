@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.23.0`
+## Current Application Version: `v6.24.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,12 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🐞 Patch: v6.24.0 (Onboarding: Industry Picker Is Actually Multi-Select)
+*Released on: September 27, 2026*
+- The "Industry & Operations Hub" step of onboarding rendered like a checkbox grid but behaved like a radio group — picking a second industry silently replaced the first instead of adding it. Rebuilt as real multi-select (same toggle-with-a-minimum-of-one pattern already used one step later for intents), with a checkbox indicator on each card instead of just a border highlight.
+- The first industry picked stays "primary" for terminology (`IndustryContext`) and the suggested workspace name, so nothing downstream that only reads one industry breaks. Every selected industry is now also saved (`selectedIndustries` on the user, `industries` on the workspace) for future use.
+- The review screen's "Industry Hub" summary now lists every industry picked, not just one.
 
 ### 🔒 Release: v6.23.0 (Inventories: the Rule Is Actually Tightened Now)
 *Released on: September 23, 2026*

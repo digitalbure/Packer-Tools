@@ -225,6 +225,8 @@ export interface UserProfile {
   activeWorkspaceId?: string;
   workspaces?: Workspace[];
   selectedIndustry?: string;
+  /** Every industry the owner selected during onboarding — selectedIndustry is the first of these, kept for back-compat with code that only reads one. */
+  selectedIndustries?: string[];
   selectedCommunity?: string;
   betaTrialInitialized?: boolean;
   trialEnabled?: boolean;
@@ -244,7 +246,9 @@ export interface UserProfile {
 export interface Workspace {
   id: string;
   name: string;
-  industry: string; // e.g., 'production' | 'construction' | 'costume' | 'car_rental' | 'it' | 'event' | 'general'
+  industry: string; // primary industry — e.g., 'production' | 'construction' | 'costume' | 'car_rental' | 'it' | 'event' | 'general'
+  /** Every industry selected for this workspace; industry above is industries[0], kept for code that only reads one. */
+  industries?: string[];
   createdAt: string;
 }
 
