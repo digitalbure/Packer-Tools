@@ -76,3 +76,44 @@ export async function saveEntry(uid: string, value: string): Promise<string> {
   return (await addDoc(entriesCol(uid), { value: clip(value.trim(), 300), createdAt: serverTimestamp() })).id;
 }
 export const deleteEntry = (uid: string, id: string) => deleteDoc(doc(entriesCol(uid), id));
+
+/**
+ * Named owner presets (users/{uid}/labelOwnerPresets) — a person who prints for more than one department,
+ * client or brand saves each as its own preset and switches between them instead of retyping every time.
+ */
+export interface OwnerPreset extends Owner { id: string; label: string }
+const ownerPresetsCol = (uid: string) => collection(db, 'users', uid, 'labelOwnerPresets');
+
+export async function loadOwnerPresets(uid: string): Promise<OwnerPreset[]> {
+  try {
+    const out: OwnerPreset[] = [];
+    (await getDocs(ownerPresetsCol(uid))).forEach(d => {
+      const x = d.data();
+      out.push({ id: d.id, label: clip(x.label, 80) || 'Untitled', name: clip(x.name, 120), phone: clip(x.phone, 40), email: clip(x.email, 120) });
+    });
+    return out.sort((a, b) => a.label.localeCompare(b.label));
+  } catch { return []; }
+}
+export async function saveOwnerPreset(uid: string, preset: Omit<OwnerPreset, 'id'>, existingId?: string): Promise<string> {
+  const data = { label: clip(preset.label, 80) || 'Untitled', name: clip(preset.name, 120), phone: clip(preset.phone, 40), email: clip(preset.email, 120), updatedAt: serverTimestamp() };
+  if (existingId) { await setDoc(doc(ownerPresetsCol(uid), existingId), data, { merge: true }); return existingId; }
+  return (await addDoc(ownerPresetsCol(uid), data)).id;
+}
+export const deleteOwnerPreset = (uid: string, id: string) => deleteDoc(doc(ownerPresetsCol(uid), id));
+
+/**
+ * Last-used print settings (stock, printer, dpi, page/sheet layout, footer) — so returning to the studio
+ * doesn't reset everything to the hard-coded defaults every time.
+ */
+export interface LastSettings {
+  stockId?: string; customW?: number; customH?: number;
+  printerId?: string; dpi?: number; pageKey?: 'a4' | 'letter'; sheetMode?: 'sheet' | 'tape'; footerOn?: boolean;
+}
+export async function loadLastSettings(uid: string): Promise<LastSettings | null> {
+  try {
+    const snap = (await getDocs(entriesCol(uid))).docs.find(d => d.id === 'lastSettings');
+    return snap ? (snap.data() as LastSettings) : null;
+  } catch { return null; }
+}
+export const saveLastSettings = (uid: string, s: LastSettings) =>
+  setDoc(doc(entriesCol(uid), 'lastSettings'), { ...s, updatedAt: serverTimestamp() }, { merge: true });

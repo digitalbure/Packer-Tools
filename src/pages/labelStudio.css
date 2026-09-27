@@ -15,6 +15,13 @@
 .ls-panel { background: var(--raised); border: 2px solid var(--ink); padding: 1.25rem; display: grid; gap: 1rem; margin-bottom: 1.5rem; }
 .ls-panel > h2 { font: 800 1.6rem/1 var(--f-display); text-transform: uppercase; }
 .ls-step { color: var(--hazard); margin-right: 0.5rem; }
+/* Step tabs: free navigation, not a gated wizard — every tab is always clickable. */
+.ls-steps { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+.ls-step-tab { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 2.5rem; padding: 0.4rem 0.9rem; border: 2px solid var(--ink); border-radius: 3px; background: var(--raised); color: var(--ink); font: 700 0.9375rem var(--f-body); cursor: pointer; }
+.ls-step-tab .ls-step { margin-right: 0; }
+.ls-template-table { width: 100%; border-collapse: collapse; background: #fff; border: 2px solid var(--ink); }
+.ls-template-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.ls-template-table tr:last-child td { border-bottom: 0; }
 .ls-row { display: grid; gap: 0.75rem; }
 @media (min-width: 640px) { .ls-row--2 { grid-template-columns: 1fr 1fr; } .ls-row--4 { grid-template-columns: repeat(4, 1fr); } }
 .ls label { display: grid; gap: 0.25rem; font-weight: 600; font-size: 0.9375rem; }

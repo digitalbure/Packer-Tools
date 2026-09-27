@@ -7,7 +7,11 @@ import {
   type AssetData, type CodeElement, type LabelElement, type LabelSpec, type LabelStock, type Symbology, type TextElement,
 } from '../labels';
 import { canvasMeasure, downloadBlob, printPages, svgToMonoPng } from '../labels/browser';
-import { deleteEntry, deleteGlobal, deletePersonal, loadEntries, loadTemplates, publishGlobal, saveEntry, saveOwner, savePersonal, type Owner, type SavedEntry, type StoredTemplate } from '../labels/store';
+import {
+  deleteEntry, deleteGlobal, deleteOwnerPreset, deletePersonal, loadEntries, loadLastSettings, loadOwnerPresets, loadTemplates,
+  publishGlobal, saveEntry, saveLastSettings, saveOwner, saveOwnerPreset, savePersonal,
+  type LastSettings, type Owner, type OwnerPreset, type SavedEntry, type StoredTemplate,
+} from '../labels/store';
 import { takeHandoff } from '../labels/handoff';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import { useLandingFonts } from '../components/landing/useLandingFonts';
@@ -77,6 +81,9 @@ export default function LabelStudio({ user, adminSettings, demo }: Props) {
   const [copies, setCopies] = useState(1);
   const [owner, setOwner] = useState<Owner>({ name: '', phone: '', email: '' });
   const [entries, setEntries] = useState<SavedEntry[]>([]);
+  const [ownerPresets, setOwnerPresets] = useState<OwnerPreset[]>([]);
+  const [activeOwnerPresetId, setActiveOwnerPresetId] = useState<string>('');
+  const [ownerPresetLabel, setOwnerPresetLabel] = useState('');
   const [autoMode, setAutoMode] = useState(true);
   const [groupKey, setGroupKey] = useState('');
   const [footerOn, setFooterOn] = useState(true);
@@ -88,12 +95,19 @@ export default function LabelStudio({ user, adminSettings, demo }: Props) {
   const [dpi, setDpi] = useState(300);
   const [pageKey, setPageKey] = useState<'a4' | 'letter'>('a4');
   const [sheetMode, setSheetMode] = useState<'sheet' | 'tape'>('tape');
+  const settingsLoaded = React.useRef(false);
 
   const [stored, setStored] = useState<{ global: StoredTemplate[]; personal: StoredTemplate[] }>({ global: [], personal: [] });
   const [templateKey, setTemplateKey] = useState('starter:starter-asset-50x30');
   const [draft, setDraft] = useState<LabelSpec>(() => clone(STARTER_TEMPLATES[0]));
   const [newName, setNewName] = useState('');
   const [message, setMessage] = useState('');
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
+
+  // The whole left column is long, so it's steps you jump between freely, not a forced linear wizard —
+  // click any step at any time; nothing here blocks moving on.
+  const STEPS = ['Items', 'Owner', 'Label & printer', 'Edit template'] as const;
+  const [step, setStep] = useState<number>(0);
 
   const stock = useMemo<LabelStock>(() => (stockId === 'custom' ? { ...CUSTOM, widthMm: custom.w, heightMm: custom.h } : getStock(stockId) || CUSTOM), [stockId, custom]);
   const printer = getPrinter(printerId)!;
@@ -109,8 +123,33 @@ export default function LabelStudio({ user, adminSettings, demo }: Props) {
       .finally(() => alive && setLoading(false));
     loadTemplates(uid).then(t => alive && setStored(t));
     loadEntries(uid).then(e => { if (alive) { setOwner(e.owner); setEntries(e.entries); } });
+    loadOwnerPresets(uid).then(p => alive && setOwnerPresets(p));
+    // Restore whatever stock/printer/layout was last used, instead of resetting to the hard-coded defaults.
+    loadLastSettings(uid).then(s => {
+      if (!alive) return;
+      if (s) {
+        if (s.stockId) setStockId(s.stockId);
+        if (s.customW && s.customH) setCustom({ w: s.customW, h: s.customH });
+        if (s.printerId) setPrinterId(s.printerId);
+        if (s.dpi) setDpi(s.dpi);
+        if (s.pageKey) setPageKey(s.pageKey);
+        if (s.sheetMode) setSheetMode(s.sheetMode);
+        if (typeof s.footerOn === 'boolean') setFooterOn(s.footerOn);
+      }
+      settingsLoaded.current = true;
+    });
     return () => { alive = false; };
   }, [uid, demo]);
+
+  // Auto-save print settings as they change, once the initial load above has finished (so we don't
+  // immediately overwrite a saved preference with the hard-coded defaults on first render).
+  useEffect(() => {
+    if (demo || !uid || !settingsLoaded.current) return;
+    const t = setTimeout(() => {
+      saveLastSettings(uid, { stockId, customW: custom.w, customH: custom.h, printerId, dpi, pageKey, sheetMode, footerOn }).catch(() => {});
+    }, 600);
+    return () => clearTimeout(t);
+  }, [uid, demo, stockId, custom.w, custom.h, printerId, dpi, pageKey, sheetMode, footerOn]);
 
   // Items sent from the Gear Library, a packing list, an inventory sheet or an item page arrive already selected.
   useEffect(() => {
@@ -253,6 +292,35 @@ export default function LabelStudio({ user, adminSettings, demo }: Props) {
     try { await saveOwner(uid, owner); setMessage('Owner details saved.'); } catch { setMessage('The owner details could not be saved.'); }
   };
 
+  // ---- owner presets: printing for more than one department, client or brand ----
+  const chooseOwnerPreset = (id: string) => {
+    setActiveOwnerPresetId(id);
+    if (!id) return;
+    const p = ownerPresets.find(x => x.id === id);
+    if (p) { setOwner({ name: p.name, phone: p.phone, email: p.email }); setOwnerPresetLabel(p.label); }
+  };
+  const doSaveOwnerPreset = async (asNew: boolean) => {
+    if (!uid) return;
+    try {
+      const label = (asNew ? ownerPresetLabel.trim() : (ownerPresets.find(p => p.id === activeOwnerPresetId)?.label || ownerPresetLabel.trim())) || 'Untitled';
+      const id = await saveOwnerPreset(uid, { label, ...owner }, asNew ? undefined : activeOwnerPresetId || undefined);
+      setOwnerPresets(await loadOwnerPresets(uid));
+      setActiveOwnerPresetId(id); setOwnerPresetLabel(label);
+      setMessage(asNew ? `Saved as a new preset: "${label}".` : 'Preset updated.');
+    } catch { setMessage('The preset could not be saved.'); }
+  };
+  const doDeleteOwnerPreset = async () => {
+    if (!uid || !activeOwnerPresetId) return;
+    const p = ownerPresets.find(x => x.id === activeOwnerPresetId);
+    if (!window.confirm(`Delete the preset "${p?.label || 'Untitled'}"? This cannot be undone.`)) return;
+    try {
+      await deleteOwnerPreset(uid, activeOwnerPresetId);
+      setOwnerPresets(await loadOwnerPresets(uid));
+      setActiveOwnerPresetId(''); setOwnerPresetLabel('');
+      setMessage('Preset deleted.');
+    } catch { setMessage('The preset could not be deleted.'); }
+  };
+
   // ---- element editing ----
   const upd = (i: number, patch: Partial<LabelElement>) => (setAutoMode(false), setDraft(d => ({ ...d, elements: d.elements.map((e, n) => (n === i ? ({ ...e, ...patch } as LabelElement) : e)) })));
   const remove = (i: number) => (setAutoMode(false), setDraft(d => ({ ...d, elements: d.elements.filter((_, n) => n !== i) })));
@@ -277,8 +345,19 @@ export default function LabelStudio({ user, adminSettings, demo }: Props) {
 
       <div className="ls-grid">
         <div>
+          <nav className="ls-steps" aria-label="Jump to a section">
+            {STEPS.map((label, i) => (
+              <button key={label} type="button" className="ls-step-tab" aria-current={step === i ? 'step' : undefined}
+                style={step === i ? { background: 'var(--ink)', color: 'var(--tape)' } : undefined}
+                onClick={() => setStep(i)}>
+                <span className="ls-step">{i + 1}</span>{label}
+              </button>
+            ))}
+          </nav>
+
+          {step === 0 && (
           <section className="ls-panel" aria-labelledby="ls-items">
-            <h2 id="ls-items"><span className="ls-step">1</span>Items</h2>
+            <h2 id="ls-items">Items</h2>
             <label>Search<input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Name, brand or tag" /></label>
             <div className="ls-list" role="group" aria-label="Items to label">
               {loading && <p className="ls-soft" style={{ padding: '0.75rem' }}>Loading your items.</p>}
@@ -300,20 +379,46 @@ export default function LabelStudio({ user, adminSettings, demo }: Props) {
               </label>
             </div>
           </section>
+          )}
 
+          {step === 1 && (
           <section className="ls-panel" aria-labelledby="ls-owner">
             <h2 id="ls-owner">Owner details</h2>
             <p className="ls-soft">Printed on labels that show who owns the gear. An owner saved on an item is used for that item.</p>
+            {!demo && ownerPresets.length > 0 && (
+              <label>Preset
+                <select value={activeOwnerPresetId} onChange={e => chooseOwnerPreset(e.target.value)}>
+                  <option value="">Not using a saved preset</option>
+                  {ownerPresets.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+              </label>
+            )}
             <div className="ls-row ls-row--2">
               <label>Owner name<input type="text" maxLength={120} value={owner.name} onChange={e => setOwner(o => ({ ...o, name: e.target.value }))} placeholder="Your company or team" /></label>
               <label>Phone<input type="text" maxLength={40} value={owner.phone} onChange={e => setOwner(o => ({ ...o, phone: e.target.value }))} /></label>
             </div>
             <label>Email<input type="text" maxLength={120} value={owner.email} onChange={e => setOwner(o => ({ ...o, email: e.target.value }))} /></label>
-            {!demo && <div className="ls-actions"><button type="button" className="ls-btn ls-btn--small" onClick={doSaveOwner}>Save owner details</button></div>}
+            {!demo && (
+              <>
+                <div className="ls-actions"><button type="button" className="ls-btn ls-btn--small" onClick={doSaveOwner}>Save owner details</button></div>
+                <div className="ls-row" style={{ borderTop: '2px solid var(--line)', paddingTop: '1rem' }}>
+                  <label>Preset name (for printing as a different department, client or brand)
+                    <input type="text" maxLength={80} value={ownerPresetLabel} onChange={e => setOwnerPresetLabel(e.target.value)} placeholder="For example: Sledien Media" />
+                  </label>
+                  <div className="ls-actions">
+                    {activeOwnerPresetId && <button type="button" className="ls-btn ls-btn--small" onClick={() => doSaveOwnerPreset(false)}>Update this preset</button>}
+                    <button type="button" className="ls-btn ls-btn--small ls-btn--primary" disabled={!ownerPresetLabel.trim()} onClick={() => doSaveOwnerPreset(true)}>Save as new preset</button>
+                    {activeOwnerPresetId && <button type="button" className="ls-btn ls-btn--small ls-btn--danger" onClick={doDeleteOwnerPreset}>Delete this preset</button>}
+                  </div>
+                </div>
+              </>
+            )}
           </section>
+          )}
 
+          {step === 2 && (
           <section className="ls-panel" aria-labelledby="ls-label">
-            <h2 id="ls-label"><span className="ls-step">2</span>Label and printer</h2>
+            <h2 id="ls-label">Label and printer</h2>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <input type="checkbox" checked={autoMode} onChange={e => setAutoMode(e.target.checked)} style={{ width: '1.1rem', height: '1.1rem' }} />
               Choose the label for me, based on each item
@@ -380,10 +485,45 @@ export default function LabelStudio({ user, adminSettings, demo }: Props) {
               </div>
             )}
           </section>
+          )}
 
-          <section className="ls-panel">
-            <details className="ls-fold">
-              <summary>Edit this template</summary>
+          {step === 3 && (
+          <section className="ls-panel" aria-labelledby="ls-edit">
+            <h2 id="ls-edit">Edit template</h2>
+            {!demo && (stored.personal.length > 0 || (isAdmin && stored.global.length > 0)) && (
+              <div className="ls-row" style={{ borderBottom: '2px solid var(--line)', paddingBottom: '1rem' }}>
+                <button type="button" className="ls-btn ls-btn--small" onClick={() => setShowTemplateManager(s => !s)}>
+                  {showTemplateManager ? 'Hide my templates' : `Manage my templates (${stored.personal.length + (isAdmin ? stored.global.length : 0)})`}
+                </button>
+                {showTemplateManager && (
+                  <table className="ls-template-table">
+                    <tbody>
+                      {stored.personal.map(t => (
+                        <tr key={t.id}>
+                          <td>{t.spec.name}</td>
+                          <td className="ls-soft">Mine</td>
+                          <td className="ls-actions">
+                            <button type="button" className="ls-btn ls-btn--small" onClick={() => chooseTemplate(`personal:${t.id}`)}>Load</button>
+                            <button type="button" className="ls-btn ls-btn--small ls-btn--danger" onClick={() => { chooseTemplate(`personal:${t.id}`); setTimeout(doDelete, 0); }}>Delete</button>
+                          </td>
+                        </tr>
+                      ))}
+                      {isAdmin && stored.global.map(t => (
+                        <tr key={t.id}>
+                          <td>{t.spec.name}</td>
+                          <td className="ls-soft">Company (everyone)</td>
+                          <td className="ls-actions">
+                            <button type="button" className="ls-btn ls-btn--small" onClick={() => chooseTemplate(`global:${t.id}`)}>Load</button>
+                            <button type="button" className="ls-btn ls-btn--small ls-btn--danger" onClick={() => { chooseTemplate(`global:${t.id}`); setTimeout(doDelete, 0); }}>Remove from everyone</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                <p className="ls-soft">Load a template to rename it, edit it below, delete it, or (admins) publish it to everyone / remove it from everyone.</p>
+              </div>
+            )}
               <div className="ls-row" style={{ marginTop: '1rem' }}>
                 <label>Template name<input type="text" value={draft.name} maxLength={80} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} /></label>
                 {draft.elements.length === 0 && <p className="ls-soft">This label is empty. Add text or a code.</p>}
@@ -441,13 +581,13 @@ export default function LabelStudio({ user, adminSettings, demo }: Props) {
                   </div>
                 )}
               </div>
-            </details>
           </section>
+          )}
         </div>
 
         <aside className="ls-side" aria-label="Preview and print">
           <section className="ls-preview" aria-labelledby="ls-prev">
-            <h2 id="ls-prev"><span className="ls-step">3</span>Check and print</h2>
+            <h2 id="ls-prev">Check and print</h2>
             <div className="ls-stage">
               <div style={{ width: previewW }} dangerouslySetInnerHTML={{ __html: preview.svg.replace(/width="[\d.]+mm" height="[\d.]+mm"/, `width="${previewW}" height="${(previewW * preview.feedHeightMm) / preview.widthMm}"`) }} />
             </div>

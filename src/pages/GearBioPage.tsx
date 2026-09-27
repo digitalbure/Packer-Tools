@@ -1538,6 +1538,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
         isOpen={isLabelStudioOpen}
         onClose={() => setIsLabelStudioOpen(false)}
         items={printableItems}
+        initialSelectedIds={item ? new Set([item.id]) : undefined}
         user={user}
       />
     </div>

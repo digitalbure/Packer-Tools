@@ -735,6 +735,10 @@ service cloud.firestore {
     match /users/{userId}/labelEntries/{entryId} {
       allow read, write: if isSignedIn() && isOwner(userId);
     }
+    // Named owner presets (e.g. one per department/client) for the label studio. Owner only.
+    match /users/{userId}/labelOwnerPresets/{presetId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
 
     // Server-only collections (Admin SDK bypasses rules). Explicit deny for MCP OAuth state and audit logs.
     match /mcpClients/{id} { allow read, write: if false; }

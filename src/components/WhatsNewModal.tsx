@@ -25,8 +25,34 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.24.1',
+      version: 'v6.25.0',
       tag: 'Latest',
+      tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Label Studio, Reworked',
+      date: 'September 2026',
+      icon: QrCode,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Printing from an item’s passport now pre-selects that item',
+          desc: "Every other way into Label Studio already did this — the passport page's “Label Studio” button was the one that made you search and select the item again.",
+          badge: 'Fix'
+        },
+        {
+          title: 'Owner presets, remembered settings, a real template manager',
+          desc: "Save named owner details for different departments or clients. Your stock, printer and layout choices are remembered instead of resetting every visit. All your saved templates are now listed with one-click load, rename, delete and publish.",
+          badge: 'Label Studio'
+        },
+        {
+          title: 'The studio is steps you jump between, not one long page',
+          desc: "Items, Owner, Label & printer, and Edit template are tabs now — click any one at any time.",
+          badge: 'Label Studio'
+        },
+      ],
+    },
+    {
+      version: 'v6.24.1',
+      tag: 'Stable',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Create Gear Library, Fixed',
       date: 'September 2026',

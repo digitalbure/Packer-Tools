@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.24.1`
+## Current Application Version: `v6.25.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,16 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🏷️ Release: v6.25.0 (Label Studio: Owner Presets, Remembered Settings, Template Manager, Step Navigation)
+*Released on: September 27, 2026*
+Five pieces of real usage feedback, all addressed:
+- **Deep-link pre-selection fixed.** "View Passport → Label Studio" (`GearBioPage.tsx`) never passed `initialSelectedIds` to `LabelStudioLauncher`, so the current item arrived in the studio's list but nothing was checked — the person had to search and select it again. Every other entry point (Gear Library, packing lists, inventory sheets) already did this correctly; this was the one gap.
+- **Owner detail presets.** Someone printing for more than one department, client or brand can now save each as a named preset (`users/{uid}/labelOwnerPresets`) and switch between them with one dropdown, instead of retyping the form every time.
+- **Print settings are remembered.** Label stock, printer, dpi, page/sheet layout and the footer toggle used to reset to hard-coded defaults on every visit. They're now saved (debounced, per user) and restored automatically next time.
+- **A real template manager.** Personal (and, for admins, company) templates were only reachable one at a time via a dropdown, with rename/delete/publish controls hidden inside a collapsed "Edit this template" disclosure — easy to miss and impossible to browse. Added a list of every saved template with one-click Load, so the existing rename / delete / publish-to-everyone / remove-from-everyone actions are actually discoverable.
+- **The page is a set of steps you jump between, not one long scroll.** Items / Owner / Label & printer / Edit template are now tabs — click any of them at any time, nothing is gated or forced linear. The live preview and print button stay visible on the side throughout, since that's needed at every step, not just the last one.
+- Added `tests/label-owner-presets-rules-e2e.mts` (5 checks) to `npm run test:rules` (52 checks across 8 files).
 
 ### 🔒 Patch: v6.24.1 ("Create Gear Library" Had No Firestore Rule At All)
 *Released on: September 27, 2026*
