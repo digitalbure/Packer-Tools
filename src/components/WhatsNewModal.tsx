@@ -25,8 +25,24 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.24.0',
+      version: 'v6.24.1',
       tag: 'Latest',
+      tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Create Gear Library, Fixed',
+      date: 'September 2026',
+      icon: Database,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Creating a new gear library actually works now',
+          desc: "It's been failing with a permissions error since it was built — the database was never told anyone was allowed to use it. Fixed.",
+          badge: 'Bug fix'
+        },
+      ],
+    },
+    {
+      version: 'v6.24.0',
+      tag: 'Stable',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Pick More Than One Industry',
       date: 'September 2026',

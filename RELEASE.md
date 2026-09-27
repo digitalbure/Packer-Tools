@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.24.0`
+## Current Application Version: `v6.24.1`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,11 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🔒 Patch: v6.24.1 ("Create Gear Library" Had No Firestore Rule At All)
+*Released on: September 27, 2026*
+- The multi-depot "Create Gear Library" switcher (`gearLibraries` collection) had zero rule coverage in `firestore.rules` — every create, update, and delete has been failing with "Missing or insufficient permissions" since this feature was built, with no matching client-side guard to explain why. Added an owner-scoped rule (read/write your own, admin override), matching the same pattern already used for `contacts` and `racks`.
+- Added `tests/gear-libraries-rules-e2e.mts` (8 checks, reproduces the exact payload the Create Library modal sends) to `npm run test:rules`.
 
 ### 🐞 Patch: v6.24.0 (Onboarding: Industry Picker Is Actually Multi-Select)
 *Released on: September 27, 2026*

@@ -147,6 +147,12 @@ service cloud.firestore {
              data.totalUnits is int && data.totalUnits > 0 && data.totalUnits <= 48;
     }
 
+    function isValidGearLibraryEntity(data) {
+      return data.keys().hasAll(['ownerId', 'name']) &&
+             data.ownerId is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
     function isValidRackItem(data) {
       return data.keys().hasAll(['rackId', 'name', 'uPosition', 'uHeight']) &&
              data.rackId is string &&
@@ -383,6 +389,15 @@ service cloud.firestore {
       allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isAdmin());
       allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidContact(incoming());
       allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidContact(incoming());
+      allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
+    }
+
+    // 3b. Gear Library entities (the multi-depot "Create Gear Library" switcher) — had no rule at all,
+    // so every create/update/delete failed with permission-denied since this collection was introduced.
+    match /gearLibraries/{libraryId} {
+      allow read: if isSignedIn() && (resource == null || isOwner(resource.data.ownerId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(incoming().ownerId) && isValidGearLibraryEntity(incoming());
+      allow update: if isSignedIn() && isOwner(resource.data.ownerId) && isOwner(incoming().ownerId) && isValidGearLibraryEntity(incoming());
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
 
