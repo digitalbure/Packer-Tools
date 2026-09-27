@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Sparkles, Cpu, Layers, Zap, CheckCircle2, CloudOff, Database, Smartphone, QrCode, Terminal, HelpCircle } from 'lucide-react';
+import { X, Sparkles, Cpu, Layers, Zap, CheckCircle2, CloudOff, Database, Smartphone, QrCode, Terminal, HelpCircle, UserCog } from 'lucide-react';
 import { APP_VERSION } from '../version';
 
 interface WhatsNewModalProps {
@@ -25,8 +25,29 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.25.0',
+      version: 'v6.26.0',
       tag: 'Latest',
+      tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Custody & Sharing, Fixed',
+      date: 'September 2026',
+      icon: UserCog,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'The passport shows who an item is assigned to',
+          desc: "Assigning an item to someone in Gear Library's Organizational Assignment widget didn't change what the public passport showed — it always displayed the account owner. It now shows the assigned person's name and photo instead, once someone's assigned.",
+          badge: 'Fix'
+        },
+        {
+          title: 'Inventory sharing now actually grants write access',
+          desc: "Inviting someone as an inventory's 'editor,' sharing it with your whole org, or granting explicit editor access all let people see the inventory but silently failed on every edit. Fixed at the database level — those three paths can now actually write.",
+          badge: 'Security fix'
+        },
+      ],
+    },
+    {
+      version: 'v6.25.0',
+      tag: 'Stable',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Label Studio, Reworked',
       date: 'September 2026',

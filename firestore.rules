@@ -84,6 +84,19 @@ service cloud.firestore {
       );
     }
 
+    // Who can edit an inventory (or its items): owner, admin, org visibility (an inventory shared with
+    // your org has always been meant to be editable by that org, not just viewable — see the update rule
+    // this replaces), a named collaborator invited with the 'editor' role, or an explicit 'editor' grant.
+    // 'viewer' collaborators, 'reader'/'auditor' grants, and a bare explicit 'none' get read only, same as
+    // everyone else not covered here.
+    function canWriteInventory(inv, inventoryId) {
+      return isAdmin() ||
+        isOwner(inv.ownerId) ||
+        isOrgMemberOfAny(inv.get('visibility', {}).get('orgIds', [])) ||
+        (signedIn() && inv.get('collaborators', []).hasAny([{ 'email': request.auth.token.email, 'role': 'editor' }])) ||
+        inventoryGrant(inventoryId) == 'editor';
+    }
+
     function isOrgAdmin(orgId) {
       return signedIn() && (
         isSuperAdmin() ||
@@ -622,23 +635,25 @@ service cloud.firestore {
       // PackingListDetail.tsx, and the shared useVisibleInventories hook).
       allow read: if resource.data.publicSharingEnabled == true || canReadInventory(resource.data, inventoryId);
       allow create: if isSignedIn() && isOwner(incoming().ownerId);
-      // NOTE: pre-existing bug, not introduced or fixed here — this checks resource.data.orgId, a field
-      // the app never writes (inventories store visibility.orgIds, an array). In practice this means
-      // only the owner or a platform admin can update an inventory today; org-visibility "editor" access
-      // and collaborator/explicit-grant "editor" access don't actually work despite existing in the UI.
-      allow update: if isSignedIn() && (isOwner(resource.data.ownerId) || isOrgMember(resource.data.orgId) || isAdmin());
+      // Was checking resource.data.orgId, a field the app never writes (inventories store
+      // visibility.orgIds, an array), so only the owner or a platform admin could ever update an
+      // inventory — org-visibility, named-collaborator and explicit-grant "editor" access all existed
+      // in the UI but silently did nothing. A non-owner editor still can't reassign ownership or touch
+      // the collaborator list — that stays owner/admin only.
+      allow update: if isSignedIn() && (
+        (isOwner(resource.data.ownerId) || isAdmin()) ||
+        (canWriteInventory(resource.data, inventoryId) && isUnchanged('ownerId') && isUnchanged('collaborators') && isUnchanged('collaboratorEmails'))
+      );
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
 
       match /items/{itemId} {
         allow read: if resource.data.publicSharingEnabled == true || (isSignedIn() &&
           canReadInventory(get(/databases/$(database)/documents/inventories/$(inventoryId)).data, inventoryId)
         );
-        // Same pre-existing orgId bug as the parent update rule above.
-        allow write: if isSignedIn() && (
-          isOwner(get(/databases/$(database)/documents/inventories/$(inventoryId)).data.ownerId) ||
-          isOrgMember(get(/databases/$(database)/documents/inventories/$(inventoryId)).data.orgId) ||
-          isAdmin()
-        );
+        // Same pre-existing orgId bug as the parent update rule, now fixed the same way. Items don't
+        // carry ownerId/collaborators themselves, so no extra escalation guard is needed here.
+        allow write: if isSignedIn() &&
+          canWriteInventory(get(/databases/$(database)/documents/inventories/$(inventoryId)).data, inventoryId);
       }
     }
 

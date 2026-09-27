@@ -80,7 +80,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
       ownerId: item.ownerId || '',
       status: item.status || '',
       condition: item.condition || '',
-      ownerName: item.recoveryContactName || ownerProfile?.displayName || '',
+      ownerName: item.recoveryContactName || (item.assignedToName || ownerProfile?.displayName) || '',
       ownerPhone: item.recoveryContactPhone || ownerProfile?.phoneNumber || '',
       ownerEmail: item.recoveryContactEmail || ownerProfile?.email || '',
       ownerBio: item.ownerBio || ownerProfile?.bio || ''
@@ -585,7 +585,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                       )}
                       {(item.recoveryContactEmail || ownerProfile?.email) && (
                         <a href={`mailto:${item.recoveryContactEmail || ownerProfile?.email}`} className="mk__btn mk__btn--dark" style={{ width: '100%' }}>
-                          <Mail size={14} /> Email {item.recoveryContactName || ownerProfile?.displayName || 'the owner'}
+                          <Mail size={14} /> Email {item.recoveryContactName || (item.assignedToName || ownerProfile?.displayName) || 'the owner'}
                         </a>
                       )}
                       <button type="button" onClick={() => setRevealContact(false)} style={{ background: 'none', border: 'none', color: '#9AA1A6', fontSize: '.75rem', fontWeight: 600, cursor: 'pointer', textAlign: 'right' }}>
@@ -597,10 +597,10 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
               )}
 
               <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '2px solid #333', display: 'flex', alignItems: 'center', gap: '.75rem' }}>
-                <img src={ownerProfile?.photoURL || 'https://picsum.photos/seed/avatar/100/100'} style={{ width: '2.5rem', height: '2.5rem', borderRadius: 4, objectFit: 'cover', border: '2px solid #333' }} />
+                <img src={(item.assignedToPhoto || ownerProfile?.photoURL) || 'https://picsum.photos/seed/avatar/100/100'} style={{ width: '2.5rem', height: '2.5rem', borderRadius: 4, objectFit: 'cover', border: '2px solid #333' }} />
                 <div>
                   <p className="mk__label">Owner</p>
-                  <p style={{ fontWeight: 700, fontSize: '.875rem' }}>{item.recoveryContactName || ownerProfile?.displayName || 'Not named'}</p>
+                  <p style={{ fontWeight: 700, fontSize: '.875rem' }}>{item.recoveryContactName || (item.assignedToName || ownerProfile?.displayName) || 'Not named'}</p>
                 </div>
               </div>
             </div>
@@ -611,9 +611,9 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
             <div className="mk__panel">
               <p className="mk__label"><User size={13} style={{ display: 'inline', marginRight: 4, verticalAlign: -2 }} />About the owner</p>
               <div style={{ display: 'flex', gap: '1rem', marginTop: '.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <img src={ownerProfile?.photoURL || 'https://picsum.photos/seed/avatar/100/100'} alt={item.recoveryContactName || ownerProfile?.displayName || 'Owner'} referrerPolicy="no-referrer" style={{ width: '4rem', height: '4rem', borderRadius: 4, objectFit: 'cover', border: '2px solid var(--ink)' }} />
+                <img src={(item.assignedToPhoto || ownerProfile?.photoURL) || 'https://picsum.photos/seed/avatar/100/100'} alt={item.recoveryContactName || (item.assignedToName || ownerProfile?.displayName) || 'Owner'} referrerPolicy="no-referrer" style={{ width: '4rem', height: '4rem', borderRadius: 4, objectFit: 'cover', border: '2px solid var(--ink)' }} />
                 <div style={{ flex: 1, minWidth: '12rem' }}>
-                  <p style={{ fontWeight: 800, fontSize: '1rem' }}>{item.recoveryContactName || ownerProfile?.displayName || 'Not named'}</p>
+                  <p style={{ fontWeight: 800, fontSize: '1rem' }}>{item.recoveryContactName || (item.assignedToName || ownerProfile?.displayName) || 'Not named'}</p>
                   {ownerProfile?.company && <p className="mk__label" style={{ marginTop: '.125rem' }}>{ownerProfile.company}</p>}
                   {(item.ownerBio || ownerProfile?.bio) && (
                     <p className="mk__note" style={{ marginTop: '.75rem' }}>{item.ownerBio || ownerProfile?.bio}</p>
@@ -1254,8 +1254,8 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
 
               <div className="flex flex-col md:flex-row gap-6 items-start">
                 <img 
-                  src={ownerProfile?.photoURL || 'https://picsum.photos/seed/avatar/100/100'} 
-                  alt={editForm.recoveryContactName || ownerProfile?.displayName || 'Custodian'}
+                  src={(item.assignedToPhoto || ownerProfile?.photoURL) || 'https://picsum.photos/seed/avatar/100/100'} 
+                  alt={editForm.recoveryContactName || (item.assignedToName || ownerProfile?.displayName) || 'Custodian'}
                   className="w-20 h-20 rounded-2xl object-cover shrink-0 border-2 border-neutral-100 shadow-sm"
                   referrerPolicy="no-referrer"
                 />
@@ -1311,7 +1311,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                     <div className="space-y-4">
                       <div>
                         <h4 className="text-lg font-black text-neutral-900 leading-none">
-                          {item.recoveryContactName || ownerProfile?.displayName || 'Private Equipment Manager'}
+                          {item.recoveryContactName || (item.assignedToName || ownerProfile?.displayName) || 'Private Equipment Manager'}
                         </h4>
                         {ownerProfile?.company && (
                           <p className="text-xs text-neutral-400 mt-1 font-bold uppercase tracking-wider">{ownerProfile.company}</p>

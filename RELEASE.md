@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.25.0`
+## Current Application Version: `v6.26.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,14 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🔒 Release: v6.26.0 (Passport Shows the Assigned Custodian; Inventory Sharing Actually Grants Write Access)
+*Released on: September 28, 2026*
+Two fixes from an audit of ownership/sharing prompted by real usage feedback:
+- **The public passport now shows who an item is actually assigned to.** Every equipment passport (`GearBioPage.tsx`) showed the account holder as "Owner Details" no matter who the item's "Assign to User" field pointed to — the Organizational Assignment widget in Gear Library set `assignedTo` but nothing downstream ever read it. The passport can't live-read another user's profile (`users/{uid}` is owner/admin-only, by design), so the assignee's display name and photo are now denormalized onto the gear item (`assignedToName`/`assignedToPhoto`) at the three points `assignedTo` is set — create, edit, and batch reassignment — and the passport falls back to them before the account owner. Deliberately does not do the same for phone/email/bio: being assigned custody of an item shouldn't expose someone's private contact details, only their name and photo (same boundary as the existing `recoveryContact*` fields).
+- **Sharing an inventory as "editor" now actually grants write access.** The `inventories` update rule (and its `items` subcollection write rule) checked `resource.data.orgId`, a field the app never writes — inventories store `visibility.orgIds` as an array. In practice this meant only the owner or a platform admin could ever edit a shared inventory; a named collaborator invited as "editor," an org member relying on org-visibility sharing, or a user with an explicit per-inventory "editor" grant could all see the inventory (reads were fixed in v6.23.0) but any write silently failed. Added `canWriteInventory()` and used it for both rules — an editor-role collaborator, an org member, or an explicit editor grant can now write, while a `viewer` collaborator, a `reader`/`auditor` grant, or a bare `'none'` still can't; a non-owner editor still cannot reassign ownership or touch the collaborator list.
+- Confirmed in the same pass: individual gear items (`users/{uid}/gearLibrary`) have no sharing model at all today — owner-only, unconditionally. Explicitly out of scope for this release; a full owner/admin/editor/viewer role system for individual items is a larger feature to build later if needed.
+- Added `tests/inventories-write-rules-e2e.mts` (9 checks) to `npm run test:rules` (61 checks across 9 files).
 
 ### 🏷️ Release: v6.25.0 (Label Studio: Owner Presets, Remembered Settings, Template Manager, Step Navigation)
 *Released on: September 27, 2026*

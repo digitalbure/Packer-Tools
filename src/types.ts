@@ -377,6 +377,11 @@ export interface GearItem {
   deptId?: string;
   teamId?: string;
   assignedTo?: string; // User ID
+  /** Denormalized from the assigned user's profile at assignment time (the passport can't read users/{uid} for
+   *  someone who isn't its owner/admin, so these are copied on rather than looked up live — same pattern as
+   *  recoveryContactName/Phone/Email below). */
+  assignedToName?: string;
+  assignedToPhoto?: string;
   name: string;
   description?: string;
   aiLabel?: string;

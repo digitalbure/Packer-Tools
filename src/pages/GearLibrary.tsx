@@ -2354,7 +2354,10 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
             }
             
             if (shouldUpdateAssignee) {
+              const assignee = users.find(u => u.uid === batchAssignedTo);
               updateData.assignedTo = batchAssignedTo || '';
+              updateData.assignedToName = assignee?.displayName || '';
+              updateData.assignedToPhoto = assignee?.photoURL || '';
             }
             
             batch.update(itemRef, updateData);
@@ -7738,10 +7741,11 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Assign to User</label>
-                          <select 
+                          <select
                             value={newItem.assignedTo || ''}
                             onChange={(e) => {
-                              setNewItem({ ...newItem, assignedTo: e.target.value });
+                              const assignee = users.find(u => u.uid === e.target.value);
+                              setNewItem({ ...newItem, assignedTo: e.target.value, assignedToName: assignee?.displayName || '', assignedToPhoto: assignee?.photoURL || '' });
                               setIsDirty(true);
                             }}
                             className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
@@ -8562,9 +8566,12 @@ export default function GearLibrary({ user, adminSettings: propAdminSettings }: 
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Assign to User</label>
-                      <select 
+                      <select
                         value={editingItem.assignedTo || ''}
-                        onChange={(e) => setEditingItem({ ...editingItem, assignedTo: e.target.value })}
+                        onChange={(e) => {
+                          const assignee = users.find(u => u.uid === e.target.value);
+                          setEditingItem({ ...editingItem, assignedTo: e.target.value, assignedToName: assignee?.displayName || '', assignedToPhoto: assignee?.photoURL || '' });
+                        }}
                         className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary transition"
                       >
                         <option value="">None (Float)</option>
