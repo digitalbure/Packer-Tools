@@ -1164,7 +1164,7 @@ export interface AssetTransferRecord {
     category?: string;
     assetTag?: string;
     serialNumber?: string;
-    type: 'gear' | 'kit' | 'list' | 'inventory';
+    type: 'gear' | 'kit' | 'list' | 'inventory' | 'gearLibrary';
     price?: number;
     weight?: number;
     quantity?: number;

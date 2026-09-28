@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.26.0`
+## Current Application Version: `v6.27.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,18 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🚀 Release: v6.27.0 (Asset Transfer Module: Fixed and Extended to Gear Libraries & Inventories)
+*Released on: September 28, 2026*
+`AssetTransferModule.tsx` (the Enterprise "Asset Transfer" page at `/transfer`) existed but was a non-functional prototype — fixed and extended into the ownership-reassignment tool it was meant to be:
+- **Recipient lookup was already broken.** It queried `users` by email straight from the client, but `users/{uid}` reads are owner/admin-only, so the query silently returned nothing for anyone but an admin. Moved to a new authenticated server endpoint (`POST /api/transfers/lookup-recipient`, `server/routes/transfers.ts`), which uses the Admin SDK to do the lookup without loosening that collection's privacy rule, and returns only the minimal `{uid, displayName, photoURL, plan}` needed to confirm the account exists.
+- **Gear items wrote to a collection that doesn't exist.** The prototype updated a top-level `gear` collection with no Firestore rule (default-deny) and no relationship to where gear actually lives (`users/{uid}/gearLibrary/{itemId}`). Individual gear items are also the hard case architecturally: the owner's uid is *in the document path*, so "transferring" one is a cross-user document move (delete here, create there), not a field update — not something a client-only Firestore rule can do atomically. The whole execution path moved server-side (`POST /api/transfers/execute`, same route file, Admin SDK bypasses rules) so it can safely move gear items between two different users' subcollections in one operation, while re-verifying server-side that the caller actually owns everything they're transferring (never trusts the client's selection).
+- **Now supports gear libraries and inventories**, not just individual gear and packing lists. Transferring a gear library (`gearLibraries/{id}`) cascades — every gear item inside it moves too, matched by `libraryId`. Inventories and packing lists nest their contents under the entity itself, so those transfers are a plain `ownerId` flip, same mechanism `packingLists` already used.
+- **Recipient no longer needs to be on the Enterprise plan** — only the sender does (this stays an Enterprise-gated feature to send from). Any registered packer.tools account can receive a transfer.
+- **The "PIN" was fake.** It generated a 6-digit code in browser state, displayed it on-screen as a "dev hint," and compared it to itself — no email was ever sent, despite the copy claiming one was. Replaced with an honest inline confirm step (type the recipient's email to confirm) — the real security boundary was always the server verifying you're the current owner, not a code.
+- A moved gear item has its org/department/team/assignment fields cleared and its visibility reset to private — those reference the sender's org structure and would be meaningless (or leak sender-org identifiers) under the recipient's account.
+- Added `tests/transfer-execution.mts` (20 checks against the Firestore emulator) covering: lone gear item moves, gear library cascade (and that unrelated items are left alone), inventory/packing-list ownerId flips with nested items untouched, a forged-ownership rejection, a non-existent-recipient rejection, and a self-transfer rejection.
+- Added a Firestore rule for `assetTransfers` (the audit log collection): readable by sender or recipient, writable only by the server.
 
 ### 🔒 Release: v6.26.0 (Passport Shows the Assigned Custodian; Inventory Sharing Actually Grants Write Access)
 *Released on: September 28, 2026*

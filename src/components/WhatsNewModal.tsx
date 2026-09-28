@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Sparkles, Cpu, Layers, Zap, CheckCircle2, CloudOff, Database, Smartphone, QrCode, Terminal, HelpCircle, UserCog } from 'lucide-react';
+import { X, Sparkles, Cpu, Layers, Zap, CheckCircle2, CloudOff, Database, Smartphone, QrCode, Terminal, HelpCircle, UserCog, ArrowRightLeft } from 'lucide-react';
 import { APP_VERSION } from '../version';
 
 interface WhatsNewModalProps {
@@ -25,8 +25,39 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.26.0',
+      version: 'v6.27.0',
       tag: 'Latest',
+      tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Asset Transfer, Fixed & Extended',
+      date: 'September 2026',
+      icon: ArrowRightLeft,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Asset Transfer actually works now',
+          desc: "The Enterprise Asset Transfer page existed but its recipient lookup and gear transfers were both silently broken. Rebuilt server-side so it actually moves ownership, with your selection re-verified against who really owns it before anything happens.",
+          badge: 'Fix'
+        },
+        {
+          title: 'Now transfers gear libraries and inventories too',
+          desc: "Not just individual gear and packing lists. Transferring a gear library moves every item inside it along with it.",
+          badge: 'Asset Transfer'
+        },
+        {
+          title: 'Recipients just need an account, not an Enterprise plan',
+          desc: "Sending a transfer still requires Enterprise. Receiving one doesn't.",
+          badge: 'Asset Transfer'
+        },
+        {
+          title: 'The confirmation step is honest now',
+          desc: "It used to claim a PIN was emailed to you when nothing was ever sent. Replaced with a straightforward type-to-confirm step.",
+          badge: 'Fix'
+        },
+      ],
+    },
+    {
+      version: 'v6.26.0',
+      tag: 'Stable',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Custody & Sharing, Fixed',
       date: 'September 2026',

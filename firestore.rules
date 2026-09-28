@@ -681,6 +681,14 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (isOwner(resource.data.ownerId) || isAdmin());
     }
 
+    // Enterprise Asset Transfer audit log. Writes only happen server-side via the Admin SDK
+    // (server/routes/transfers.ts), which bypasses rules and re-verifies ownership itself —
+    // clients may only read the transfers they were the sender or recipient of.
+    match /assetTransfers/{transferId} {
+      allow read: if isSignedIn() && (resource.data.senderUid == request.auth.uid || resource.data.recipientUid == request.auth.uid || isAdmin());
+      allow write: if false;
+    }
+
     // Beta invitations: admin invites an email address to a 3-month enterprise trial.
     // The signed-in user may only read the one doc matching their own email (its doc id);
     // only the admin creates or removes invitations.
