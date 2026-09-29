@@ -135,6 +135,12 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
 
   // Fetch Owner Booking Conditions
   useEffect(() => {
+    if (!item || searchParams.get('book') !== 'true') return;
+    if (!item.secondaryCategories?.includes('Rentable')) return;
+    document.getElementById('booking-widget')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [item, searchParams]);
+
+  useEffect(() => {
     const targetOwnerId = queryOwnerId || user?.uid;
     if (!targetOwnerId) return;
     const qConditions = query(collection(db, 'users', targetOwnerId, 'bookingConditions'));
@@ -1196,6 +1202,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
               )}
 
               {item.secondaryCategories?.includes('Rentable') && (
+                <div id="booking-widget">
                 <BookingWidget
                   dailyRate={item.rentalPrice}
                   deposit={computeDeposit(adminSettings?.moduleWidgetConfigs?.depositPolicy, item.rentalPrice || 0, item.rentalDeposit || ownerProfile?.marketplaceDepositAmount)}
@@ -1207,6 +1214,7 @@ export default function GearBioPage({ user, adminSettings }: GearBioPageProps) {
                   onSubmit={handleBookReservation}
                   onReset={() => setBookingSuccess(false)}
                 />
+                </div>
               )}
 
               {/* Description & AI labels */}

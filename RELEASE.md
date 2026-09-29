@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.27.0`
+## Current Application Version: `v6.28.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,15 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🎨 Release: v6.28.0 (Marketplace: On-Brand Redesign, Pass 1 — Marketplace.tsx)
+*Released on: September 29, 2026*
+First pass of putting the Marketplace module on the same brand system as the landing page and Label Studio (`docs/landing-design.md`: light "concrete" / dark "foam" surfaces, hazard orange as a signal only, hard-shadow bordered cards, no SaaS-default rounded-2xl/3xl or gradient blur decoration). `src/marketplace/brand.css`'s `.mk-*` system already existed and was already used correctly by the header, hero, category rail, grid cards and booking modal — everything else in `Marketplace.tsx` was generic dark Tailwind bolted onto it. Brought onto the same system in this pass:
+- Promo banners, the industry filter/sort header, the products summary bar, the lens-type/mount sub-filter, the loading-skeleton placeholders, list-view rows (previously a completely separate styling system from the grid view), the five curated rails (Shipped to you / Featured / Latest / Popular / Staff picks — previously five different bespoke emoji-badge card treatments, now one shared card via a new `renderRailCard` helper), the "List your gear" CTA panel (dropped a `blur-[50px]` gradient orb — the exact decoration the brand doc explicitly bans), the "Message & hire" modal, and the "List your gear" overlay dialog (both previously ignored the existing `.mk-modal__*` system that the booking/buy modal two sections over already used correctly).
+- Removed 2 emoji from Marketplace.tsx copy (🔬, 📢) and an exclamation-mark line ("your gear will pay for itself!") — `node scripts/check-copy.mjs --all` no longer flags this file.
+- Fixed the dead `?book=true` deep link: `ListingsModule.tsx` generates a shareable "book this" link with that param, but `GearBioPage.tsx` never read it. It now scrolls the booking widget into view on load when present.
+- `MarketplaceView.tsx` (single listing detail) was already fully on-brand — no changes needed there.
+- Deferred to future passes: `ShopPage.tsx` (seller storefronts) and `ListingsModule.tsx` (the "my listings" console) still use generic Tailwind throughout — not touched in this pass.
 
 ### 🚀 Release: v6.27.0 (Asset Transfer Module: Fixed and Extended to Gear Libraries & Inventories)
 *Released on: September 28, 2026*

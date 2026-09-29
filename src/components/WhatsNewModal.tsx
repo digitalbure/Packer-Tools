@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Sparkles, Cpu, Layers, Zap, CheckCircle2, CloudOff, Database, Smartphone, QrCode, Terminal, HelpCircle, UserCog, ArrowRightLeft } from 'lucide-react';
+import { X, Sparkles, Cpu, Layers, Zap, CheckCircle2, CloudOff, Database, Smartphone, QrCode, Terminal, HelpCircle, UserCog, ArrowRightLeft, ShoppingBag } from 'lucide-react';
 import { APP_VERSION } from '../version';
 
 interface WhatsNewModalProps {
@@ -25,8 +25,29 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
 
   const releases = [
     {
-      version: 'v6.27.0',
+      version: 'v6.28.0',
       tag: 'Latest',
+      tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
+      title: 'Marketplace, On Brand',
+      date: 'September 2026',
+      icon: ShoppingBag,
+      color: 'text-[#ff4f3a]',
+      updates: [
+        {
+          title: 'Marketplace matches the rest of Packer Tools now',
+          desc: "Most of the browse page was generic dark cards bolted onto an otherwise distinctive design. Rebuilt the promo banners, filters, list view, curated rails, and both dialogs onto the same brand system the header and grid cards already used.",
+          badge: 'Design'
+        },
+        {
+          title: 'The “Book this” link now actually jumps to booking',
+          desc: "A shareable link meant to open straight to the booking widget did nothing. It now scrolls you there.",
+          badge: 'Fix'
+        },
+      ],
+    },
+    {
+      version: 'v6.27.0',
+      tag: 'Stable',
       tagBg: 'bg-[#ff4f3a]/10 text-[#ff4f3a] border-[#ff4f3a]/20 dark:bg-[#ff4f3a]/20 dark:text-[#ff4f3a]',
       title: 'Asset Transfer, Fixed & Extended',
       date: 'September 2026',

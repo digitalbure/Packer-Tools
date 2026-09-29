@@ -790,6 +790,46 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
     return [...convertedUserListings].sort((a,b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 5);
   };
 
+  // Shared card for the curated rails below (shipped/featured/latest/popular/staff picks) — same
+  // mk-item system as the main grid, with a text badge instead of a bespoke emoji per rail.
+  const renderRailCard = (product: any, badge?: string) => {
+    const isFav = favoriteItems.has(product.id);
+    return (
+      <div
+        key={product.id}
+        className="mk-item"
+        role="button"
+        tabIndex={0}
+        onClick={() => { setSelectedProduct(product); setIsBookingModalOpen(true); }}
+      >
+        <div className="mk-item__photo">
+          <img src={product.image} alt={product.name} referrerPolicy="no-referrer" />
+          {badge && <span className="mk-item__flag">{badge}</span>}
+          <button
+            onClick={(e) => toggleFavorite(product.id, e)}
+            aria-label={isFav ? 'Remove from saved' : 'Save this listing'}
+            style={{ position: 'absolute', top: '.5rem', right: '.5rem', width: '1.75rem', height: '1.75rem', borderRadius: '50%', background: '#fff', border: '2px solid var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Heart size={13} className={isFav ? 'fill-red-500 text-red-500' : ''} />
+          </button>
+        </div>
+        <div className="mk-item__body">
+          <div>
+            <p className="mk-item__brand">{product.brand}</p>
+            <h4 className="mk-item__name" title={product.name}>{product.name}</h4>
+          </div>
+          <div className="mk-item__foot">
+            <span className="mk-item__price">
+              {currencySymbol}{product.price ? product.price.toLocaleString() : 'Call'}
+              {!product.isSale && <span> /day</span>}
+            </span>
+            <span className="mk-item__brand" style={{ marginTop: 0 }}>{product.ownerName || 'Owner'}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       id="marketplace-landing-root"
@@ -1111,163 +1151,112 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
       {/* 3. DUAL ADVERTISING PROMOTION BANNERS (ADMIN-CONFIGURED ONLY) */}
       {showPromotions && (
-        <div id="marketplace-promotions" className="max-w-7xl mx-auto px-6 md:px-12 py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            
+        <div id="marketplace-promotions" className="mk-browse__inner" style={{ paddingTop: 0 }}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {bannerATitle && (
-            <div className="bg-[#101524] text-white rounded-[2rem] overflow-hidden p-8 flex flex-col md:flex-row justify-between items-center gap-6 border border-neutral-850 shadow-xl relative">
-              <div className="absolute top-0 right-0 w-[150px] h-[150px] bg-sky-500/10 blur-[60px] pointer-events-none" />
-              <div className="space-y-4 max-w-sm">
-                <span className="inline-block bg-[#ff4f3a] text-white font-extrabold text-[8px] uppercase tracking-widest px-3 py-1 rounded-full">
-                  Featured
-                </span>
-                <h3 className="text-3xl font-black uppercase tracking-tight leading-tight">
-                  {bannerATitle}
-                </h3>
-                <p className="text-neutral-400 text-xs font-medium leading-relaxed uppercase">
-                  {bannerASubtitle}
-                </p>
-                <button 
-                  onClick={() => toast.info("This banner is informational only.")}
-                  className="bg-white hover:bg-neutral-100 text-neutral-900 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition transform active:scale-95 text-center block md:inline-block"
-                >
-                  {bannerAButtonText}
-                </button>
-              </div>
-              
-              {/* Image visual object */}
-              {bannerAImage && (
-                <div className="w-48 h-40 relative rounded-2xl overflow-hidden shadow-2xl bg-neutral-900 border border-white/5">
-                  <img 
-                    src={bannerAImage} 
-                    alt="Promo Banner object" 
-                    className="w-full h-full object-cover object-center grayscale hover:grayscale-0 transition duration-500"
-                    referrerPolicy="no-referrer"
-                  />
+              <div className="mk__card mk__panel mk__panel--dark" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
+                <div style={{ display: 'grid', gap: '.75rem', maxWidth: '22rem' }}>
+                  <span className="mk__tag">Featured</span>
+                  <h3 className="mk__h1" style={{ fontSize: 'clamp(1.25rem, 3vw, 1.75rem)' }}>{bannerATitle}</h3>
+                  <p style={{ color: '#9AA1A6', fontSize: '.875rem', margin: 0 }}>{bannerASubtitle}</p>
+                  <button
+                    type="button"
+                    onClick={() => toast.info('This banner is informational only.')}
+                    className="mk__btn mk__btn--primary"
+                    style={{ alignSelf: 'flex-start' }}
+                  >
+                    {bannerAButtonText}
+                  </button>
                 </div>
-              )}
-            </div>
+                {bannerAImage && (
+                  <div className="mk__photo" style={{ width: '12rem', height: '10rem', flex: 'none' }}>
+                    <img src={bannerAImage} alt="" referrerPolicy="no-referrer" />
+                  </div>
+                )}
+              </div>
             )}
 
             {bannerBTitle && (
-            <div className="bg-[#1a1b35] text-white rounded-[2rem] overflow-hidden p-8 flex flex-col md:flex-row justify-between items-center gap-6 border border-neutral-850 shadow-xl relative">
-              <div className="absolute bottom-0 left-0 w-[150px] h-[150px] bg-indigo-500/10 blur-[60px] pointer-events-none" />
-              <div className="space-y-4 max-w-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-black">∞</div>
-                  <span className="font-extrabold text-[9px] uppercase tracking-widest text-[#ff4f3a]">
-                    {requiresEduVerification ? "Verification Active" : "Special Rate Offer"}
-                  </span>
+              <div className="mk__card mk__panel mk__panel--dark" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
+                <div style={{ display: 'grid', gap: '.75rem', maxWidth: '22rem' }}>
+                  <span className="mk__tag">{requiresEduVerification ? 'Verification required' : 'Special rate'}</span>
+                  <h3 className="mk__h1" style={{ fontSize: 'clamp(1.25rem, 3vw, 1.75rem)' }}>{bannerBTitle}</h3>
+                  <p style={{ color: '#9AA1A6', fontSize: '.875rem', margin: 0 }}>{bannerBSubtitle}</p>
+                  <button
+                    type="button"
+                    onClick={() => toast.info('This banner is informational only.')}
+                    className="mk__btn mk__btn--primary"
+                    style={{ alignSelf: 'flex-start' }}
+                  >
+                    {bannerBButtonText}
+                  </button>
                 </div>
-                <h3 className="text-2xl font-black uppercase tracking-tight leading-tight">
-                  {bannerBTitle}
-                </h3>
-                <p className="text-neutral-400 text-xs font-medium leading-relaxed uppercase">
-                  {bannerBSubtitle}
-                </p>
-                <button 
-                  onClick={() => toast.info("This banner is informational only.")}
-                  className="bg-[#ff4f3a] hover:bg-[#e43f2a] text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition transform active:scale-95 text-center block md:inline-block"
-                >
-                  {bannerBButtonText}
-                </button>
+                {bannerBImage && (
+                  <div className="mk__photo" style={{ width: '12rem', height: '10rem', flex: 'none' }}>
+                    <img src={bannerBImage} alt="" referrerPolicy="no-referrer" />
+                  </div>
+                )}
               </div>
-
-              {/* Image visual object */}
-              {bannerBImage && (
-                <div className="w-48 h-40 relative rounded-2xl overflow-hidden shadow-2xl bg-neutral-900 border border-white/5">
-                  <img 
-                    src={bannerBImage} 
-                    alt="Promo Banner Operator" 
-                    className="w-full h-full object-cover object-center transform hover:scale-105 transition duration-500"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              )}
-            </div>
             )}
           </div>
         </div>
       )}
 
-
-      {/* Dynamic Industry Filter & Layout Selector Header */}
-      <div className="max-w-7xl mx-auto px-6 md:px-12 py-6 border-b border-neutral-150 bg-neutral-50/20 mb-4 rounded-3xl">
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-black uppercase text-[#ff4f3a] tracking-widest">Industry focus switcher</p>
-              <h3 className="text-sm font-extrabold text-neutral-800 uppercase tracking-tight mt-0.5">Select Sector Ecosystem</h3>
-            </div>
-            
-            {/* View Grid/List & Sorting selector */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              
-              {/* SortingDropdown */}
-              <div className="flex items-center gap-1.5 bg-white border border-neutral-200 rounded-xl px-3 py-1.5 shadow-xs">
-                <ArrowUpDown size={11} className="text-neutral-400" />
-                <span className="text-[9px] font-black uppercase text-neutral-400 tracking-wider">Sort:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => {
-                    setSortBy(e.target.value);
-                    toast.success(`Sorting updated: ${e.target.value}`);
-                  }}
-                  className="bg-transparent text-[10px] font-bold text-neutral-700 outline-none cursor-pointer uppercase pr-1"
-                >
-                  <option value="default">Default Priority</option>
-                  <option value="price-asc">Price: Low to High</option>
-                  <option value="price-desc">Price: High to Low</option>
-                  <option value="rating">Rating (Highest first)</option>
-                  <option value="reviews">Reviews count</option>
-                </select>
-              </div>
-
-              {/* View Layout Toggle */}
-              <div className="flex bg-neutral-100 p-0.5 rounded-xl border border-neutral-200">
-                <button
-                  onClick={() => setViewType('grid')}
-                  className={`p-1.5 rounded-lg ${viewType === 'grid' ? 'bg-white text-primary shadow-xs' : 'text-neutral-400 hover:text-neutral-600'}`}
-                  title="Grid Layout View"
-                >
-                  <LayoutGrid size={13} />
-                </button>
-                <button
-                  onClick={() => setViewType('list')}
-                  className={`p-1.5 rounded-lg ${viewType === 'list' ? 'bg-white text-primary shadow-xs' : 'text-neutral-400 hover:text-neutral-600'}`}
-                  title="List Layout View"
-                >
-                  <List size={13} />
-                </button>
-              </div>
-
-            </div>
+      {/* Industry filter and sort/view controls */}
+      <div className="mk-browse__inner mk-rail" style={{ paddingTop: 0, paddingBottom: 0 }}>
+        <div className="mk-rail__head">
+          <div>
+            <p className="mk-browse__eyebrow">Filter by industry</p>
+            <h3 className="mk-rail__title" style={{ fontSize: '1rem' }}>Browse by sector</h3>
           </div>
 
-          {/* Industry Buttons Swiper with scrollbar-none */}
-          <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none snap-x whitespace-nowrap scroll-smooth">
-            {INDUSTRIES_MARKET.map((ind) => {
-              const isSelected = selectedIndustry === ind.id;
-              return (
-                <button
-                  key={ind.id}
-                  onClick={() => {
-                    setSelectedIndustry(ind.id);
-                    setSelectedCategory(null);
-                    toast.success(`Active industry changed to: ${ind.name}`);
-                  }}
-                  className={`px-4 py-2 rounded-2xl border text-[10px] font-extrabold uppercase transition duration-200 tracking-wider shrink-0 snap-align-start ${
-                    isSelected 
-                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-md' 
-                      : 'bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50'
-                  }`}
-                >
-                  {ind.name}
-                </button>
-              );
-            })}
-          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '.625rem' }}>
+            <label className="mk__label" style={{ display: 'flex', alignItems: 'center', gap: '.375rem', textTransform: 'none' }}>
+              <ArrowUpDown size={12} />
+              Sort
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="mk__btn"
+                style={{ minHeight: '2.25rem', padding: '.375rem .625rem', fontSize: '.75rem' }}
+              >
+                <option value="default">Default</option>
+                <option value="price-asc">Price: low to high</option>
+                <option value="price-desc">Price: high to low</option>
+                <option value="rating">Rating</option>
+                <option value="reviews">Most reviewed</option>
+              </select>
+            </label>
 
+            <div className="mk-browse__switch">
+              <button type="button" aria-pressed={viewType === 'grid'} onClick={() => setViewType('grid')} title="Grid view">
+                <LayoutGrid size={14} />
+              </button>
+              <button type="button" aria-pressed={viewType === 'list'} onClick={() => setViewType('list')} title="List view">
+                <List size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mk-rail__scroll">
+          {INDUSTRIES_MARKET.map((ind) => {
+            const isSelected = selectedIndustry === ind.id;
+            return (
+              <button
+                key={ind.id}
+                type="button"
+                onClick={() => {
+                  setSelectedIndustry(ind.id);
+                  setSelectedCategory(null);
+                }}
+                className="mk__btn"
+                style={{ flex: 'none', ...(isSelected ? { background: 'var(--ink)', color: '#fff' } : {}) }}
+              >
+                {ind.name}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -1350,79 +1339,67 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
 
 
       {/* 5. INTERACTIVE PRODUCTS DISPLAY PANELS FOR SELECTION (RENTALS, SHIPPING & BUY COMPILATIONS) */}
-      <div id="marketplace-products-display" className="max-w-7xl mx-auto px-6 md:px-12 py-6 space-y-12">
-        
-        {/* Dynamic header summary matching current mode toggles */}
-        <div className="bg-neutral-50 rounded-2xl p-6 border border-neutral-100 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#ff4f3a]" />
-              <h3 className="text-xs font-black uppercase tracking-wider text-neutral-800">
-                Showing: {currentMode === 'rent' ? 'Equipment for rent' : 'Equipment for sale'}
-              </h3>
-            </div>
-            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
-              Filtered to: <span className="text-black font-black">{selectedCategory ? CATEGORIES.find(c => c.id === selectedCategory)?.name : 'All Categories'}</span> 
-              {searchQuery && ` containing query "${searchQuery}"`}
-            </p>
-          </div>
+      <div id="marketplace-products-display" className="mk-browse__inner" style={{ paddingTop: 0 }}>
 
-          <div className="flex gap-2">
-            {selectedCategory && (
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className="bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-[9px] font-black uppercase tracking-wider hover:bg-neutral-100 transition"
-              >
-                Clear Category Filter
-              </button>
-            )}
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-[9px] font-black uppercase tracking-wider hover:bg-neutral-100 transition"
-              >
-                Clear Search
-              </button>
-            )}
+        {/* Dynamic header summary matching current mode toggles */}
+        <div className="mk__wrap" style={{ maxWidth: 'none', padding: 0, gap: '.5rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+            <div>
+              <h3 className="mk__label" style={{ fontSize: '.8125rem', textTransform: 'none', color: 'var(--ink)' }}>
+                Showing {currentMode === 'rent' ? 'equipment for rent' : 'equipment for sale'}
+              </h3>
+              <p className="mk__label" style={{ marginTop: '.125rem' }}>
+                {selectedCategory ? CATEGORIES.find(c => c.id === selectedCategory)?.name : 'All categories'}
+                {searchQuery && ` matching "${searchQuery}"`}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '.5rem' }}>
+              {selectedCategory && (
+                <button type="button" onClick={() => setSelectedCategory(null)} className="mk__btn" style={{ minHeight: '2.25rem', padding: '.375rem .875rem', fontSize: '.75rem' }}>
+                  Clear category
+                </button>
+              )}
+              {searchQuery && (
+                <button type="button" onClick={() => setSearchQuery('')} className="mk__btn" style={{ minHeight: '2.25rem', padding: '.375rem .875rem', fontSize: '.75rem' }}>
+                  Clear search
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Smart Lens Sub-Taxonomy Filter Panel */}
+        {/* Lens sub-filters (type / mount) — shown only when browsing lens categories */}
         {(selectedCategory === 'cinema-lenses' || selectedCategory === 'photography-lenses') && (
-          <div className="bg-neutral-50/50 rounded-2xl p-5 border border-neutral-150 space-y-4 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
-              <span className="text-xs font-black text-neutral-800 uppercase tracking-wider">🔬 Smart Lens Taxonomy filters</span>
+          <div className="mk__note" style={{ marginTop: '1.5rem', display: 'grid', gap: '.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span className="mk__label" style={{ color: 'var(--ink)' }}>Lens specs</span>
               <button
-                onClick={() => {
-                  setSelectedLensType(null);
-                  setSelectedLensMount(null);
-                  toast.success("Lens sub-filters reset");
-                }}
-                className="text-[9px] font-black uppercase text-rose-500 hover:text-rose-600 transition"
+                type="button"
+                onClick={() => { setSelectedLensType(null); setSelectedLensMount(null); }}
+                className="mk__label"
+                style={{ color: 'var(--bad)', background: 'none', border: 'none', cursor: 'pointer' }}
               >
-                Reset Specs
+                Reset
               </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">Filter Lens Type</label>
-                <div className="flex flex-wrap gap-1.5">
+              <div style={{ display: 'grid', gap: '.375rem' }}>
+                <label className="mk__label">Lens type</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.375rem' }}>
                   {[
-                    { id: null, label: 'All Types' },
+                    { id: null, label: 'All types' },
                     { id: 'Prime', label: 'Prime' },
                     { id: 'Zoom', label: 'Zoom' },
-                    { id: 'Cinema Prime', label: 'Cinema Prime' },
-                    { id: 'Cinema Zoom', label: 'Cinema Zoom' },
+                    { id: 'Cinema Prime', label: 'Cinema prime' },
+                    { id: 'Cinema Zoom', label: 'Cinema zoom' },
                     { id: 'Anamorphic', label: 'Anamorphic' }
                   ].map((t) => (
                     <button
                       key={t.id || 'all'}
+                      type="button"
                       onClick={() => setSelectedLensType(t.id)}
-                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition ${
-                        selectedLensType === t.id
-                          ? 'bg-neutral-900 text-white shadow-xs'
-                          : 'bg-white border border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:border-neutral-300'
-                      }`}
+                      className="mk__btn"
+                      style={{ minHeight: '2rem', padding: '.25rem .75rem', fontSize: '.75rem', ...(selectedLensType === t.id ? { background: 'var(--ink)', color: '#fff' } : {}) }}
                     >
                       {t.label}
                     </button>
@@ -1430,12 +1407,12 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400 block">Filter Lens Mount</label>
-                <div className="flex flex-wrap gap-1.5">
+              <div style={{ display: 'grid', gap: '.375rem' }}>
+                <label className="mk__label">Lens mount</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.375rem' }}>
                   {[
-                    { id: null, label: 'All Mounts' },
-                    { id: 'PL-Mount', label: 'PL Mount' },
+                    { id: null, label: 'All mounts' },
+                    { id: 'PL-Mount', label: 'PL mount' },
                     { id: 'E-Mount', label: 'Sony E' },
                     { id: 'EF-Mount', label: 'Canon EF' },
                     { id: 'RF-Mount', label: 'Canon RF' },
@@ -1443,12 +1420,10 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                   ].map((m) => (
                     <button
                       key={m.id || 'all'}
+                      type="button"
                       onClick={() => setSelectedLensMount(m.id)}
-                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition ${
-                        selectedLensMount === m.id
-                          ? 'bg-indigo-600 text-white shadow-xs'
-                          : 'bg-white border border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:border-neutral-300'
-                      }`}
+                      className="mk__btn"
+                      style={{ minHeight: '2rem', padding: '.25rem .75rem', fontSize: '.75rem', ...(selectedLensMount === m.id ? { background: 'var(--ink)', color: '#fff' } : {}) }}
                     >
                       {m.label}
                     </button>
@@ -1460,51 +1435,37 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
         )}
 
         {/* 5A. CURRENT MODE FILTERED PRODUCTS GRID */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between uppercase">
-            <h3 className="text-sm font-black tracking-widest text-[#ff4f3a]">
+        <div style={{ marginTop: '1.5rem' }}>
+          <div className="mk-rail__head" style={{ marginTop: 0 }}>
+            <h3 className="mk-rail__title" style={{ fontSize: '1rem' }}>
               {currentMode === 'rent' ? 'Equipment for rent' : 'Equipment for sale'}
             </h3>
-            <span className="text-[9px] font-mono font-bold text-neutral-400">Total Items: {loadingListings ? 'Loading...' : filteredProducts.length}</span>
+            <span className="mk__label">{loadingListings ? 'Loading' : `${filteredProducts.length} items`}</span>
           </div>
 
           {loadingListings ? (
             viewType === 'grid' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+              <div className="mk-grid">
                 {Array.from({ length: 10 }).map((_, index) => (
-                  <div key={index} className="bg-white rounded-2xl overflow-hidden border border-neutral-100 flex flex-col justify-between h-[360px] animate-pulse">
-                    <div className="h-44 w-full bg-neutral-100" />
-                    <div className="p-4 space-y-3 flex-grow flex flex-col justify-between">
-                      <div className="space-y-2">
-                        <div className="h-3 bg-neutral-200/60 rounded w-1/4 animate-pulse" />
-                        <div className="h-5 bg-neutral-200/60 rounded w-3/4 animate-pulse" />
-                        <div className="h-3 bg-neutral-200/60 rounded w-1/2 animate-pulse" />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="h-3 bg-neutral-200/60 rounded w-1/3 animate-pulse" />
-                        <div className="h-4 bg-neutral-200/60 rounded w-1/4 animate-pulse" />
-                      </div>
+                  <div key={index} className="mk-item" style={{ height: '18rem' }}>
+                    <div className="mk-item__photo" style={{ background: 'var(--raised)' }} />
+                    <div className="mk-item__body">
+                      <div style={{ height: '.5rem', width: '40%', background: 'var(--raised)', borderRadius: 2 }} />
+                      <div style={{ height: '.875rem', width: '80%', background: 'var(--raised)', borderRadius: 2 }} />
+                      <div style={{ height: '.75rem', width: '55%', background: 'var(--raised)', borderRadius: 2 }} />
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col gap-4 w-full max-w-full overflow-hidden">
+              <div style={{ display: 'grid', gap: '.75rem', marginTop: '1.25rem' }}>
                 {Array.from({ length: 6 }).map((_, index) => (
-                  <div key={index} className="bg-white rounded-2xl border border-neutral-100 p-4 flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center w-full animate-pulse">
-                    <div className="h-40 sm:h-32 w-full sm:w-44 bg-neutral-100 rounded-xl shrink-0" />
-                    <div className="flex-1 space-y-3 py-2 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div className="h-3 bg-neutral-200/60 rounded w-16" />
-                        <div className="h-3 bg-neutral-200/60 rounded w-12" />
-                      </div>
-                      <div className="h-6 bg-neutral-200/60 rounded w-2/3" />
-                      <div className="h-4 bg-neutral-200/60 rounded w-1/2" />
-                      <div className="h-3 bg-neutral-200/60 rounded w-24" />
-                    </div>
-                    <div className="w-full sm:w-32 flex flex-col items-stretch sm:items-end gap-2 shrink-0">
-                      <div className="h-4 bg-neutral-200/60 rounded w-16" />
-                      <div className="h-8 bg-neutral-200/60 rounded w-24 sm:w-full" />
+                  <div key={index} className="mk-item" style={{ flexDirection: 'row', height: '8rem' }}>
+                    <div className="mk-item__photo" style={{ width: '8rem', flex: 'none', background: 'var(--raised)' }} />
+                    <div className="mk-item__body" style={{ flex: 1 }}>
+                      <div style={{ height: '.5rem', width: '30%', background: 'var(--raised)', borderRadius: 2 }} />
+                      <div style={{ height: '.875rem', width: '60%', background: 'var(--raised)', borderRadius: 2 }} />
+                      <div style={{ height: '.75rem', width: '40%', background: 'var(--raised)', borderRadius: 2 }} />
                     </div>
                   </div>
                 ))}
@@ -1608,13 +1569,22 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
               })}
             </div>
           ) : (
-            /* Premium List View Row Layout */
-            <div className="flex flex-col gap-4 w-full max-w-full overflow-hidden">
+            /* List view rows — same mk-item system as the grid cards, laid out as a row */
+            <div style={{ display: 'grid', gap: '.75rem', marginTop: '1.25rem' }}>
               {filteredProducts.map((product) => {
                 const isFav = favoriteItems.has(product.id);
+                const flag = product.sponsored ? 'Sponsored'
+                  : product.featured ? 'Featured'
+                  : product.isSale ? 'For sale'
+                  : product.instantBook ? 'Instant book'
+                  : 'Daily rent';
                 return (
-                  <div 
+                  <div
                     key={product.id}
+                    className="mk-item"
+                    role="button"
+                    tabIndex={0}
+                    style={{ flexDirection: 'row', alignItems: 'stretch' }}
                     onClick={() => {
                       if (product.isUserListing) {
                         navigate('/marketplace/' + product.id);
@@ -1623,107 +1593,61 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
                         setIsBookingModalOpen(true);
                       }
                     }}
-                    className={`group cursor-pointer bg-white rounded-2xl overflow-hidden hover:shadow-xl transition duration-300 border p-4 flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center w-full max-w-full ${
-                      product.sponsored ? 'border-indigo-600/30 bg-indigo-55/10 bg-indigo-50/5' :
-                      product.featured ? 'border-amber-500/30' : 'border-neutral-100'
-                    }`}
                   >
-                    {/* List Left: Visual image frame */}
-                    <div className="h-40 sm:h-32 w-full sm:w-44 bg-neutral-50 relative overflow-hidden rounded-xl shrink-0">
-                      <img 
-                        src={product.image} 
-                        alt={product.name} 
-                        className="w-full h-full object-cover object-center transform group-hover:scale-105 transition duration-500"
-                        referrerPolicy="no-referrer"
-                      />
-                      
-                      <div className="absolute top-2 left-2 flex flex-col gap-1">
-                        {product.sponsored ? (
-                          <span className="bg-indigo-600 text-white text-[6.5px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide font-mono">
-                            Sponsored
-                          </span>
-                        ) : product.featured ? (
-                          <span className="bg-amber-500 text-white text-[6.5px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide font-mono">
-                            ★ Staff Pick
-                          </span>
-                        ) : product.isSale ? (
-                          <span className="bg-[#ff4f3a] text-white text-[7px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide font-mono">
-                            For Sale
-                          </span>
-                        ) : null}
-                      </div>
-
+                    <div className="mk-item__photo" style={{ width: '11rem', flex: 'none' }}>
+                      <img src={product.image} alt={product.name} referrerPolicy="no-referrer" />
+                      <span className="mk-item__flag">{flag}</span>
                       <button
                         onClick={(e) => toggleFavorite(product.id, e)}
-                        className="absolute bottom-2 right-2 w-6 h-6 bg-white/90 rounded-full flex items-center justify-center text-neutral-500 hover:text-[#ff4f3a] transition shadow"
+                        aria-label={isFav ? 'Remove from saved' : 'Save this listing'}
+                        style={{ position: 'absolute', top: '.5rem', right: '.5rem', width: '1.75rem', height: '1.75rem', borderRadius: '50%', background: '#fff', border: '2px solid var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       >
-                        <Heart size={12} className={isFav ? 'fill-red-500 text-red-500' : ''} />
+                        <Heart size={13} className={isFav ? 'fill-red-500 text-red-500' : ''} />
                       </button>
                     </div>
 
-                    {/* List Middle: Descriptive items */}
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[8.5px] font-mono font-bold text-neutral-400 uppercase tracking-widest">{product.brand}</span>
-                        {product.industry && (
-                          <span className="text-[7.5px] bg-neutral-100 text-neutral-500 font-extrabold uppercase px-1.5 py-0.2 rounded tracking-wide font-mono">
-                            {product.industry}
-                          </span>
-                        )}
-                      </div>
-                      <h4 className="text-xs sm:text-sm font-black uppercase text-neutral-800 line-clamp-1 leading-snug group-hover:text-black">
-                        {product.name}
-                      </h4>
-                      
-                      {/* Rating details & Owner details in list format */}
-                      <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center gap-1">
-                          <Star size={10} className="fill-amber-400 text-amber-400 shrink-0" />
-                          <span className="text-[9.5px] font-black text-neutral-700">{product.rating}</span>
-                          <span className="text-[8.5px] text-neutral-400 font-bold uppercase">({product.reviews} reviews)</span>
+                    <div className="mk-item__body" style={{ flex: 1, display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+                          <p className="mk-item__brand" style={{ margin: 0 }}>{product.brand}</p>
+                          {product.industry && <span className="mk__tag" style={{ fontSize: '.625rem', padding: '.0625rem .375rem' }}>{product.industry}</span>}
                         </div>
-                        {product.ownerName && (
-                          <div className="hidden sm:block text-[8.5px] text-neutral-400 font-bold uppercase tracking-wider">
-                            <span>Owner: </span>
-                            <span className="text-neutral-600">{product.ownerName}</span>
-                          </div>
-                        )}
-                        {product.isShipped && (
-                          <span className="text-[7.5px] bg-indigo-50 text-indigo-750 text-indigo-650 font-black uppercase px-2 py-0.5 rounded">
-                            🚚 Priority Shipping Available
-                          </span>
-                        )}
-                      </div>
+                        <h4 className="mk-item__name" style={{ WebkitLineClamp: 1, fontSize: '.9375rem' }} title={product.name}>{product.name}</h4>
 
-                      {product.sponsored && product.adHeadline && (
-                        <p className="text-[9px] font-semibold text-indigo-600">📢 {product.adHeadline}</p>
-                      )}
-                    </div>
-
-                    {/* List Right: Dynamic pricing and book button */}
-                    <div className="flex sm:flex-col justify-between sm:justify-center items-center sm:items-end gap-3 shrink-1 sm:shrink-0 w-full sm:w-auto border-t sm:border-t-0 border-neutral-150 pt-3 sm:pt-0">
-                      <div className="text-right">
-                        <p className="text-[8.5px] text-neutral-400 font-bold uppercase">Estimated rate</p>
-                        <div className="flex items-baseline justify-end">
-                          <span className="text-base font-black text-neutral-900 leading-none">
-                            {currencySymbol}{product.price ? product.price.toLocaleString() : 'Call'}
-                          </span>
-                          <span className="text-[8.5px] text-neutral-400 font-bold uppercase ml-0.5">
-                            {product.isSale ? '' : '/day'}
-                          </span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '.75rem', marginTop: '.25rem' }}>
+                          {product.rating > 0 && (
+                            <div className="mk-item__rating">
+                              <Star size={10} className="fill-amber-400 text-amber-400" />
+                              <span>{product.rating} ({product.reviews})</span>
+                            </div>
+                          )}
+                          {product.ownerName && <span className="mk-item__brand">{product.ownerName}</span>}
+                          {product.isShipped && <span className="mk__tag" style={{ fontSize: '.625rem', padding: '.0625rem .375rem' }}>Ships in {product.shippingDays}–5 days</span>}
                         </div>
+
+                        {product.sponsored && product.adHeadline && (
+                          <p className="mk__note" style={{ marginTop: '.375rem', padding: '.375rem .5rem', fontSize: '.6875rem', display: 'inline-block' }}>{product.adHeadline}</p>
+                        )}
                       </div>
 
-                      <button
-                        className="bg-neutral-900 text-white rounded-xl py-1.5 px-4 text-[9px] font-black tracking-widest uppercase hover:bg-[#ff4f3a] transition duration-200"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedProduct(product);
-                          setIsBookingModalOpen(true);
-                        }}
-                      >
-                        {product.isSale ? 'Inquire' : 'Rent Now'}
-                      </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '.5rem', flex: 'none' }}>
+                        <span className="mk-item__price" style={{ fontSize: '1.125rem' }}>
+                          {currencySymbol}{product.price ? product.price.toLocaleString() : 'Call'}
+                          {!product.isSale && <span> /day</span>}
+                        </span>
+                        <button
+                          type="button"
+                          className="mk__btn mk__btn--primary"
+                          style={{ minHeight: '2rem', padding: '.375rem .875rem', fontSize: '.75rem' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedProduct(product);
+                            setIsBookingModalOpen(true);
+                          }}
+                        >
+                          {product.isSale ? 'Inquire' : 'Rent now'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1732,410 +1656,146 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
           )}
         </div>
 
-        {/* 5B. RENTALS SHIPPED TO YOU (ONLY VISIBLE ON RENT MODE - MATCHING SCREENSHOT 3) */}
+        {/* 5B. RENTALS SHIPPED TO YOU (ONLY VISIBLE ON RENT MODE) */}
         {showShippedToYou && currentMode === 'rent' && (
-          <div className="space-y-6 pt-6 border-t border-neutral-100">
-            <div>
-              <h3 className="text-sm font-black uppercase tracking-widest text-[#ff4f3a]">Rentals Shipped to You</h3>
-              <p className="text-[10px] text-neutral-400 font-bold uppercase mt-1 tracking-wider">Rentals shipped directly to your doorstep with damage protection</p>
+          <div className="mk-rail" style={{ borderTop: '2px solid var(--concrete)', paddingTop: '1.5rem' }}>
+            <div className="mk-rail__head">
+              <div>
+                <h3 className="mk-rail__title" style={{ fontSize: '1rem' }}>Shipped to you</h3>
+                <p className="mk-browse__eyebrow" style={{ marginTop: '.25rem' }}>Rentals shipped to your address, tracked and insured</p>
+              </div>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              {getShippedItems().slice(0, 5).map((product) => {
-                const isFav = favoriteItems.has(product.id);
-                return (
-                  <div 
-                    key={product.id}
-                    onClick={() => {
-                      setSelectedProduct(product);
-                      setIsBookingModalOpen(true);
-                    }}
-                    className="group cursor-pointer bg-white rounded-2xl border border-neutral-100 overflow-hidden hover:border-neutral-300 hover:shadow-xl transition duration-200 flex flex-col justify-between"
-                  >
-                    <div className="h-40 w-full bg-neutral-50 relative overflow-hidden shrink-0">
-                      <img 
-                        src={product.image} 
-                        alt={product.name} 
-                        className="w-full h-full object-cover transform group-hover:scale-105 transition duration-500"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
-                        <span className="bg-indigo-600 text-white text-[7px] font-black uppercase px-2 py-0.5 rounded">
-                          Shipped
-                        </span>
-                        <button
-                          onClick={(e) => toggleFavorite(product.id, e)}
-                          className="w-6 h-6 bg-white/95 rounded-full flex items-center justify-center text-neutral-500 hover:text-[#ff4f3a]"
-                        >
-                          <Heart size={12} className={isFav ? 'fill-red-500 text-red-500' : ''} />
-                        </button>
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 bg-indigo-900 text-white text-center py-1 text-[7px] uppercase tracking-widest font-black">
-                        3-5 Days Free Express
-                      </div>
-                    </div>
-
-                    <div className="p-3.5 space-y-2.5 flex-1 flex flex-col justify-between">
-                      <div className="space-y-1">
-                        <p className="text-[8px] font-mono text-neutral-400 uppercase tracking-widest">{product.brand}</p>
-                        <h4 className="text-[10px] font-black uppercase text-neutral-800 line-clamp-1">{product.name}</h4>
-                      </div>
-
-                      <div className="space-y-1 text-[8.5px] font-bold text-neutral-500 uppercase">
-                        <div>Price: <span className="text-neutral-900 font-extrabold">{currencySymbol}{product.price}/day</span></div>
-                        <div className="truncate">Source: {product.ownerName}</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="mk-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))' }}>
+              {getShippedItems().slice(0, 5).map((product) => renderRailCard(product, 'Ships to you'))}
             </div>
           </div>
         )}
 
       </div>
 
-
       {/* FEATURED GEAR SECTION */}
       {showFeatured && (
-        <div id="featured-gear-section" className="max-w-7xl mx-auto px-6 md:px-12 py-12 space-y-8">
-          <div>
-            <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight">Featured Gear</h2>
-            <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider mt-1">Premium visual equipment handpicked for our network near {locationQuery}</p>
+        <div id="featured-gear-section" className="mk-browse__inner mk-rail">
+          <div className="mk-rail__head">
+            <div>
+              <h2 className="mk-rail__title">Featured gear</h2>
+              <p className="mk-browse__eyebrow" style={{ marginTop: '.25rem' }}>Highlighted listings near {locationQuery}</p>
+            </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {getFeaturedItems().slice(0, 4).map((product) => {
-              const isFav = favoriteItems.has(product.id);
-              return (
-                <div 
-                  key={product.id}
-                  onClick={() => {
-                    setSelectedProduct(product);
-                    setIsBookingModalOpen(true);
-                  }}
-                  className="group cursor-pointer bg-white rounded-3xl border border-neutral-100 overflow-hidden hover:shadow-2xl transition duration-200 flex flex-col justify-between"
-                >
-                  <div className="h-44 w-full bg-neutral-50 relative overflow-hidden shrink-0">
-                    <img 
-                      src={product.image} 
-                      alt={product.name} 
-                      className="w-full h-full object-cover object-center transform group-hover:scale-105 transition duration-500"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                      <span className="bg-yellow-400 text-neutral-900 text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wider shadow">
-                        ★ FEATURED
-                      </span>
-                      <button
-                        onClick={(e) => toggleFavorite(product.id, e)}
-                        className="w-7 h-7 bg-white/95 rounded-full flex items-center justify-center text-neutral-500 hover:text-red-500"
-                      >
-                        <Heart size={14} className={isFav ? 'fill-red-500 text-red-500' : ''} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-5 space-y-3.5 flex-1 flex flex-col justify-between">
-                    <div className="space-y-1">
-                      <p className="text-[8.5px] font-mono text-neutral-400 uppercase tracking-widest">{product.brand}</p>
-                      <h4 className="text-[10.5px] font-black uppercase text-neutral-800 line-clamp-2 leading-relaxed" title={product.name}>
-                        {product.name}
-                      </h4>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
-                      <div>
-                        <span className="text-sm font-black text-[#ff4f3a]">{currencySymbol}{product.price}</span>
-                        <span className="text-[8.5px] text-neutral-400 font-semibold uppercase">/day</span>
-                      </div>
-                      <span className="text-[8.5px] text-neutral-400 font-black uppercase tracking-wider">
-                        ⚡ INSTANT BOOK
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="mk-grid">
+            {getFeaturedItems().slice(0, 4).map((product) => renderRailCard(product, 'Featured'))}
           </div>
         </div>
       )}
-
 
       {/* LATEST GEAR SECTION */}
       {showLatestGear && (
-        <div id="latest-gear-section" className="bg-neutral-50 py-16 border-y border-neutral-100 mb-6">
-          <div className="max-w-7xl mx-auto px-6 md:px-12 space-y-8 animate-in fade-in duration-300">
-            <div>
-              <span className="bg-emerald-600 text-white text-[8px] font-black uppercase px-2.5 py-1 rounded-full tracking-wider shadow-sm">
-                Newly Onboarded
-              </span>
-              <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight mt-3">Latest Gear near {locationQuery}</h2>
-              <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider mt-1">Automatically displaying recently listed products listed by organization members</p>
+        <div id="latest-gear-section" className="mk-browse" style={{ marginTop: '1.5rem' }}>
+          <div className="mk-browse__inner mk-rail" style={{ paddingTop: '1.5rem', paddingBottom: '1.5rem' }}>
+            <div className="mk-rail__head">
+              <div>
+                <h2 className="mk-rail__title">Latest gear</h2>
+                <p className="mk-browse__eyebrow" style={{ marginTop: '.25rem' }}>Recently listed near {locationQuery}</p>
+              </div>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {getLatestItems().slice(0, 4).map((product) => {
-                const isFav = favoriteItems.has(product.id);
-                return (
-                  <div 
-                    key={product.id}
-                    onClick={() => {
-                      setSelectedProduct(product);
-                      setIsBookingModalOpen(true);
-                    }}
-                    className="group cursor-pointer bg-white rounded-3xl border border-neutral-100 overflow-hidden hover:shadow-2xl transition duration-200 flex flex-col justify-between"
-                  >
-                    <div className="h-44 w-full bg-neutral-50 relative overflow-hidden shrink-0">
-                      <img 
-                        src={product.image} 
-                        alt={product.name} 
-                        className="w-full h-full object-cover object-center transform group-hover:scale-105 transition duration-500"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                        <span className="bg-emerald-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wider shadow">
-                          🆕 NEWLY LISTED
-                        </span>
-                        <button
-                          onClick={(e) => toggleFavorite(product.id, e)}
-                          className="w-7 h-7 bg-white/95 rounded-full flex items-center justify-center text-neutral-500 hover:text-red-500"
-                        >
-                          <Heart size={14} className={isFav ? 'fill-red-500 text-red-500' : ''} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="p-5 space-y-3.5 flex-1 flex flex-col justify-between">
-                      <div className="space-y-1">
-                        <p className="text-[8.5px] font-mono text-neutral-400 uppercase tracking-widest">{product.brand}</p>
-                        <h4 className="text-[10.5px] font-black uppercase text-neutral-800 line-clamp-2 leading-relaxed" title={product.name}>
-                          {product.name}
-                        </h4>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
-                        <div>
-                          <span className="text-sm font-black text-[#ff4f3a]">{currencySymbol}{product.price}</span>
-                          <span className="text-[8.5px] text-neutral-400 font-semibold uppercase">/day</span>
-                        </div>
-                        <span className="text-[8.5px] text-neutral-400 font-bold uppercase tracking-wider">
-                          {product.ownerName || 'Owner'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="mk-grid">
+              {getLatestItems().slice(0, 4).map((product) => renderRailCard(product, 'New'))}
             </div>
           </div>
         </div>
       )}
 
-
-      {/* POPULAR ITEMS / REVERED SECTOR GEAR SECTION */}
+      {/* POPULAR ITEMS SECTION */}
       {showPopularItems && (
-        <div id="popular-gear-section" className="max-w-7xl mx-auto px-6 md:px-12 py-12 space-y-8">
-          <div>
-            <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight">Most Popular Equipment</h2>
-            <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider mt-1">High-utilization camera bodies and prime optics checked out this week</p>
+        <div id="popular-gear-section" className="mk-browse__inner mk-rail">
+          <div className="mk-rail__head">
+            <div>
+              <h2 className="mk-rail__title">Popular equipment</h2>
+              <p className="mk-browse__eyebrow" style={{ marginTop: '.25rem' }}>Most-reviewed camera bodies and prime optics</p>
+            </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {getPopularItems().slice(0, 4).map((product) => {
-              const isFav = favoriteItems.has(product.id);
-              return (
-                <div 
-                  key={product.id}
-                  onClick={() => {
-                    setSelectedProduct(product);
-                    setIsBookingModalOpen(true);
-                  }}
-                  className="group cursor-pointer bg-white rounded-3xl border border-neutral-100 overflow-hidden hover:shadow-2xl transition duration-200 flex flex-col justify-between"
-                >
-                  <div className="h-44 w-full bg-neutral-50 relative overflow-hidden shrink-0">
-                    <img 
-                      src={product.image} 
-                      alt={product.name} 
-                      className="w-full h-full object-cover object-center transform group-hover:scale-105 transition duration-500"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                      <span className="bg-[#ff4f3a] text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wider shadow">
-                        🔥 HOT PICK
-                      </span>
-                      <button
-                        onClick={(e) => toggleFavorite(product.id, e)}
-                        className="w-7 h-7 bg-white/95 rounded-full flex items-center justify-center text-neutral-500 hover:text-red-500"
-                      >
-                        <Heart size={14} className={isFav ? 'fill-red-500 text-red-500' : ''} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-5 space-y-3.5 flex-1 flex flex-col justify-between">
-                    <div className="space-y-1">
-                      <p className="text-[8.5px] font-mono text-neutral-400 uppercase tracking-widest">{product.brand}</p>
-                      <h4 className="text-[10.5px] font-black uppercase text-neutral-800 line-clamp-2 leading-relaxed" title={product.name}>
-                        {product.name}
-                      </h4>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
-                      <div>
-                        <span className="text-sm font-black text-[#ff4f3a]">{currencySymbol}{product.price}</span>
-                        <span className="text-[8.5px] text-neutral-400 font-semibold uppercase">/day</span>
-                      </div>
-                      {product.rating > 0 && (
-                        <span className="text-[8.5px] text-neutral-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                          <Star size={10} className="fill-amber-400 text-amber-400 text-yellow-500" />
-                          <span>{product.rating} ({product.reviews})</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="mk-grid">
+            {getPopularItems().slice(0, 4).map((product) => renderRailCard(product, 'Popular'))}
           </div>
         </div>
       )}
+
       {showStaffPicks && (
-        <div id="staff-picks-section" className="max-w-7xl mx-auto px-6 md:px-12 py-16 space-y-8">
-          <div>
-            <h2 className="text-xl font-extrabold text-neutral-900 uppercase tracking-tight">Staff Rental Picks</h2>
-            <p className="text-xs text-neutral-400 font-bold uppercase tracking-wider mt-1">Handpicked rigs verified for compatibility and output quality near {locationQuery}</p>
+        <div id="staff-picks-section" className="mk-browse__inner mk-rail">
+          <div className="mk-rail__head">
+            <div>
+              <h2 className="mk-rail__title">Staff picks</h2>
+              <p className="mk-browse__eyebrow" style={{ marginTop: '.25rem' }}>Rigs checked for compatibility and condition near {locationQuery}</p>
+            </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {getStaffPicksItems().map((product) => {
-              const isFav = favoriteItems.has(product.id);
-              return (
-                <div 
-                  key={product.id}
-                  onClick={() => {
-                    setSelectedProduct(product);
-                    setIsBookingModalOpen(true);
-                  }}
-                  className="group cursor-pointer bg-white rounded-3xl border border-neutral-105 overflow-hidden hover:shadow-2xl transition duration-200 flex flex-col justify-between shadow-xs"
-                >
-                  <div className="h-44 w-full bg-neutral-50 relative overflow-hidden shrink-0">
-                    <img 
-                      src={product.image} 
-                      alt={product.name} 
-                      className="w-full h-full object-cover object-center transform group-hover:scale-105 transition duration-550"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                      <span className="bg-[#ff4f3a] text-white text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-wider shadow">
-                        ★ STAFF PICK
-                      </span>
-                      <button
-                        onClick={(e) => toggleFavorite(product.id, e)}
-                        className="w-7 h-7 bg-white/95 rounded-full flex items-center justify-center text-neutral-500 hover:text-red-500"
-                      >
-                        <Heart size={14} className={isFav ? 'fill-red-500 text-red-500' : ''} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-5 space-y-3.5 flex-1 flex flex-col justify-between">
-                    <div className="space-y-1">
-                      <p className="text-[8.5px] font-mono text-neutral-400 uppercase tracking-widest">{product.brand}</p>
-                      <h4 className="text-[10.5px] font-black uppercase text-neutral-800 line-clamp-2 leading-relaxed" title={product.name}>
-                        {product.name}
-                      </h4>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
-                      <div>
-                        <span className="text-sm font-black text-[#ff4f3a]">{currencySymbol}{product.price}</span>
-                        <span className="text-[8.5px] text-neutral-400 font-semibold uppercase">/day</span>
-                      </div>
-                      <span className="text-[8.5px] text-neutral-400 font-black uppercase tracking-wider">
-                        ⚡ INSTANT BOOK
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="mk-grid">
+            {getStaffPicksItems().map((product) => renderRailCard(product, 'Staff pick'))}
           </div>
         </div>
       )}
 
-
-      {/* 8. LIST YOUR GEAR PANEL CTA (MATCHING SCREENSHOT 5) */}
+      {/* 8. LIST YOUR GEAR PANEL CTA */}
       {showGuarantees && (
-        <div id="list-your-gear-banner" className="max-w-7xl mx-auto px-6 md:px-12 py-10">
-          <div className="bg-neutral-50 rounded-[3rem] p-10 md:p-14 text-center border border-neutral-150 space-y-8 max-w-5xl mx-auto shadow-xl relative overflow-hidden">
-            {/* Top circle aesthetic decoration */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-rose-500/5 blur-[50px] rounded-full pointer-events-none" />
-
-            <div className="space-y-4">
-              <h2 className="text-3xl md:text-4xl font-extrabold text-neutral-900 tracking-tight uppercase">
-                Rent or Sell your Camera Gear
-              </h2>
-              <p className="text-neutral-550 text-xs font-semibold leading-relaxed max-w-2xl mx-auto uppercase tracking-wider text-neutral-400">
+        <div id="list-your-gear-banner" className="mk-browse__inner" style={{ paddingTop: '1.5rem' }}>
+          <div className="mk__card mk__panel--dark" style={{ padding: '2rem', textAlign: 'center', display: 'grid', gap: '2rem' }}>
+            <div style={{ display: 'grid', gap: '.5rem', maxWidth: '34rem', margin: '0 auto' }}>
+              <h2 className="mk__h1" style={{ fontSize: 'clamp(1.5rem, 3.5vw, 2rem)' }}>Rent or sell your gear</h2>
+              <p style={{ color: '#9AA1A6', fontSize: '.875rem', margin: 0 }}>
                 List gear you own for other crews to rent, or find what you need nearby.
               </p>
             </div>
 
-            {/* Core values block columns */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left py-6 md:py-10">
-              {/* Sub column 1 */}
-              <div className="bg-white border border-neutral-150 rounded-3xl p-6 md:p-6 space-y-3.5 shadow-md hover:shadow-lg transition-all duration-300">
-                <div className="w-10 h-10 bg-rose-50 text-[#ff4f3a] rounded-xl flex items-center justify-center shrink-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ textAlign: 'left' }}>
+              <div className="mk__card" style={{ padding: '1.25rem', display: 'grid', gap: '.625rem' }}>
+                <div className="mk__badge" style={{ width: '2.5rem', height: '2.5rem' }}>
                   <DollarSign size={18} />
                 </div>
-                <div className="space-y-1.5">
-                  <h4 className="text-xs font-black uppercase text-neutral-800 tracking-wider">Earn money renting your gear</h4>
-                  <p className="text-[10px] text-neutral-500 leading-relaxed font-semibold uppercase">
-                    Put your gear to work while you aren't using it. Meet local creatives and make extra cash renting your scope to them. Soon, your gear will pay for itself!
+                <div>
+                  <h4 className="mk__value">Earn renting your gear</h4>
+                  <p className="mk__label" style={{ textTransform: 'none', marginTop: '.25rem' }}>
+                    Put gear to work while you're not using it. Rent it to other crews and arrange payment directly.
                   </p>
                 </div>
               </div>
 
-              {/* Sub column 2 */}
-              <div className="bg-white border border-neutral-150 rounded-3xl p-6 md:p-6 space-y-3.5 shadow-md hover:shadow-lg transition-all duration-300">
-                <div className="w-10 h-10 bg-orange-50 text-orange-500 rounded-xl flex items-center justify-center shrink-0">
+              <div className="mk__card" style={{ padding: '1.25rem', display: 'grid', gap: '.625rem' }}>
+                <div className="mk__badge" style={{ width: '2.5rem', height: '2.5rem' }}>
                   <ShoppingBag size={18} />
                 </div>
-                <div className="space-y-1.5">
-                  <h4 className="text-xs font-black uppercase text-neutral-800 tracking-wider">Sell your gear, keep more of your money</h4>
-                  <p className="text-[10px] text-[#ff4f3a] leading-relaxed font-black uppercase">
-                    List gear for other crews to rent or buy. Packer Tools does not take a cut of the sale; you and the buyer arrange payment directly.
+                <div>
+                  <h4 className="mk__value">Sell your gear</h4>
+                  <p className="mk__label" style={{ textTransform: 'none', marginTop: '.25rem' }}>
+                    List gear for other crews to buy. Packer Tools doesn't take a cut — you and the buyer arrange payment directly.
                   </p>
                 </div>
               </div>
 
-              {/* Sub column 3 */}
-              <div className="bg-white border border-neutral-150 rounded-3xl p-6 md:p-6 space-y-3.5 shadow-md hover:shadow-lg transition-all duration-300">
-                <div className="w-10 h-10 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center shrink-0">
+              <div className="mk__card" style={{ padding: '1.25rem', display: 'grid', gap: '.625rem' }}>
+                <div className="mk__badge" style={{ width: '2.5rem', height: '2.5rem' }}>
                   <CheckCircle2 size={18} />
                 </div>
-                <div className="space-y-1.5">
-                  <h4 className="text-xs font-black uppercase text-neutral-800 tracking-wider">You arrange the details</h4>
-                  <p className="text-[10px] text-neutral-500 leading-relaxed font-semibold uppercase">
-                    Packer Tools does not provide insurance or hold payment in escrow. Agree on deposit, damage cover and payment directly with the other party before handover.
+                <div>
+                  <h4 className="mk__value">You arrange the details</h4>
+                  <p className="mk__label" style={{ textTransform: 'none', marginTop: '.25rem' }}>
+                    Packer Tools doesn't provide insurance or hold payment in escrow. Agree on deposit, damage cover and payment directly before handover.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3.5 pt-4">
-              <button
-                onClick={handleOpenListGear}
-                className="inline-flex bg-[#ff4f3a] hover:bg-[#e43f2a] hover:scale-[1.02] text-white font-black text-xs uppercase tracking-widest px-10 py-4 rounded-xl shadow-xl transition"
-              >
+            <div style={{ display: 'grid', gap: '1rem', justifyItems: 'center' }}>
+              <button type="button" onClick={handleOpenListGear} className="mk__btn mk__btn--primary">
                 List your gear
               </button>
-              <div className="flex justify-center gap-6 text-[9.5px] font-black uppercase tracking-wider text-neutral-450 text-neutral-500">
-                <span onClick={() => { navigate('/help?category=packer-tools-academy'); toast.info("Renting guides loaded in Help Center!"); }} className="cursor-pointer hover:text-black transition underline">Learn about renting</span>
-                <span onClick={() => { navigate('/help?category=getting-started'); toast.info("Selling policies loaded in Help Center!"); }} className="cursor-pointer hover:text-black transition underline">Learn about selling</span>
+              <div style={{ display: 'flex', gap: '1.5rem' }}>
+                <button type="button" onClick={() => navigate('/help?category=packer-tools-academy')} className="mk__label" style={{ background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                  Learn about renting
+                </button>
+                <button type="button" onClick={() => navigate('/help?category=getting-started')} className="mk__label" style={{ background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                  Learn about selling
+                </button>
               </div>
             </div>
-
           </div>
         </div>
       )}
@@ -2395,97 +2055,85 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       {/* MESSAGE AND HIRE DIRECT PANEL MODAL FOR CREWS */}
       <AnimatePresence>
         {isMessageModalOpen && selectedCrew && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => {
-                setIsMessageModalOpen(false);
-                setSelectedCrew(null);
-              }}
-              className="absolute inset-0 bg-neutral-900/60 backdrop-blur-xs"
+              onClick={() => { setIsMessageModalOpen(false); setSelectedCrew(null); }}
+              className="mk-modal__backdrop"
             />
-
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-lg bg-white rounded-[2.5rem] p-8 border border-neutral-100 shadow-2xl space-y-6"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-[8px] font-black uppercase tracking-widest text-neutral-400">
-                    Direct dispatcher
-                  </span>
-                  <h3 className="text-lg font-black uppercase tracking-tighter text-neutral-800 mt-1">
-                    Inquire Hire: {selectedCrew.name}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsMessageModalOpen(false);
-                    setSelectedCrew(null);
-                  }}
-                  className="bg-neutral-105 hover:bg-neutral-200 text-neutral-600 p-1 px-1.5 rounded-lg text-xs transition"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-
-              {/* Brief profile info card */}
-              <div className="flex gap-4 border-y border-neutral-100 py-4">
-                <div className="w-16 h-16 bg-neutral-100 rounded-2xl overflow-hidden shrink-0 border">
-                  <img src={selectedCrew.image} alt={selectedCrew.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                </div>
-                <div className="space-y-1 my-auto">
-                  <h4 className="text-xs font-black uppercase text-neutral-800">{selectedCrew.name}</h4>
-                  <p className="text-[10px] text-neutral-400 font-semibold uppercase">{selectedCrew.title}</p>
-                  <p className="text-[9px] text-[#ff4f3a] font-black uppercase">Response Time: Under 1 hour</p>
-                </div>
-              </div>
-
-              {/* Message inputs form */}
-              <form onSubmit={handleMessageCrewSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-neutral-400">Inquiry message & dates</label>
-                  <textarea
-                    rows={4}
-                    required
-                    value={crewMessageText}
-                    onChange={(e) => setCrewMessageText(e.target.value)}
-                    placeholder={`Hi ${selectedCrew.name.split(' ')[0]}, I would like to inquire about your availability matching editorial shoot specs near ${locationQuery} on...`}
-                    className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl p-4 text-xs font-semibold outline-none focus:bg-white leading-relaxed text-neutral-800 placeholder-neutral-400"
-                  />
-                </div>
-
-                <div className="p-4 bg-blue-50/40 rounded-2xl border border-blue-100/50 flex gap-3 text-[10px] text-blue-800 leading-relaxed">
-                  <Info size={16} className="shrink-0 mt-0.5 text-blue-600" />
-                  <p>
-                    This message goes straight to {selectedCrew.name.split(' ')[0]}. Agree on rate, dates and payment directly with them.
-                  </p>
-                </div>
-
-                <div className="flex gap-3 pt-2">
+            <div className="mk-modal__wrap">
+              <motion.div
+                initial={{ scale: 0.97, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.97, opacity: 0 }}
+                className="mk-modal__panel mk"
+              >
+                <div className="mk-modal__head">
+                  <div>
+                    <span className="mk__label">Message a crew member</span>
+                    <h3 className="mk-modal__title">{selectedCrew.name}</h3>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsMessageModalOpen(false);
-                      setSelectedCrew(null);
-                    }}
-                    className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 font-extrabold uppercase tracking-wider text-[10px] py-3.5 rounded-xl transition"
+                    className="mk-modal__close"
+                    onClick={() => { setIsMessageModalOpen(false); setSelectedCrew(null); }}
+                    aria-label="Close"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 bg-[#ff4f3a] hover:bg-[#e43f2a] text-white font-black uppercase tracking-widest text-[9px] py-3.5 rounded-xl transition shadow"
-                  >
-                    Dispatch Message
+                    <X size={14} />
                   </button>
                 </div>
-              </form>
-            </motion.div>
+
+                <div className="mk-modal__body">
+                  <div className="mk-modal__preview">
+                    <div className="mk-modal__thumb">
+                      <img src={selectedCrew.image} alt={selectedCrew.name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <div style={{ display: 'grid', gap: '.25rem', alignContent: 'center' }}>
+                      <span className="mk__value">{selectedCrew.title}</span>
+                      <span className="mk__label">Usually replies within an hour</span>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleMessageCrewSubmit} style={{ display: 'grid', gap: '1rem' }}>
+                    <div>
+                      <label className="mk__label">Message</label>
+                      <textarea
+                        rows={4}
+                        required
+                        value={crewMessageText}
+                        onChange={(e) => setCrewMessageText(e.target.value)}
+                        placeholder={`Hi ${selectedCrew.name.split(' ')[0]}, are you available near ${locationQuery} on...`}
+                        className="bk__input"
+                        style={{ width: '100%', resize: 'vertical', marginTop: '.375rem' }}
+                      />
+                    </div>
+
+                    <div className="mk__note" style={{ display: 'flex', gap: '.625rem' }}>
+                      <Info size={16} style={{ flexShrink: 0, marginTop: '.125rem' }} />
+                      <p style={{ margin: 0 }}>
+                        This message goes straight to {selectedCrew.name.split(' ')[0]}. Agree on rate, dates and payment directly with them.
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '.75rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => { setIsMessageModalOpen(false); setSelectedCrew(null); }}
+                        className="mk__btn"
+                        style={{ flex: 1 }}
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" className="mk__btn mk__btn--primary" style={{ flex: 1 }}>
+                        Send message
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </motion.div>
+            </div>
           </div>
         )}
       </AnimatePresence>
@@ -2493,221 +2141,182 @@ export default function Marketplace({ user, adminSettings }: MarketplaceProps = 
       {/* 11. LIST YOUR GEAR OVERLAY DIALOG */}
       <AnimatePresence>
         {isListGearModalOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div>
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 sm:p-8 max-w-2xl w-full text-white space-y-6 shadow-2xl relative"
-            >
-              <button
-                onClick={() => setIsListGearModalOpen(false)}
-                className="absolute top-4 right-4 text-neutral-400 hover:text-white p-2 rounded-xl transition"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsListGearModalOpen(false)}
+              className="mk-modal__backdrop"
+            />
+            <div className="mk-modal__wrap">
+              <motion.div
+                initial={{ scale: 0.97, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.97, opacity: 0 }}
+                className="mk-modal__panel mk"
+                style={{ maxWidth: '38rem' }}
               >
-                <X size={20} />
-              </button>
-
-              {/* Option 1: Unregistered User */}
-              {!user && (
-                <div className="space-y-6 text-center py-6">
-                  <div className="w-16 h-16 bg-rose-500/10 text-[#ff4f3a] rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-                    <UserCheck size={32} />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-black uppercase tracking-tight">Create an Account to List Equipment</h3>
-                    <p className="text-xs text-neutral-400 leading-relaxed max-w-md mx-auto uppercase font-bold tracking-wider">
-                      Our secure peer-to-peer visual gear workspace requires registered profiles. Sign in with Google to establish your shopfront.
-                    </p>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await signInWithGoogle();
-                        setIsListGearModalOpen(false);
-                      } catch (e) {
-                        console.error(e);
-                      }
-                    }}
-                    className="inline-flex items-center gap-2 bg-[#ff4f3a] hover:bg-[#e43f2a] text-white font-black text-xs uppercase tracking-widest px-8 py-3.5 rounded-xl shadow-lg transition"
-                  >
-                    <Globe size={14} />
-                    <span>Sign In with Google</span>
+                <div className="mk-modal__head">
+                  <h3 className="mk-modal__title">List your gear</h3>
+                  <button type="button" className="mk-modal__close" onClick={() => setIsListGearModalOpen(false)} aria-label="Close">
+                    <X size={14} />
                   </button>
                 </div>
-              )}
 
-              {/* Option 2: Registered User but Unverified KYC */}
-              {user && user.kycStatus !== 'verified' && (
-                <div className="space-y-6 text-center py-6">
-                  <div className="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-                    <ShieldAlert size={32} />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-black uppercase tracking-tight">Identity & Business Setup Required</h3>
-                    <p className="text-xs text-neutral-400 leading-relaxed max-w-md mx-auto uppercase font-bold tracking-wider">
-                      Current KYC Status: <span className="text-amber-500 font-extrabold">{user.kycStatus || 'not_started'}</span>
-                    </p>
-                    <p className="text-xs text-neutral-400 leading-relaxed max-w-md mx-auto">
-                      Under administrative guidelines, all active lenders in the region must verify business ownership, license registrations, or identities before deploying commercial gear listings.
-                    </p>
-                  </div>
-                  <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
-                    <button
-                      onClick={() => {
-                        setIsListGearModalOpen(false);
-                        navigate('/profile?tab=kyc');
-                      }}
-                      className="bg-[#ff4f3a] hover:bg-[#e43f2a] text-white font-black text-xs uppercase tracking-widest px-8 py-3.5 rounded-xl shadow-lg transition"
-                    >
-                      Complete KYC Verification Form
-                    </button>
-                    <button
-                      onClick={() => setIsListGearModalOpen(false)}
-                      className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-black text-xs uppercase tracking-widest px-6 py-3.5 rounded-xl transition"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Option 3: Verified User (Select List / Kit to Add) */}
-              {user && user.kycStatus === 'verified' && (
-                <div className="space-y-6">
-                  <div className="border-b border-neutral-850 pb-4">
-                    <span className="text-[10px] font-black tracking-widest text-[#ff4f3a] uppercase block animate-pulse">Verified Member Hub</span>
-                    <h3 className="text-xl font-black uppercase tracking-tight">Select Packing Lists & Projects to List</h3>
-                    <p className="text-[11px] text-neutral-400 leading-relaxed font-semibold uppercase mt-0.5">
-                      Enable marketplace visibility for any of your custom kits and set daily rental price rates catalogued.
-                    </p>
-                  </div>
-
-                  {loadingListsAndProjects ? (
-                    <div className="py-12 text-center text-xs font-bold text-neutral-500 uppercase tracking-widest animate-pulse">
-                      Syncing items and project files...
-                    </div>
-                  ) : (
-                    <div className="space-y-5">
-                      {/* Project Filter Selector */}
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Select Project Filter (Optional)</label>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => setSelectedProjectId(null)}
-                            className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all ${
-                              selectedProjectId === null
-                                ? 'bg-[#ff4f3a] text-white border-[#ff4f3a] shadow-md'
-                                : 'bg-neutral-850 text-neutral-400 border-neutral-800 hover:border-neutral-700'
-                            }`}
-                          >
-                            All Projects & Lists
-                          </button>
-                          {userProjects.map(proj => (
-                            <button
-                              key={proj.id}
-                              onClick={() => setSelectedProjectId(proj.id)}
-                              className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all ${
-                                selectedProjectId === proj.id
-                                  ? 'bg-[#ff4f3a] text-white border-[#ff4f3a] shadow-md'
-                                  : 'bg-neutral-850 text-neutral-400 border-neutral-800 hover:border-neutral-700'
-                              }`}
-                            >
-                              {proj.name || 'Unnamed Project'}
-                            </button>
-                          ))}
-                        </div>
+                <div className="mk-modal__body">
+                  {/* Option 1: Unregistered user */}
+                  {!user && (
+                    <div style={{ textAlign: 'center', display: 'grid', gap: '1.25rem', padding: '1rem 0' }}>
+                      <div className="mk__badge" style={{ margin: '0 auto' }}>
+                        <UserCheck size={28} />
                       </div>
+                      <div>
+                        <h4 className="mk__value" style={{ fontSize: '1rem' }}>Sign in to list equipment</h4>
+                        <p className="mk__label" style={{ textTransform: 'none', marginTop: '.375rem' }}>
+                          Listing gear needs a packer.tools account.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await signInWithGoogle();
+                            setIsListGearModalOpen(false);
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                        className="mk__btn mk__btn--primary"
+                        style={{ margin: '0 auto' }}
+                      >
+                        <Globe size={14} />
+                        <span>Sign in with Google</span>
+                      </button>
+                    </div>
+                  )}
 
-                      {/* Lists Segment */}
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-neutral-500">
-                          <span>Packing Lists & Kits for Rent/Sell</span>
-                          <span>{userOwnLists.filter(l => !selectedProjectId || l.projectId === selectedProjectId).length} Found</span>
-                        </div>
+                  {/* Option 2: Registered but unverified KYC */}
+                  {user && user.kycStatus !== 'verified' && (
+                    <div style={{ textAlign: 'center', display: 'grid', gap: '1.25rem', padding: '1rem 0' }}>
+                      <div className="mk__badge mk__badge--bad" style={{ margin: '0 auto' }}>
+                        <ShieldAlert size={28} />
+                      </div>
+                      <div>
+                        <h4 className="mk__value" style={{ fontSize: '1rem' }}>Identity verification required</h4>
+                        <p className="mk__label" style={{ textTransform: 'none', marginTop: '.375rem' }}>
+                          Status: {user.kycStatus || 'not started'}. Listing gear for rent or sale requires a verified identity, so other users know who they're dealing with.
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.75rem', justifyContent: 'center' }}>
+                        <button type="button" onClick={() => { setIsListGearModalOpen(false); navigate('/profile?tab=kyc'); }} className="mk__btn mk__btn--primary">
+                          Verify identity
+                        </button>
+                        <button type="button" onClick={() => setIsListGearModalOpen(false)} className="mk__btn">
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-                        <div className="max-h-72 overflow-y-auto space-y-3 pr-1">
-                          {userOwnLists
-                            .filter(l => !selectedProjectId || l.projectId === selectedProjectId)
-                            .length === 0 ? (
-                              <div className="text-center py-10 bg-neutral-850/50 rounded-2xl border border-neutral-800/40 text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
-                                No checklists or gear packages matched the criteria. Create a packing list or add kits in lists first!
+                  {/* Option 3: Verified user — select lists/kits to list */}
+                  {user && user.kycStatus === 'verified' && (
+                    <div style={{ display: 'grid', gap: '1.25rem' }}>
+                      <p className="mk__label" style={{ textTransform: 'none' }}>
+                        Turn on marketplace visibility for any of your packing lists or kits, and set the daily rate.
+                      </p>
+
+                      {loadingListsAndProjects ? (
+                        <p className="mk__label" style={{ textAlign: 'center', padding: '2rem 0' }}>Loading your lists…</p>
+                      ) : (
+                        <>
+                          {userProjects.length > 0 && (
+                            <div style={{ display: 'grid', gap: '.5rem' }}>
+                              <label className="mk__label">Filter by project</label>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedProjectId(null)}
+                                  className="mk__btn"
+                                  style={{ minHeight: '2rem', padding: '.25rem .75rem', fontSize: '.75rem', ...(selectedProjectId === null ? { background: 'var(--ink)', color: '#fff' } : {}) }}
+                                >
+                                  All projects
+                                </button>
+                                {userProjects.map(proj => (
+                                  <button
+                                    key={proj.id}
+                                    type="button"
+                                    onClick={() => setSelectedProjectId(proj.id)}
+                                    className="mk__btn"
+                                    style={{ minHeight: '2rem', padding: '.25rem .75rem', fontSize: '.75rem', ...(selectedProjectId === proj.id ? { background: 'var(--ink)', color: '#fff' } : {}) }}
+                                  >
+                                    {proj.name || 'Unnamed project'}
+                                  </button>
+                                ))}
                               </div>
+                            </div>
+                          )}
+
+                          <div style={{ display: 'grid', gap: '.625rem', maxHeight: '20rem', overflowY: 'auto' }}>
+                            {userOwnLists.filter(l => !selectedProjectId || l.projectId === selectedProjectId).length === 0 ? (
+                              <div className="mk-empty">No lists match yet. Create a packing list first.</div>
                             ) : (
                               userOwnLists
                                 .filter(l => !selectedProjectId || l.projectId === selectedProjectId)
                                 .map((list) => {
                                   const isListed = list.marketplaceEnabled === true;
                                   const currentVal = listingPriceMap[list.id] ?? 150;
-
                                   return (
-                                    <div key={list.id} className="bg-neutral-850 p-4 rounded-2xl border border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                      <div className="space-y-1">
-                                        <span className="text-[9px] font-black uppercase tracking-wider text-[#ff4f3a]">
-                                          {list.brand || 'Custom'} {list.model || 'Kit'}
-                                        </span>
-                                        <h4 className="text-xs font-extrabold uppercase leading-tight">{list.name}</h4>
-                                        <div className="flex items-center gap-1.5 text-[9px] text-neutral-400 font-semibold uppercase">
-                                          <span>{list.itemsCount || 0} ITEMS</span>
-                                          <span>•</span>
-                                          <span>{isListed ? `Listed at $${list.marketplacePrice}/day` : 'Not Listed'}</span>
-                                        </div>
+                                    <div key={list.id} className="mk__card" style={{ padding: '.875rem 1rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '.75rem' }}>
+                                      <div>
+                                        <p className="mk__label">{list.brand || 'Custom'} {list.model || 'Kit'}</p>
+                                        <h4 className="mk__value">{list.name}</h4>
+                                        <p className="mk__label" style={{ textTransform: 'none' }}>
+                                          {list.itemsCount || 0} items · {isListed ? `Listed at ${currencySymbol}${list.marketplacePrice}/day` : 'Not listed'}
+                                        </p>
                                       </div>
-
-                                      <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0 justify-end">
-                                        <div className="flex items-center gap-1 bg-neutral-900 px-3 py-1.5 rounded-xl border border-neutral-800">
-                                          <span className="text-neutral-450 text-[10px] font-bold">$</span>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '.625rem' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '.25rem', border: '2px solid var(--ink)', borderRadius: 4, padding: '.25rem .5rem' }}>
+                                          <span className="mk__label">{currencySymbol}</span>
                                           <input
                                             type="number"
                                             value={currentVal}
-                                            onChange={(e) => {
-                                              const parsed = parseInt(e.target.value) || 0;
-                                              setListingPriceMap(prev => ({ ...prev, [list.id]: parsed }));
-                                            }}
-                                            className="w-12 bg-transparent text-white text-[10px] font-black focus:ring-0 outline-none text-right"
-                                            placeholder="150"
+                                            onChange={(e) => setListingPriceMap(prev => ({ ...prev, [list.id]: parseInt(e.target.value) || 0 }))}
+                                            style={{ width: '3rem', border: 'none', outline: 'none', textAlign: 'right', font: '700 .8125rem Barlow, sans-serif' }}
                                           />
-                                          <span className="text-neutral-450 text-[9px] font-bold">/DAY</span>
-                                        </div>
-
-                                        <button
-                                          onClick={() => handleToggleMarketplace(list.id, !isListed)}
-                                          className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl transition ${
-                                            isListed
-                                              ? 'bg-neutral-800 text-red-400 border border-red-950/20 hover:text-red-300'
-                                              : 'bg-[#ff4f3a] text-white hover:bg-[#e43f2a]'
-                                          }`}
-                                        >
-                                          {isListed ? 'De-list' : 'List now'}
+                                          <span className="mk__label">/day</span>
+                                        </label>
+                                        <button type="button" onClick={() => handleToggleMarketplace(list.id, !isListed)} className="mk__btn" style={{ minHeight: '2rem', padding: '.375rem .75rem', fontSize: '.75rem' }}>
+                                          {isListed ? 'Remove listing' : 'List now'}
                                         </button>
                                       </div>
                                     </div>
                                   );
                                 })
                             )}
-                        </div>
-                      </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </motion.div>
+              </motion.div>
+            </div>
           </div>
         )}
       </AnimatePresence>
 
       {/* Floating Action Button (FAB) for Quick Listing */}
-      <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-40">
+      <div style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 40 }}>
         <button
           type="button"
-          onClick={() => {
-            triggerHaptic();
-            handleOpenListGear();
-          }}
-          className="bg-[#ff4f3a] hover:bg-[#e43f2a] text-white p-4 rounded-full shadow-2xl flex items-center justify-center transition-all active:scale-90 duration-75 border border-[#ff4f3a] focus:outline-none hover:shadow-[#ff4f3a]/30"
+          onClick={() => { triggerHaptic(); handleOpenListGear(); }}
+          className="mk__btn mk__btn--primary"
+          style={{ width: '3.25rem', height: '3.25rem', borderRadius: '50%', padding: 0 }}
           aria-label="List your gear"
           title="List your gear"
         >
-          <Plus size={24} className="text-white" />
+          <Plus size={22} />
         </button>
       </div>
 
