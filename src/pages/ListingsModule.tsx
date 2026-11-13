@@ -29,6 +29,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { quoteInFrilensa } from '../lib/frilensa';
 import { isFeatureEnabled } from '../lib/featureUtils';
 import { Lock, Shield, Crown } from 'lucide-react';
 import OwnerPickupPoints from '../booking/OwnerPickupPoints';
@@ -49,6 +50,20 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
 
   // Gear Bookings and Reservation State
   const [gearBookings, setGearBookings] = useState<any[]>([]);
+  const [quotingBookingId, setQuotingBookingId] = useState<string | null>(null);
+  // A draft quote in Frilensa (invoicing) for a booking; see Profile → Frilensa.
+  const handleQuoteInFrilensa = async (bookingId: string) => {
+    setQuotingBookingId(bookingId);
+    try {
+      const quote = await quoteInFrilensa(bookingId);
+      toast.success(`Draft quote ${quote.number} created in Frilensa. Check it and send it from Frilensa.`);
+    } catch (err: any) {
+      const notConnected = /connect frilensa/i.test(err.message || '');
+      toast.error(err.message, notConnected ? { action: { label: 'Connect', onClick: () => navigate('/profile?tab=frilensa') } } : undefined);
+    } finally {
+      setQuotingBookingId(null);
+    }
+  };
   const [userGear, setUserGear] = useState<any[]>([]);
   const [customConditions, setCustomConditions] = useState<string[]>([]);
   const [newCondition, setNewCondition] = useState("");
@@ -1236,6 +1251,20 @@ export default function ListingsModule({ user, adminSettings }: ListingsModulePr
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                              {booking.frilensaQuote?.number ? (
+                                <span className="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] font-bold" title="Draft quote in Frilensa">
+                                  Quote {booking.frilensaQuote.number} in Frilensa
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={quotingBookingId === booking.id}
+                                  onClick={() => handleQuoteInFrilensa(booking.id)}
+                                  className="px-3 py-1.5 bg-white text-neutral-700 border border-neutral-200 rounded-lg text-[10px] font-bold hover:border-neutral-400 transition cursor-pointer disabled:opacity-50"
+                                >
+                                  {quotingBookingId === booking.id ? 'Creating quote' : 'Quote in Frilensa'}
+                                </button>
+                              )}
                               {booking.paymentStatus !== 'Free' && (
                                 <button
                                   type="button"

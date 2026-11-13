@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import FrilensaConnect from '../components/FrilensaConnect';
 import OwnerDepositSetting from '../booking/OwnerDepositSetting';
 import { syncPublicProfile, backfillPublicProfileIfMissing } from '../marketplace/publicProfile';
 import { useLocation } from 'react-router-dom';
@@ -2185,6 +2186,8 @@ export default function ProfilePage({ user, onUpdate, adminSettings }: ProfilePa
             </div>
           </section>
         )}
+
+        {activeTab === 'frilensa' && <FrilensaConnect />}
 
         {activeTab === 'api' && (
           /* API & Developer Settings */

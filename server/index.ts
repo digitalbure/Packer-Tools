@@ -13,6 +13,7 @@ import mcpRouter from "./routes/mcp";
 import shareRouter from "./routes/share";
 import kioskRouter from "./routes/kiosk";
 import transfersRouter from "./routes/transfers";
+import frilensaRouter from "./routes/frilensa";
 import { securityHeaders, rateLimit } from "./middleware/security";
 
 async function startServer() {
@@ -43,6 +44,7 @@ async function startServer() {
   app.use(shareRouter);
   app.use(kioskRouter);
   app.use(transfersRouter);
+  app.use(frilensaRouter);
 
   // Vite development middleware vs Static Production bundle
   if (process.env.NODE_ENV !== "production") { // NOTE: set NODE_ENV=production in deployed environments

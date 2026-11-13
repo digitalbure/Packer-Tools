@@ -1,6 +1,6 @@
 # 🚀 Release Information & Production Build Guide
 
-## Current Application Version: `v6.28.0`
+## Current Application Version: `v6.29.0`
 **Status:** Stable Production Release  
 **Environment:** GCP Cloud Run Container (Vite Node Proxy)  
 **Database/Backend:** Google Firestore + Firebase Authentication
@@ -14,6 +14,16 @@ This document provides complete instructions on how to build, run, and tag this 
 Below is the consolidated history of Packer Tools, tracing all production rollouts back to the original container deployment.
 
 ---
+
+### 🔗 Release: v6.29.0 (Connect Frilensa: Gear Into Invoicing, Bookings Into Draft Quotes)
+*Released on: November 13, 2026*
+Packer Tools now connects to Frilensa (frilensa.com), the invoicing, bookkeeping and tax app for the same hire businesses. Packer Tools stays in charge of the gear; Frilensa handles quotes, invoices, payments and tax.
+- **Profile → Frilensa (invoicing)**: "Connect Frilensa" signs the user in to their own Frilensa account (or lets them create one) and asks them to approve access. Standard OAuth with PKCE against Frilensa's sign-in; no shared keys. Disconnect revokes the access in Frilensa too.
+- **Send gear to Frilensa**: gear available for hire (or, if chosen, all gear) goes to Frilensa's Synced gear, with name, brand, model, serial number, quantity, day or week hire rate, replacement value, condition, status, kit contents (in-the-box items and items inside a kit) and upcoming booked dates, plus a link back to the item here. In Frilensa it becomes services for quotes and invoices, or marketplace listings. Sending again updates it; gear deleted here is marked removed there.
+- **Quote in Frilensa** on each gear booking in Listings: creates a draft quote in Frilensa with the hire per day (Packer's tax left out, since Frilensa adds the business's own VAT), delivery as its own line and the deposit noted, and finds the client by email or adds them. The quote number is shown on the booking. Nothing is sent to the client until the user sends it from Frilensa.
+- Tokens are kept server-side only (`frilensaConnections`, encrypted with the new `INTEGRATIONS_KEY`), with a lease so Frilensa's single-use refresh tokens are never used twice. New server-only Firestore rules for `frilensaConnections`, `frilensaOAuthStates` and `frilensaClients`.
+- Added `tests/frilensa-integration.mts` (34 checks: connecting, refresh, gear mapping and sync, removal, quotes, disconnecting) to `npm test`.
+- **Set before release**: `INTEGRATIONS_KEY` (a long random secret, never changed). `FRILENSA_URL` is optional.
 
 ### 🎨 Release: v6.28.0 (Marketplace: On-Brand Redesign, Pass 1 — Marketplace.tsx)
 *Released on: September 29, 2026*

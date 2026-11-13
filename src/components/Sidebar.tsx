@@ -53,7 +53,8 @@ import {
   Printer,
   Sliders,
   ArrowRightLeft,
-  BatteryCharging
+  BatteryCharging,
+  Link2,
 } from 'lucide-react';
 import { getButtonStyleClasses, DEFAULT_QUICK_ACCESS_ITEMS } from '../lib/leftPanelUtils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -277,6 +278,7 @@ export default function Sidebar({ user, adminSettings, isCollapsed, setIsCollaps
     
     // Section: Technical
     { id: 'api', label: 'API & Embeds', section: 'Developer', icon: <Code size={18} /> },
+    { id: 'frilensa', label: 'Frilensa (invoicing)', section: 'Developer', icon: <Link2 size={18} /> },
     { id: 'notifications', label: 'Notification Desk', section: 'Developer', icon: <Mail size={18} /> },
     { id: 'device', label: 'Mobile App (PWA)', section: 'Developer', icon: <Smartphone size={18} /> },
   ];

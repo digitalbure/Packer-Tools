@@ -280,6 +280,14 @@ To enable secure cross-organization ownership re-assignment for Enterprise accou
 5. **Transfer Audit Logs & PDF Receipts**:
    - Provides an immutable audit trail of incoming and outgoing transfers with downloadable PDF transfer manifest receipts (`jsPDF`).
 
+---
 
+## 🔗 Frilensa Connection (`server/integrations/frilensa.ts`, `server/routes/frilensa.ts`, Profile → Frilensa)
 
+Frilensa (frilensa.com) is invoicing, bookkeeping and tax for the same businesses. Packer Tools stays in charge of the gear; Frilensa handles the money.
+1. **Connecting**: OAuth 2.1 with PKCE against Frilensa (dynamic client registration, `resource` = `{FRILENSA_URL}/api/v1`, scopes `read draft`). The callback (`GET /api/integrations/frilensa/callback`) has no Firebase sign-in; the one-time state in `frilensaOAuthStates` identifies the user.
+2. **Tokens** live only in the server-only `frilensaConnections/{uid}` (encrypted with `INTEGRATIONS_KEY`, which must never change). Frilensa's refresh tokens are single use: always get a token through `accessToken()`, which holds a short lease so two requests never refresh at once (a reused refresh token makes Frilensa end the connection).
+3. **Gear sync** (`syncGear`): `users/{uid}/gearLibrary` → Frilensa `/api/v1/gear/batch` (source `packer_tools`), with kit contents from `addOns` and `childItemIds`, booked dates from `gearBookings`, and gear no longer sent marked removed. The user picks gear available for hire (default) or all gear.
+4. **Quotes** (`createQuoteForBooking`): a `gearBookings` booking becomes a **draft** quote in Frilensa (client found by email or added); the result is saved on the booking as `frilensaQuote`. Frilensa's API only reads and creates drafts: never send anything to a client or record a payment from Packer Tools.
+5. Tests: `tests/frilensa-integration.mts` (stand-in Frilensa server + Firestore emulator), part of `npm test`.
 
